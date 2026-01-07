@@ -15,6 +15,7 @@ export default function ContestsPage() {
     const [contests, setContests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("ALL"); // ALL, LIVE, UPCOMING, PAST, HOSTED
+    const [searchQuery, setSearchQuery] = useState("");
     const dateInputRef = useRef(null);
     const [dialog, setDialog] = useState({ show: false, message: "", type: "info" });
 
@@ -87,6 +88,11 @@ export default function ContestsPage() {
     };
 
     const filteredData = contests.filter(c => {
+        const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (c.contestCode && c.contestCode.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        if (!matchesSearch) return false;
+
         if (filter === "ALL") return true;
         if (filter === "HOSTED") return user && c.host === user.email;
         return c.status === filter;
@@ -128,6 +134,7 @@ export default function ContestsPage() {
                 // Create
                 await addDoc(collection(db, "contests"), {
                     ...payload,
+                    contestCode: "DV-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
                     status: "PENDING", // Requires admin approval
                     host: user.email,
                     type: "CODING_CONTEST",
@@ -194,24 +201,35 @@ export default function ContestsPage() {
                         COMPETITIVE_ARENA <span className="text-neon-cyan">_</span>
                     </h1>
 
-                    {/* Filter Tabs */}
-                    <div className="flex flex-wrap gap-4 border-b border-white/10 pb-4">
-                        {["ALL", "LIVE", "UPCOMING", "PAST", ...(user ? ["HOSTED"] : [])].map((f) => (
-                            <button
-                                key={f}
-                                onClick={() => setFilter(f)}
-                                className={`px-4 py-1 font-mono text-sm transition-colors relative ${filter === f ? "text-neon-cyan" : "text-gray-500 hover:text-white"
-                                    }`}
-                            >
-                                {f}
-                                {filter === f && (
-                                    <motion.div
-                                        layoutId="activeTab"
-                                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-neon-cyan"
-                                    />
-                                )}
-                            </button>
-                        ))}
+                    {/* Filter Tabs & Search */}
+                    <div className="flex flex-col md:flex-row justify-between items-end border-b border-white/10 pb-4 gap-4">
+                        <div className="flex flex-wrap gap-4">
+                            {["ALL", "LIVE", "UPCOMING", "PAST", ...(user ? ["HOSTED"] : [])].map((f) => (
+                                <button
+                                    key={f}
+                                    onClick={() => setFilter(f)}
+                                    className={`px-4 py-1 font-mono text-sm transition-colors relative ${filter === f ? "text-neon-cyan" : "text-gray-500 hover:text-white"
+                                        }`}
+                                >
+                                    {f}
+                                    {filter === f && (
+                                        <motion.div
+                                            layoutId="activeTab"
+                                            className="absolute bottom-0 left-0 right-0 h-0.5 bg-neon-cyan"
+                                        />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="SEARCH_ID_OR_TITLE"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-transparent border-b border-white/20 text-white font-mono text-sm py-1 px-2 w-64 focus:border-neon-cyan outline-none transition-colors placeholder-gray-600"
+                            />
+                        </div>
                     </div>
                 </motion.div>
 
@@ -242,6 +260,7 @@ export default function ContestsPage() {
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-3">
                                                     <h3 className="text-xl font-bold font-sans group-hover:text-neon-cyan transition-colors">{contest.title}</h3>
+                                                    {contest.contestCode && <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-white/20 text-white/60">{contest.contestCode}</span>}
                                                     <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${contest.level === 'HARD' ? 'border-red-500 text-red-500' :
                                                         contest.level === 'MEDIUM' ? 'border-yellow-500 text-yellow-500' :
                                                             'border-green-500 text-green-500'

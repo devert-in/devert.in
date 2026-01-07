@@ -36,6 +36,7 @@ export default function ContestsManager() {
     // Initial Form State
     const initialFormState = {
         title: "",
+        contestCode: "",
         description: "",
         date: new Date().toISOString(),
         duration: "2 Hours",
@@ -79,6 +80,7 @@ export default function ContestsManager() {
         setCurrentContest(contest);
         setFormData({
             title: contest.title,
+            contestCode: contest.contestCode || "",
             description: contest.description,
             date: contest.date,
             duration: contest.duration,
@@ -135,6 +137,7 @@ export default function ContestsManager() {
         const realContests = [
             {
                 title: "CodeForces Round #950 (Div. 2)",
+                contestCode: "CF-950-D2",
                 description: "Standard 2-hour round for Division 2 participants. Good for practice.",
                 date: "2026-02-15T14:30:00.000Z",
                 duration: "2 Hours",
@@ -145,6 +148,7 @@ export default function ContestsManager() {
             },
             {
                 title: "LeetCode Weekly Contest 440",
+                contestCode: "LC-WC-440",
                 description: "Solve 4 algorithmic problems in 90 minutes. Global ranking.",
                 date: "2026-02-18T08:00:00.000Z",
                 duration: "1.5 Hours",
@@ -155,6 +159,7 @@ export default function ContestsManager() {
             },
             {
                 title: "Google Code Jam 2026 - Qualification",
+                contestCode: "GCJ-2026-Q",
                 description: "The first round of GCJ. You need 30 points to advance.",
                 date: "2026-04-05T00:00:00.000Z",
                 duration: "27 Hours",
@@ -165,6 +170,7 @@ export default function ContestsManager() {
             },
             {
                 title: "AtCoder Beginner Contest 392",
+                contestCode: "ABC-392",
                 description: "Perfect for beginners to start competitive programming.",
                 date: "2026-02-10T20:00:00.000Z",
                 duration: "100 Mins",
@@ -175,6 +181,7 @@ export default function ContestsManager() {
             },
             {
                 title: "Meta Hacker Cup - Round 1",
+                contestCode: "MHC-26-R1",
                 description: "Advanced algorithmic challenges. Top 500 advance.",
                 date: "2026-05-20T10:00:00.000Z",
                 duration: "24 Hours",
@@ -185,6 +192,7 @@ export default function ContestsManager() {
             },
             {
                 title: "DeVert Monthly Blitz",
+                contestCode: "DV-BLITZ-01",
                 description: "Internal squadron showdown. Winner takes all XP.",
                 date: new Date().toISOString(), // TODAY/LIVE
                 duration: "4 Hours",
@@ -274,12 +282,13 @@ export default function ContestsManager() {
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
                                     <span className={`px-2 py-0.5 text-[10px] font-mono border ${contest.status === 'LIVE' ? 'bg-neon-green text-black border-neon-green animate-pulse' :
-                                            contest.status === 'UPCOMING' ? 'text-neon-cyan border-neon-cyan' :
-                                                'text-gray-500 border-gray-500'
+                                        contest.status === 'UPCOMING' ? 'text-neon-cyan border-neon-cyan' :
+                                            'text-gray-500 border-gray-500'
                                         }`}>
                                         {contest.status}
                                     </span>
                                     <h3 className="text-xl font-bold font-sans text-white">{contest.title}</h3>
+                                    {contest.contestCode && <span className="px-2 py-0.5 text-[10px] font-mono border text-white/50 border-white/20">{contest.contestCode}</span>}
                                 </div>
                                 <p className="text-gray-400 text-sm mb-3 max-w-2xl">{contest.description}</p>
                                 <div className="flex flex-wrap gap-4 text-xs font-mono text-gray-500">
@@ -373,6 +382,11 @@ export default function ContestsManager() {
                                 <div>
                                     <label className="label">TAGS (Comma separated)</label>
                                     <input className="input" value={formData.tags} onChange={e => setFormData({ ...formData, tags: e.target.value })} placeholder="DP, Greedy" />
+                                </div>
+
+                                <div>
+                                    <label className="label">CONTEST CODE</label>
+                                    <input className="input" value={formData.contestCode} onChange={e => setFormData({ ...formData, contestCode: e.target.value })} placeholder="DV-XXXX-01" />
                                 </div>
 
                                 <button type="submit" className="w-full bg-neon-green text-black font-bold font-mono py-3 mt-4 hover:bg-white transition-colors">INITIALIZE EVENT</button>
