@@ -19,15 +19,20 @@ import {
     Activity,
     CheckCircle,
     XCircle,
-    Copy
+    Copy,
+    Shield,
+    Database
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function PostmortemsManager() {
     const [postmortems, setPostmortems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentPm, setCurrentPm] = useState(null);
+    const [dialog, setDialog] = useState({ show: false, message: "", type: "info" });
 
     // Initial Form State
     const initialFormState = {
@@ -102,7 +107,7 @@ export default function PostmortemsManager() {
             await deleteDoc(doc(db, "postmortems", docId));
             setPostmortems(prev => prev.filter(p => p.docId !== docId));
         } catch (error) {
-            alert("Failed to delete: " + error.message);
+            setDialog({ show: true, message: "Failed to delete: " + error.message, type: "error" });
         }
     };
 
@@ -150,23 +155,118 @@ export default function PostmortemsManager() {
             }
             setIsModalOpen(false);
         } catch (error) {
-            alert("Failed to save: " + error.message);
+            setDialog({ show: true, message: "Failed to save: " + error.message, type: "error" });
+        }
+    };
+
+    const handleSeed = async () => {
+        if (!confirm("WARNING: This will DELETE ALL existing POSTMORTEMS and replace them with REAL EXAMPLES. Proceed?")) return;
+
+        const realPostmortems = [
+            {
+                title: "ETHIndia 2025",
+                id: "ETH-2025-01",
+                status: "WON",
+                teamSize: 4,
+                rank: "Top 10",
+                stack: ["Solidity", "Next.js", "Hardhat"],
+                whyWon: "Flawless minimal demo focused on one core feature.",
+                winningSignals: ["Pitch was rehearsed 50 times", "UI was fully polished", "Contract was verified"],
+                date: "2025-12-04",
+                verdict: "Victory through simplicity."
+            },
+            {
+                title: "Smart India Hackathon 2024",
+                id: "SIH-2024-FN",
+                status: "LOST",
+                teamSize: 6,
+                rank: "Finalist",
+                stack: ["Django", "React", "PostgreSQL"],
+                whyLost: "Backend server crashed during live demo due to unhandled exception.",
+                criticalMistakes: ["No offline backup video", "Last minute merge conflict", "Spaghetti code"],
+                patchIfRedeployed: ["Dockerize everything", "Record backup demo"],
+                date: "2024-08-20",
+                verdict: "Hard lesson in reliability."
+            },
+            {
+                title: "HackMIT",
+                id: "MIT-2025",
+                status: "WON",
+                teamSize: 3,
+                rank: "Track Winner",
+                stack: ["Python", "TensorFlow", "FastAPI"],
+                whyWon: "Solved a genuine user pain point with a novel AI approach.",
+                winningSignals: ["Judges loved the problem statement", "Novel algorithm"],
+                date: "2025-09-15",
+                verdict: "Innovation wins over complexity."
+            }
+        ];
+
+        setLoading(true);
+        try {
+            // 1. Clear existing data
+            const snapshot = await getDocs(collection(db, "postmortems"));
+            const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, "postmortems", d.id)));
+            await Promise.all(deletePromises);
+
+            // 2. Add new data
+            const addPromises = realPostmortems.map(pm =>
+                addDoc(collection(db, "postmortems"), {
+                    ...pm,
+                    createdAt: new Date().toISOString()
+                })
+            );
+            await Promise.all(addPromises);
+            setDialog({ show: true, message: "Postmortem Archives Refreshed.", type: "success" });
+            fetchPostmortems();
+        } catch (error) {
+            console.error("Seeding failed:", error);
+            setDialog({ show: true, message: "Seeding failed: " + error.message, type: "error" });
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div className="relative min-h-[80vh]">
+            {/* Dialog Modal */}
+            {dialog.show && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-8 max-w-md w-full relative shadow-2xl flex flex-col items-center text-center">
+                        <div className={`mb-4 p-4 rounded-full ${dialog.type === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-neon-green/10 text-neon-green'}`}>
+                            {dialog.type === 'error' ? <Shield size={32} /> : <CheckCircle size={32} />}
+                        </div>
+                        <h3 className="text-xl font-bold font-sans text-white mb-2">{dialog.type === 'error' ? 'SYSTEM_ERROR' : 'OPERATION_COMPLETE'}</h3>
+                        <p className="font-mono text-sm text-gray-400 mb-6">{dialog.message}</p>
+                        <button
+                            onClick={() => setDialog({ ...dialog, show: false })}
+                            className="w-full bg-white/10 hover:bg-white/20 text-white font-mono py-2 text-sm uppercase tracking-wider transition-colors"
+                        >
+                            CLOSE_DIALOG
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h1 className="text-3xl font-bold font-sans text-white">POSTMORTEM_LOGS</h1>
                     <p className="font-mono text-xs text-gray-500">Analyze winning and losing patterns.</p>
                 </div>
-                <button
-                    onClick={openAddModal}
-                    className="bg-neon-cyan text-black px-4 py-2 font-bold font-mono text-sm flex items-center hover:bg-white transition-colors"
-                >
-                    <Plus size={16} className="mr-2" /> NEW_ANALYSIS
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleSeed}
+                        className="bg-white/10 border border-white/20 text-white px-4 py-2 font-bold font-mono text-sm flex items-center hover:bg-white hover:text-black transition-all"
+                    >
+                        <Database size={16} className="mr-2" /> SEED_REAL_DATA
+                    </button>
+                    <button
+                        onClick={openAddModal}
+                        className="bg-neon-cyan text-black px-4 py-2 font-bold font-mono text-sm flex items-center hover:bg-white transition-colors"
+                    >
+                        <Plus size={16} className="mr-2" /> NEW_ANALYSIS
+                    </button>
+                </div>
             </div>
 
             {loading ? (
@@ -250,7 +350,14 @@ export default function PostmortemsManager() {
                                     </div>
                                     <div>
                                         <label className="label">DATE</label>
-                                        <input type="date" className="input" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                                        <DatePicker
+                                            selected={formData.date ? new Date(formData.date) : null}
+                                            onChange={(date) => setFormData({ ...formData, date: date ? date.toISOString().split('T')[0] : "" })}
+                                            dateFormat="yyyy-MM-dd"
+                                            placeholderText="MISSION_DATE"
+                                            className="input w-full"
+                                            calendarClassName="cyberpunk-datepicker shadow-2xl"
+                                        />
                                     </div>
                                 </div>
 

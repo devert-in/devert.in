@@ -103,6 +103,53 @@ const POSTMORTEMS = [
     }
 ];
 
+const CONTESTS = [
+    {
+        title: "Weekly Code Sprint #42",
+        description: "Speed contest. 4 algorithmic problems. 2 hours. Prove your optimization skills.",
+        date: "Feb 10, 18:00 UTC",
+        duration: "2 Hours",
+        level: "MEDIUM",
+        tags: ["DP", "Graphs", "Optimization"],
+        status: "UPCOMING",
+        host: "SYSTEM",
+        type: "CODING_CONTEST"
+    },
+    {
+        title: "Midnight Oil Capture The Flag",
+        description: "Security-focused CTF event. Find vulnerabilities in the deployed contracts.",
+        date: "Feb 12, 20:00 UTC",
+        duration: "4 Hours",
+        level: "HARD",
+        tags: ["Security", "Smart Contracts", "CTF"],
+        status: "UPCOMING",
+        host: "SYSTEM",
+        type: "CTF"
+    },
+    {
+        title: "Beginner's Arena: Loops & Logic",
+        description: "Perfect for cadets. Basic data structures and logic puzzles.",
+        date: "LIVE NOW",
+        duration: "Unlimited",
+        level: "EASY",
+        tags: ["Basics", "Arrays", "Logic"],
+        status: "LIVE",
+        host: "SYSTEM",
+        type: "CODING_CONTEST"
+    },
+    {
+        title: "Graph Theory Mastery",
+        description: "Advanced pathfinding and network flow problems.",
+        date: "Jan 15, 2026",
+        duration: "3 Hours",
+        level: "INSANE",
+        tags: ["Graphs", "MaxFlow", "Trees"],
+        status: "PAST",
+        host: "SYSTEM",
+        type: "CODING_CONTEST"
+    }
+];
+
 export default function AdminSeedPage() {
     const [status, setStatus] = useState("");
 
@@ -127,6 +174,12 @@ export default function AdminSeedPage() {
             POSTMORTEMS.forEach(pm => {
                 const ref = doc(collection(db, "postmortems"));
                 batch.set(ref, pm);
+            });
+
+            // Contests (Wargames)
+            CONTESTS.forEach(contest => {
+                const ref = doc(collection(db, "contests"));
+                batch.set(ref, contest);
             });
 
             await batch.commit();

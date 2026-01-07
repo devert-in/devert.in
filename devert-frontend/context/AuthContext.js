@@ -22,7 +22,12 @@ export function AuthProvider({ children }) {
                     const docRef = doc(db, "users", currentUser.uid);
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
-                        setUserData(docSnap.data());
+                        const data = docSnap.data();
+                        setUserData({
+                            xp: 0,
+                            credits: 0,
+                            ...data
+                        });
                     } else {
                         setUserData(null);
                     }

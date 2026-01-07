@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, orderBy, query, limit } from "firebase/firestore";
-import { Trophy, BookOpen, Users, Activity, ExternalLink } from "lucide-react";
+import { Trophy, BookOpen, Users, Activity, ExternalLink, Zap, Target } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState({
         hackathons: 0,
         courses: 0,
-        users: 3, // Dummy for now
+        postmortems: 0,
+        bounties: 0,
+        contests: 0,
     });
     const [recentActivity, setRecentActivity] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -26,10 +28,25 @@ export default function AdminDashboard() {
                 const coursesSnapshot = await getDocs(collection(db, "courses"));
                 const coursesCount = coursesSnapshot.size;
 
+                // Fetch Postmortems Count
+                const pmSnapshot = await getDocs(collection(db, "postmortems"));
+                const pmCount = pmSnapshot.size;
+
+                // Fetch Bounties Count
+                const bountiesSnapshot = await getDocs(collection(db, "bounties"));
+                const bountiesCount = bountiesSnapshot.size;
+
+                // Fetch Contests Count
+                const contestsSnapshot = await getDocs(collection(db, "contests"));
+                const contestsCount = contestsSnapshot.size;
+
                 setStats(prev => ({
                     ...prev,
                     hackathons: hacksCount,
-                    courses: coursesCount
+                    courses: coursesCount,
+                    postmortems: pmCount,
+                    bounties: bountiesCount,
+                    contests: contestsCount
                 }));
 
                 setLoading(false);
@@ -73,7 +90,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     title="Active Hackathons"
                     value={loading ? "-" : stats.hackathons}
@@ -89,11 +106,25 @@ export default function AdminDashboard() {
                     href="/admin/courses"
                 />
                 <StatCard
-                    title="Registered Users"
-                    value={stats.users}
-                    icon={Users}
+                    title="Postmortems"
+                    value={loading ? "-" : stats.postmortems}
+                    icon={Activity}
                     color="neon-cyan"
-                    href="#"
+                    href="/admin/postmortems"
+                />
+                <StatCard
+                    title="Active Contracts"
+                    value={loading ? "-" : stats.bounties}
+                    icon={Zap}
+                    color="yellow-500"
+                    href="/admin/bounties"
+                />
+                <StatCard
+                    title="War Games"
+                    value={loading ? "-" : stats.contests}
+                    icon={Target}
+                    color="red-500"
+                    href="/admin/contests"
                 />
             </div>
 
@@ -133,6 +164,12 @@ export default function AdminDashboard() {
                         </Link>
                         <Link href="/admin/courses" className="px-4 py-2 border border-white/20 hover:bg-neon-purple hover:text-black hover:border-transparent transition-all font-mono text-sm flex items-center">
                             ADD COURSE
+                        </Link>
+                        <Link href="/admin/bounties" className="px-4 py-2 border border-white/20 hover:bg-yellow-500 hover:text-black hover:border-transparent transition-all font-mono text-sm flex items-center">
+                            ADD CONTRACT
+                        </Link>
+                        <Link href="/admin/contests" className="px-4 py-2 border border-white/20 hover:bg-red-500 hover:text-black hover:border-transparent transition-all font-mono text-sm flex items-center">
+                            ADD EVENT
                         </Link>
                         <Link href="/" target="_blank" className="px-4 py-2 border border-white/20 hover:bg-white hover:text-black transition-all font-mono text-sm flex items-center">
                             VIEW LIVE SITE <ExternalLink className="ml-2" size={14} />

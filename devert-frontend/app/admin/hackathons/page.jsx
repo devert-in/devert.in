@@ -18,15 +18,21 @@ import {
     Save,
     Calendar,
     Trophy,
-    Tag
+    Tag,
+    CheckCircle,
+    Shield,
+    Database
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function HackathonsManager() {
     const [hackathons, setHackathons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentHackathon, setCurrentHackathon] = useState(null); // null = new, obj = edit
+    const [dialog, setDialog] = useState({ show: false, message: "", type: "info" });
 
     // Form Stats
     const [formData, setFormData] = useState({
@@ -94,7 +100,7 @@ export default function HackathonsManager() {
             setHackathons(prev => prev.filter(h => h.id !== id));
         } catch (error) {
             console.error("Error deleting hackathon:", error);
-            alert("Failed to delete hackathon");
+            setDialog({ show: true, message: "Failed to delete hackathon", type: "error" });
         }
     };
 
@@ -129,23 +135,90 @@ export default function HackathonsManager() {
             setIsModalOpen(false);
         } catch (error) {
             console.error("Error saving hackathon:", error);
-            alert("Failed to save hackathon: " + error.message);
+            setDialog({ show: true, message: "Failed to save hackathon: " + error.message, type: "error" });
+        }
+    };
+
+    const handleSeed = async () => {
+        if (!confirm("WARNING: This will DELETE ALL existing hackathons and replace them with 9 REAL entries. Proceed?")) return;
+
+        const realHackathons = [
+            { title: "Hack For Tomorrow 2025", description: "An offline hackathon with no restrictions on themes. Build for the future.", date: "2025-05-15T09:00:00.000Z", prizes: "₹2,00,000", tags: ["Open Innovation", "Offline"], status: "UPCOMING" },
+            { title: "CodeZen Hackathon 2025", description: "36-hour event focusing on innovation, collaboration, and learning in New Delhi.", date: "2025-02-28T09:00:00.000Z", prizes: "₹50,00,000", tags: ["Innovation", "Collaboration"], status: "UPCOMING" },
+            { title: "Mumbai Hacks 2025", description: "India's premier hackathon with Nvidia, Meta, and Google. Huge prize pool.", date: "2025-08-13T09:00:00.000Z", prizes: "₹50,00,000", tags: ["GenAI", "Nvidia", "Meta"], status: "UPCOMING" },
+            { title: "DUHacks 5.0", description: "A major online hackathon connecting developers globally.", date: "2026-01-23T09:00:00.000Z", prizes: "Swag & Cash", tags: ["Web3", "AI", "Open Source"], status: "UPCOMING" },
+            { title: "Hack-O-Knight", description: "14-hour hackathon at SYTRON'24, organized by IEEE IEM Kolkata.", date: "2026-02-18T09:00:00.000Z", prizes: "₹1,00,000", tags: ["Blockchain", "AI/ML", "IoT"], status: "UPCOMING" },
+            { title: "Juspay Hiring Challenge 2025", description: "Exclusive hiring challenge for 2026 grads. Solve hard problems, get hired.", date: "2025-07-01T09:00:00.000Z", prizes: "CTC 27 LPA", tags: ["Hiring", "Algorithmic", "Backend"], status: "OPEN" },
+            { title: "Adobe India Hackathon 2025", description: "Innovate with Adobe tools. Open to B.Tech/M.Tech students.", date: "2025-07-11T09:00:00.000Z", prizes: "₹1L/mo Internships", tags: ["GenAI", "Creative Cloud"], status: "OPEN" },
+            { title: "Smart India Hackathon 2026", description: "World's biggest open innovation model. Solve national problems.", date: "2026-06-01T09:00:00.000Z", prizes: "₹1 L per problem", tags: ["GovTech", "Smart City", "Hardware"], status: "UPCOMING" },
+            { title: "L'Oréal Brandstorm 2026", description: "Disrupt beauty tech. Global innovation competition.", date: "2025-11-07T09:00:00.000Z", prizes: "Intrapreneurship in Paris", tags: ["Innovation", "Sustainability", "Business"], status: "UPCOMING" }
+        ];
+
+        setLoading(true);
+        try {
+            // 1. Clear existing data
+            const snapshot = await getDocs(collection(db, "hackathons"));
+            const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, "hackathons", d.id)));
+            await Promise.all(deletePromises);
+
+            // 2. Add new data
+            const addPromises = realHackathons.map(hack =>
+                addDoc(collection(db, "hackathons"), {
+                    ...hack,
+                    createdAt: new Date().toISOString()
+                })
+            );
+            await Promise.all(addPromises);
+            setDialog({ show: true, message: "Use 'Refreshed'", type: "success" });
+            fetchHackathons();
+        } catch (error) {
+            console.error("Seeding failed:", error);
+            setDialog({ show: true, message: "Seeding failed: " + error.message, type: "error" });
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div className="relative min-h-[80vh]">
+            {/* Dialog Modal */}
+            {dialog.show && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-8 max-w-md w-full relative shadow-2xl flex flex-col items-center text-center">
+                        <div className={`mb-4 p-4 rounded-full ${dialog.type === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-neon-green/10 text-neon-green'}`}>
+                            {dialog.type === 'error' ? <Shield size={32} /> : <CheckCircle size={32} />}
+                        </div>
+                        <h3 className="text-xl font-bold font-sans text-white mb-2">{dialog.type === 'error' ? 'SYSTEM_ERROR' : 'OPERATION_COMPLETE'}</h3>
+                        <p className="font-mono text-sm text-gray-400 mb-6">{dialog.message}</p>
+                        <button
+                            onClick={() => setDialog({ ...dialog, show: false })}
+                            className="w-full bg-white/10 hover:bg-white/20 text-white font-mono py-2 text-sm uppercase tracking-wider transition-colors"
+                        >
+                            CLOSE_DIALOG
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h1 className="text-3xl font-bold font-sans text-white">HACKATHONS_DATABASE</h1>
                     <p className="font-mono text-xs text-gray-500">Manage global events and challenges.</p>
                 </div>
-                <button
-                    onClick={openAddModal}
-                    className="bg-neon-green text-black px-4 py-2 font-bold font-mono text-sm flex items-center hover:bg-white transition-colors"
-                >
-                    <Plus size={16} className="mr-2" /> ADD_ENTRY
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleSeed}
+                        className="bg-white/10 border border-white/20 text-white px-4 py-2 font-bold font-mono text-sm flex items-center hover:bg-white hover:text-black transition-all"
+                    >
+                        <Database size={16} className="mr-2" /> SEED_REAL_DATA
+                    </button>
+                    <button
+                        onClick={openAddModal}
+                        className="bg-neon-green text-black px-4 py-2 font-bold font-mono text-sm flex items-center hover:bg-white transition-colors"
+                    >
+                        <Plus size={16} className="mr-2" /> ADD_ENTRY
+                    </button>
+                </div>
             </div>
 
             {loading ? (
@@ -233,27 +306,19 @@ export default function HackathonsManager() {
                             </h2>
 
                             <form onSubmit={handleSave} className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-mono text-gray-400 mb-1">EVENT TITLE</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.title}
-                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans"
-                                    />
-                                </div>
-
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-mono text-gray-400 mb-1">DATE RANGE</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            placeholder="e.g. Feb 15 - Feb 17"
-                                            value={formData.date}
-                                            onChange={e => setFormData({ ...formData, date: e.target.value })}
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">DATE / TIME</label>
+                                        <DatePicker
+                                            selected={formData.date ? new Date(formData.date) : null}
+                                            onChange={(date) => setFormData({ ...formData, date: date ? date.toISOString() : "" })}
+                                            showTimeSelect
+                                            timeFormat="HH:mm"
+                                            timeIntervals={15}
+                                            dateFormat="MMMM d, yyyy h:mm aa"
+                                            placeholderText="Timeline..."
                                             className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans"
+                                            calendarClassName="cyberpunk-datepicker shadow-2xl"
                                         />
                                     </div>
                                     <div>
@@ -269,6 +334,7 @@ export default function HackathonsManager() {
                                         </select>
                                     </div>
                                 </div>
+                                {/* ... rest of form ... */}
 
                                 <div>
                                     <label className="block text-xs font-mono text-gray-400 mb-1">PRIZE POOL</label>

@@ -33,7 +33,6 @@ export default function Home() {
 
       {showContent && (
         <>
-          <Navbar />
           <MainFeed hasShownIntro={hasShownIntro} />
           <StackMarquee />
           <LootBox />

@@ -4,6 +4,8 @@ import { IntroProvider } from "@/context/IntroContext";
 
 import { AuthProvider } from "@/context/AuthContext";
 
+import { Navbar } from "@/components/navbar";
+
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-space-grotesk",
@@ -29,6 +31,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <IntroProvider>
+            <Navbar />
             {children}
           </IntroProvider>
         </AuthProvider>

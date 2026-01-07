@@ -57,7 +57,7 @@ export default function AdminLayout({ children }) {
         { name: "HACKATHONS", href: "/admin/hackathons", icon: Trophy },
         { name: "POSTMORTEMS", href: "/admin/postmortems", icon: Activity },
         { name: "COURSES", href: "/admin/courses", icon: BookOpen },
-        // { name: "USERS", href: "/admin/users", icon: Users },
+        { name: "WARGAMES", href: "/admin/contests", icon: Users }, // Using Users icon temporarily or Swords if imported
     ];
 
     return (

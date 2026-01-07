@@ -5,17 +5,25 @@ import Link from "next/link";
 import { Terminal, Menu, X, User, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePathname } from "next/navigation";
+import { useIntro } from "@/context/IntroContext";
 
 export function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const { user, userData, logout } = useAuth();
+    const pathname = usePathname();
+    const { hasShownIntro } = useIntro();
+
+    if (pathname === "/" && !hasShownIntro) return null;
 
     const navLinks = [
         { name: "HACKATHONS", href: "/hackathons" },
-        { name: "LABS", href: "/labs" },
+        { name: "WARGAMES", href: "/contests" },
+        { name: "SQUADRON", href: "/squadron" },
+        { name: "BOUNTIES", href: "/bounties" },
         { name: "POSTMORTEMS", href: "/postmortems" },
-        { name: "KNOWLEDGE_BASE", href: "/courses" },
+        { name: "INTEL", href: "/courses" },
     ];
 
     return (
@@ -50,11 +58,13 @@ export function Navbar() {
                                 onClick={() => setProfileOpen(!profileOpen)}
                                 className="flex items-center gap-3 pl-6 border-l border-white/10 hover:opacity-80 transition-opacity"
                             >
-                                <div className="text-right hidden lg:block">
-                                    <div className="text-xs font-mono text-neon-green font-bold">
-                                        {userData?.role || 'CADET'}
+                                <div className="text-right hidden lg:block mr-2">
+                                    <div className="text-[10px] font-mono font-bold flex gap-2 justify-end mb-0.5">
+                                        <span className="text-neon-cyan">{userData?.xp || 0} XP</span>
+                                        <span className="text-gray-600">|</span>
+                                        <span className="text-yellow-500">₹{userData?.credits || 0}</span>
                                     </div>
-                                    <div className="text-sm font-sans font-bold leading-none">
+                                    <div className="text-sm font-sans font-bold leading-none text-white">
                                         {userData?.displayName || user.email.split('@')[0]}
                                     </div>
                                 </div>
