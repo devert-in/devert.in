@@ -37,6 +37,7 @@ export default function HackathonsManager() {
     // Form Stats
     const [formData, setFormData] = useState({
         title: "",
+        registrationLink: "",
         description: "",
         date: "",
         prizes: "",
@@ -70,6 +71,7 @@ export default function HackathonsManager() {
         setCurrentHackathon(null);
         setFormData({
             title: "",
+            registrationLink: "",
             description: "",
             date: "",
             prizes: "",
@@ -83,6 +85,7 @@ export default function HackathonsManager() {
         setCurrentHackathon(hack);
         setFormData({
             title: hack.title,
+            registrationLink: hack.registrationLink || "",
             description: hack.description,
             date: hack.date,
             prizes: hack.prizes,
@@ -143,15 +146,17 @@ export default function HackathonsManager() {
         if (!confirm("WARNING: This will DELETE ALL existing hackathons and replace them with 9 REAL entries. Proceed?")) return;
 
         const realHackathons = [
-            { title: "Hack For Tomorrow 2025", description: "An offline hackathon with no restrictions on themes. Build for the future.", date: "2025-05-15T09:00:00.000Z", prizes: "₹2,00,000", tags: ["Open Innovation", "Offline"], status: "UPCOMING" },
-            { title: "CodeZen Hackathon 2025", description: "36-hour event focusing on innovation, collaboration, and learning in New Delhi.", date: "2025-02-28T09:00:00.000Z", prizes: "₹50,00,000", tags: ["Innovation", "Collaboration"], status: "UPCOMING" },
-            { title: "Mumbai Hacks 2025", description: "India's premier hackathon with Nvidia, Meta, and Google. Huge prize pool.", date: "2025-08-13T09:00:00.000Z", prizes: "₹50,00,000", tags: ["GenAI", "Nvidia", "Meta"], status: "UPCOMING" },
-            { title: "DUHacks 5.0", description: "A major online hackathon connecting developers globally.", date: "2026-01-23T09:00:00.000Z", prizes: "Swag & Cash", tags: ["Web3", "AI", "Open Source"], status: "UPCOMING" },
-            { title: "Hack-O-Knight", description: "14-hour hackathon at SYTRON'24, organized by IEEE IEM Kolkata.", date: "2026-02-18T09:00:00.000Z", prizes: "₹1,00,000", tags: ["Blockchain", "AI/ML", "IoT"], status: "UPCOMING" },
-            { title: "Juspay Hiring Challenge 2025", description: "Exclusive hiring challenge for 2026 grads. Solve hard problems, get hired.", date: "2025-07-01T09:00:00.000Z", prizes: "CTC 27 LPA", tags: ["Hiring", "Algorithmic", "Backend"], status: "OPEN" },
-            { title: "Adobe India Hackathon 2025", description: "Innovate with Adobe tools. Open to B.Tech/M.Tech students.", date: "2025-07-11T09:00:00.000Z", prizes: "₹1L/mo Internships", tags: ["GenAI", "Creative Cloud"], status: "OPEN" },
-            { title: "Smart India Hackathon 2026", description: "World's biggest open innovation model. Solve national problems.", date: "2026-06-01T09:00:00.000Z", prizes: "₹1 L per problem", tags: ["GovTech", "Smart City", "Hardware"], status: "UPCOMING" },
-            { title: "L'Oréal Brandstorm 2026", description: "Disrupt beauty tech. Global innovation competition.", date: "2025-11-07T09:00:00.000Z", prizes: "Intrapreneurship in Paris", tags: ["Innovation", "Sustainability", "Business"], status: "UPCOMING" }
+            { title: "The DeVert Cup 2026", registrationLink: "https://cup.devert.in", description: "The World Cup of Coding. Compete globally to claim the ultimate trophy and the title of #1 Developer.", date: "2026-06-15T09:00:00.000Z", prizes: "₹10,00,000 + Trophy", tags: ["Competitive Coding", "Global", "Flagship"], status: "UPCOMING" },
+            { title: "DeVert Innovation Challenge", registrationLink: "https://innovation.devert.in", description: "Innovate Today. Define Tomorrow. Solve real-world problems using tech.", date: "2026-04-10T09:00:00.000Z", prizes: "Exclusive Swag + Certs", tags: ["Innovation", "Startup", "Social Impact"], status: "OPEN" },
+            { title: "Hack For Tomorrow 2025", registrationLink: "https://hack2skill.com", description: "An offline hackathon with no restrictions on themes. Build for the future.", date: "2025-05-15T09:00:00.000Z", prizes: "₹2,00,000", tags: ["Open Innovation", "Offline"], status: "UPCOMING" },
+            { title: "CodeZen Hackathon 2025", registrationLink: "https://devfolio.co", description: "36-hour event focusing on innovation, collaboration, and learning in New Delhi.", date: "2025-02-28T09:00:00.000Z", prizes: "₹50,00,000", tags: ["Innovation", "Collaboration"], status: "UPCOMING" },
+            { title: "Mumbai Hacks 2025", registrationLink: "https://mumbaihacks.in", description: "India's premier hackathon with Nvidia, Meta, and Google. Huge prize pool.", date: "2025-08-13T09:00:00.000Z", prizes: "₹50,00,000", tags: ["GenAI", "Nvidia", "Meta"], status: "UPCOMING" },
+            { title: "DUHacks 5.0", registrationLink: "https://duhacks.tech", description: "A major online hackathon connecting developers globally.", date: "2026-01-23T09:00:00.000Z", prizes: "Swag & Cash", tags: ["Web3", "AI", "Open Source"], status: "UPCOMING" },
+            { title: "Hack-O-Knight", registrationLink: "https://hackoknight.dev", description: "14-hour hackathon at SYTRON'24, organized by IEEE IEM Kolkata.", date: "2026-02-18T09:00:00.000Z", prizes: "₹1,00,000", tags: ["Blockchain", "AI/ML", "IoT"], status: "UPCOMING" },
+            { title: "Juspay Hiring Challenge 2025", registrationLink: "https://juspay.in/careers", description: "Exclusive hiring challenge for 2026 grads. Solve hard problems, get hired.", date: "2025-07-01T09:00:00.000Z", prizes: "CTC 27 LPA", tags: ["Hiring", "Algorithmic", "Backend"], status: "OPEN" },
+            { title: "Adobe India Hackathon 2025", registrationLink: "https://adobe.com/careers", description: "Innovate with Adobe tools. Open to B.Tech/M.Tech students.", date: "2025-07-11T09:00:00.000Z", prizes: "₹1L/mo Internships", tags: ["GenAI", "Creative Cloud"], status: "OPEN" },
+            { title: "Smart India Hackathon 2026", registrationLink: "https://sih.gov.in", description: "World's biggest open innovation model. Solve national problems.", date: "2026-06-01T09:00:00.000Z", prizes: "₹1 L per problem", tags: ["GovTech", "Smart City", "Hardware"], status: "UPCOMING" },
+            { title: "L'Oréal Brandstorm 2026", registrationLink: "https://brandstorm.loreal.com", description: "Disrupt beauty tech. Global innovation competition.", date: "2025-11-07T09:00:00.000Z", prizes: "Intrapreneurship in Paris", tags: ["Innovation", "Sustainability", "Business"], status: "UPCOMING" }
         ];
 
         setLoading(true);
@@ -355,6 +360,17 @@ export default function HackathonsManager() {
                                         placeholder="AI, Blockchain, Python"
                                         value={formData.tags}
                                         onChange={e => setFormData({ ...formData, tags: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-mono text-gray-400 mb-1">REGISTRATION LINK</label>
+                                    <input
+                                        type="text"
+                                        placeholder="https://..."
+                                        value={formData.registrationLink}
+                                        onChange={e => setFormData({ ...formData, registrationLink: e.target.value })}
                                         className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans"
                                     />
                                 </div>

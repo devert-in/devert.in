@@ -2,163 +2,134 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { ArrowLeft, Trophy, Code, Plus, X, Edit2, Activity, Zap, Check, Shield, CheckCircle } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
-import { collection, getDocs, addDoc, updateDoc, doc } from "firebase/firestore";
+import { ArrowLeft, Rocket, Zap, Plus, X, Shield, CheckCircle, Lightbulb, ThumbsUp, Users, Target } from "lucide-react";
+import { useEffect, useState } from "react";
+import { collection, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 
-export default function ContestsPage() {
+import { useRouter } from "next/navigation";
+
+export default function IncubatorPage() {
     const { user } = useAuth();
-    const [contests, setContests] = useState([]);
+    const router = useRouter();
+    const [ideas, setIdeas] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState("ALL"); // ALL, LIVE, UPCOMING, PAST, HOSTED
-    const [searchQuery, setSearchQuery] = useState("");
-    const dateInputRef = useRef(null);
+    const [filter, setFilter] = useState("ALL"); // ALL, TRENDING, NEW, MY_IDEAS
     const [dialog, setDialog] = useState({ show: false, message: "", type: "info" });
 
-    // Hosting Modal State
-    const [isHostModalOpen, setIsHostModalOpen] = useState(false);
-    const [editingContestId, setEditingContestId] = useState(null);
-    const [contestForm, setContestForm] = useState({
+    // Submit Idea Modal
+    const [isIdaModalOpen, setIsIdeaModalOpen] = useState(false);
+    const [ideaForm, setIdeaForm] = useState({
         title: "",
-        description: "",
-        date: "",
-        duration: "",
-        level: "EASY", // EASY, MEDIUM, HARD, INSANE
-        tags: ""
+        problem: ""
     });
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        fetchData();
+        fetchIdeas();
     }, []);
 
-    const fetchData = async () => {
+    const fetchIdeas = async () => {
         try {
-            // Fetch from new 'contests' collection
-            const querySnapshot = await getDocs(collection(db, "contests"));
-            const now = new Date();
-            const data = querySnapshot.docs.map(doc => {
-                const d = doc.data();
-                let status = d.status;
+            // In a real app, you might use a separate 'incubator_ideas' collection
+            // For now, let's assume we use 'incubator_ideas'
+            const querySnapshot = await getDocs(collection(db, "incubator_ideas"));
+            const data = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            // Sort by votes default?
+            data.sort((a, b) => (b.votes?.length || 0) - (a.votes?.length || 0));
 
-                // Only dynamically update status if it's approved (not PENDING)
-                if (status !== 'PENDING') {
-                    const startDate = new Date(d.date);
-                    // Parse duration simple heuristic (e.g. "2", "2 Hours", "120 Mins")
-                    let durationMs = 2 * 60 * 60 * 1000; // Default 2 hours if parsing fails
-
-                    if (d.duration) {
-                        const str = d.duration.toLowerCase();
-                        const val = parseFloat(str) || 0;
-                        if (str.includes('min')) {
-                            durationMs = val * 60 * 1000;
-                        } else {
-                            // Default to hours if no unit or 'hour' specified
-                            durationMs = val * 3600 * 1000;
-                        }
-                    }
-
-                    const endDate = new Date(startDate.getTime() + durationMs);
-
-                    if (now < startDate) {
-                        status = "UPCOMING";
-                    } else if (now >= startDate && now <= endDate) {
-                        status = "LIVE";
-                    } else {
-                        status = "PAST";
-                    }
-                }
-
-                return {
-                    id: doc.id,
-                    ...d,
-                    status
-                };
-            });
-            setContests(data);
+            if (data.length === 0) {
+                setIdeas(MOCK_IDEAS);
+            } else {
+                setIdeas(data);
+            }
         } catch (error) {
-            console.error("Error fetching contests:", error);
+            console.error("Error fetching ideas:", error);
+            // Fallback mock data if DB empty
+            if (ideas.length === 0) setIdeas(MOCK_IDEAS);
         } finally {
             setLoading(false);
         }
     };
 
-    const filteredData = contests.filter(c => {
-        const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (c.contestCode && c.contestCode.toLowerCase().includes(searchQuery.toLowerCase()));
-
-        if (!matchesSearch) return false;
-
-        if (filter === "ALL") return true;
-        if (filter === "HOSTED") return user && c.host === user.email;
-        return c.status === filter;
-    });
-
-    const openHostModal = (contestToEdit = null) => {
-        if (contestToEdit) {
-            setEditingContestId(contestToEdit.id);
-            setContestForm({
-                title: contestToEdit.title,
-                description: contestToEdit.description,
-                date: contestToEdit.date, // Assuming date is already in correct format or handled
-                duration: contestToEdit.duration,
-                level: contestToEdit.level,
-                tags: Array.isArray(contestToEdit.tags) ? contestToEdit.tags.join(", ") : contestToEdit.tags
-            });
-        } else {
-            setEditingContestId(null);
-            setContestForm({ title: "", description: "", date: "", duration: "", level: "EASY", tags: "" });
+    const handleVote = async (ideaId, currentVotes) => {
+        if (!user) {
+            setDialog({ show: true, message: "AUTH_REQUIRED: LOG_IN_TO_VOTE", type: "error" });
+            return;
         }
-        setIsHostModalOpen(true);
+
+        const hasVoted = currentVotes?.includes(user.email);
+        const ref = doc(db, "incubator_ideas", ideaId);
+
+        try {
+            if (hasVoted) {
+                await updateDoc(ref, { votes: arrayRemove(user.email) });
+            } else {
+                await updateDoc(ref, { votes: arrayUnion(user.email) });
+            }
+            // Optimistic update
+            setIdeas(prev => prev.map(idea => {
+                if (idea.id === ideaId) {
+                    const newVotes = hasVoted
+                        ? idea.votes.filter(v => v !== user.email)
+                        : [...(idea.votes || []), user.email];
+                    return { ...idea, votes: newVotes };
+                }
+                return idea;
+            }));
+        } catch (err) {
+            console.error(err);
+        }
     };
 
-    const handleHostSubmit = async (e) => {
+    const handleSubmitIdea = async (e) => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const payload = {
-                ...contestForm,
-                tags: contestForm.tags.split(",").map(t => t.trim()),
-            };
-
-            if (editingContestId) {
-                // Update
-                const ref = doc(db, "contests", editingContestId);
-                await updateDoc(ref, payload);
-                setDialog({ show: true, message: "Contest Updated successfully!", type: "success" });
-            } else {
-                // Create
-                await addDoc(collection(db, "contests"), {
-                    ...payload,
-                    contestCode: "DV-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
-                    status: "PENDING", // Requires admin approval
-                    host: user.email,
-                    type: "CODING_CONTEST",
-                    createdAt: new Date().toISOString()
-                });
-                setDialog({ show: true, message: "Contest Proposal Submitted! Awaiting Admin Approval.", type: "success" });
-            }
-
-            setIsHostModalOpen(false);
-            setContestForm({ title: "", description: "", date: "", duration: "", level: "EASY", tags: "" });
-            fetchData(); // Refresh list to see changes
+            await addDoc(collection(db, "incubator_ideas"), {
+                ...ideaForm,
+                // Default values for fields we removed
+                solution: "",
+                tags: [],
+                votes: [],
+                author: user.email,
+                authorName: user.displayName || user.email.split('@')[0],
+                status: "CONCEPT", // CONCEPT, IN_DEV, LAUNCHED
+                createdAt: new Date().toISOString()
+            });
+            setDialog({ show: true, message: "BLUEPRINT_UPLOADED: AWAITING_COMMUNITY_FEEDBACK", type: "success" });
+            setIsIdeaModalOpen(false);
+            setIdeaForm({ title: "", problem: "" });
+            fetchIdeas();
         } catch (err) {
             console.error(err);
-            setDialog({ show: true, message: "Error submitting proposal: " + err.message, type: "error" });
+            setDialog({ show: true, message: "UPLOAD_FAILED: " + err.message, type: "error" });
         } finally {
             setSubmitting(false);
         }
     };
 
+    // Filter Logic
+    const filteredIdeas = ideas.filter(idea => {
+        if (filter === "ALL") return true;
+        if (filter === "TRENDING") return (idea.votes?.length || 0) > 5;
+        if (filter === "MY_IDEAS") return user && idea.author === user.email;
+        // Simple 'NEW' logic: created in last 7 days? Or just default sort.
+        // Let's keep it simple for now.
+        return true;
+    });
+
     return (
         <div className="min-h-screen bg-[#050505] text-white p-6 pt-28">
+            <div className="fixed inset-0 grid-bg opacity-10 pointer-events-none"></div>
+
             {/* Dialog Modal */}
             {dialog.show && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-[#0a0a0a] border border-white/10 p-8 max-w-md w-full relative shadow-2xl flex flex-col items-center text-center">
                         <div className={`mb-4 p-4 rounded-full ${dialog.type === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-neon-green/10 text-neon-green'}`}>
                             {dialog.type === 'error' ? <Shield size={32} /> : <CheckCircle size={32} />}
@@ -175,314 +146,224 @@ export default function ContestsPage() {
                 </div>
             )}
 
-            <div className="max-w-6xl mx-auto">
-                <div className="flex justify-between items-start mb-12">
-                    <Link href="/" className="inline-flex items-center text-gray-400 hover:text-neon-cyan transition-colors">
-                        <ArrowLeft size={20} className="mr-2" />
-                        // RETURN_HOME
-                    </Link>
+            <div className="max-w-7xl mx-auto relative z-10">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
+                    <div>
+                        <Link href="/" className="inline-flex items-center text-gray-400 hover:text-purple-400 transition-colors mb-4">
+                            <ArrowLeft size={16} className="mr-2" />
+                            // RETURN_HQ
+                        </Link>
+                        <h1 className="text-4xl md:text-6xl font-bold font-sans mb-2">
+                            IDEA_INCUBATOR <span className="text-purple-500">_</span>
+                        </h1>
+                        <p className="text-gray-400 font-mono text-sm max-w-2xl">
+                            Where "I have an idea" meets "We built it". Submit moonshots. Build squads. Launch products.
+                        </p>
+                    </div>
 
-                    {user && (
-                        <button
-                            onClick={() => openHostModal(null)}
-                            className="bg-neon-green/10 border border-neon-green text-neon-green px-4 py-2 font-mono text-xs flex items-center gap-2 hover:bg-neon-green hover:text-black transition-colors"
-                        >
-                            <Plus size={16} /> HOST_CONTEST
-                        </button>
-                    )}
+                    <button
+                        onClick={() => {
+                            if (!user) {
+                                router.push("/login");
+                                return;
+                            }
+                            setIsIdeaModalOpen(true);
+                        }}
+                        className="bg-purple-500/10 border border-purple-500 text-purple-400 px-6 py-3 font-mono text-xs font-bold flex items-center gap-2 hover:bg-purple-500 hover:text-black transition-all shadow-[0_0_20px_rgba(168,85,247,0.2)]"
+                    >
+                        <Lightbulb size={18} /> SUBMIT_BLUEPRINT
+                    </button>
                 </div>
 
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-12"
-                >
-                    <h1 className="text-4xl md:text-6xl font-bold font-sans mb-6">
-                        COMPETITIVE_ARENA <span className="text-neon-cyan">_</span>
-                    </h1>
+                {/* Dashboard Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-                    {/* Filter Tabs & Search */}
-                    <div className="flex flex-col md:flex-row justify-between items-end border-b border-white/10 pb-4 gap-4">
-                        <div className="flex flex-wrap gap-4">
-                            {["ALL", "LIVE", "UPCOMING", "PAST", ...(user ? ["HOSTED"] : [])].map((f) => (
-                                <button
-                                    key={f}
-                                    onClick={() => setFilter(f)}
-                                    className={`px-4 py-1 font-mono text-sm transition-colors relative ${filter === f ? "text-neon-cyan" : "text-gray-500 hover:text-white"
-                                        }`}
-                                >
-                                    {f}
-                                    {filter === f && (
-                                        <motion.div
-                                            layoutId="activeTab"
-                                            className="absolute bottom-0 left-0 right-0 h-0.5 bg-neon-cyan"
-                                        />
-                                    )}
-                                </button>
-                            ))}
+                    {/* LEFT COLUMN: Filters & Stats (3 cols) */}
+                    <div className="lg:col-span-3 space-y-6">
+                        <div className="bg-white/5 border border-white/10 p-6">
+                            <h3 className="text-sm font-bold font-sans text-gray-400 mb-4 flex items-center gap-2">
+                                <Target size={16} className="text-purple-500" /> FILTERS
+                            </h3>
+                            <div className="flex flex-col gap-2">
+                                {["ALL", "TRENDING", "NEW", ...(user ? ["MY_IDEAS"] : [])].map(f => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setFilter(f)}
+                                        className={`text-left px-4 py-2 font-mono text-xs transition-colors border-l-2 ${filter === f ? "border-purple-500 text-white bg-purple-500/10" : "border-transparent text-gray-500 hover:text-gray-300"}`}
+                                    >
+                                        // {f}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="SEARCH_ID_OR_TITLE"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-transparent border-b border-white/20 text-white font-mono text-sm py-1 px-2 w-64 focus:border-neon-cyan outline-none transition-colors placeholder-gray-600"
-                            />
+
+                        <div className="bg-[#0a0a0a] border border-white/10 p-6">
+                            <h3 className="text-sm font-bold font-sans text-gray-400 mb-4">INCUBATOR_STATS</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="text-2xl font-bold text-white mb-1">84</div>
+                                    <div className="text-[10px] font-mono text-gray-500">TOTAL_SUBMISSIONS</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-neon-green mb-1">12</div>
+                                    <div className="text-[10px] font-mono text-gray-500">PROJECTS_LAUNCHED</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-purple-500 mb-1">$42k</div>
+                                    <div className="text-[10px] font-mono text-gray-500">VALUE_CREATED</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </motion.div>
 
-                {loading ? (
-                    <div className="font-mono text-neon-cyan animate-pulse">LOADING_ARENA_DATA...</div>
-                ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* LEFT COLUMN: Contest Cards */}
-                        <div className="lg:col-span-2 space-y-4">
-                            {filteredData.length === 0 ? (
-                                <div className="py-20 text-center border border-white/10 border-dashed text-gray-500 font-mono">
-                                    NO CONTESTS FOUND IN THIS SECTOR. START ONE?
-                                </div>
-                            ) : (
-                                filteredData.map((contest, i) => (
-                                    <motion.div
-                                        key={contest.id}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: i * 0.05 }}
-                                        className="group relative p-6 bg-white/5 border border-white/10 hover:border-neon-cyan transition-colors flex flex-col justify-between gap-4"
-                                    >
-                                        <div className="absolute top-0 right-0 p-2 md:hidden">
-                                            <span className="text-xs font-mono text-gray-500">[{contest.status}]</span>
-                                        </div>
+                    {/* RIGHT COLUMN: Idea Feed (9 cols) */}
+                    <div className="lg:col-span-9">
+                        {loading ? (
+                            <div className="font-mono text-purple-500 animate-pulse">Scanning Neural Network...</div>
+                        ) : (
+                            <div className="space-y-4">
+                                {filteredIdeas.length === 0 ? (
+                                    <div className="py-20 text-center border border-white/10 border-dashed text-gray-500 font-mono">
+                                        NO BLUEPRINTS DETECTED. BE THE ARCHITECT.
+                                    </div>
+                                ) : (
+                                    filteredIdeas.map((idea, i) => (
+                                        <motion.div
+                                            key={idea.id}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: i * 0.05 }}
+                                            className="bg-white/5 border border-white/10 p-6 hover:border-purple-500/50 transition-colors group relative overflow-hidden"
+                                        >
+                                            <div className="flex justify-between items-start gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <span className={`px-2 py-0.5 text-[10px] font-mono rounded border ${idea.status === 'LAUNCHED' ? 'border-neon-green text-neon-green' :
+                                                            idea.status === 'IN_DEV' ? 'border-purple-500 text-purple-500' :
+                                                                'border-gray-500 text-gray-500'
+                                                            }`}>
+                                                            {idea.status || 'CONCEPT'}
+                                                        </span>
+                                                        <span className="text-xs font-mono text-gray-500">by {idea.authorName}</span>
+                                                    </div>
+                                                    <h3 className="text-xl md:text-2xl font-bold font-sans text-white mb-3 group-hover:text-purple-400 transition-colors">{idea.title}</h3>
 
-                                        <div>
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="text-xl font-bold font-sans group-hover:text-neon-cyan transition-colors">{contest.title}</h3>
-                                                    {contest.contestCode && <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-white/20 text-white/60">{contest.contestCode}</span>}
-                                                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${contest.level === 'HARD' ? 'border-red-500 text-red-500' :
-                                                        contest.level === 'MEDIUM' ? 'border-yellow-500 text-yellow-500' :
-                                                            'border-green-500 text-green-500'
-                                                        }`}>
-                                                        {contest.level}
-                                                    </span>
+                                                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                                                        <div className="bg-black/20 p-3 rounded border border-white/5">
+                                                            <div className="text-[10px] font-mono text-red-400 mb-1">THE_PROBLEM</div>
+                                                            <p className="text-sm text-gray-300">{idea.problem}</p>
+                                                        </div>
+                                                        <div className="bg-black/20 p-3 rounded border border-white/5 relative">
+                                                            <div className="text-[10px] font-mono text-neon-green mb-1">THE_SOLUTION</div>
+                                                            {idea.solution ? (
+                                                                <p className="text-sm text-gray-300">{idea.solution}</p>
+                                                            ) : (
+                                                                <div className="text-gray-500 text-xs font-mono italic flex flex-col items-center justify-center py-4 border border-dashed border-white/10 rounded">
+                                                                    <span>AWAITING_ARCHITECT</span>
+                                                                    <button className="mt-2 text-neon-green hover:underline">
+                                                                        [PROPOSE_SOLUTION]
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-2 mb-4">
+                                                        {idea.tags && (Array.isArray(idea.tags) ? idea.tags : idea.tags.split(',')).map((tag, idx) => (
+                                                            <span key={idx} className="text-[10px] font-mono px-2 py-1 bg-white/5 rounded text-gray-400">#{tag}</span>
+                                                        ))}
+                                                        {(!idea.tags || idea.tags.length === 0) && (
+                                                            <span className="text-[10px] font-mono px-2 py-1 bg-white/5 rounded text-gray-600">NO_TAGS_ASSIGNED</span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div className="hidden md:block">
-                                                    <span className={`text-xs font-mono px-2 py-1 rounded ${contest.status === 'LIVE' ? 'bg-neon-green/20 text-neon-green animate-pulse' :
-                                                        contest.status === 'UPCOMING' ? 'bg-neon-cyan/20 text-neon-cyan' :
-                                                            'bg-white/10 text-gray-500'
-                                                        }`}>
-                                                        {contest.status}
-                                                    </span>
-                                                </div>
-                                            </div>
 
-                                            <p className="text-gray-400 font-mono text-xs mb-4 line-clamp-2">{contest.description}</p>
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <button
+                                                        onClick={() => handleVote(idea.id, idea.votes)}
+                                                        className={`flex flex-col items-center justify-center w-16 h-16 rounded border transition-all ${idea.votes?.includes(user?.email)
+                                                            ? "bg-purple-500 text-black border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]"
+                                                            : "bg-white/5 border-white/10 text-gray-400 hover:border-purple-400 hover:text-purple-400"
+                                                            }`}
+                                                    >
+                                                        <ThumbsUp size={20} className={idea.votes?.includes(user?.email) ? "fill-current" : ""} />
+                                                        <span className="text-xs font-bold font-mono mt-1">{idea.votes?.length || 0}</span>
+                                                    </button>
 
-                                            <div className="flex flex-wrap gap-4 text-xs font-mono text-gray-500 items-center justify-between">
-                                                <div className="flex gap-4">
-                                                    <span className="flex items-center gap-1"><Trophy size={12} className="text-yellow-500" /> {contest.host === user?.email ? "HOSTED_BY_YOU" : "COMMUNITY"}</span>
-                                                    <span>//</span>
-                                                    <span>DUR: {contest.duration || "2H"}</span>
-                                                    <span>//</span>
-                                                    <span>{contest.date ? new Date(contest.date).toLocaleDateString() : "TBA"}</span>
-                                                </div>
-
-                                                <div className="flex gap-2">
-                                                    {user && contest.host === user.email && (
+                                                    {idea.status === 'CONCEPT' && (
                                                         <button
-                                                            onClick={() => openHostModal(contest)}
-                                                            className="bg-white/5 hover:bg-neon-cyan/20 hover:text-neon-cyan text-gray-400 p-2 rounded transition-all"
-                                                            title="Edit Contest"
+                                                            className="w-16 py-2 bg-white/5 hover:bg-neon-green/10 text-gray-400 hover:text-neon-green border border-white/10 hover:border-neon-green rounded flex justify-center transition-all"
+                                                            title="Join Squad"
                                                         >
-                                                            <Edit2 size={16} />
+                                                            <Users size={16} />
                                                         </button>
                                                     )}
-                                                    <Link href={`/contest-lobby?id=${contest.id}`}>
-                                                        <button className="bg-white/10 hover:bg-neon-cyan hover:text-black text-white px-4 py-2 text-xs font-mono font-bold tracking-wider transition-all cursor-pointer">
-                                                            ENTER_LOBBY
-                                                        </button>
-                                                    </Link>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </motion.div>
-                                ))
-                            )}
-                        </div>
-
-                        {/* RIGHT COLUMN: Interactive Feed */}
-                        <div className="lg:col-span-1 space-y-6">
-                            {/* Activity Feed */}
-                            <div className="bg-[#0a0a0a] border border-white/10 p-6 sticky top-24">
-                                <h3 className="text-sm font-bold font-sans text-gray-400 mb-4 flex items-center gap-2">
-                                    <Activity size={16} className="text-neon-green" /> LIVE_NET_ACTIVITY
-                                </h3>
-                                <div className="space-y-4 font-mono text-xs max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                                    {[
-                                        { user: "ghost_rider", action: "solved", target: "Binary Bomb", time: "2m ago", color: "text-green-400" },
-                                        { user: "system", action: "deployed", target: "Contest #42", time: "10m ago", color: "text-neon-cyan" },
-                                        { user: "neo_1", action: "failed", target: "Matrix Matrix", time: "15m ago", color: "text-red-400" },
-                                        { user: "trinity", action: "joined", target: "Lobby Alpha", time: "22m ago", color: "text-gray-400" },
-                                        { user: "cipher", action: "solved", target: "RSA Keygen", time: "45m ago", color: "text-green-400" },
-                                    ].map((item, i) => (
-                                        <div key={i} className="flex gap-2 items-start border-l border-white/5 pl-3">
-                                            <span className="text-gray-600 whitespace-nowrap">{item.time}</span>
-                                            <div>
-                                                <span className="text-white font-bold">{item.user}</span>
-                                                <span className={`mx-1 ${item.color}`}>{item.action}</span>
-                                                <span className="text-gray-400">{item.target}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        </motion.div>
+                                    ))
+                                )}
                             </div>
-
-                            {/* Mini Leaderboard */}
-                            <div className="bg-[#0a0a0a] border border-white/10 p-6 sticky top-[400px]">
-                                <h3 className="text-sm font-bold font-sans text-gray-400 mb-4 flex items-center gap-2">
-                                    <Trophy size={16} className="text-yellow-500" /> TOP_OPERATIVES
-                                </h3>
-                                <div className="space-y-3">
-                                    {[
-                                        { rank: 1, name: "ZeroCool", score: 9850 },
-                                        { rank: 2, name: "AcidBurn", score: 9200 },
-                                        { rank: 3, name: "CerealK", score: 8950 },
-                                    ].map((p) => (
-                                        <div key={p.rank} className="flex justify-between items-center text-sm font-mono bg-white/5 p-2 px-3 border border-white/5">
-                                            <div className="flex items-center gap-3">
-                                                <span className={`font-bold ${p.rank === 1 ? 'text-yellow-500' : p.rank === 2 ? 'text-gray-300' : 'text-orange-400'}`}>#{p.rank}</span>
-                                                <span className="text-gray-300">{p.name}</span>
-                                            </div>
-                                            <span className="text-neon-cyan">{p.score}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="mt-4 pt-4 border-t border-white/10 text-center">
-                                    <button className="text-xs text-gray-500 hover:text-white font-mono flex items-center justify-center gap-2 w-full transition-colors">
-                                        VIEW_GLOBAL_RANKINGS <Zap size={12} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
 
-            {/* Host Contest Modal */}
+            {/* Submit Idea Modal */}
             <AnimatePresence>
-                {isHostModalOpen && (
+                {isIdaModalOpen && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                        className="fixed inset-0 z-[90] flex items-start justify-center pt-28 px-4 pb-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-[#0a0a0a] border border-white/10 w-full max-w-lg p-8 relative shadow-2xl"
+                            className="bg-[#0a0a0a] border border-white/10 w-full max-w-2xl p-6 md:p-8 relative shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide"
                         >
                             <button
-                                onClick={() => setIsHostModalOpen(false)}
+                                onClick={() => setIsIdeaModalOpen(false)}
                                 className="absolute top-4 right-4 text-gray-500 hover:text-white"
                             >
                                 <X size={20} />
                             </button>
 
-                            <h2 className="text-2xl font-bold font-sans mb-2 text-white">{editingContestId ? "EDIT_OPERATION" : "INITIALIZE_CONTEST"}</h2>
-                            <p className="text-gray-500 font-mono text-xs mb-6">
-                                {editingContestId ? "Modify your operational parameters." : "Create a coding arena. Admins must approve before it goes LIVE."}
-                            </p>
+                            <h2 className="text-2xl font-bold font-sans mb-2 text-white">SUBMIT_BLUEPRINT</h2>
+                            <p className="text-gray-500 font-mono text-xs mb-6">Describe your moonshot. The community will vote to build it.</p>
 
-                            <form onSubmit={handleHostSubmit} className="space-y-4">
+                            <form onSubmit={handleSubmitIdea} className="space-y-6">
                                 <div>
-                                    <label className="block text-gray-400 font-mono text-xs mb-1">ARENA_TITLE</label>
+                                    <label className="block text-gray-400 font-mono text-xs mb-1">PROJECT_CODENAME (Title)</label>
                                     <input
                                         type="text"
                                         required
-                                        value={contestForm.title}
-                                        onChange={e => setContestForm({ ...contestForm, title: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-green outline-none"
-                                        placeholder="Weekly Code Sprint #42"
+                                        value={ideaForm.title}
+                                        onChange={e => setIdeaForm({ ...ideaForm, title: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 p-3 text-white focus:border-purple-500 outline-none"
+                                        placeholder="e.g. Project Lazarus"
                                     />
                                 </div>
+
                                 <div>
-                                    <label className="block text-gray-400 font-mono text-xs mb-1">RULES_OF_ENGAGEMENT (Description)</label>
+                                    <label className="block text-red-400 font-mono text-xs mb-1">THE_PROBLEM</label>
                                     <textarea
                                         required
-                                        value={contestForm.description}
-                                        onChange={e => setContestForm({ ...contestForm, description: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-green outline-none h-24 resize-none"
+                                        value={ideaForm.problem}
+                                        onChange={e => setIdeaForm({ ...ideaForm, problem: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 p-3 text-white focus:border-red-500 outline-none h-48 resize-none"
+                                        placeholder="What is broken?"
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-gray-400 font-mono text-xs mb-1">START_TIME</label>
-                                        <DatePicker
-                                            selected={contestForm.date ? new Date(contestForm.date) : null}
-                                            onChange={(date) => setContestForm({ ...contestForm, date: date ? date.toISOString() : "" })}
-                                            showTimeSelect
-                                            timeFormat="HH:mm"
-                                            timeIntervals={15}
-                                            dateFormat="MMMM d, yyyy h:mm aa"
-                                            placeholderText="Select Launch Time..."
-                                            className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-green outline-none font-mono text-sm"
-                                            calendarClassName="cyberpunk-datepicker shadow-2xl"
-                                        >
-                                            <div className="text-center p-2 border-t border-white/10">
-                                                <span className="text-xs text-neon-cyan font-mono animate-pulse">SYSTEM_TIME_SYNC...</span>
-                                            </div>
-                                        </DatePicker>
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-400 font-mono text-xs mb-1">DURATION</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            placeholder="e.g. 2 Hours"
-                                            value={contestForm.duration}
-                                            onChange={e => setContestForm({ ...contestForm, duration: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-green outline-none"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-gray-400 font-mono text-xs mb-1">DIFFICULTY_LEVEL</label>
-                                        <select
-                                            value={contestForm.level}
-                                            onChange={e => setContestForm({ ...contestForm, level: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-green outline-none"
-                                        >
-                                            <option value="EASY">EASY</option>
-                                            <option value="MEDIUM">MEDIUM</option>
-                                            <option value="HARD">HARD</option>
-                                            <option value="INSANE">INSANE</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-400 font-mono text-xs mb-1">TAGS</label>
-                                        <input
-                                            type="text"
-                                            placeholder="DP, Graphs, Strings"
-                                            value={contestForm.tags}
-                                            onChange={e => setContestForm({ ...contestForm, tags: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-green outline-none"
-                                        />
-                                    </div>
-                                </div>
-
 
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="w-full bg-neon-green text-black font-bold font-mono py-3 mt-4 hover:opacity-90 disabled:opacity-50"
+                                    className="w-full bg-purple-500 text-black font-bold font-mono py-4 mt-2 hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting ? "INITIALIZING..." : (editingContestId ? "UPDATE_OPERATION" : "CREATE_LOBBY")}
+                                    {submitting ? "UPLOADING..." : <><Rocket size={18} /> INITIALIZE_PROJECT</>}
                                 </button>
                             </form>
 
@@ -493,3 +374,27 @@ export default function ContestsPage() {
         </div>
     );
 }
+
+// Mock Data for specific Demo
+const MOCK_IDEAS = [
+    {
+        id: "1",
+        title: "Project: Local Hero",
+        problem: "Small businesses can't afford inventory management software.",
+        solution: "A free, open-source PWA that uses camera for barcode scanning and local storage.",
+        tags: ["React", "PWA", "Firebase"],
+        authorName: "Sarah_Dev",
+        votes: ["a", "b", "c", "d", "e", "f", "g"], // Mock votes
+        status: "IN_DEV"
+    },
+    {
+        id: "2",
+        title: "Rent-A-Senior",
+        problem: "Junior devs are stuck on bugs for days.",
+        solution: "Uber for debugging. Juniors pay micro-bounties for 15 mins of a Senior's time.",
+        tags: ["WebRTC", "Payments", "Node"],
+        authorName: "Neo_The_One",
+        votes: ["a", "b", "c"],
+        status: "CONCEPT"
+    }
+];

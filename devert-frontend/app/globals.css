@@ -25,7 +25,12 @@ body {
 .grid-bg {
   background-size: 50px 50px;
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+.bg-stripes-white {
+  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.05) 75%, transparent 75%, transparent);
+  background-size: 10px 10px;
 }
 
 /* DatePicker Overrides for Cyberpunk Theme */
@@ -41,20 +46,28 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-.react-datepicker__current-month, .react-datepicker-time__header, .react-datepicker-year-header {
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker-year-header {
   color: #fff !important;
 }
 
-.react-datepicker__day-name, .react-datepicker__day, .react-datepicker__time-name {
+.react-datepicker__day-name,
+.react-datepicker__day,
+.react-datepicker__time-name {
   color: #ccc !important;
 }
 
-.react-datepicker__day:hover, .react-datepicker__month-text:hover, .react-datepicker__quarter-text:hover, .react-datepicker__year-text:hover {
+.react-datepicker__day:hover,
+.react-datepicker__month-text:hover,
+.react-datepicker__quarter-text:hover,
+.react-datepicker__year-text:hover {
   background-color: rgba(0, 255, 65, 0.2) !important;
   color: #fff !important;
 }
 
-.react-datepicker__day--selected, .react-datepicker__day--keyboard-selected {
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
   background-color: var(--neon-cyan) !important;
   color: #000 !important;
   font-weight: bold;

@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Code, Plus, X, Lock, Shield, CheckCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Code, Plus, X, Lock, Shield, CheckCircle, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { collection, getDocs, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -186,9 +186,26 @@ export default function HackathonsPage() {
 
                                     <div className="pt-6 border-t border-white/10 flex justify-between items-center">
                                         <span className="text-neon-green font-mono text-sm">{hack.prizes}</span>
-                                        <button className="bg-white/10 hover:bg-neon-cyan/20 hover:text-neon-cyan text-white px-4 py-2 text-xs font-mono tracking-wider transition-all cursor-pointer">
-                                            INITIATE -&gt;
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    const link = typeof window !== 'undefined' ? `${window.location.origin}/hackathons/${hack.id}` : hack.registrationLink;
+                                                    const text = `🚀 Join me in the '${hack.title}' hackathon on Devert!\n\n${hack.description}\n\n👉 Apply here: ${link}`;
+                                                    navigator.clipboard.writeText(text);
+                                                    setDialog({ show: true, message: "LINK_COPIED_TO_CLIPBOARD", type: "success" });
+                                                }}
+                                                className="bg-white/5 hover:bg-white/10 text-gray-400 p-2 transition-all"
+                                                title="Share Operation"
+                                            >
+                                                <Share2 size={16} />
+                                            </button>
+                                            <Link
+                                                href={`/hackathons/${hack.id}`}
+                                                className="bg-white/10 hover:bg-neon-cyan/20 hover:text-neon-cyan text-white px-4 py-2 text-xs font-mono tracking-wider transition-all cursor-pointer inline-block"
+                                            >
+                                                INITIATE -&gt;
+                                            </Link>
+                                        </div>
                                     </div>
                                 </motion.div>
                             ))

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowRight, Play, Users, Crosshair } from "lucide-react";
+import { ArrowRight, Play, Users, Crosshair, Rocket } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 
@@ -14,7 +14,7 @@ export function MainFeed({ hasShownIntro }) {
         <section className="pt-24 pb-12 px-4 min-h-[60vh] flex flex-col justify-center relative shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-10">
             <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none"></div>
 
-            <div className="max-w-5xl mx-auto w-full">
+            <div className="max-w-6xl mx-auto w-full">
                 <motion.div
                     initial={{ opacity: hasShownIntro ? 1 : 0, y: hasShownIntro ? 0 : 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -22,7 +22,7 @@ export function MainFeed({ hasShownIntro }) {
                     className="mb-8 border-b border-white/10 pb-4 flex flex-col md:flex-row justify-between items-end"
                 >
                     <div>
-                        <p className="font-mono text-neon-cyan text-xs mb-1 tracking-widest">// DEVERT_HQ_DASHBOARD</p>
+                        <p className="font-mono text-neon-cyan text-xs mb-1 tracking-widest">// IMPACT_ENGINE_ONLINE</p>
                         <h1 className="text-3xl md:text-5xl font-bold font-sans text-white">
                             {user ? (
                                 <>WELCOME BACK, <span className="text-neon-green">{displayName.toUpperCase()}</span></>
@@ -30,6 +30,7 @@ export function MainFeed({ hasShownIntro }) {
                                 <>SYSTEM STATUS: <span className="text-neon-green">ONLINE</span></>
                             )}
                         </h1>
+                        <p className="text-gray-400 font-mono text-sm mt-2">Don't just code. Solve real-world problems.</p>
                     </div>
                     <div className="flex items-center gap-2 text-gray-400 font-mono text-[10px] mt-2 md:mt-0">
                         <span className="relative flex h-2 w-2">
@@ -40,12 +41,114 @@ export function MainFeed({ hasShownIntro }) {
                     </div>
                 </motion.div>
 
+                {/* Innovation Challenge Hero Banner */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="mb-12 relative group"
+                >
+                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                    <div className="relative bg-[#0a0a0a] border border-white/10 p-8 rounded-lg flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
+
+                        {/* Background Effect */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none"></div>
+
+                        <div className="flex-1 relative z-10">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                </span>
+                                <span className="text-[10px] font-mono font-bold text-red-500 tracking-widest">LIVE EVENT // GLOBAL BROADCAST</span>
+                            </div>
+                            <h2 className="text-3xl md:text-4xl font-bold font-sans text-white mb-2 max-w-lg">
+                                DeVert <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">Innovation Challenge</span>
+                            </h2>
+                            <p className="text-gray-400 font-mono text-xs md:text-sm max-w-xl">
+                                Global Deployment Initiated. Form your squad. Solve the crisis. Secure elite hardware and career leverage.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-4 relative z-10">
+                            <div className="text-center px-4 py-2 bg-white/5 border border-white/10 rounded">
+                                <div className="text-xl font-bold text-white font-sans">14</div>
+                                <div className="text-[9px] text-gray-500 font-mono">DAYS_LEFT</div>
+                            </div>
+                            <Link
+                                href="/challenge"
+                                className="px-8 py-3 bg-white text-black font-bold font-mono text-sm hover:bg-gray-200 transition-colors flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                            >
+                                <Rocket size={16} /> REGISTER_SQUAD
+                            </Link>
+                        </div>
+                    </div>
+                </motion.div>
+
                 <div className="grid md:grid-cols-2 gap-6">
-                    {/* Squadron Card */}
+                    {/* Operations Card (Vision 1) */}
                     <motion.div
                         initial={{ opacity: hasShownIntro ? 1 : 0, x: hasShownIntro ? 0 : -20 }}
                         animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: hasShownIntro ? 0 : 0.1 }}
+                        className="bg-white/5 border border-white/10 p-6 hover:border-neon-green/50 transition-all group relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-neon-green/5 rounded-bl-full -mr-8 -mt-8"></div>
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="px-2 py-0.5 bg-neon-green/10 text-neon-green text-[10px] font-mono rounded border border-neon-green/20">
+                                PRIORITY: HIGH
+                            </div>
+                            <Crosshair className="text-gray-500 group-hover:text-neon-green transition-colors" size={24} />
+                        </div>
+
+                        <h2 className="text-2xl font-bold font-sans mb-1 text-white">Active Operations</h2>
+                        <p className="text-gray-400 font-mono text-xs mb-4">Solve real problems for local businesses & NGOs. Build a portfolio that actually matters.</p>
+
+                        <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500 mb-6">
+                            <span>LIVE QUESTS: 12</span>
+                            <span>//</span>
+                            <span>IMPACT: CERTIFIED</span>
+                        </div>
+
+                        <Link href="/hackathons" className="inline-flex items-center text-neon-green text-xs font-bold font-mono group-hover:translate-x-2 transition-transform">
+                            BROWSE_QUESTS <ArrowRight size={14} className="ml-2" />
+                        </Link>
+                    </motion.div>
+
+                    {/* Incubator Card (Vision 2) */}
+                    <motion.div
+                        initial={{ opacity: hasShownIntro ? 1 : 0, x: hasShownIntro ? 0 : 20 }}
+                        animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: hasShownIntro ? 0 : 0.2 }}
+                        className="bg-white/5 border border-white/10 p-6 hover:border-purple-500/50 transition-all group relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-bl-full -mr-8 -mt-8"></div>
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] font-mono rounded border border-purple-500/20">
+                                INNOVATION_LAB
+                            </div>
+                            <Rocket className="text-gray-500 group-hover:text-purple-400 transition-colors" size={24} />
+                        </div>
+
+                        <h2 className="text-2xl font-bold font-sans mb-1 text-white">Idea Incubator</h2>
+                        <p className="text-gray-400 font-mono text-xs mb-4">Have a moonshot idea? Submit it. We build it together. Equity for everyone.</p>
+
+                        <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500 mb-6">
+                            <span>SUBMISSIONS: 84</span>
+                            <span>//</span>
+                            <span>LAUNCHES: 3</span>
+                        </div>
+
+                        <Link href="/contests" className="inline-flex items-center text-purple-400 text-xs font-bold font-mono group-hover:translate-x-2 transition-transform">
+                            SUBMIT_BLUEPRINT <ArrowRight size={14} className="ml-2" />
+                        </Link>
+                    </motion.div>
+
+                    {/* Squadron Card */}
+                    <motion.div
+                        initial={{ opacity: hasShownIntro ? 1 : 0, y: hasShownIntro ? 0 : 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: hasShownIntro ? 0 : 0.3 }}
                         className="bg-white/5 border border-white/10 p-6 hover:border-neon-cyan/50 transition-all group"
                     >
                         <div className="flex justify-between items-start mb-4">
@@ -71,18 +174,16 @@ export function MainFeed({ hasShownIntro }) {
 
                     {/* Mercenary Board Card */}
                     <motion.div
-                        initial={{ opacity: hasShownIntro ? 1 : 0, x: hasShownIntro ? 0 : 20 }}
-                        animate={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: hasShownIntro ? 1 : 0, y: hasShownIntro ? 0 : 20 }}
+                        animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: hasShownIntro ? 0 : 0.4 }}
-                        className="bg-white/5 border border-white/10 p-6 hover:border-yellow-500/50 transition-all group relative overflow-hidden"
+                        className="bg-white/5 border border-white/10 p-6 hover:border-yellow-500/50 transition-all group"
                     >
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-yellow-500/10 rounded-bl-full -mr-8 -mt-8"></div>
-
                         <div className="flex justify-between items-start mb-4">
                             <div className="px-2 py-0.5 bg-yellow-500/10 text-yellow-500 text-[10px] font-mono rounded border border-yellow-500/20">
                                 ACTIVE_CONTRACTS
                             </div>
-                            <Crosshair className="text-gray-500 group-hover:text-yellow-500 transition-colors" size={20} />
+                            <Play className="text-gray-500 group-hover:text-yellow-500 transition-colors" size={20} />
                         </div>
 
                         <h2 className="text-2xl font-bold font-sans mb-1">Mercenary Board</h2>
@@ -95,7 +196,7 @@ export function MainFeed({ hasShownIntro }) {
                         </div>
 
                         <Link href="/bounties" className="inline-flex items-center text-yellow-500 text-xs font-bold font-mono group-hover:translate-x-2 transition-transform">
-                            VIEW_CONTRACTS <Play size={14} className="ml-2 fill-current" />
+                            VIEW_CONTRACTS <ArrowRight size={14} className="ml-2" />
                         </Link>
                     </motion.div>
                 </div>

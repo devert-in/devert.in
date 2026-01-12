@@ -18,8 +18,8 @@ export function Navbar() {
     if (pathname === "/" && !hasShownIntro) return null;
 
     const navLinks = [
-        { name: "HACKATHONS", href: "/hackathons" },
-        { name: "WARGAMES", href: "/contests" },
+        { name: "OPERATIONS", href: "/hackathons" },
+        { name: "INCUBATOR", href: "/contests" },
         { name: "SQUADRON", href: "/squadron" },
         { name: "BOUNTIES", href: "/bounties" },
         { name: "POSTMORTEMS", href: "/postmortems" },

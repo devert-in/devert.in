@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Instagram, Linkedin, Github } from "lucide-react";
+import { Instagram, Linkedin, Github, Youtube } from "lucide-react";
 import { DuoProfile } from "@/components/duo-profile";
 
 export function Footer() {
@@ -24,11 +24,11 @@ export function Footer() {
                         </motion.h2>
 
                         <div className="flex flex-col gap-4 font-mono text-gray-400 text-lg">
-                            <a href="#" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
+                            <a href="https://www.instagram.com/devert.in" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
                                 <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /instagram
                             </a>
-                            <a href="#" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
-                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /linkedin
+                            <a href="https://youtube.com/@devert" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
+                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /youtube
                             </a>
                             <a href="#" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
                                 <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /github
@@ -38,9 +38,9 @@ export function Footer() {
 
                     <div className="mt-12 hidden lg:block">
                         <div className="flex gap-6 mb-4">
-                            <SocialIcon icon={<Instagram size={24} />} />
-                            <SocialIcon icon={<Linkedin size={24} />} />
-                            <SocialIcon icon={<Github size={24} />} />
+                            <SocialIcon href="https://www.instagram.com/devert.in" icon={<Instagram size={24} />} />
+                            <SocialIcon href="https://youtube.com/@devert" icon={<Youtube size={24} />} />
+                            <SocialIcon href="#" icon={<Github size={24} />} />
                         </div>
                         <p className="font-mono text-xs text-gray-600">
                             © 2026 DEVERT.IN // SYSTEM_ONLINE
@@ -58,9 +58,9 @@ export function Footer() {
                 {/* Mobile Footer Info (Visible only on mobile) */}
                 <div className="lg:hidden flex flex-col items-center gap-6 mt-8">
                     <div className="flex gap-6">
-                        <SocialIcon icon={<Instagram size={28} />} />
-                        <SocialIcon icon={<Linkedin size={28} />} />
-                        <SocialIcon icon={<Github size={28} />} />
+                        <SocialIcon href="https://www.instagram.com/devert.in" icon={<Instagram size={28} />} />
+                        <SocialIcon href="https://youtube.com/@devert" icon={<Youtube size={28} />} />
+                        <SocialIcon href="#" icon={<Github size={28} />} />
                     </div>
                     <p className="font-mono text-xs text-gray-600">
                         © 2026 DEVERT.IN // SYSTEM_ONLINE
@@ -71,9 +71,9 @@ export function Footer() {
     );
 }
 
-function SocialIcon({ icon }) {
+function SocialIcon({ icon, href }) {
     return (
-        <a href="#" className="text-gray-400 hover:text-neon-cyan hover:scale-110 transition-all duration-300">
+        <a href={href} target="_blank" className="text-gray-400 hover:text-neon-cyan hover:scale-110 transition-all duration-300">
             {icon}
         </a>
     )

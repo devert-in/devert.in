@@ -129,58 +129,58 @@ export default function CoursesManager() {
 
         const realCourses = [
             {
-                title: "CS50's Introduction to Computer Science",
+                title: "Generative AI for Everyone",
                 level: "Beginner",
-                modules: 11,
-                duration: "12 Weeks",
-                platform: "Harvard edX",
-                description: "An introduction to the intellectual enterprises of computer science and the art of programming.",
-                thumbnail: "from-red-900 to-black"
-            },
-            {
-                title: "JavaScript Algorithms & Data Structures",
-                level: "Intermediate",
-                modules: 10,
-                duration: "300 Hours",
-                platform: "freeCodeCamp",
-                description: "Master the fundamentals of JavaScript including variables, arrays, objects, loops, and functions.",
-                thumbnail: "from-yellow-600 to-yellow-900"
-            },
-            {
-                title: "System Design for Beginners",
-                level: "Advanced",
-                modules: 20,
-                duration: "10 Hours",
-                platform: "Gaurav Sen",
-                description: "Learn how to design large-scale systems. Prepare for system design interviews.",
+                modules: 8,
+                duration: "6 Weeks",
+                platform: "DeepLearning.AI",
+                description: "Understand how Generative AI works, what it can do, and its potential risks and benefits. No coding required.",
                 thumbnail: "from-blue-900 to-black"
             },
             {
-                title: "Namaste JavaScript",
-                level: "Advanced",
-                modules: 18,
-                duration: "15 Hours",
-                platform: "Akshay Saini",
-                description: "Deep dive into JS internals: Hoisting, Closures, Promises, Async/Await and more.",
-                thumbnail: "from-yellow-500 to-orange-900"
-            },
-            {
-                title: "Spring Boot Masterclass",
+                title: "Google Cloud Skills Boost: GenAI Path",
                 level: "Intermediate",
-                modules: 25,
-                duration: "20 Hours",
-                platform: "Amigoscode",
-                description: "Build production ready applications with Spring Boot, the most popular Java Framework.",
-                thumbnail: "from-green-800 to-black"
+                modules: 10,
+                duration: "40 Hours",
+                platform: "Google Cloud",
+                description: "Official path to master Generative AI on Google Cloud. Covers LLMs, Palm API, and Vertex AI.",
+                thumbnail: "from-blue-600 to-blue-900"
             },
             {
-                title: "Deep Learning Specialization",
+                title: "CS50's Introduction to AI with Python",
+                level: "Intermediate",
+                modules: 7,
+                duration: "7 Weeks",
+                platform: "Harvard edX",
+                description: "Explore the concepts and algorithms at the foundation of modern artificial intelligence.",
+                thumbnail: "from-red-900 to-black"
+            },
+            {
+                title: "Machine Learning Specialization",
                 level: "Advanced",
-                modules: 5,
+                modules: 3,
                 duration: "3 Months",
-                platform: "Andrew Ng",
-                description: "Become a Deep Learning expert. Master Neural Networks, Drivers of AI, and more.",
+                platform: "Stanford Online",
+                description: "The most famous ML course, updated. Master the fundamentals of machine learning and how to use them.",
                 thumbnail: "from-purple-900 to-black"
+            },
+            {
+                title: "AWS Cloud Practitioner Essentials",
+                level: "Beginner",
+                modules: 12,
+                duration: "6 Hours",
+                platform: "AWS Training",
+                description: "Learn the fundamentals of the AWS Cloud to start your cloud journey. Essential for certification.",
+                thumbnail: "from-orange-600 to-black"
+            },
+            {
+                title: "Prompt Engineering for Developers",
+                level: "Intermediate",
+                modules: 9,
+                duration: "2 Hours",
+                platform: "OpenAI x DeepLearning.AI",
+                description: "Learn how to use Large Language Models (LLMs) to build powerful applications. Best for devs.",
+                thumbnail: "from-green-800 to-black"
             }
         ];
 
@@ -263,8 +263,8 @@ export default function CoursesManager() {
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
                                     <span className={`px-2 py-0.5 text-[10px] font-mono border ${course.level === 'Beginner' ? 'border-neon-green text-neon-green' :
-                                            course.level === 'Intermediate' ? 'border-yellow-500 text-yellow-500' :
-                                                'border-red-500 text-red-500'
+                                        course.level === 'Intermediate' ? 'border-yellow-500 text-yellow-500' :
+                                            'border-red-500 text-red-500'
                                         }`}>
                                         {course.level}
                                     </span>
