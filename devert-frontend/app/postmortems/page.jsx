@@ -63,7 +63,7 @@ export default function PostmortemsPage() {
     if (loading) {
         return (
             <div className="min-h-screen bg-[#050505] flex items-center justify-center text-neon-cyan font-mono animate-pulse">
-                LOADING_ARCHIVES...
+                Loading case studies...
             </div>
         );
     }
@@ -72,7 +72,7 @@ export default function PostmortemsPage() {
         <div className="min-h-screen bg-[#050505] text-white pt-24 pb-20 px-4 md:px-8">
             <div className="max-w-6xl mx-auto mb-6">
                 <Link href="/" className="text-gray-500 hover:text-white flex items-center transition-colors w-fit font-mono text-xs group">
-                    <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN_TO_BASE
+                    <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN HOME
                 </Link>
             </div>
 
@@ -82,13 +82,13 @@ export default function PostmortemsPage() {
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <div className="px-2 py-0.5 border border-neon-cyan/50 text-neon-cyan text-[10px] font-mono">
-                                ARCHIVE_ACTIVE
+                                ARCHIVE ACTIVE
                             </div>
                             <div className="px-2 py-0.5 border border-neon-green/50 text-neon-green text-[10px] font-mono">
-                                DATA_VERIFIED
+                                VERIFIED
                             </div>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-bold font-sans text-white mb-2">POSTMORTEM_ARCHIVE</h1>
+                        <h1 className="text-4xl md:text-5xl font-bold font-sans text-white mb-2">CASE STUDIES</h1>
                         <p className="font-mono text-gray-500 text-sm max-w-xl">
                             Analyze the failures and victories of past operations.
                             Treat this as a database of operational patterns.
@@ -139,7 +139,7 @@ export default function PostmortemsPage() {
                 <div className="grid grid-cols-1 gap-6">
                     {filteredData.length === 0 ? (
                         <div className="text-center py-20 text-gray-500 font-mono border border-white/10 border-dashed">
-                            NO RECORDS FOUND IN ARCHIVE.
+                            No case studies found.
                         </div>
                     ) : (
                         filteredData.map(pm => (
@@ -177,7 +177,7 @@ function PostmortemCard({ data, isExpanded, onToggle }) {
                         <span className={`font-mono text-xl font-bold ${isWon ? 'text-neon-green' : 'text-red-500'} flex items-center gap-2`}>
                             {data.status} {isWon ? <Trophy size={18} /> : <XCircle size={18} />}
                         </span>
-                        <span className="font-mono text-xs text-gray-400 bg-white/5 px-2 py-1">MISSION: {data.id}</span>
+                        <span className="font-mono text-xs text-gray-400 bg-white/5 px-2 py-1">PROJECT: {data.id}</span>
                         <span className="font-mono text-xs text-gray-500">{data.date}</span>
                     </div>
                     <h3 className="text-2xl font-bold font-sans text-white mb-2">{data.title}</h3>
@@ -219,7 +219,7 @@ function PostmortemCard({ data, isExpanded, onToggle }) {
                                 <div>
                                     <h4 className="text-sm font-mono text-gray-400 mb-3 flex items-center gap-2">
                                         <AlertTriangle size={14} className={isWon ? "text-neon-green" : "text-red-500"} />
-                                        {isWon ? "PRIMARY_WIN_FACTOR" : "PRIMARY_OUTCOME_FACTOR"}
+                                        {isWon ? "Primary Win Factor" : "Primary Outcome Factor"}
                                     </h4>
                                     <p className="text-white font-sans text-lg leading-relaxed border-l-2 pl-4 border-white/20">
                                         {isWon ? data.whyWon : data.whyLost}
@@ -229,7 +229,7 @@ function PostmortemCard({ data, isExpanded, onToggle }) {
                                 <div>
                                     <h4 className="text-sm font-mono text-gray-400 mb-3 flex items-center gap-2">
                                         <Activity size={14} />
-                                        {isWon ? "WINNING_SIGNALS" : "CRITICAL_MISTAKES"}
+                                        {isWon ? "Success Signals" : "Critical Mistakes"}
                                     </h4>
                                     <ul className="space-y-2">
                                         {(isWon ? (data.winningSignals || []) : (data.criticalMistakes || [])).map((item, i) => (
@@ -249,7 +249,7 @@ function PostmortemCard({ data, isExpanded, onToggle }) {
                                 <div>
                                     <h4 className="text-sm font-mono text-gray-400 mb-3 flex items-center gap-2">
                                         <Lightbulb size={14} className="text-neon-cyan" />
-                                        PATCH_IF_REDEPLOYED
+                                        Lessons Learned
                                     </h4>
                                     <ul className="space-y-2">
                                         {(data.patchIfRedeployed || []).map((item, i) => (
@@ -264,7 +264,7 @@ function PostmortemCard({ data, isExpanded, onToggle }) {
                                 <div>
                                     <h4 className="text-sm font-mono text-gray-400 mb-3 flex items-center gap-2">
                                         <Target size={14} />
-                                        FINAL_VERDICT
+                                        Final Verdict
                                     </h4>
                                     <div className="bg-white/5 p-4 border border-white/10 font-mono text-sm text-white">
                                         {data.verdict}

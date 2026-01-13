@@ -2,32 +2,44 @@
 
 import { useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, writeBatch, doc } from "firebase/firestore";
+import { collection, addDoc, writeBatch, doc, getDocs } from "firebase/firestore";
 
 const HACKATHONS = [
     {
-        title: "Global AI Challenge 2026",
-        description: "Build the next generation of AI agents. Focus on autonomous systems and ethical AI.",
-        date: "Feb 15 - Feb 17, 2026",
-        prizes: "$50,000 Prize Pool",
-        tags: ["AI/ML", "Python", "Agents"],
-        status: "OPEN"
+        title: "Global AI Hackathon 2025",
+        description: "Build AI applications for a cause. Winners will go to the MIT AI & Education Summit in Cambridge, MA.",
+        date: "Mar 03 - Apr 14, 2025",
+        prizes: "Trip to MIT AI Summit",
+        tags: ["AI", "Social Good", "MIT"],
+        status: "OPEN",
+        registrationUrl: "https://appinventor.mit.edu/"
     },
     {
-        title: "DeFi Spring Hack",
-        description: "Revolutionize finance with Web3. Build on Ethereum, Solana, or Polygon.",
-        date: "Mar 10 - Mar 12, 2026",
-        prizes: "$100,000 Prize Pool",
-        tags: ["Blockchain", "Solidity", "Rust"],
-        status: "UPCOMING"
+        title: "Open Hackathon 2025",
+        description: "Optimize applications across data center architectures. Focus on HPC and GPUs.",
+        date: "Jun 24 - Jul 03, 2025",
+        prizes: "Sponsorship & Cloud Credits",
+        tags: ["HPC", "GPU", "Optimization"],
+        status: "UPCOMING",
+        registrationUrl: "https://www.openhackathons.org/"
     },
     {
-        title: "Green Tech Summit",
-        description: "Sustainable solutions for a better planet. IoT and Data Science focus.",
-        date: "Jan 20 - Jan 22, 2026",
-        prizes: "$25,000 Prize Pool",
-        tags: ["IoT", "Data Science", "Hardware"],
-        status: "CLOSED"
+        title: "Raise Your Hack 2025",
+        description: "Solve real-world challenges in AI and Entrepreneurship. Finale in Paris.",
+        date: "Jul 04 - Jul 09, 2025",
+        prizes: "Paris Finale Invitation",
+        tags: ["AI", "Startup", "Paris"],
+        status: "UPCOMING",
+        registrationUrl: "https://lablab.ai/"
+    },
+    {
+        title: "ETHGlobal New Delhi 2026",
+        description: "The biggest Web3 hackathon in India. Build the decentralized future.",
+        date: "Feb 10 - Feb 12, 2026",
+        prizes: "$100,000+ Prize Pool",
+        tags: ["Web3", "Ethereum", "Crypto"],
+        status: "UPCOMING",
+        registrationUrl: "https://ethglobal.com/"
     }
 ];
 
@@ -153,37 +165,70 @@ const CONTESTS = [
 export default function AdminSeedPage() {
     const [status, setStatus] = useState("");
 
+    const handleCleanup = async () => {
+        setStatus("Cleaning external hackathons...");
+        try {
+            const batch = writeBatch(db);
+            const snapshot = await getDocs(collection(db, "hackathons"));
+            let deletedCount = 0;
+
+            snapshot.docs.forEach((doc) => {
+                const data = doc.data();
+                // Preserve DeVert events
+                if (!data.title.toLowerCase().includes('devert')) {
+                    batch.delete(doc.ref);
+                    deletedCount++;
+                }
+            });
+
+            if (deletedCount > 0) {
+                await batch.commit();
+                setStatus(`SUCCESS: Deleted ${deletedCount} external/duplicate hackathons. Now click SEED.`);
+            } else {
+                setStatus("No external hackathons found to delete.");
+            }
+        } catch (e) {
+            console.error(e);
+            setStatus("ERROR: " + e.message);
+        }
+    };
+
     const handleSeed = async () => {
         setStatus("Seeding...");
         try {
             const batch = writeBatch(db);
 
+            // Helper to generate deterministic IDs from titles
+            // e.g. "Global AI Hackathon 2025" -> "global-ai-hackathon-2025"
+            // This prevents duplicates if you click seed multiple times.
+            const createId = (str) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
             // Hackathons
             HACKATHONS.forEach(hack => {
-                const ref = doc(collection(db, "hackathons"));
+                const ref = doc(db, "hackathons", createId(hack.title));
                 batch.set(ref, hack);
             });
 
             // Courses
             COURSES.forEach(course => {
-                const ref = doc(collection(db, "courses"));
+                const ref = doc(db, "courses", createId(course.title));
                 batch.set(ref, course);
             });
 
-            // Postmortems
+            // Postmortems (Use existing explicit ID)
             POSTMORTEMS.forEach(pm => {
-                const ref = doc(collection(db, "postmortems"));
+                const ref = doc(db, "postmortems", pm.id);
                 batch.set(ref, pm);
             });
 
             // Contests (Wargames)
             CONTESTS.forEach(contest => {
-                const ref = doc(collection(db, "contests"));
+                const ref = doc(db, "contests", createId(contest.title));
                 batch.set(ref, contest);
             });
 
             await batch.commit();
-            setStatus("SUCCESS: Database populated!");
+            setStatus("SUCCESS: Database populated! (Idempotent: No duplicates will be created)");
         } catch (e) {
             console.error(e);
             setStatus("ERROR: " + e.message);
@@ -191,18 +236,26 @@ export default function AdminSeedPage() {
     };
 
     return (
-        <div className="min-h-screen bg-black text-white p-20 flex flex-col items-center">
+        <div className="min-h-screen bg-black text-white p-20 pt-28 flex flex-col items-center">
             <h1 className="text-3xl font-bold mb-8">Admin Database Seeder</h1>
             <p className="mb-8 text-gray-400 max-w-md text-center">
                 Clicking this will write dummy data (Hackathons & Courses) to your Firestore database.
                 Ensure you are logged in if rules require it.
             </p>
-            <button
-                onClick={handleSeed}
-                className="bg-neon-green text-black px-8 py-4 font-bold font-mono hover:opacity-90"
-            >
-                SEED DATABASE
-            </button>
+            <div className="flex gap-4">
+                <button
+                    onClick={handleCleanup}
+                    className="bg-red-500/10 border border-red-500 text-red-500 px-8 py-4 font-bold font-mono hover:bg-red-500 hover:text-black transition-colors"
+                >
+                    1. CLEAN OLD DATA
+                </button>
+                <button
+                    onClick={handleSeed}
+                    className="bg-neon-green text-black px-8 py-4 font-bold font-mono hover:opacity-90 transition-colors"
+                >
+                    2. SEED DATABASE
+                </button>
+            </div>
             {status && (
                 <div className="mt-8 font-mono text-neon-cyan border border-neon-cyan p-4">
                     {status}

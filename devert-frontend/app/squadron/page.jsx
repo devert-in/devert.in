@@ -109,7 +109,7 @@ export default function SquadronPage() {
             <div className="max-w-7xl mx-auto relative z-10">
                 <div className="mb-6">
                     <Link href="/" className="text-gray-500 hover:text-white flex items-center transition-colors w-fit font-mono text-xs group">
-                        <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN_TO_BASE
+                        <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN HOME
                     </Link>
                 </div>
 
@@ -117,14 +117,13 @@ export default function SquadronPage() {
                 <div className="flex flex-col md:flex-row justify-between items-end mb-12 border-b border-white/10 pb-6">
                     <div>
                         <div className="flex items-center gap-2 mb-2 text-neon-green font-mono text-xs animate-pulse">
-                            <Wifi size={14} /> SATELLITE_UPLINK_ESTABLISHED
+                            <Wifi size={14} /> SYSTEM: ONLINE
                         </div>
                         <h1 className="text-4xl md:text-6xl font-bold font-sans mb-2 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">
-                            SQUADRON_LINK
+                            FIND TEAMMATES
                         </h1>
                         <p className="text-gray-400 font-mono text-sm max-w-xl">
-                            &gt; INITIALIZING MATCHMAKING PROTOCOL...<br />
-                            &gt; LOCATING COMPATIBLE OPERATIVES IN YOUR SECTOR.
+                            Connect with developers. Build your squad. Ship products.
                         </p>
                     </div>
                     <div className="mt-6 md:mt-0">
@@ -132,7 +131,7 @@ export default function SquadronPage() {
                             onClick={() => setIsModalOpen(true)}
                             className="bg-neon-cyan text-black px-6 py-3 font-bold font-mono text-sm flex items-center hover:bg-white transition-colors"
                         >
-                            <Zap size={16} className="mr-2" /> BROADCAST_SIGNAL
+                            <UserPlus size={16} className="mr-2" /> CREATE PROFILE
                         </button>
                     </div>
                 </div>
@@ -168,13 +167,13 @@ export default function SquadronPage() {
                 {/* Operatives Grid */}
                 {loading ? (
                     <div className="text-center py-20 text-neon-cyan font-mono animate-pulse">
-                        SCANNING_SECTOR...
+                        LOADING PROFILES...
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredOperatives.length === 0 ? (
                             <div className="col-span-full text-center py-20 border border-white/10 border-dashed text-gray-500 font-mono">
-                                NO_OPERATIVES_FOUND_IN_RANGE. BROADCAST_SIGNAL_TO_START.
+                                NO PROFILES FOUND. CREATE YOUR PROFILE TO START.
                             </div>
                         ) : (
                             filteredOperatives.map((op) => (

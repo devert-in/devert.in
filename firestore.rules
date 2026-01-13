@@ -10,7 +10,8 @@ service cloud.firestore {
     // Hackathons: Anyone can read, only Admins can write
     match /hackathons/{hackathonId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']));
     }
 
     // Courses: Anyone can read, only Admins can write

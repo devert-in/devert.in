@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Calendar, Code, Plus, X, Lock, Shield, CheckCircle, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { collection, getDocs, addDoc } from "firebase/firestore";
@@ -9,13 +10,16 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { Copy } from "lucide-react";
 
 export default function HackathonsPage() {
     const { user } = useAuth();
+    const router = useRouter();
     const [hackathons, setHackathons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("ALL"); // ALL, OPEN, UPCOMING, CLOSED
     const [dialog, setDialog] = useState({ show: false, message: "", type: "info" });
+    const [shareMenuOpen, setShareMenuOpen] = useState(null); // ID of the hackathon with open share menu
 
     // Hosting Modal State
     const [isHostModalOpen, setIsHostModalOpen] = useState(false);
@@ -36,7 +40,9 @@ export default function HackathonsPage() {
                     id: doc.id,
                     ...doc.data()
                 }));
-                setHackathons(data);
+                // Sort by creation or date if needed, but for now just raw data. 
+                // Admin can control order via dates or we Sort by date descending
+                setHackathons(data.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)));
             } catch (error) {
                 console.error("Error fetching hackathons:", error);
             } finally {
@@ -119,7 +125,7 @@ export default function HackathonsPage() {
                     className="mb-12"
                 >
                     <h1 className="text-4xl md:text-6xl font-bold font-sans mb-6">
-                        ACTIVE_OPERATIONS <span className="text-neon-cyan">_</span>
+                        ACTIVE HACKATHONS <span className="text-neon-cyan">_</span>
                     </h1>
 
                     {/* Filter Tabs */}
@@ -158,7 +164,15 @@ export default function HackathonsPage() {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: i * 0.1 }}
-                                    className="group relative p-6 bg-white/5 border border-white/10 hover:border-neon-cyan transition-colors"
+
+                                    onClick={() => {
+                                        if (hack.isSpecialEvent) {
+                                            router.push("/challenge");
+                                        } else {
+                                            router.push(`/hackathons/${hack.id}`);
+                                        }
+                                    }}
+                                    className="group relative p-6 bg-white/5 border border-white/10 hover:border-neon-cyan transition-colors cursor-pointer"
                                 >
                                     <div className="absolute top-0 right-0 p-2">
                                         <span className={`text-xs font-mono px-2 py-1 rounded ${hack.status === 'OPEN' ? 'bg-neon-green/20 text-neon-green' :
@@ -187,24 +201,51 @@ export default function HackathonsPage() {
                                     <div className="pt-6 border-t border-white/10 flex justify-between items-center">
                                         <span className="text-neon-green font-mono text-sm">{hack.prizes}</span>
                                         <div className="flex gap-2">
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShareMenuOpen(shareMenuOpen === hack.id ? null : hack.id);
+                                                    }}
+                                                    className={`bg-white/5 hover:bg-white/10 text-gray-400 p-2 transition-all relative z-10 ${shareMenuOpen === hack.id ? 'bg-white/20 text-white' : ''}`}
+                                                    title="Share Operation"
+                                                >
+                                                    <Share2 size={16} />
+                                                </button>
+                                                {shareMenuOpen === hack.id && (
+                                                    <div className="absolute bottom-full right-0 mb-2 w-32 bg-[#0a0a0a] border border-white/20 shadow-xl z-20 flex flex-col animate-in fade-in zoom-in-95 duration-100">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const link = hack.isSpecialEvent
+                                                                    ? `${window.location.origin}/challenge`
+                                                                    : `${window.location.origin}/hackathons/${hack.id}`;
+                                                                navigator.clipboard.writeText(link);
+                                                                setDialog({ show: true, message: "LINK_COPIED", type: "success" });
+                                                                setShareMenuOpen(null);
+                                                            }}
+                                                            className="px-4 py-2 text-xs font-mono text-gray-300 hover:text-white hover:bg-white/10 text-left flex items-center gap-2"
+                                                        >
+                                                            <Copy size={12} /> COPY_LINK
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                             <button
-                                                onClick={() => {
-                                                    const link = typeof window !== 'undefined' ? `${window.location.origin}/hackathons/${hack.id}` : hack.registrationLink;
-                                                    const text = `🚀 Join me in the '${hack.title}' hackathon on Devert!\n\n${hack.description}\n\n👉 Apply here: ${link}`;
-                                                    navigator.clipboard.writeText(text);
-                                                    setDialog({ show: true, message: "LINK_COPIED_TO_CLIPBOARD", type: "success" });
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (hack.status === 'UPCOMING') return;
+                                                    if (hack.isSpecialEvent) router.push("/challenge");
+                                                    else router.push(`/hackathons/${hack.id}`);
                                                 }}
-                                                className="bg-white/5 hover:bg-white/10 text-gray-400 p-2 transition-all"
-                                                title="Share Operation"
+                                                disabled={hack.status === 'UPCOMING'}
+                                                className={`px-4 py-2 text-xs font-mono tracking-wider transition-all cursor-pointer inline-block ${hack.status === 'UPCOMING'
+                                                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
+                                                    : 'bg-white/10 hover:bg-neon-cyan/20 hover:text-neon-cyan text-white'
+                                                    }`}
                                             >
-                                                <Share2 size={16} />
+                                                {hack.status === 'UPCOMING' ? 'COMING SOON' : 'VIEW DETAILS ->'}
                                             </button>
-                                            <Link
-                                                href={`/hackathons/${hack.id}`}
-                                                className="bg-white/10 hover:bg-neon-cyan/20 hover:text-neon-cyan text-white px-4 py-2 text-xs font-mono tracking-wider transition-all cursor-pointer inline-block"
-                                            >
-                                                INITIATE -&gt;
-                                            </Link>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -311,6 +352,6 @@ export default function HackathonsPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 }

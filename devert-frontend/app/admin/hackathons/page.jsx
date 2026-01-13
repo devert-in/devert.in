@@ -8,7 +8,10 @@ import {
     addDoc,
     updateDoc,
     deleteDoc,
-    doc
+    doc,
+    query,
+    where,
+    writeBatch
 } from "firebase/firestore";
 import {
     Plus,
@@ -21,7 +24,8 @@ import {
     Tag,
     CheckCircle,
     Shield,
-    Database
+    Database,
+    Star
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
@@ -39,10 +43,13 @@ export default function HackathonsManager() {
         title: "",
         registrationLink: "",
         description: "",
-        date: "",
+        startDate: "",
+        endDate: "",
+        registrationDeadline: "",
         prizes: "",
         tags: "",
-        status: "UPCOMING"
+        status: "UPCOMING",
+        isFeatured: false
     });
 
     // Fetch Data
@@ -73,10 +80,13 @@ export default function HackathonsManager() {
             title: "",
             registrationLink: "",
             description: "",
-            date: "",
+            startDate: "",
+            endDate: "",
+            registrationDeadline: "",
             prizes: "",
             tags: "",
-            status: "UPCOMING"
+            status: "UPCOMING",
+            isFeatured: false
         });
         setIsModalOpen(true);
     };
@@ -87,10 +97,13 @@ export default function HackathonsManager() {
             title: hack.title,
             registrationLink: hack.registrationLink || "",
             description: hack.description,
-            date: hack.date,
+            startDate: hack.startDate || hack.date || "", // Fallback to old 'date' field
+            endDate: hack.endDate || "",
+            registrationDeadline: hack.registrationDeadline || "",
             prizes: hack.prizes,
-            tags: hack.tags.join(", "), // Convert array to string for input
-            status: hack.status
+            tags: hack.tags ? hack.tags.join(", ") : "",
+            status: hack.status,
+            isFeatured: hack.isFeatured || false
         });
         setIsModalOpen(true);
     };
@@ -110,9 +123,21 @@ export default function HackathonsManager() {
     const handleSave = async (e) => {
         e.preventDefault();
 
+        // If setting as featured, unfeature others (optional but good UX)
+        if (formData.isFeatured) {
+            const batch = writeBatch(db);
+            hackathons.forEach(h => {
+                if (h.isFeatured && h.id !== currentHackathon?.id) {
+                    batch.update(doc(db, "hackathons", h.id), { isFeatured: false });
+                }
+            });
+            await batch.commit();
+        }
+
         const dataToSave = {
             ...formData,
             tags: formData.tags.split(",").map(t => t.trim()).filter(t => t), // Clean tags
+            date: formData.startDate, // Keep legacy date field synced with start date for backward compatibility
             updatedAt: new Date().toISOString()
         };
 
@@ -123,9 +148,11 @@ export default function HackathonsManager() {
                 await updateDoc(hackRef, dataToSave);
 
                 // Optimistic UI update
-                setHackathons(prev => prev.map(h =>
-                    h.id === currentHackathon.id ? { ...h, ...dataToSave } : h
-                ));
+                setHackathons(prev => prev.map(h => {
+                    if (h.id === currentHackathon.id) return { ...h, ...dataToSave };
+                    if (formData.isFeatured && h.isFeatured) return { ...h, isFeatured: false }; // Unfeature others in UI
+                    return h;
+                }));
             } else {
                 // Create
                 const docRef = await addDoc(collection(db, "hackathons"), {
@@ -133,9 +160,16 @@ export default function HackathonsManager() {
                     createdAt: new Date().toISOString()
                 });
 
-                setHackathons(prev => [...prev, { id: docRef.id, ...dataToSave }]);
+                setHackathons(prev => {
+                    const newList = [...prev, { id: docRef.id, ...dataToSave }];
+                    if (formData.isFeatured) {
+                        return newList.map(h => h.id === docRef.id ? h : { ...h, isFeatured: false });
+                    }
+                    return newList;
+                });
             }
             setIsModalOpen(false);
+            setDialog({ show: true, message: "Database Updated Successfully", type: "success" });
         } catch (error) {
             console.error("Error saving hackathon:", error);
             setDialog({ show: true, message: "Failed to save hackathon: " + error.message, type: "error" });
@@ -146,17 +180,17 @@ export default function HackathonsManager() {
         if (!confirm("WARNING: This will DELETE ALL existing hackathons and replace them with 9 REAL entries. Proceed?")) return;
 
         const realHackathons = [
-            { title: "The DeVert Cup 2026", registrationLink: "https://cup.devert.in", description: "The World Cup of Coding. Compete globally to claim the ultimate trophy and the title of #1 Developer.", date: "2026-06-15T09:00:00.000Z", prizes: "₹10,00,000 + Trophy", tags: ["Competitive Coding", "Global", "Flagship"], status: "UPCOMING" },
-            { title: "DeVert Innovation Challenge", registrationLink: "https://innovation.devert.in", description: "Innovate Today. Define Tomorrow. Solve real-world problems using tech.", date: "2026-04-10T09:00:00.000Z", prizes: "Exclusive Swag + Certs", tags: ["Innovation", "Startup", "Social Impact"], status: "OPEN" },
-            { title: "Hack For Tomorrow 2025", registrationLink: "https://hack2skill.com", description: "An offline hackathon with no restrictions on themes. Build for the future.", date: "2025-05-15T09:00:00.000Z", prizes: "₹2,00,000", tags: ["Open Innovation", "Offline"], status: "UPCOMING" },
-            { title: "CodeZen Hackathon 2025", registrationLink: "https://devfolio.co", description: "36-hour event focusing on innovation, collaboration, and learning in New Delhi.", date: "2025-02-28T09:00:00.000Z", prizes: "₹50,00,000", tags: ["Innovation", "Collaboration"], status: "UPCOMING" },
-            { title: "Mumbai Hacks 2025", registrationLink: "https://mumbaihacks.in", description: "India's premier hackathon with Nvidia, Meta, and Google. Huge prize pool.", date: "2025-08-13T09:00:00.000Z", prizes: "₹50,00,000", tags: ["GenAI", "Nvidia", "Meta"], status: "UPCOMING" },
-            { title: "DUHacks 5.0", registrationLink: "https://duhacks.tech", description: "A major online hackathon connecting developers globally.", date: "2026-01-23T09:00:00.000Z", prizes: "Swag & Cash", tags: ["Web3", "AI", "Open Source"], status: "UPCOMING" },
-            { title: "Hack-O-Knight", registrationLink: "https://hackoknight.dev", description: "14-hour hackathon at SYTRON'24, organized by IEEE IEM Kolkata.", date: "2026-02-18T09:00:00.000Z", prizes: "₹1,00,000", tags: ["Blockchain", "AI/ML", "IoT"], status: "UPCOMING" },
-            { title: "Juspay Hiring Challenge 2025", registrationLink: "https://juspay.in/careers", description: "Exclusive hiring challenge for 2026 grads. Solve hard problems, get hired.", date: "2025-07-01T09:00:00.000Z", prizes: "CTC 27 LPA", tags: ["Hiring", "Algorithmic", "Backend"], status: "OPEN" },
-            { title: "Adobe India Hackathon 2025", registrationLink: "https://adobe.com/careers", description: "Innovate with Adobe tools. Open to B.Tech/M.Tech students.", date: "2025-07-11T09:00:00.000Z", prizes: "₹1L/mo Internships", tags: ["GenAI", "Creative Cloud"], status: "OPEN" },
-            { title: "Smart India Hackathon 2026", registrationLink: "https://sih.gov.in", description: "World's biggest open innovation model. Solve national problems.", date: "2026-06-01T09:00:00.000Z", prizes: "₹1 L per problem", tags: ["GovTech", "Smart City", "Hardware"], status: "UPCOMING" },
-            { title: "L'Oréal Brandstorm 2026", registrationLink: "https://brandstorm.loreal.com", description: "Disrupt beauty tech. Global innovation competition.", date: "2025-11-07T09:00:00.000Z", prizes: "Intrapreneurship in Paris", tags: ["Innovation", "Sustainability", "Business"], status: "UPCOMING" }
+            { title: "The DeVert Cup 2026", registrationLink: "https://cup.devert.in", description: "The World Cup of Coding. Compete globally to claim the ultimate trophy and the title of #1 Developer.", startDate: "2026-06-15T09:00:00.000Z", endDate: "2026-06-20T18:00:00.000Z", registrationDeadline: "2026-06-01T23:59:00.000Z", prizes: "₹10,00,000 + Trophy", tags: ["Competitive Coding", "Global", "Flagship"], status: "UPCOMING", isFeatured: false },
+            { title: "DeVert Innovation Challenge", registrationLink: "https://innovation.devert.in", description: "Innovate Today. Define Tomorrow. Solve real-world problems using tech.", startDate: "2026-04-10T09:00:00.000Z", endDate: "2026-04-12T18:00:00.000Z", registrationDeadline: "2026-03-31T23:59:00.000Z", prizes: "Exclusive Swag + Certs", tags: ["Innovation", "Startup", "Social Impact"], status: "OPEN", isFeatured: true, isSpecialEvent: true },
+            { title: "Hack For Tomorrow 2025", registrationLink: "https://hack2skill.com", description: "An offline hackathon with no restrictions on themes. Build for the future.", startDate: "2025-05-15T09:00:00.000Z", endDate: "2025-05-16T18:00:00.000Z", registrationDeadline: "2025-05-01T23:59:00.000Z", prizes: "₹2,00,000", tags: ["Open Innovation", "Offline"], status: "UPCOMING", isFeatured: false },
+            { title: "CodeZen Hackathon 2025", registrationLink: "https://devfolio.co", description: "36-hour event focusing on innovation, collaboration, and learning in New Delhi.", startDate: "2025-02-28T09:00:00.000Z", endDate: "2025-03-01T21:00:00.000Z", registrationDeadline: "2025-02-20T23:59:00.000Z", prizes: "₹50,00,000", tags: ["Innovation", "Collaboration"], status: "UPCOMING", isFeatured: false },
+            { title: "Mumbai Hacks 2025", registrationLink: "https://mumbaihacks.in", description: "India's premier hackathon with Nvidia, Meta, and Google. Huge prize pool.", startDate: "2025-08-13T09:00:00.000Z", endDate: "2025-08-14T18:00:00.000Z", registrationDeadline: "2025-08-01T23:59:00.000Z", prizes: "₹50,00,000", tags: ["GenAI", "Nvidia", "Meta"], status: "UPCOMING", isFeatured: false },
+            { title: "DUHacks 5.0", registrationLink: "https://duhacks.tech", description: "A major online hackathon connecting developers globally.", startDate: "2026-01-23T09:00:00.000Z", endDate: "2026-01-25T18:00:00.000Z", registrationDeadline: "2026-01-15T23:59:00.000Z", prizes: "Swag & Cash", tags: ["Web3", "AI", "Open Source"], status: "UPCOMING", isFeatured: false },
+            { title: "Hack-O-Knight", registrationLink: "https://hackoknight.dev", description: "14-hour hackathon at SYTRON'24, organized by IEEE IEM Kolkata.", startDate: "2026-02-18T09:00:00.000Z", endDate: "2026-02-18T23:00:00.000Z", registrationDeadline: "2026-02-10T23:59:00.000Z", prizes: "₹1,00,000", tags: ["Blockchain", "AI/ML", "IoT"], status: "UPCOMING", isFeatured: false },
+            { title: "Juspay Hiring Challenge 2025", registrationLink: "https://juspay.in/careers", description: "Exclusive hiring challenge for 2026 grads. Solve hard problems, get hired.", startDate: "2025-07-01T09:00:00.000Z", endDate: "2025-07-02T18:00:00.000Z", registrationDeadline: "2025-06-25T23:59:00.000Z", prizes: "CTC 27 LPA", tags: ["Hiring", "Algorithmic", "Backend"], status: "OPEN", isFeatured: false },
+            { title: "Adobe India Hackathon 2025", registrationLink: "https://adobe.com/careers", description: "Innovate with Adobe tools. Open to B.Tech/M.Tech students.", startDate: "2025-07-11T09:00:00.000Z", endDate: "2025-07-13T18:00:00.000Z", registrationDeadline: "2025-06-30T23:59:00.000Z", prizes: "₹1L/mo Internships", tags: ["GenAI", "Creative Cloud"], status: "OPEN", isFeatured: false },
+            { title: "Smart India Hackathon 2026", registrationLink: "https://sih.gov.in", description: "World's biggest open innovation model. Solve national problems.", startDate: "2026-06-01T09:00:00.000Z", endDate: "2026-06-03T18:00:00.000Z", registrationDeadline: "2026-05-15T23:59:00.000Z", prizes: "₹1 L per problem", tags: ["GovTech", "Smart City", "Hardware"], status: "UPCOMING", isFeatured: false },
+            { title: "L'Oréal Brandstorm 2026", registrationLink: "https://brandstorm.loreal.com", description: "Disrupt beauty tech. Global innovation competition.", startDate: "2025-11-07T09:00:00.000Z", endDate: "2025-11-07T18:00:00.000Z", registrationDeadline: "2025-10-25T23:59:00.000Z", prizes: "Intrapreneurship in Paris", tags: ["Innovation", "Sustainability", "Business"], status: "UPCOMING", isFeatured: false }
         ];
 
         setLoading(true);
@@ -170,11 +204,12 @@ export default function HackathonsManager() {
             const addPromises = realHackathons.map(hack =>
                 addDoc(collection(db, "hackathons"), {
                     ...hack,
+                    date: hack.startDate, // Legacy support
                     createdAt: new Date().toISOString()
                 })
             );
             await Promise.all(addPromises);
-            setDialog({ show: true, message: "Use 'Refreshed'", type: "success" });
+            setDialog({ show: true, message: "Database Refreshed with PRO Seed Data", type: "success" });
             fetchHackathons();
         } catch (error) {
             console.error("Seeding failed:", error);
@@ -233,7 +268,7 @@ export default function HackathonsManager() {
                     {hackathons.map((hack) => (
                         <div
                             key={hack.id}
-                            className="bg-black/40 border border-white/10 p-6 flex flex-col md:flex-row justify-between items-start md:items-center hover:border-white/30 transition-colors group"
+                            className={`bg-black/40 border p-6 flex flex-col md:flex-row justify-between items-start md:items-center hover:border-white/30 transition-colors group ${hack.isFeatured ? 'border-neon-green/50 bg-neon-green/5' : 'border-white/10'}`}
                         >
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
@@ -243,13 +278,18 @@ export default function HackathonsManager() {
                                         }`}>
                                         {hack.status}
                                     </span>
+                                    {hack.isFeatured && (
+                                        <span className="px-2 py-0.5 text-[10px] font-mono bg-neon-green text-black font-bold flex items-center">
+                                            <Star size={10} className="mr-1 fill-black" /> FEATURED
+                                        </span>
+                                    )}
                                     <h3 className="text-xl font-bold font-sans text-white">{hack.title}</h3>
                                 </div>
                                 <p className="text-gray-400 text-sm mb-3 max-w-2xl">{hack.description}</p>
                                 <div className="flex flex-wrap gap-4 text-xs font-mono text-gray-500">
-                                    <span className="flex items-center"><Calendar size={12} className="mr-1" /> {hack.date}</span>
+                                    <span className="flex items-center"><Calendar size={12} className="mr-1" /> {hack.startDate ? new Date(hack.startDate).toLocaleDateString() : hack.date}</span>
                                     <span className="flex items-center"><Trophy size={12} className="mr-1" /> {hack.prizes}</span>
-                                    <span className="flex items-center"><Tag size={12} className="mr-1" /> {hack.tags && hack.tags.join(", ")}</span>
+                                    <span className="flex items-center"><Tag size={12} className="mr-1" /> {hack.tags && (Array.isArray(hack.tags) ? hack.tags.join(", ") : hack.tags)}</span>
                                 </div>
                             </div>
 
@@ -296,7 +336,7 @@ export default function HackathonsManager() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/20 p-8 shadow-2xl z-10"
+                            className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/20 p-8 shadow-2xl z-10 max-h-[90vh] overflow-y-auto"
                         >
                             <button
                                 onClick={() => setIsModalOpen(false)}
@@ -311,19 +351,58 @@ export default function HackathonsManager() {
                             </h2>
 
                             <form onSubmit={handleSave} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-mono text-gray-400 mb-1">EVENT TITLE</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.title}
+                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans"
+                                    />
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-mono text-gray-400 mb-1">DATE / TIME</label>
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">START DATE</label>
                                         <DatePicker
-                                            selected={formData.date ? new Date(formData.date) : null}
-                                            onChange={(date) => setFormData({ ...formData, date: date ? date.toISOString() : "" })}
+                                            selected={formData.startDate ? new Date(formData.startDate) : null}
+                                            onChange={(date) => setFormData({ ...formData, startDate: date ? date.toISOString() : "" })}
                                             showTimeSelect
                                             timeFormat="HH:mm"
                                             timeIntervals={15}
-                                            dateFormat="MMMM d, yyyy h:mm aa"
-                                            placeholderText="Timeline..."
-                                            className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans"
-                                            calendarClassName="cyberpunk-datepicker shadow-2xl"
+                                            dateFormat="MM/dd/yyyy h:mm aa"
+                                            placeholderText="Start..."
+                                            className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">END DATE</label>
+                                        <DatePicker
+                                            selected={formData.endDate ? new Date(formData.endDate) : null}
+                                            onChange={(date) => setFormData({ ...formData, endDate: date ? date.toISOString() : "" })}
+                                            showTimeSelect
+                                            timeFormat="HH:mm"
+                                            timeIntervals={15}
+                                            dateFormat="MM/dd/yyyy h:mm aa"
+                                            placeholderText="End..."
+                                            className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">DEADLINE</label>
+                                        <DatePicker
+                                            selected={formData.registrationDeadline ? new Date(formData.registrationDeadline) : null}
+                                            onChange={(date) => setFormData({ ...formData, registrationDeadline: date ? date.toISOString() : "" })}
+                                            showTimeSelect
+                                            timeFormat="HH:mm"
+                                            timeIntervals={15}
+                                            dateFormat="MM/dd/yyyy h:mm aa"
+                                            placeholderText="Deadline..."
+                                            className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans text-sm"
                                         />
                                     </div>
                                     <div>
@@ -334,12 +413,19 @@ export default function HackathonsManager() {
                                             className="w-full bg-white/5 border border-white/10 p-2 text-white focus:border-neon-cyan outline-none font-sans"
                                         >
                                             <option value="UPCOMING">UPCOMING</option>
-                                            <option value="OPEN">OPEN</option>
+                                            <option value="OPEN">OPEN / LIVE</option>
                                             <option value="CLOSED">CLOSED</option>
+                                            <option value="WAITLIST">WAITLIST</option>
                                         </select>
                                     </div>
                                 </div>
-                                {/* ... rest of form ... */}
+
+                                <div className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded cursor-pointer" onClick={() => setFormData(prev => ({ ...prev, isFeatured: !prev.isFeatured }))}>
+                                    <div className={`w-4 h-4 border flex items-center justify-center transition-colors ${formData.isFeatured ? 'bg-neon-green border-neon-green' : 'border-gray-500'}`}>
+                                        {formData.isFeatured && <div className="w-2 h-2 bg-black"></div>}
+                                    </div>
+                                    <span className="text-sm font-mono text-gray-300">FEATURE_ON_HOMEPAGE</span>
+                                </div>
 
                                 <div>
                                     <label className="block text-xs font-mono text-gray-400 mb-1">PRIZE POOL</label>
@@ -365,7 +451,7 @@ export default function HackathonsManager() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-mono text-gray-400 mb-1">REGISTRATION LINK</label>
+                                    <label className="block text-xs font-mono text-gray-400 mb-1">REGISTRATION LINK (Optional if internal)</label>
                                     <input
                                         type="text"
                                         placeholder="https://..."

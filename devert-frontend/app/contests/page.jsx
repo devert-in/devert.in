@@ -151,13 +151,13 @@ export default function IncubatorPage() {
                     <div>
                         <Link href="/" className="inline-flex items-center text-gray-400 hover:text-purple-400 transition-colors mb-4">
                             <ArrowLeft size={16} className="mr-2" />
-                            // RETURN_HQ
+                            // RETURN HOME
                         </Link>
                         <h1 className="text-4xl md:text-6xl font-bold font-sans mb-2">
-                            IDEA_INCUBATOR <span className="text-purple-500">_</span>
+                            IDEAS <span className="text-purple-500">_</span>
                         </h1>
                         <p className="text-gray-400 font-mono text-sm max-w-2xl">
-                            Where "I have an idea" meets "We built it". Submit moonshots. Build squads. Launch products.
+                            Share your moonshot ideas. Community votes. Builders build.
                         </p>
                     </div>
 
@@ -171,7 +171,7 @@ export default function IncubatorPage() {
                         }}
                         className="bg-purple-500/10 border border-purple-500 text-purple-400 px-6 py-3 font-mono text-xs font-bold flex items-center gap-2 hover:bg-purple-500 hover:text-black transition-all shadow-[0_0_20px_rgba(168,85,247,0.2)]"
                     >
-                        <Lightbulb size={18} /> SUBMIT_BLUEPRINT
+                        <Lightbulb size={18} /> SUBMIT IDEA
                     </button>
                 </div>
 
@@ -219,12 +219,12 @@ export default function IncubatorPage() {
                     {/* RIGHT COLUMN: Idea Feed (9 cols) */}
                     <div className="lg:col-span-9">
                         {loading ? (
-                            <div className="font-mono text-purple-500 animate-pulse">Scanning Neural Network...</div>
+                            <div className="font-mono text-purple-500 animate-pulse">Loading ideas...</div>
                         ) : (
                             <div className="space-y-4">
                                 {filteredIdeas.length === 0 ? (
                                     <div className="py-20 text-center border border-white/10 border-dashed text-gray-500 font-mono">
-                                        NO BLUEPRINTS DETECTED. BE THE ARCHITECT.
+                                        No ideas yet. Be the first to submit one.
                                     </div>
                                 ) : (
                                     filteredIdeas.map((idea, i) => (
@@ -250,18 +250,18 @@ export default function IncubatorPage() {
 
                                                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                                                         <div className="bg-black/20 p-3 rounded border border-white/5">
-                                                            <div className="text-[10px] font-mono text-red-400 mb-1">THE_PROBLEM</div>
+                                                            <div className="text-[10px] font-mono text-red-400 mb-1">THE PROBLEM</div>
                                                             <p className="text-sm text-gray-300">{idea.problem}</p>
                                                         </div>
                                                         <div className="bg-black/20 p-3 rounded border border-white/5 relative">
-                                                            <div className="text-[10px] font-mono text-neon-green mb-1">THE_SOLUTION</div>
+                                                            <div className="text-[10px] font-mono text-neon-green mb-1">THE SOLUTION</div>
                                                             {idea.solution ? (
                                                                 <p className="text-sm text-gray-300">{idea.solution}</p>
                                                             ) : (
                                                                 <div className="text-gray-500 text-xs font-mono italic flex flex-col items-center justify-center py-4 border border-dashed border-white/10 rounded">
-                                                                    <span>AWAITING_ARCHITECT</span>
+                                                                    <span>Awaiting Solution</span>
                                                                     <button className="mt-2 text-neon-green hover:underline">
-                                                                        [PROPOSE_SOLUTION]
+                                                                        [Propose Solution]
                                                                     </button>
                                                                 </div>
                                                             )}
@@ -331,12 +331,12 @@ export default function IncubatorPage() {
                                 <X size={20} />
                             </button>
 
-                            <h2 className="text-2xl font-bold font-sans mb-2 text-white">SUBMIT_BLUEPRINT</h2>
-                            <p className="text-gray-500 font-mono text-xs mb-6">Describe your moonshot. The community will vote to build it.</p>
+                            <h2 className="text-2xl font-bold font-sans mb-2 text-white">SUBMIT IDEA</h2>
+                            <p className="text-gray-500 font-mono text-xs mb-6">Describe your idea. The community will vote to build it.</p>
 
                             <form onSubmit={handleSubmitIdea} className="space-y-6">
                                 <div>
-                                    <label className="block text-gray-400 font-mono text-xs mb-1">PROJECT_CODENAME (Title)</label>
+                                    <label className="block text-gray-400 font-mono text-xs mb-1">Project Title</label>
                                     <input
                                         type="text"
                                         required
@@ -348,7 +348,7 @@ export default function IncubatorPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-red-400 font-mono text-xs mb-1">THE_PROBLEM</label>
+                                    <label className="block text-red-400 font-mono text-xs mb-1">The Problem</label>
                                     <textarea
                                         required
                                         value={ideaForm.problem}
@@ -363,7 +363,7 @@ export default function IncubatorPage() {
                                     disabled={submitting}
                                     className="w-full bg-purple-500 text-black font-bold font-mono py-4 mt-2 hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {submitting ? "UPLOADING..." : <><Rocket size={18} /> INITIALIZE_PROJECT</>}
+                                    {submitting ? "UPLOADING..." : <><Rocket size={18} /> SUBMIT IDEA</>}
                                 </button>
                             </form>
 

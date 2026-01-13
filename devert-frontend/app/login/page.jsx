@@ -44,8 +44,8 @@ export default function LoginPage() {
             {/* Grid Background */}
             <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none"></div>
 
-            <Link href="/" className="absolute top-10 left-10 text-gray-500 hover:text-white flex items-center transition-colors">
-                <ArrowLeft className="mr-2" size={16} /> RETURN
+            <Link href="/" className="absolute top-28 left-10 text-gray-500 hover:text-white flex items-center transition-colors">
+                <ArrowLeft className="mr-2" size={16} /> RETURN HOME
             </Link>
 
             <motion.div
@@ -58,10 +58,10 @@ export default function LoginPage() {
                 </div>
 
                 <h2 className="text-2xl font-bold font-sans text-center mb-2">
-                    {isLogin ? "SYSTEM_LOGIN" : "SYSTEM_REGISTRATION"}
+                    {isLogin ? "LOGIN" : "SIGN UP"}
                 </h2>
                 <p className="text-center font-mono text-gray-500 text-sm mb-8">
-                    {isLogin ? "Enter credentials to access mainframe." : "Create new identity credentials."}
+                    {isLogin ? "Enter your credentials to continue." : "Create a new account."}
                 </p>
 
                 {error && (
@@ -72,7 +72,7 @@ export default function LoginPage() {
 
                 <form onSubmit={handleAuth} className="space-y-6">
                     <div>
-                        <label className="block font-mono text-xs text-gray-400 mb-2">USER_ID (EMAIL)</label>
+                        <label className="block font-mono text-xs text-gray-400 mb-2">EMAIL</label>
                         <input
                             type="email"
                             value={email}
@@ -83,7 +83,7 @@ export default function LoginPage() {
                     </div>
 
                     <div>
-                        <label className="block font-mono text-xs text-gray-400 mb-2">PASSCODE</label>
+                        <label className="block font-mono text-xs text-gray-400 mb-2">PASSWORD</label>
                         <input
                             type="password"
                             value={password}
@@ -97,7 +97,7 @@ export default function LoginPage() {
                         type="submit"
                         className="w-full bg-neon-cyan/20 border border-neon-cyan text-neon-cyan py-3 font-bold font-mono hover:bg-neon-cyan hover:text-black transition-all duration-300 uppercase tracking-wider"
                     >
-                        {isLogin ? "AUTHENTICATE" : "INITIALIZE IDENTITY"}
+                        {isLogin ? "LOGIN" : "SIGN UP"}
                     </button>
 
                     <div className="relative flex py-2 items-center">
@@ -138,7 +138,7 @@ export default function LoginPage() {
                                 fill="#EA4335"
                             />
                         </svg>
-                        GOOGLE ACCESS
+                        CONTINUE WITH GOOGLE
                     </button>
                 </form>
 
@@ -147,7 +147,7 @@ export default function LoginPage() {
                         onClick={() => setIsLogin(!isLogin)}
                         className="text-xs font-mono text-gray-500 hover:text-neon-cyan underline decoration-dotted underline-offset-4"
                     >
-                        {isLogin ? "NO ACCESS? INITIALIZE PROTOCOL" : "ALREADY INITIALIZED? LOGIN"}
+                        {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login"}
                     </button>
                 </div>
 

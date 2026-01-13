@@ -11,7 +11,7 @@ export default function LabsPage() {
             {/* Background Grid */}
             <div className="absolute inset-0 grid-bg opacity-10 pointer-events-none"></div>
 
-            <div className="absolute top-8 left-8">
+            <div className="absolute top-28 left-8">
                 <Link href="/" className="text-gray-500 hover:text-white flex items-center transition-colors w-fit font-mono text-xs group">
                     <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN_TO_BASE
                 </Link>

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Zap, Target, Users, Calendar, Trophy, Gift, Award, Briefcase, GraduationCap, CheckCircle, Plus, X, Shield } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { collection, addDoc, query, where, getDocs, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, doc, setDoc, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function ChallengePage() {
@@ -17,6 +17,7 @@ export default function ChallengePage() {
 
     const [existingRegistration, setExistingRegistration] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [challengeEvent, setChallengeEvent] = useState(null);
 
     // Registration Form State
     const [formData, setFormData] = useState({
@@ -30,7 +31,20 @@ export default function ChallengePage() {
         if (user) {
             fetchRegistration();
         }
+        fetchEventStatus();
     }, [user]);
+
+    const fetchEventStatus = async () => {
+        try {
+            const q = query(collection(db, "hackathons"), where("isSpecialEvent", "==", true), limit(1));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                setChallengeEvent(querySnapshot.docs[0].data());
+            }
+        } catch (error) {
+            console.error("Error fetching event status:", error);
+        }
+    };
 
     const fetchRegistration = async () => {
         try {
@@ -81,7 +95,8 @@ export default function ChallengePage() {
     const notifyBackend = async () => {
         try {
             const leadMember = formData.members[0];
-            await fetch("http://localhost:8080/api/notify/challenge-connected", {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+            await fetch(`${apiUrl}/api/notify/challenge-connected`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -168,8 +183,8 @@ export default function ChallengePage() {
                 {/* Hero Header */}
                 <div className="mb-12 border-b border-white/10 pb-8">
                     <div className="flex items-center gap-3 mb-4">
-                        <span className="px-3 py-1 bg-red-500/10 text-red-500 text-[10px] font-mono rounded border border-red-500/20 animate-pulse">
-                            /// LIVE_EVENT
+                        <span className={`px-3 py-1 text-[10px] font-mono rounded border animate-pulse ${challengeEvent?.status === 'UPCOMING' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                            {challengeEvent?.status === 'UPCOMING' ? '/// COMING_SOON' : '/// LIVE_EVENT'}
                         </span>
                         <span className="text-gray-500 font-mono text-xs">GLOBAL_BROADCAST_ID: #DVC-2026</span>
                     </div>
@@ -264,8 +279,14 @@ export default function ChallengePage() {
                                         </div>
                                     </div>
                                 </div>
-                                <button onClick={() => setActiveTab("register")} className="mt-8 w-full py-4 bg-purple-600 hover:bg-purple-500 text-white font-bold font-mono transition-colors">
-                                    INITIATE_REGISTRATION
+                                <button
+                                    onClick={() => {
+                                        if (challengeEvent?.status !== 'UPCOMING') setActiveTab("register");
+                                    }}
+                                    disabled={challengeEvent?.status === 'UPCOMING'}
+                                    className={`mt-8 w-full py-4 font-bold font-mono transition-colors ${challengeEvent?.status === 'UPCOMING' ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' : 'bg-purple-600 hover:bg-purple-500 text-white'}`}
+                                >
+                                    {challengeEvent?.status === 'UPCOMING' ? 'REGISTRATION_LOCKED // COMING_SOON' : 'INITIATE_REGISTRATION'}
                                 </button>
                             </div>
                         </motion.div>

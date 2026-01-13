@@ -48,7 +48,7 @@ export default function BountiesPage() {
             <div className="max-w-6xl mx-auto relative z-10">
                 <div className="mb-6">
                     <Link href="/" className="text-gray-500 hover:text-white flex items-center transition-colors w-fit font-mono text-xs group">
-                        <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN_TO_BASE
+                        <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN HOME
                     </Link>
                 </div>
 
@@ -56,14 +56,13 @@ export default function BountiesPage() {
                 <div className="flex flex-col md:flex-row justify-between items-end mb-12 border-b border-white/10 pb-6">
                     <div>
                         <div className="flex items-center gap-2 mb-2 text-yellow-500 font-mono text-xs animate-pulse">
-                            <Zap size={14} /> LIVE_OPS_FEED
+                            <Zap size={14} /> LIVE FEED
                         </div>
                         <h1 className="text-4xl md:text-6xl font-bold font-sans mb-2 text-transparent bg-clip-text bg-gradient-to-r from-white to-yellow-500">
-                            MERCENARY_BOARD
+                            TASK BOARD
                         </h1>
                         <p className="text-gray-400 font-mono text-sm max-w-xl">
-                            &gt; CONTRACTS AVAILABLE FOR ELITE ENGINEERS.<br />
-                            &gt; EXECUTE TASKS. EARN XP. LEVEL UP.
+                            Open tasks for developers. Pick a task. Complete it. Get rewarded.
                         </p>
                     </div>
                 </div>
@@ -85,7 +84,7 @@ export default function BountiesPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                         <input
                             type="text"
-                            placeholder="SEARCH_CONTRACTS..."
+                            placeholder="SEARCH TASKS..."
                             className="w-full h-full bg-white/5 border border-white/10 py-2 pl-12 pr-4 text-white font-mono text-sm focus:border-yellow-500 outline-none transition-colors"
                         />
                     </div>
@@ -98,7 +97,7 @@ export default function BountiesPage() {
                     ))}
                     {filteredBounties.length === 0 && (
                         <div className="text-center py-20 border border-white/10 border-dashed text-gray-500 font-mono">
-                            NO_CONTRACTS_FOUND_IN_SECTOR
+                            NO TASKS FOUND
                         </div>
                     )}
                 </div>
@@ -148,7 +147,7 @@ function BountyRow({ data }) {
 
                 {data.status === 'OPEN' ? (
                     <button className="bg-neon-green text-black px-6 py-2 font-bold font-mono text-xs hover:bg-white transition-colors flex items-center gap-2">
-                        ACCEPT_CONTRACT <ArrowRight size={14} />
+                        ACCEPT TASK <ArrowRight size={14} />
                     </button>
                 ) : data.status === 'ASSIGNED' ? (
                     <div className="flex items-center gap-2 text-yellow-500 font-mono text-xs border border-yellow-500 px-3 py-1">

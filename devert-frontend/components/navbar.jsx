@@ -15,15 +15,15 @@ export function Navbar() {
     const pathname = usePathname();
     const { hasShownIntro } = useIntro();
 
-    if (pathname === "/" && !hasShownIntro) return null;
+    if ((pathname === "/" && !hasShownIntro) || pathname.startsWith("/admin")) return null;
 
     const navLinks = [
-        { name: "OPERATIONS", href: "/hackathons" },
-        { name: "INCUBATOR", href: "/contests" },
-        { name: "SQUADRON", href: "/squadron" },
-        { name: "BOUNTIES", href: "/bounties" },
-        { name: "POSTMORTEMS", href: "/postmortems" },
-        { name: "INTEL", href: "/courses" },
+        { name: "HACKATHONS", href: "/hackathons" },
+        { name: "IDEAS", href: "/contests" },
+        { name: "TEAMMATES", href: "/squadron" },
+        { name: "TASKS", href: "/bounties" },
+        { name: "CASE STUDIES", href: "/postmortems" },
+        { name: "COURSES", href: "/courses" },
     ];
 
     return (

@@ -13,7 +13,8 @@ import {
     Menu,
     X,
     Users,
-    Activity
+    Activity,
+    ArrowLeft
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -68,8 +69,14 @@ export default function AdminLayout({ children }) {
                 className="bg-black/80 backdrop-blur-md border-r border-white/10 flex-shrink-0 relative h-screen z-20 overflow-hidden"
             >
                 <div className="p-6">
-                    <h1 className="text-xl font-bold font-sans tracking-widest text-neon-cyan mb-1">DEVERT<span className="text-white">.ADMIN</span></h1>
-                    <p className="text-[10px] font-mono text-gray-500">SYSTEM_OVERRIDE_ACTIVE</p>
+                    <Link href="/" className="block group">
+                        <h1 className="text-xl font-bold font-sans tracking-widest text-neon-cyan mb-1 group-hover:opacity-80 transition-opacity">
+                            DEVERT<span className="text-white">.IN</span>
+                        </h1>
+                        <p className="text-[10px] font-mono text-gray-500 group-hover:text-neon-green transition-colors flex items-center gap-2">
+                            <ArrowLeft size={10} /> RETURN_HOME
+                        </p>
+                    </Link>
                 </div>
 
                 <nav className="mt-6 px-4 space-y-2">

@@ -35,7 +35,7 @@ export default function CoursesPage() {
             <div className="max-w-6xl mx-auto">
                 <Link href="/" className="inline-flex items-center text-gray-400 hover:text-neon-cyan mb-12 transition-colors">
                     <ArrowLeft size={20} className="mr-2" />
-          // RETURN_HOME
+          // RETURN HOME
                 </Link>
 
                 <motion.h1
@@ -43,11 +43,11 @@ export default function CoursesPage() {
                     animate={{ opacity: 1, x: 0 }}
                     className="text-4xl md:text-6xl font-bold font-sans mb-12"
                 >
-                    KNOWLEDGE_BASE <span className="text-neon-green">_</span>
+                    COURSES <span className="text-neon-green">_</span>
                 </motion.h1>
 
                 {loading ? (
-                    <div className="font-mono text-neon-green animate-pulse">DECRYPTING_MODULES...</div>
+                    <div className="font-mono text-neon-green animate-pulse">Loading courses...</div>
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {courses.map((course, i) => (

@@ -17,8 +17,20 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "Devert.in | The 1% Dev Roadmap",
-  description: "From Logic to Hosting. Join the squad building the future.",
+  title: "DeVert | The 1% Dev Roadmap & Coding Community",
+  description: "DeVert is the ultimate platform for developers to build real-world projects, join squads, and master the full stack. From logic to hosting - this is the DeVert way.",
+  keywords: ["DeVert", "Devert.in", "Devert Community", "Coding Roadmap", "Dev Squad", "Hackathons", "Full Stack Developer", "Coding Challenges"],
+  icons: {
+    icon: '/favicon.ico',
+  },
+  openGraph: {
+    title: 'DeVert | The 1% Dev Roadmap',
+    description: 'Join the DeVert squad. Build real projects. Master the stack.',
+    url: 'https://devert.in',
+    siteName: 'DeVert',
+    locale: 'en_US',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({
