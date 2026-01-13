@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: devert-backend
+    runtime: docker
+    region: singapore
+    plan: free
+    rootDir: devert-backend
+    envVars:
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: PORT
+        value: 8080
