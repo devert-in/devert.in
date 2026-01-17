@@ -9,9 +9,9 @@ const STACK = [
 
 export function StackMarquee() {
     return (
-        <section className="py-20 border-y border-white/5 bg-black/50 overflow-hidden relative">
-            <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-[#050505] to-transparent z-10" />
-            <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-[#050505] to-transparent z-10" />
+        <section className="py-20 border-y border-border bg-background overflow-hidden relative">
+            <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-background to-transparent z-10" />
+            <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-background to-transparent z-10" />
 
             <div className="flex w-max">
                 <motion.div
@@ -22,7 +22,7 @@ export function StackMarquee() {
                     {[...STACK, ...STACK, ...STACK, ...STACK].map((tech, i) => (
                         <span
                             key={i}
-                            className="text-3xl md:text-5xl font-bold font-sans text-gray-800 hover:text-neon-cyan transition-colors duration-300 cursor-crosshair select-none uppercase tracking-tighter"
+                            className="text-3xl md:text-5xl font-bold font-sans text-muted-foreground hover:text-neon-cyan transition-colors duration-300 cursor-crosshair select-none uppercase tracking-tighter"
                         >
                             {tech}
                         </span>

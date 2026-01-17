@@ -20,11 +20,20 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
+import FeatureGuard from "@/components/feature-guard";
 
 // DUMMY DATA - In production this would come from Firebase
 
 
 export default function PostmortemsPage() {
+    return (
+        <FeatureGuard feature="postmortems">
+            <PostmortemsPageContent />
+        </FeatureGuard>
+    );
+}
+
+function PostmortemsPageContent() {
     const [postmortems, setPostmortems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("ALL"); // ALL, WON, LOST
@@ -62,14 +71,14 @@ export default function PostmortemsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#050505] flex items-center justify-center text-neon-cyan font-mono animate-pulse">
+            <div className="min-h-screen bg-background flex items-center justify-center text-neon-cyan font-mono animate-pulse">
                 Loading case studies...
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white pt-24 pb-20 px-4 md:px-8">
+        <div className="min-h-screen bg-background text-foreground pt-24 pb-20 px-4 md:px-8">
             <div className="max-w-6xl mx-auto mb-6">
                 <Link href="/" className="text-gray-500 hover:text-white flex items-center transition-colors w-fit font-mono text-xs group">
                     <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN HOME
@@ -88,7 +97,7 @@ export default function PostmortemsPage() {
                                 VERIFIED
                             </div>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-bold font-sans text-white mb-2">CASE STUDIES</h1>
+                        <h1 className="text-4xl md:text-5xl font-bold font-sans text-white mb-2">POSTMORTEMS</h1>
                         <p className="font-mono text-gray-500 text-sm max-w-xl">
                             Analyze the failures and victories of past operations.
                             Treat this as a database of operational patterns.

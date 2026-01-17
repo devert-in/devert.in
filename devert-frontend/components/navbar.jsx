@@ -2,32 +2,56 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Terminal, Menu, X, User, LogOut } from "lucide-react";
-import { useState } from "react";
+import { Terminal, Menu, X, User, LogOut, Loader2, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePathname } from "next/navigation";
 import { useIntro } from "@/context/IntroContext";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { db } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 
 export function Navbar() {
+    // 1. All Hooks must be called unconditionally at the top level
     const [isOpen, setIsOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const { user, userData, logout } = useAuth();
     const pathname = usePathname();
     const { hasShownIntro } = useIntro();
 
-    if ((pathname === "/" && !hasShownIntro) || pathname.startsWith("/admin")) return null;
-
-    const navLinks = [
+    const DEFAULT_LINKS = [
+        { name: "ABOUT", href: "/about" },
         { name: "HACKATHONS", href: "/hackathons" },
-        { name: "IDEAS", href: "/contests" },
+        { name: "CONTESTS", href: "/contests" },
         { name: "TEAMMATES", href: "/squadron" },
-        { name: "TASKS", href: "/bounties" },
-        { name: "CASE STUDIES", href: "/postmortems" },
+        { name: "EXECUTION", href: "/execution" },
+        { name: "POSTMORTEMS", href: "/postmortems" },
         { name: "COURSES", href: "/courses" },
     ];
 
+    const [links, setLinks] = useState(DEFAULT_LINKS);
+
+    useEffect(() => {
+        let unsubscribe = () => { };
+        try {
+            unsubscribe = onSnapshot(doc(db, "system", "navigation"), (snapshot) => {
+                if (snapshot.exists() && snapshot.data().items) {
+                    setLinks(snapshot.data().items);
+                }
+            }, (error) => {
+                console.warn("Nav sync failed, using default:", error);
+            });
+        } catch (e) {
+            console.warn("Firestore not ready:", e);
+        }
+        return () => unsubscribe();
+    }, []);
+
+    // 2. Conditional Logic / Returns happen AFTER all hooks
+    if ((pathname === "/" && !hasShownIntro) || pathname.startsWith("/admin")) return null;
+
     return (
-        <nav className="fixed top-0 left-0 right-0 z-[100] border-b border-white/5 bg-[#050505]/80 backdrop-blur-md">
+        <nav className="fixed top-0 left-0 right-0 z-[100] border-b border-border shadow-sm bg-background/80 backdrop-blur-md">
             <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                 {/* Logo Area */}
                 <Link href="/" className="flex items-center gap-2 group">
@@ -41,22 +65,28 @@ export function Navbar() {
 
                 {/* Desktop Nav */}
                 <div className="hidden md:flex items-center gap-8">
-                    {navLinks.map((link) => (
-                        <Link
-                            key={link.name}
-                            href={link.href}
-                            className="font-mono text-sm text-gray-400 hover:text-white transition-colors relative group"
-                        >
-                            <span className="text-neon-cyan opacity-0 group-hover:opacity-100 transition-opacity absolute -left-4">&gt;</span>
-                            {link.name}
-                        </Link>
-                    ))}
+                    {links.map((link) => {
+                        const isActive = pathname === link.href;
+                        return (
+                            <Link
+                                key={link.name}
+                                href={link.href}
+                                target={link.external ? "_blank" : "_self"}
+                                className={`font-mono text-sm transition-colors relative group ${isActive ? "text-neon-cyan" : "text-gray-400 hover:text-foreground"}`}
+                            >
+                                <span className={`text-neon-cyan transition-opacity absolute -left-4 ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>&gt;</span>
+                                {link.name}
+                            </Link>
+                        );
+                    })}
+
+                    <ThemeToggle />
 
                     {user ? (
                         <div className="relative">
                             <button
                                 onClick={() => setProfileOpen(!profileOpen)}
-                                className="flex items-center gap-3 pl-6 border-l border-white/10 hover:opacity-80 transition-opacity"
+                                className="flex items-center gap-3 pl-6 border-l border-border hover:opacity-80 transition-opacity"
                             >
                                 <div className="text-right hidden lg:block mr-2">
                                     <div className="text-[10px] font-mono font-bold flex gap-2 justify-end mb-0.5">
@@ -64,11 +94,11 @@ export function Navbar() {
                                         <span className="text-gray-600">|</span>
                                         <span className="text-yellow-500">₹{userData?.credits || 0}</span>
                                     </div>
-                                    <div className="text-sm font-sans font-bold leading-none text-white">
+                                    <div className="text-sm font-sans font-bold leading-none text-foreground">
                                         {userData?.displayName || user.email.split('@')[0]}
                                     </div>
                                 </div>
-                                <div className="w-9 h-9 bg-white/5 border border-white/10 rounded-full flex items-center justify-center text-neon-cyan">
+                                <div className="w-9 h-9 bg-card-bg border border-border rounded-full flex items-center justify-center text-neon-cyan">
                                     <User size={16} />
                                 </div>
                             </button>
@@ -79,27 +109,57 @@ export function Navbar() {
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: 10 }}
-                                        className="absolute right-0 top-12 w-48 bg-[#0a0a0a] border border-white/10 shadow-xl p-2 z-50 flex flex-col gap-1"
+                                        className="absolute right-0 top-12 w-56 bg-black border border-white/20 shadow-xl p-2 z-50 flex flex-col gap-1 rounded"
                                     >
                                         <Link
                                             href="/profile"
                                             onClick={() => setProfileOpen(false)}
-                                            className="px-4 py-2 text-sm font-mono text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2"
+                                            className="px-4 py-2 text-sm font-mono text-gray-200 hover:bg-white/10 hover:text-white flex items-center gap-2 rounded transition-colors"
                                         >
                                             <User size={14} /> MY_PROFILE
                                         </Link>
+                                        <Link
+                                            href="/my-projects"
+                                            onClick={() => setProfileOpen(false)}
+                                            className="px-4 py-2 text-sm font-mono text-gray-200 hover:bg-white/10 hover:text-white flex items-center gap-2 rounded transition-colors"
+                                        >
+                                            <Loader2 size={14} /> MY_PROJECTS
+                                        </Link>
+                                        <Link
+                                            href="/workspace"
+                                            onClick={() => setProfileOpen(false)}
+                                            className="px-4 py-2 text-sm font-mono text-gray-200 hover:bg-white/10 hover:text-white flex items-center gap-2 rounded transition-colors"
+                                        >
+                                            <Terminal size={14} /> WORKSPACE
+                                        </Link>
                                         {user.email.includes("admin") && (
-                                            <Link
-                                                href="/admin"
-                                                onClick={() => setProfileOpen(false)}
-                                                className="px-4 py-2 text-sm font-mono text-neon-cyan hover:bg-white/5 flex items-center gap-2"
-                                            >
-                                                <Terminal size={14} /> ADMIN_PANEL
-                                            </Link>
+                                            <>
+                                                <Link
+                                                    href="/admin"
+                                                    onClick={() => setProfileOpen(false)}
+                                                    className="px-4 py-2 text-sm font-mono text-neon-cyan hover:bg-neon-cyan/10 flex items-center gap-2 rounded transition-colors border-t border-white/10 mt-1"
+                                                >
+                                                    <Terminal size={14} /> ADMIN_PANEL
+                                                </Link>
+                                                <Link
+                                                    href="/admin/features"
+                                                    onClick={() => setProfileOpen(false)}
+                                                    className="px-4 py-2 text-sm font-mono text-neon-green hover:bg-neon-green/10 flex items-center gap-2 rounded transition-colors"
+                                                >
+                                                    <Plus size={14} /> ADD_FEATURE
+                                                </Link>
+                                            </>
                                         )}
+                                        <Link
+                                            href="/about"
+                                            onClick={() => setProfileOpen(false)}
+                                            className="px-4 py-2 text-sm font-mono text-gray-200 hover:bg-white/10 hover:text-white flex items-center gap-2 rounded transition-colors border-t border-white/10 mt-1"
+                                        >
+                                            <Terminal size={14} /> ABOUT_DEVERT
+                                        </Link>
                                         <button
                                             onClick={() => { logout(); setProfileOpen(false); }}
-                                            className="px-4 py-2 text-sm font-mono text-red-400 hover:bg-red-500/10 flex items-center gap-2 w-full text-left"
+                                            className="px-4 py-2 text-sm font-mono text-red-400 hover:bg-red-500/10 flex items-center gap-2 w-full text-left rounded transition-colors border-t border-white/10 mt-1"
                                         >
                                             <LogOut size={14} /> LOGOUT
                                         </button>
@@ -108,7 +168,7 @@ export function Navbar() {
                             </AnimatePresence>
                         </div>
                     ) : (
-                        <Link href="/login" className="font-mono text-sm text-neon-cyan hover:text-white transition-colors relative group border border-neon-cyan/30 px-4 py-2">
+                        <Link href="/login" className="font-mono text-sm text-neon-cyan hover:text-foreground transition-colors relative group border border-neon-cyan/30 px-4 py-2">
                             LOGIN
                         </Link>
                     )}
@@ -116,7 +176,7 @@ export function Navbar() {
 
                 {/* Mobile Menu Toggle */}
                 <button
-                    className="md:hidden text-gray-400 hover:text-white"
+                    className="md:hidden text-gray-400 hover:text-foreground"
                     onClick={() => setIsOpen(!isOpen)}
                 >
                     {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -128,12 +188,13 @@ export function Navbar() {
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="md:hidden absolute top-20 left-0 right-0 bg-[#050505] border-b border-white/10 p-6 flex flex-col gap-6"
+                    className="md:hidden absolute top-20 left-0 right-0 bg-background border-b border-border p-6 flex flex-col gap-6"
                 >
-                    {navLinks.map((link) => (
+                    {links.map((link) => (
                         <Link
                             key={link.name}
                             href={link.href}
+                            target={link.external ? "_blank" : "_self"}
                             onClick={() => setIsOpen(false)}
                             className="font-mono text-lg text-gray-300 hover:text-neon-cyan flex items-center gap-3"
                         >

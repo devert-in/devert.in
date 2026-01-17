@@ -19,10 +19,31 @@ export default function LoginPage() {
         e.preventDefault();
         setError("");
         try {
+            let userCredential;
             if (isLogin) {
-                await signInWithEmailAndPassword(auth, email, password);
+                userCredential = await signInWithEmailAndPassword(auth, email, password);
             } else {
-                await createUserWithEmailAndPassword(auth, email, password);
+                userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            }
+
+            const user = userCredential.user;
+
+            // Save/Update user in Firestore
+            try {
+                const { doc, setDoc, serverTimestamp, getFirestore } = await import("firebase/firestore");
+                const db = getFirestore();
+                await setDoc(doc(db, "users", user.uid), {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName || email.split('@')[0],
+                    lastLogin: serverTimestamp(),
+                    createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime) : serverTimestamp(),
+                    role: email.includes("admin") ? "admin" : "user", // Simple role assignment for demo
+                    photoURL: user.photoURL || null
+                }, { merge: true });
+            } catch (dbError) {
+                console.error("Error saving user to DB:", dbError);
+                // Don't block login if DB fails, but log it
             }
 
             // Basic admin check simulation
@@ -40,18 +61,18 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4 relative overflow-hidden">
             {/* Grid Background */}
             <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none"></div>
 
-            <Link href="/" className="absolute top-28 left-10 text-gray-500 hover:text-white flex items-center transition-colors">
+            <Link href="/" className="absolute top-28 left-10 text-gray-500 hover:text-foreground flex items-center transition-colors">
                 <ArrowLeft className="mr-2" size={16} /> RETURN HOME
             </Link>
 
             <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="w-full max-w-md bg-black/50 backdrop-blur-md border border-white/10 p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+                className="w-full max-w-md bg-card-bg backdrop-blur-md border border-border p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
             >
                 <div className="flex justify-center mb-6 text-neon-cyan">
                     <Lock size={40} />
@@ -77,7 +98,7 @@ export default function LoginPage() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 p-3 text-white focus:outline-none focus:border-neon-cyan transition-colors font-mono"
+                            className="w-full bg-background border border-border p-3 text-foreground focus:outline-none focus:border-neon-cyan transition-colors font-mono"
                             placeholder="user@devert.in"
                         />
                     </div>
@@ -88,7 +109,7 @@ export default function LoginPage() {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 p-3 text-white focus:outline-none focus:border-neon-cyan transition-colors font-mono"
+                            className="w-full bg-background border border-border p-3 text-foreground focus:outline-none focus:border-neon-cyan transition-colors font-mono"
                             placeholder="••••••••"
                         />
                     </div>
@@ -101,9 +122,9 @@ export default function LoginPage() {
                     </button>
 
                     <div className="relative flex py-2 items-center">
-                        <div className="flex-grow border-t border-white/10"></div>
+                        <div className="flex-grow border-t border-border"></div>
                         <span className="flex-shrink-0 mx-4 text-xs font-mono text-gray-500">OR CONTINUE WITH</span>
-                        <div className="flex-grow border-t border-white/10"></div>
+                        <div className="flex-grow border-t border-border"></div>
                     </div>
 
                     <button
@@ -111,14 +132,33 @@ export default function LoginPage() {
                         onClick={async () => {
                             const provider = new GoogleAuthProvider();
                             try {
-                                await signInWithPopup(auth, provider);
+                                const result = await signInWithPopup(auth, provider);
+                                const user = result.user;
+
+                                // Save/Update user in Firestore
+                                try {
+                                    const { doc, setDoc, serverTimestamp, getFirestore } = await import("firebase/firestore");
+                                    const db = getFirestore();
+                                    await setDoc(doc(db, "users", user.uid), {
+                                        uid: user.uid,
+                                        email: user.email,
+                                        displayName: user.displayName,
+                                        lastLogin: serverTimestamp(),
+                                        createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime) : serverTimestamp(),
+                                        role: "user", // Default
+                                        photoURL: user.photoURL
+                                    }, { merge: true });
+                                } catch (dbError) {
+                                    console.error("Error saving user to DB:", dbError);
+                                }
+
                                 router.push("/");
                             } catch (err) {
                                 console.error(err);
                                 setError(err.message.replace("Firebase: ", ""));
                             }
                         }}
-                        className="w-full bg-white/5 border border-white/10 text-white py-3 font-mono hover:bg-white/10 transition-all flex items-center justify-center gap-3"
+                        className="w-full bg-background border border-border text-foreground py-3 font-mono hover:bg-border transition-all flex items-center justify-center gap-3"
                     >
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
                             <path

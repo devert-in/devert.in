@@ -2,41 +2,118 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowLeft, Play, Clock, BookOpen } from "lucide-react";
+import { ArrowLeft, Play, Clock, BookOpen, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import FeatureGuard from "@/components/feature-guard";
+import { useAuth } from "@/context/AuthContext";
 
 export default function CoursesPage() {
+    return (
+        <FeatureGuard feature="courses">
+            <CoursesPageContent />
+        </FeatureGuard>
+    );
+}
+
+function CoursesPageContent() {
+    const { user } = useAuth();
+    const isAdmin = user?.email?.includes("admin");
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const querySnapshot = await getDocs(collection(db, "courses"));
-                const data = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                setCourses(data);
-            } catch (error) {
-                console.error("Error fetching courses:", error);
-            } finally {
-                setLoading(false);
-            }
-        }
+    // Module Status State
+    const [isModuleEnabled, setIsModuleEnabled] = useState(true);
 
+    useEffect(() => {
         fetchData();
+        fetchModuleStatus();
     }, []);
 
+    async function fetchModuleStatus() {
+        try {
+            const docRef = doc(db, "system", "feature_flags");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.courses === false) setIsModuleEnabled(false);
+            }
+        } catch (error) {
+            console.error("Error fetching module status:", error);
+        }
+    }
+
+    const toggleModuleStatus = async () => {
+        const newState = !isModuleEnabled;
+        setIsModuleEnabled(newState);
+        try {
+            await setDoc(doc(db, "system", "feature_flags"), {
+                courses: newState
+            }, { merge: true });
+        } catch (error) {
+            console.error("Error toggling module:", error);
+            setIsModuleEnabled(!newState); // Revert
+        }
+    }
+
+    async function fetchData() {
+        try {
+            const querySnapshot = await getDocs(collection(db, "courses"));
+            const data = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setCourses(data);
+        } catch (error) {
+            console.error("Error fetching courses:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
     return (
-        <div className="min-h-screen bg-[#050505] text-white p-6 pt-28">
+        <div className="min-h-screen bg-background text-foreground p-6 pt-28">
+
+            {/* Admin Disabled Warning */}
+            {!isModuleEnabled && isAdmin && (
+                <div className="mb-8 max-w-6xl mx-auto p-4 bg-red-500/10 border border-red-500 flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-4 text-red-500">
+                        <AlertTriangle size={24} />
+                        <div>
+                            <h3 className="font-bold font-mono">MODULE DISABLED (PUBLIC)</h3>
+                            <p className="text-xs">Regular users see 'Under Construction'. You have bypass access.</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={toggleModuleStatus}
+                        className="px-4 py-2 bg-red-500 text-white font-mono text-xs font-bold hover:bg-neon-green hover:text-black transition-colors"
+                    >
+                        ENABLE NOW
+                    </button>
+                </div>
+            )}
+
             <div className="max-w-6xl mx-auto">
-                <Link href="/" className="inline-flex items-center text-gray-400 hover:text-neon-cyan mb-12 transition-colors">
-                    <ArrowLeft size={20} className="mr-2" />
-          // RETURN HOME
-                </Link>
+                <div className="flex flex-col md:flex-row justify-between items-start mb-12">
+                    <Link href="/" className="inline-flex items-center text-gray-400 hover:text-neon-cyan transition-colors mb-4 md:mb-0">
+                        <ArrowLeft size={20} className="mr-2" />
+                        // RETURN HOME
+                    </Link>
+
+                    {isAdmin && (
+                        <button
+                            onClick={toggleModuleStatus}
+                            className={`border px-4 py-3 font-mono text-xs flex items-center gap-2 transition-colors ${isModuleEnabled
+                                ? "bg-neon-green/10 border-neon-green text-neon-green hover:bg-red-500 hover:border-red-500 hover:text-white"
+                                : "bg-red-500/10 border-red-500 text-red-500 hover:bg-neon-green hover:border-neon-green hover:text-black"
+                                }`}
+                            title={isModuleEnabled ? "Disable Public Access" : "Enable Public Access"}
+                        >
+                            {isModuleEnabled ? <><Eye size={16} /> MODULE_ACTIVE</> : <><EyeOff size={16} /> MODULE_OFFLINE</>}
+                        </button>
+                    )}
+                </div>
 
                 <motion.h1
                     initial={{ opacity: 0, x: -20 }}

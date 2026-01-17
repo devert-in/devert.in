@@ -14,7 +14,13 @@ import {
     X,
     Users,
     Activity,
-    ArrowLeft
+    ArrowLeft,
+    Briefcase,
+    Shield,
+    CreditCard,
+    Database,
+    Gamepad,
+    Layers
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -55,31 +61,61 @@ export default function AdminLayout({ children }) {
 
     const navItems = [
         { name: "DASHBOARD", href: "/admin", icon: LayoutDashboard },
+        { name: "FEATURES", href: "/admin/features", icon: Layers },
+        { name: "CLIENT OPS", href: "/admin/requirements", icon: Briefcase },
+        { name: "SQUAD OPS", href: "/admin/executors", icon: Shield },
+        { name: "USER BASE", href: "/admin/users", icon: Users },
+        { name: "FINANCE", href: "/admin/finance", icon: CreditCard },
         { name: "HACKATHONS", href: "/admin/hackathons", icon: Trophy },
         { name: "POSTMORTEMS", href: "/admin/postmortems", icon: Activity },
         { name: "COURSES", href: "/admin/courses", icon: BookOpen },
-        { name: "WARGAMES", href: "/admin/contests", icon: Users }, // Using Users icon temporarily or Swords if imported
+        { name: "WARGAMES", href: "/admin/contests", icon: Gamepad },
+        { name: "SYSTEM", href: "/admin/settings", icon: Database },
     ];
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white flex overflow-hidden">
+        <div className="min-h-screen bg-background text-foreground flex relative overflow-hidden">
+            {/* Mobile Backdrop */}
+            <AnimatePresence>
+                {isSidebarOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+                    />
+                )}
+            </AnimatePresence>
+
             {/* Sidebar */}
             <motion.aside
-                animate={{ width: isSidebarOpen ? 240 : 0, opacity: isSidebarOpen ? 1 : 0 }}
-                className="bg-black/80 backdrop-blur-md border-r border-white/10 flex-shrink-0 relative h-screen z-20 overflow-hidden"
+                initial={false}
+                animate={{
+                    x: isSidebarOpen ? 0 : "-100%",
+                    width: "240px",
+                    opacity: 1
+                }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className={`
+                    fixed top-0 left-0 h-[100dvh] z-40 bg-card-bg border-r border-border flex flex-col
+                    lg:relative lg:translate-x-0 lg:h-screen lg:block
+                    ${!isSidebarOpen ? "hidden lg:block lg:w-0 lg:border-none lg:opacity-0" : ""}
+                `}
+                style={{ width: 240 }} // Force width for motion
             >
-                <div className="p-6">
+                <div className="p-6 flex-shrink-0">
                     <Link href="/" className="block group">
                         <h1 className="text-xl font-bold font-sans tracking-widest text-neon-cyan mb-1 group-hover:opacity-80 transition-opacity">
-                            DEVERT<span className="text-white">.IN</span>
+                            DEVERT<span className="text-foreground">.IN</span>
                         </h1>
-                        <p className="text-[10px] font-mono text-gray-500 group-hover:text-neon-green transition-colors flex items-center gap-2">
+                        <p className="text-[10px] font-mono text-muted-foreground group-hover:text-neon-green transition-colors flex items-center gap-2">
                             <ArrowLeft size={10} /> RETURN_HOME
                         </p>
                     </Link>
                 </div>
 
-                <nav className="mt-6 px-4 space-y-2">
+                <nav className="px-4 space-y-1 flex-1 overflow-y-auto custom-scrollbar">
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.href;
@@ -88,9 +124,12 @@ export default function AdminLayout({ children }) {
                             <Link
                                 key={item.href}
                                 href={item.href}
+                                onClick={() => {
+                                    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                                }}
                                 className={`flex items-center space-x-3 px-4 py-3 rounded font-mono text-sm transition-all duration-300 ${isActive
                                     ? "bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/50 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
-                                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                                     }`}
                             >
                                 <Icon size={18} />
@@ -100,16 +139,16 @@ export default function AdminLayout({ children }) {
                     })}
                 </nav>
 
-                <div className="absolute bottom-6 left-0 w-full px-4">
+                <div className="p-4 bg-card-bg border-t border-border flex-shrink-0">
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center space-x-3 px-4 py-3 rounded font-mono text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors border border-transparent hover:border-red-500/30"
+                        className="w-full flex items-center justify-center space-x-3 px-4 py-3 rounded font-mono text-sm text-red-500 hover:bg-red-500/10 hover:text-red-400 transition-colors border border-transparent hover:border-red-500/30"
                     >
                         <LogOut size={18} />
-                        <span>TERMINATE_SESSION</span>
+                        <span>TERMINATE</span>
                     </button>
-                    <div className="mt-4 text-[10px] font-mono text-gray-600 text-center">
-                        ID: {user.email}
+                    <div className="mt-2 text-[10px] font-mono text-muted-foreground text-center truncate">
+                        {user.email}
                     </div>
                 </div>
             </motion.aside>
@@ -117,19 +156,19 @@ export default function AdminLayout({ children }) {
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
                 {/* Top Bar (Mobile Toggle) */}
-                <header className={`h-16 flex items-center justify-between px-6 border-b border-white/10 ${!isSidebarOpen ? 'bg-black/50' : 'bg-transparent'}`}>
+                <header className="h-16 flex items-center justify-between px-6 border-b border-border bg-background/50 backdrop-blur-sm lg:hidden">
                     <button
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        onClick={() => setIsSidebarOpen(true)}
                         className="text-gray-400 hover:text-white transition-colors"
                     >
-                        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                        <Menu size={24} />
                     </button>
                     <div className="font-mono text-xs text-neon-cyan animate-pulse">
-                        CONNECTION_SECURE
+                        SECURE_CONNECTION
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-auto p-6 md:p-10 relative">
+                <div className="flex-1 overflow-auto p-4 md:p-10 relative">
                     {/* Background GFX */}
                     <div className="absolute inset-0 grid-bg opacity-10 pointer-events-none fixed"></div>
 

@@ -3,10 +3,18 @@
 import { motion } from "framer-motion";
 import { Instagram, Linkedin, Github, Youtube } from "lucide-react";
 import { DuoProfile } from "@/components/duo-profile";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { useIntro } from "@/context/IntroContext";
 
 export function Footer() {
+    const pathname = usePathname();
+    const { hasShownIntro } = useIntro();
+
+    if ((pathname === "/" && !hasShownIntro) || pathname.startsWith("/admin")) return null;
+
     return (
-        <footer className="pt-20 pb-10 px-4 bg-[#0A0A0A] border-t border-white/5 relative overflow-hidden">
+        <footer className="pt-20 pb-10 px-4 bg-background border-t border-border relative overflow-hidden">
             {/* Background Grid Accent */}
             <div className="absolute top-0 left-0 w-full h-full grid-bg opacity-10 pointer-events-none"></div>
 
@@ -27,11 +35,11 @@ export function Footer() {
                             <a href="https://www.instagram.com/devert.in" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
                                 <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /instagram
                             </a>
-                            <a href="https://youtube.com/@devert" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
-                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /youtube
+                            <a href="https://www.linkedin.com/company/devert-in/" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
+                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /linkedin
                             </a>
-                            <a href="#" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
-                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /github
+                            <a href="https://youtube.com/@devert5" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
+                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /youtube
                             </a>
                         </div>
                     </div>
@@ -39,12 +47,15 @@ export function Footer() {
                     <div className="mt-12 hidden lg:block">
                         <div className="flex gap-6 mb-4">
                             <SocialIcon href="https://www.instagram.com/devert.in" icon={<Instagram size={24} />} />
-                            <SocialIcon href="https://youtube.com/@devert" icon={<Youtube size={24} />} />
-                            <SocialIcon href="#" icon={<Github size={24} />} />
+                            <SocialIcon href="https://www.linkedin.com/company/devert-in/" icon={<Linkedin size={24} />} />
+                            <SocialIcon href="https://youtube.com/@devert5" icon={<Youtube size={24} />} />
                         </div>
                         <p className="font-mono text-xs text-gray-600">
                             © 2026 DEVERT.IN // SYSTEM_ONLINE
                         </p>
+                        <Link href="/about" className="text-xs font-mono text-neon-cyan hover:text-white transition-colors mt-4 block">
+                            &gt; INIT_SEQUENCE: ABOUT_DEVERT
+                        </Link>
                     </div>
                 </div>
 
@@ -59,9 +70,14 @@ export function Footer() {
                 <div className="lg:hidden flex flex-col items-center gap-6 mt-8">
                     <div className="flex gap-6">
                         <SocialIcon href="https://www.instagram.com/devert.in" icon={<Instagram size={28} />} />
-                        <SocialIcon href="https://youtube.com/@devert" icon={<Youtube size={28} />} />
-                        <SocialIcon href="#" icon={<Github size={28} />} />
+                        <SocialIcon href="https://www.linkedin.com/company/devert-in/" icon={<Linkedin size={28} />} />
+                        <SocialIcon href="https://youtube.com/@devert5" icon={<Youtube size={28} />} />
                     </div>
+
+                    <Link href="/about" className="text-sm font-mono text-neon-cyan hover:text-white transition-colors border border-neon-cyan/30 px-4 py-2 rounded bg-neon-cyan/5">
+                        &gt; ABOUT DEVERT
+                    </Link>
+
                     <p className="font-mono text-xs text-gray-600">
                         © 2026 DEVERT.IN // SYSTEM_ONLINE
                     </p>

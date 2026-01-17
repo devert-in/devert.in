@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 // import { motion } from "framer-motion"; // Removed unused import if not used, but likely used for layout if added back
 import { ArrowLeft, Clock, Users, Trophy, Terminal, Timer, UserPlus, CheckCircle, Shield } from "lucide-react";
 import Link from "next/link";
+import FeatureGuard from "@/components/feature-guard";
 
 function LobbyContent() {
     const searchParams = useSearchParams();
@@ -97,37 +98,37 @@ function LobbyContent() {
     };
 
     if (loading) return (
-        <div className="min-h-screen bg-[#050505] flex items-center justify-center text-neon-cyan font-mono animate-pulse">
+        <div className="min-h-screen bg-background flex items-center justify-center text-neon-cyan font-mono animate-pulse">
             CONNECTING_TO_LOBBY_SERVER...
         </div>
     );
 
     if (!contest) return (
-        <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white font-mono">
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center text-foreground font-mono">
             <h1 className="text-4xl text-red-500 mb-4">404 // LOBBY_NOT_FOUND</h1>
-            <Link href="/contests" className="text-gray-400 hover:text-white flex items-center">
+            <Link href="/contests" className="text-gray-400 hover:text-foreground flex items-center">
                 <ArrowLeft size={16} className="mr-2" /> RETURN_TO_BASE
             </Link>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white pt-24 pb-12 px-6 relative overflow-hidden">
+        <div className="min-h-screen bg-background text-foreground pt-24 pb-12 px-6 relative overflow-hidden">
             {/* Background Grid */}
             <div className="fixed inset-0 grid-bg opacity-10 pointer-events-none"></div>
 
             {/* Dialog Modal */}
             {dialog.show && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-[#0a0a0a] border border-white/10 p-8 max-w-md w-full relative shadow-2xl flex flex-col items-center text-center">
+                    <div className="bg-card-bg border border-border p-8 max-w-md w-full relative shadow-2xl flex flex-col items-center text-center">
                         <div className={`mb-4 p-4 rounded-full ${dialog.type === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-neon-green/10 text-neon-green'}`}>
                             {dialog.type === 'error' ? <Shield size={32} /> : <CheckCircle size={32} />}
                         </div>
-                        <h3 className="text-xl font-bold font-sans text-white mb-2">{dialog.type === 'error' ? 'SYSTEM_ERROR' : 'OPERATION_COMPLETE'}</h3>
-                        <p className="font-mono text-sm text-gray-400 mb-6">{dialog.message}</p>
+                        <h3 className="text-xl font-bold font-sans text-foreground mb-2">{dialog.type === 'error' ? 'SYSTEM_ERROR' : 'OPERATION_COMPLETE'}</h3>
+                        <p className="font-mono text-sm text-gray-500 mb-6">{dialog.message}</p>
                         <button
                             onClick={() => setDialog({ ...dialog, show: false })}
-                            className="w-full bg-white/10 hover:bg-white/20 text-white font-mono py-2 text-sm uppercase tracking-wider transition-colors"
+                            className="w-full bg-border hover:bg-neon-cyan/20 text-foreground font-mono py-2 text-sm uppercase tracking-wider transition-colors"
                         >
                             CLOSE_DIALOG
                         </button>
@@ -136,7 +137,7 @@ function LobbyContent() {
             )}
 
             <div className="max-w-5xl mx-auto relative z-10">
-                <Link href="/contests" className="inline-flex items-center text-gray-500 hover:text-white mb-8 transition-colors font-mono text-sm">
+                <Link href="/contests" className="inline-flex items-center text-gray-500 hover:text-foreground mb-8 transition-colors font-mono text-sm">
                     <ArrowLeft size={16} className="mr-2" /> BACK_TO_WARGAMES
                 </Link>
 
@@ -147,15 +148,15 @@ function LobbyContent() {
                             <div className="flex items-center gap-3 mb-4">
                                 <span className={`text-xs font-mono px-3 py-1 rounded border ${contest.status === 'LIVE' ? 'bg-neon-green/10 text-neon-green border-neon-green/20 animate-pulse' :
                                     contest.status === 'UPCOMING' ? 'bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20' :
-                                        'bg-white/5 text-gray-500 border-white/10'
+                                        'bg-border text-gray-500 border-border'
                                     }`}>
                                     {contest.status}
                                 </span>
-                                <span className="text-xs font-mono text-gray-500 border border-white/10 px-2 py-1 rounded">
+                                <span className="text-xs font-mono text-gray-500 border border-border px-2 py-1 rounded">
                                     {contest.type}
                                 </span>
                             </div>
-                            <h1 className="text-4xl md:text-6xl font-bold font-sans mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">
+                            <h1 className="text-4xl md:text-6xl font-bold font-sans mb-4 text-transparent bg-clip-text bg-gradient-to-r from-foreground to-gray-500">
                                 {contest.title}
                             </h1>
                             <p className="text-lg text-gray-400 font-mono leading-relaxed border-l-2 border-neon-cyan pl-4">
@@ -164,7 +165,7 @@ function LobbyContent() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white/5 border border-white/10 p-6">
+                            <div className="bg-card-bg border border-border p-6">
                                 <div className="text-gray-500 text-xs font-mono mb-2 flex items-center">
                                     <Clock size={14} className="mr-2" /> START_TIME
                                 </div>
@@ -172,7 +173,7 @@ function LobbyContent() {
                                     {new Date(contest.date).toLocaleString()}
                                 </div>
                             </div>
-                            <div className="bg-white/5 border border-white/10 p-6">
+                            <div className="bg-card-bg border border-border p-6">
                                 <div className="text-gray-500 text-xs font-mono mb-2 flex items-center">
                                     <Timer size={14} className="mr-2" /> DURATION
                                 </div>
@@ -187,7 +188,7 @@ function LobbyContent() {
                                 <Terminal size={20} className="mr-2 text-neon-green" />
                                 MISSION_PARAMETERS
                             </h3>
-                            <div className="bg-black/40 border border-white/10 p-6 font-mono text-sm text-gray-300 space-y-2">
+                            <div className="bg-card-bg border border-border p-6 font-mono text-sm text-gray-400 space-y-2">
                                 <p>&gt; Difficulty: <span className={
                                     contest.level === 'HARD' ? 'text-red-400' :
                                         contest.level === 'INSANE' ? 'text-purple-400' :
@@ -203,13 +204,13 @@ function LobbyContent() {
 
                     {/* Action Column */}
                     <div className="lg:col-span-1">
-                        <div className="bg-[#0a0a0a] border border-white/10 p-8 sticky top-32">
+                        <div className="bg-card-bg border border-border p-8 sticky top-32">
                             <div className="text-center mb-8">
-                                <div className="inline-block p-4 rounded-full bg-white/5 border border-white/10 mb-4">
+                                <div className="inline-block p-4 rounded-full bg-background border border-border mb-4">
                                     <Trophy size={32} className="text-neon-cyan" />
                                 </div>
                                 <div className="text-sm font-mono text-gray-400 mb-1">CURRENT_PARTICIPANTS</div>
-                                <div className="text-4xl font-bold text-white">
+                                <div className="text-4xl font-bold text-foreground">
                                     {contest.participants ? contest.participants.length : 0}
                                 </div>
                             </div>
@@ -246,7 +247,7 @@ function LobbyContent() {
 
                             {/* Participant List (Mini) */}
                             {contest.participants && contest.participants.length > 0 && (
-                                <div className="mt-8 border-t border-white/10 pt-6">
+                                <div className="mt-8 border-t border-border pt-6">
                                     <h4 className="text-xs font-mono text-gray-500 mb-4 flex items-center">
                                         <Users size={12} className="mr-2" /> SQUADRON_MEMBERS
                                     </h4>
@@ -275,8 +276,10 @@ function LobbyContent() {
 
 export default function ContestLobbyPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-[#050505] flex items-center justify-center text-neon-cyan font-mono">LOADING_INTERFACE...</div>}>
-            <LobbyContent />
+        <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center text-neon-cyan font-mono">LOADING_INTERFACE...</div>}>
+            <FeatureGuard feature="contests">
+                <LobbyContent />
+            </FeatureGuard>
         </Suspense>
     );
 }

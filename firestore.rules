@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper function to check if user is admin (requires custom claim or specific email)
     function isAdmin() {
-       return request.auth != null && (request.auth.token.email.matches('.*admin.*') || request.auth.token.admin == true);
+       return request.auth != null && (request.auth.token.email == 'admin@devert.in' || request.auth.token.admin == true);
     }
 
     // Hackathons: Anyone can read, only Admins can write
@@ -44,7 +44,7 @@ service cloud.firestore {
     
     // Users: Users can read/write their own data
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if (request.auth != null && request.auth.uid == userId) || isAdmin();
     }
 
     // Squadron: Anyone can read, Authenticated users can post, Owners/Admins can delete
@@ -63,6 +63,18 @@ service cloud.firestore {
     // Challenge Registrations: Auth create
     match /challenge_registrations/{regId} {
       allow read, write: if request.auth != null;
+    }
+
+    // System Settings & Feature Flags (Critical for UI Toggles)
+    match /system/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Legacy support if needed
+    match /system_settings/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

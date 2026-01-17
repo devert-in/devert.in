@@ -3,19 +3,37 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Search, Filter, Cpu, Wifi, Shield, Zap, UserPlus, Code, Terminal, MessageSquare, ArrowLeft, X, CheckCircle, XCircle } from "lucide-react";
+import { Search, Filter, Cpu, Wifi, Shield, Zap, UserPlus, Code, Terminal, MessageSquare, ArrowLeft, X, CheckCircle, XCircle, Edit3, Save, StopCircle, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, addDoc, serverTimestamp, writeBatch, doc, getDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
+import FeatureGuard from "@/components/feature-guard";
 
 export default function SquadronPage() {
+    return (
+        <FeatureGuard feature="squadron">
+            <SquadronPageContent />
+        </FeatureGuard>
+    );
+}
+
+function SquadronPageContent() {
     const [filter, setFilter] = useState("ALL"); // ALL, ONLINE
     const [searchTerm, setSearchTerm] = useState("");
     const [operatives, setOperatives] = useState([]);
+    const [editedOperatives, setEditedOperatives] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [dialog, setDialog] = useState({ show: false, message: "", type: "info" });
     const { user, userData } = useAuth();
+    const isAdmin = user?.email?.includes("admin");
+
+    // Module Status State
+    const [isModuleEnabled, setIsModuleEnabled] = useState(true);
+
+    // Edit Mode State
+    const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -36,6 +54,7 @@ export default function SquadronPage() {
             // Sort by recently added if timestamp exists, else shuffle or keep order
             items.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
             setOperatives(items);
+            setEditedOperatives(JSON.parse(JSON.stringify(items)));
         } catch (error) {
             console.error("Error fetching squadron:", error);
         } finally {
@@ -45,7 +64,71 @@ export default function SquadronPage() {
 
     useEffect(() => {
         fetchOperatives();
+        fetchModuleStatus();
     }, []);
+
+    async function fetchModuleStatus() {
+        try {
+            const docRef = doc(db, "system", "feature_flags");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.squadron === false) setIsModuleEnabled(false);
+            }
+        } catch (error) {
+            console.error("Error fetching module status:", error);
+        }
+    }
+
+    const toggleModuleStatus = async () => {
+        const newState = !isModuleEnabled;
+        setIsModuleEnabled(newState);
+        try {
+            await setDoc(doc(db, "system", "feature_flags"), {
+                squadron: newState
+            }, { merge: true });
+        } catch (error) {
+            console.error("Error toggling module:", error);
+            setIsModuleEnabled(!newState); // Revert
+            setDialog({ show: true, message: "FAILED_TO_TOGGLE_MODULE", type: "error" });
+        }
+    }
+
+    const handleEditChange = (id, field, value) => {
+        setEditedOperatives(prev => prev.map(op => {
+            if (op.id === id) {
+                // Special handling for stack array input (comma separated)
+                if (field === 'stack') {
+                    return { ...op, stack: value.split(',').map(s => s.trim()) };
+                }
+                return { ...op, [field]: value };
+            }
+            return op;
+        }));
+    };
+
+    const saveChanges = async () => {
+        setSaving(true);
+        try {
+            const batch = writeBatch(db);
+
+            editedOperatives.forEach(op => {
+                const docRef = doc(db, "squadron", op.id);
+                const { id, ...data } = op;
+                batch.update(docRef, data);
+            });
+
+            await batch.commit();
+            setOperatives(JSON.parse(JSON.stringify(editedOperatives)));
+            setDialog({ show: true, message: "SQUAD_DATABASE_UPDATED", type: "success" });
+            setIsEditing(false);
+        } catch (err) {
+            console.error("Error saving changes:", err);
+            setDialog({ show: true, message: "UPDATE_FAILED: " + err.message, type: "error" });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const handleBroadcast = async (e) => {
         e.preventDefault();
@@ -75,7 +158,10 @@ export default function SquadronPage() {
         }
     };
 
-    const filteredOperatives = operatives.filter(op => {
+    // Choose data source
+    const displayData = isEditing ? editedOperatives : operatives;
+
+    const filteredOperatives = displayData.filter(op => {
         const matchesFilter = filter === "ALL" || (filter === "ONLINE" && op.status === "ONLINE");
         const matchesSearch = op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             op.stack?.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -83,7 +169,7 @@ export default function SquadronPage() {
     });
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white pt-24 pb-20 px-4 md:px-8 relative overflow-hidden">
+        <div className="min-h-screen bg-background text-foreground pt-24 pb-32 px-4 md:px-8 relative overflow-hidden">
             {/* Dialog Modal */}
             {dialog.show && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -107,6 +193,26 @@ export default function SquadronPage() {
             <div className="fixed inset-0 grid-bg opacity-10 pointer-events-none"></div>
 
             <div className="max-w-7xl mx-auto relative z-10">
+
+                {/* Admin Disabled Warning */}
+                {!isModuleEnabled && isAdmin && (
+                    <div className="mb-8 p-4 bg-red-500/10 border border-red-500 flex items-center justify-between animate-pulse">
+                        <div className="flex items-center gap-4 text-red-500">
+                            <AlertTriangle size={24} />
+                            <div>
+                                <h3 className="font-bold font-mono">MODULE DISABLED (PUBLIC)</h3>
+                                <p className="text-xs">Regular users see 'Under Construction'. You have bypass access.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={toggleModuleStatus}
+                            className="px-4 py-2 bg-red-500 text-white font-mono text-xs font-bold hover:bg-neon-green hover:text-black transition-colors"
+                        >
+                            ENABLE NOW
+                        </button>
+                    </div>
+                )}
+
                 <div className="mb-6">
                     <Link href="/" className="text-gray-500 hover:text-white flex items-center transition-colors w-fit font-mono text-xs group">
                         <ArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" size={16} /> RETURN HOME
@@ -118,6 +224,7 @@ export default function SquadronPage() {
                     <div>
                         <div className="flex items-center gap-2 mb-2 text-neon-green font-mono text-xs animate-pulse">
                             <Wifi size={14} /> SYSTEM: ONLINE
+                            {isEditing && <span className="text-red-500 ml-2 animate-none">[ADMIN_EDIT_PROTOCOL]</span>}
                         </div>
                         <h1 className="text-4xl md:text-6xl font-bold font-sans mb-2 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">
                             FIND TEAMMATES
@@ -126,7 +233,37 @@ export default function SquadronPage() {
                             Connect with developers. Build your squad. Ship products.
                         </p>
                     </div>
-                    <div className="mt-6 md:mt-0">
+                    <div className="mt-6 md:mt-0 flex gap-4">
+                        {isAdmin && (
+                            <>
+                                <button
+                                    onClick={toggleModuleStatus}
+                                    className={`border px-4 py-3 font-mono text-sm font-bold flex items-center gap-2 transition-colors ${isModuleEnabled
+                                        ? "bg-neon-green/10 border-neon-green text-neon-green hover:bg-red-500 hover:border-red-500 hover:text-white"
+                                        : "bg-red-500/10 border-red-500 text-red-500 hover:bg-neon-green hover:border-neon-green hover:text-black"
+                                        }`}
+                                    title={isModuleEnabled ? "Disable Public Access" : "Enable Public Access"}
+                                >
+                                    {isModuleEnabled ? <><Eye size={16} /> MODULE_ACTIVE</> : <><EyeOff size={16} /> MODULE_OFFLINE</>}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (isEditing) {
+                                            setEditedOperatives(JSON.parse(JSON.stringify(operatives)));
+                                            setIsEditing(false);
+                                        } else {
+                                            setIsEditing(true);
+                                        }
+                                    }}
+                                    className={`border px-4 py-3 font-mono text-sm font-bold flex items-center gap-2 transition-colors ${isEditing
+                                        ? "bg-red-500/10 border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                                        : "bg-white/5 border-white/10 text-white hover:bg-neon-cyan hover:text-black"
+                                        }`}
+                                >
+                                    {isEditing ? <><X size={16} /> CANCEL</> : <><Edit3 size={16} /> ADMIN_EDIT</>}
+                                </button>
+                            </>
+                        )}
                         <button
                             onClick={() => setIsModalOpen(true)}
                             className="bg-neon-cyan text-black px-6 py-3 font-bold font-mono text-sm flex items-center hover:bg-white transition-colors"
@@ -177,12 +314,51 @@ export default function SquadronPage() {
                             </div>
                         ) : (
                             filteredOperatives.map((op) => (
-                                <OperativeCard key={op.id} data={op} />
+                                <OperativeCard
+                                    key={op.id}
+                                    data={op}
+                                    isEditing={isEditing}
+                                    onUpdate={(field, value) => handleEditChange(op.id, field, value)}
+                                />
                             ))
                         )}
                     </div>
                 )}
             </div>
+
+            {/* Admin Save Bar */}
+            <AnimatePresence>
+                {isEditing && (
+                    <motion.div
+                        initial={{ y: 100 }}
+                        animate={{ y: 0 }}
+                        exit={{ y: 100 }}
+                        className="fixed bottom-0 left-0 right-0 p-4 bg-black/90 backdrop-blur-md border-t border-neon-cyan z-50 flex items-center justify-between"
+                    >
+                        <div className="text-neon-cyan font-mono text-sm animate-pulse">
+                            ADMIN_MODE_ACTIVE // UNSAVED_CHANGES
+                        </div>
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => {
+                                    setIsEditing(false);
+                                    setEditedOperatives(JSON.parse(JSON.stringify(operatives)));
+                                }}
+                                className="px-6 py-2 border border-red-500 text-red-500 font-mono text-sm hover:bg-red-500/10"
+                            >
+                                DISCARD
+                            </button>
+                            <button
+                                onClick={saveChanges}
+                                disabled={saving}
+                                className="px-6 py-2 bg-neon-cyan text-black font-bold font-mono text-sm hover:opacity-80 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {saving ? <><StopCircle className="animate-spin" size={16} /> SAVING...</> : <><Save size={16} /> SAVE_CHANGES</>}
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Broadcast Modal */}
             <AnimatePresence>
@@ -270,7 +446,62 @@ export default function SquadronPage() {
     );
 }
 
-function OperativeCard({ data }) {
+function OperativeCard({ data, isEditing, onUpdate }) {
+    if (isEditing) {
+        return (
+            <div className="bg-[#0a0a0a] border border-dashed border-neon-cyan/50 p-6 relative">
+                <div className="flex flex-col gap-3">
+                    <div className="flex gap-2">
+                        <input
+                            value={data.name}
+                            onChange={(e) => onUpdate("name", e.target.value)}
+                            className="bg-white/5 border border-white/10 p-2 font-bold font-sans text-white w-full"
+                            placeholder="Name"
+                        />
+                        <select
+                            value={data.status}
+                            onChange={(e) => onUpdate("status", e.target.value)}
+                            className="bg-white/5 border border-white/10 text-xs px-2 py-1 outline-none text-white"
+                        >
+                            <option value="ONLINE">ONLINE</option>
+                            <option value="OFFLINE">OFFLINE</option>
+                            <option value="BUSY">BUSY</option>
+                        </select>
+                    </div>
+
+                    <input
+                        value={data.role}
+                        onChange={(e) => onUpdate("role", e.target.value)}
+                        className="bg-white/5 border border-white/10 p-2 text-sm text-neon-cyan w-full"
+                        placeholder="Role"
+                    />
+
+                    <input
+                        value={data.level}
+                        onChange={(e) => onUpdate("level", e.target.value)}
+                        className="bg-white/5 border border-white/10 p-2 text-xs text-gray-500 w-full"
+                        placeholder="Level"
+                    />
+
+                    <textarea
+                        value={data.lookingFor}
+                        onChange={(e) => onUpdate("lookingFor", e.target.value)}
+                        className="bg-white/5 border border-white/10 p-2 text-xs text-gray-300 w-full h-16 resize-none"
+                        placeholder="Current Objective"
+                    />
+
+                    <div className="text-xs text-gray-500">STACK (Comma Separated):</div>
+                    <input
+                        value={Array.isArray(data.stack) ? data.stack.join(", ") : data.stack}
+                        onChange={(e) => onUpdate("stack", e.target.value)} // Handled in parent
+                        className="bg-white/5 border border-white/10 p-2 text-xs text-gray-300 w-full"
+                        placeholder="React, Node, etc."
+                    />
+                </div>
+            </div>
+        )
+    }
+
     return (
         <motion.div
             layout
@@ -285,7 +516,7 @@ function OperativeCard({ data }) {
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center text-neon-cyan font-bold font-mono text-lg uppercase">
-                            {data.name.charAt(0)}
+                            {data.name?.charAt(0) || "?"}
                         </div>
                         <div>
                             <h3 className="font-bold font-sans text-white text-lg">{data.name}</h3>
