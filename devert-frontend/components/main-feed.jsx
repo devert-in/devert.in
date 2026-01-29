@@ -6,6 +6,7 @@ import { ArrowRight, Play, Users, Crosshair, Rocket, Calendar, MapPin, Edit3, Sa
 import { useEffect, useState } from "react";
 import { collection, query, where, getDocs, limit, doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { ExecutionModeSection } from "@/components/execution-mode-section";
 
 import { useAuth } from "@/context/AuthContext";
 
@@ -176,8 +177,8 @@ export function MainFeed({ hasShownIntro }) {
                                         else setIsEditing(true);
                                     }}
                                     className={`ml-4 text-xs px-3 py-1 border rounded font-mono flex items-center gap-2 transition-colors ${isEditing
-                                            ? "border-neon-green text-neon-green bg-neon-green/10"
-                                            : "border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10"
+                                        ? "border-neon-green text-neon-green bg-neon-green/10"
+                                        : "border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10"
                                         }`}
                                 >
                                     {isEditing ? <><Save size={12} /> DONE</> : <><Edit3 size={12} /> MANAGE_WIDGETS</>}
@@ -186,74 +187,99 @@ export function MainFeed({ hasShownIntro }) {
                         </div>
                         <p className="text-muted-foreground font-mono text-sm mt-2">Don't just code. Solve real-world problems.</p>
                     </div>
-                    <div className="flex items-center gap-2 text-muted-foreground font-mono text-[10px] mt-2 md:mt-0">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-green"></span>
-                        </span>
-                        {user ? "OPERATIVE_ACTIVE" : "LIVE_FEED_ACTIVE"}
+                    <div className="flex items-center gap-4 mt-4 md:mt-0">
+                        {/* DEVERT AI HIGHLIGHT CTA */}
+                        {/* DEVERT AI HIGHLIGHT CTA */}
+                        <Link href="/execution-ai" className="group relative pr-1">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg blur opacity-0 group-hover:opacity-50 transition duration-200"></div>
+                            <div className="relative flex items-center gap-3 px-4 py-2 bg-black border border-purple-500/50 rounded-lg group-hover:border-purple-400 transition-colors">
+                                <div className="p-1.5 bg-purple-500/20 rounded-md text-purple-400">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" /><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" /><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" /></svg>
+                                </div>
+                                <div className="text-left">
+                                    <div className="text-sm font-sans font-bold text-white flex items-center gap-1">
+                                        REALITY CHECK <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </div>
+                            </div>
+                        </Link>
+
+                        <div className="flex items-center gap-2 text-muted-foreground font-mono text-[10px] hidden md:flex">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-green"></span>
+                            </span>
+                            {user ? "OPERATIVE_ACTIVE" : "LIVE_FEED_ONLINE"}
+                        </div>
                     </div>
                 </motion.div>
 
-                {/* Featured Operation Hero Banner */}
-                {featuredHackathon && (
-                    <FeatureWrapper featureKey="featured">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.2 }}
-                            className="mb-12 relative group"
-                        >
-                            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                            <div className="relative bg-background border border-border p-8 rounded-lg flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
-                                {/* Background Effect */}
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none"></div>
+                <div className="grid lg:grid-cols-2 gap-6 mb-12">
+                    {/* Execution Mode AI Section */}
+                    <div className="h-full">
+                        <ExecutionModeSection />
+                    </div>
 
-                                <div className="flex-1 relative z-10">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="flex h-2 w-2 relative">
-                                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${featuredHackathon.status === 'OPEN' ? 'bg-neon-green' : 'bg-red-500'}`}></span>
-                                            <span className={`relative inline-flex rounded-full h-2 w-2 ${featuredHackathon.status === 'OPEN' ? 'bg-neon-green' : 'bg-red-500'}`}></span>
-                                        </span>
-                                        <span className={`text-[10px] font-mono font-bold tracking-widest ${featuredHackathon.status === 'OPEN' ? 'text-neon-green' : 'text-red-500'}`}>
-                                            {featuredHackathon.status === 'OPEN' ? 'SQUAD_REGISTRATION_OPEN' : 'PRIORITY_BROADCAST'}
-                                        </span>
-                                    </div>
-                                    <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground mb-2 max-w-lg">
-                                        {featuredHackathon.title}
-                                    </h2>
-                                    <p className="text-muted-foreground font-mono text-xs md:text-sm max-w-xl h-20 overflow-hidden text-ellipsis">
-                                        {featuredHackathon.description}
-                                    </p>
-                                </div>
+                    {/* Featured Operation Hero Banner */}
+                    {featuredHackathon && (
+                        <FeatureWrapper featureKey="featured" className="h-full">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.2 }}
+                                className="relative group h-full"
+                            >
+                                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                                <div className="relative bg-background border border-border p-8 rounded-lg flex flex-col justify-between gap-6 overflow-hidden h-full">
+                                    {/* Background Effect */}
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none"></div>
 
-                                <div className="flex flex-col items-end gap-4 relative z-10 w-full md:w-auto">
-                                    <div className="flex gap-4 w-full md:w-auto">
-                                        <div className="text-center px-4 py-2 bg-card-bg border border-border rounded min-w-[100px]">
-                                            <div className="text-lg font-bold text-foreground font-sans">{featuredHackathon.status}</div>
-                                            <div className="text-[9px] text-muted-foreground font-mono">STATUS</div>
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="flex h-2 w-2 relative">
+                                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${featuredHackathon.status === 'OPEN' ? 'bg-neon-green' : 'bg-red-500'}`}></span>
+                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${featuredHackathon.status === 'OPEN' ? 'bg-neon-green' : 'bg-red-500'}`}></span>
+                                            </span>
+                                            <span className={`text-[10px] font-mono font-bold tracking-widest ${featuredHackathon.status === 'OPEN' ? 'text-neon-green' : 'text-red-500'}`}>
+                                                {featuredHackathon.status === 'OPEN' ? 'SQUAD_REGISTRATION_OPEN' : 'PRIORITY_BROADCAST'}
+                                            </span>
                                         </div>
-                                        {featuredHackathon.startDate && (
-                                            <div className="text-center px-4 py-2 bg-card-bg border border-border rounded min-w-[100px] hidden md:block">
-                                                <div className="text-lg font-bold text-foreground font-sans">{new Date(featuredHackathon.startDate).getDate()}</div>
-                                                <div className="text-[9px] text-muted-foreground font-mono">
-                                                    {new Date(featuredHackathon.startDate).toLocaleString('default', { month: 'short' }).toUpperCase()}
-                                                </div>
-                                            </div>
-                                        )}
+                                        <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground mb-2">
+                                            {featuredHackathon.title}
+                                        </h2>
+                                        <p className="text-muted-foreground font-mono text-xs md:text-sm h-20 overflow-hidden text-ellipsis line-clamp-3">
+                                            {featuredHackathon.description}
+                                        </p>
                                     </div>
-                                    <Link
-                                        href={getLink(featuredHackathon)}
-                                        target={featuredHackathon.registrationLink?.startsWith("http") ? "_blank" : "_self"}
-                                        className={`w-full md:w-auto px-8 py-3 bg-foreground text-background font-bold font-mono text-sm hover:opacity-80 transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.3)] text-center ${!config.featured?.enabled ? 'pointer-events-none' : ''}`}
-                                    >
-                                        <Rocket size={16} /> {featuredHackathon.status === 'OPEN' ? 'INITIATE_PROTOCOL' : 'VIEW_DOSSIER'}
-                                    </Link>
+
+                                    <div className="flex flex-col items-start gap-4 relative z-10 w-full">
+                                        <div className="flex gap-4 w-full">
+                                            <div className="text-center px-4 py-2 bg-card-bg border border-border rounded min-w-[100px]">
+                                                <div className="text-lg font-bold text-foreground font-sans">{featuredHackathon.status}</div>
+                                                <div className="text-[9px] text-muted-foreground font-mono">STATUS</div>
+                                            </div>
+                                            {featuredHackathon.startDate && (
+                                                <div className="text-center px-4 py-2 bg-card-bg border border-border rounded min-w-[100px] hidden md:block">
+                                                    <div className="text-lg font-bold text-foreground font-sans">{new Date(featuredHackathon.startDate).getDate()}</div>
+                                                    <div className="text-[9px] text-muted-foreground font-mono">
+                                                        {new Date(featuredHackathon.startDate).toLocaleString('default', { month: 'short' }).toUpperCase()}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <Link
+                                            href={getLink(featuredHackathon)}
+                                            target={featuredHackathon.registrationLink?.startsWith("http") ? "_blank" : "_self"}
+                                            className={`w-full px-8 py-3 bg-foreground text-background font-bold font-mono text-sm hover:opacity-80 transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.3)] text-center ${!config.featured?.enabled ? 'pointer-events-none' : ''}`}
+                                        >
+                                            <Rocket size={16} /> {featuredHackathon.status === 'OPEN' ? 'INITIATE_PROTOCOL' : 'VIEW_DOSSIER'}
+                                        </Link>
+                                    </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    </FeatureWrapper>
-                )}
+                            </motion.div>
+                        </FeatureWrapper>
+                    )}
+                </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                     {/* Operations Card */}
