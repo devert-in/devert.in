@@ -4,11 +4,18 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper function to check if user is admin (requires custom claim or specific email)
     function isAdmin() {
-       return request.auth != null && (request.auth.token.email == 'admin@devert.in' || request.auth.token.admin == true);
+       return request.auth != null && request.auth.token.email == 'admin@devert.in';
     }
 
     // Hackathons: Anyone can read, only Admins can write
     match /hackathons/{hackathonId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']));
+    }
+
+    // Sprints (Replacements for Hackathons): Anyone can read, only Admins can write
+    match /sprints/{sprintId} {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']));

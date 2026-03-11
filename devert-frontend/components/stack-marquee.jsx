@@ -3,8 +3,8 @@
 import { motion } from "framer-motion";
 
 const STACK = [
-    "React", "Next.js", "Node.js", "Docker", "Firebase",
-    "PostgreSQL", "TypeScript", "TailwindCSS", "AWS", "GraphQL"
+    "OpenAI", "Anthropic", "Langchain", "LlamaIndex", "Pinecone",
+    "Python", "Vercel AI SDK", "Supabase", "Hugging Face", "Vector DBs"
 ];
 
 export function StackMarquee() {

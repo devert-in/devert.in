@@ -25,54 +25,54 @@ import FeatureGuard from "@/components/feature-guard";
 // DUMMY DATA - In production this would come from Firebase
 
 
-export default function PostmortemsPage() {
+export default function AgentShowcasePage() {
     return (
-        <FeatureGuard feature="postmortems">
-            <PostmortemsPageContent />
+        <FeatureGuard feature="agentShowcase">
+            <AgentShowcasePageContent />
         </FeatureGuard>
     );
 }
 
-function PostmortemsPageContent() {
-    const [postmortems, setPostmortems] = useState([]);
+function AgentShowcasePageContent() {
+    const [agentShowcase, setagentShowcase] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState("ALL"); // ALL, WON, LOST
+    const [filter, setFilter] = useState("ALL"); // ALL, SUCCESS, FAILED
     const [selectedStack, setSelectedStack] = useState("ALL");
     const [expandedId, setExpandedId] = useState(null);
 
     useEffect(() => {
-        const fetchPostmortems = async () => {
+        const fetchagentShowcase = async () => {
             try {
-                const querySnapshot = await getDocs(collection(db, "postmortems"));
+                const querySnapshot = await getDocs(collection(db, "agentShowcase"));
                 const items = querySnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 }));
                 // Sort by date desc
                 items.sort((a, b) => new Date(b.date) - new Date(a.date));
-                setPostmortems(items);
+                setagentShowcase(items);
             } catch (error) {
-                console.error("Error fetching postmortems:", error);
+                console.error("Error fetching agentShowcase:", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchPostmortems();
+        fetchagentShowcase();
     }, []);
 
-    const filteredData = postmortems.filter(pm => {
+    const filteredData = agentShowcase.filter(pm => {
         if (filter !== "ALL" && pm.status !== filter) return false;
         if (selectedStack !== "ALL" && !pm.stack.includes(selectedStack)) return false;
         return true;
     });
 
-    const uniqueStacks = Array.from(new Set(postmortems.flatMap(pm => pm.stack || [])));
+    const uniqueStacks = Array.from(new Set(agentShowcase.flatMap(pm => pm.stack || [])));
 
     if (loading) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center text-neon-cyan font-mono animate-pulse">
-                Loading case studies...
+                Loading agent configurations...
             </div>
         );
     }
@@ -97,15 +97,15 @@ function PostmortemsPageContent() {
                                 VERIFIED
                             </div>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-bold font-sans text-white mb-2">POSTMORTEMS</h1>
+                        <h1 className="text-4xl md:text-5xl font-bold font-sans text-white mb-2">AGENT SHOWCASE</h1>
                         <p className="font-mono text-gray-500 text-sm max-w-xl">
-                            Analyze the failures and victories of past operations.
-                            Treat this as a database of operational patterns.
+                            Explore working AI agents built by the community.
+                            Test and interact with real operational systems.
                         </p>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                        {/* Filter Won/Lost */}
+                        {/* Filter SUCCESS/FAILED */}
                         <div className="bg-white/5 border border-white/10 p-1 flex font-mono text-xs">
                             <button
                                 onClick={() => setFilter("ALL")}
@@ -114,16 +114,16 @@ function PostmortemsPageContent() {
                                 ALL
                             </button>
                             <button
-                                onClick={() => setFilter("WON")}
-                                className={`px-4 py-2 hover:text-neon-green transition-colors ${filter === "WON" ? "bg-neon-green/10 text-neon-green" : "text-gray-500"}`}
+                                onClick={() => setFilter("SUCCESS")}
+                                className={`px-4 py-2 hover:text-neon-green transition-colors ${filter === "SUCCESS" ? "bg-neon-green/10 text-neon-green" : "text-gray-500"}`}
                             >
-                                WON
+                                SUCCESS
                             </button>
                             <button
-                                onClick={() => setFilter("LOST")}
-                                className={`px-4 py-2 hover:text-red-500 transition-colors ${filter === "LOST" ? "bg-red-500/10 text-red-500" : "text-gray-500"}`}
+                                onClick={() => setFilter("FAILED")}
+                                className={`px-4 py-2 hover:text-red-500 transition-colors ${filter === "FAILED" ? "bg-red-500/10 text-red-500" : "text-gray-500"}`}
                             >
-                                LOST
+                                FAILED
                             </button>
                         </div>
 
@@ -148,11 +148,11 @@ function PostmortemsPageContent() {
                 <div className="grid grid-cols-1 gap-6">
                     {filteredData.length === 0 ? (
                         <div className="text-center py-20 text-gray-500 font-mono border border-white/10 border-dashed">
-                            No case studies found.
+                            No agents found.
                         </div>
                     ) : (
                         filteredData.map(pm => (
-                            <PostmortemCard
+                            <AgentShowcaseCard
                                 key={pm.id}
                                 data={pm}
                                 isExpanded={expandedId === pm.id}
@@ -166,8 +166,8 @@ function PostmortemsPageContent() {
     );
 }
 
-function PostmortemCard({ data, isExpanded, onToggle }) {
-    const isWon = data.status === "WON";
+function AgentShowcaseCard({ data, isExpanded, onToggle }) {
+    const isWon = data.status === "SUCCESS";
     const statusColor = isWon ? "text-neon-green border-neon-green" : "text-red-500 border-red-500";
     const bgHover = isWon ? "hover:border-neon-green/30" : "hover:border-red-500/30";
 

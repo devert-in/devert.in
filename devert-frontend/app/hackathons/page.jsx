@@ -24,7 +24,7 @@ export default function HackathonsPage() {
 function HackathonsPageContent() {
     const { user } = useAuth();
     const router = useRouter();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
 
     const [hackathons, setHackathons] = useState([]);
     const [editedHackathons, setEditedHackathons] = useState([]);
@@ -265,7 +265,7 @@ function HackathonsPageContent() {
                     className="mb-12"
                 >
                     <h1 className="text-4xl md:text-6xl font-bold font-sans mb-6">
-                        ACTIVE HACKATHONS <span className="text-neon-cyan">_</span>
+                        ACTIVE AGENT SPRINTS <span className="text-neon-cyan">_</span>
                         {isEditing && <span className="text-red-500 text-sm align-middle ml-4 animate-pulse">[ADMIN_OVERRIDE_ACTIVE]</span>}
                     </h1>
 

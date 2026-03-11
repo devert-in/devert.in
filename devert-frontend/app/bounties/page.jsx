@@ -19,7 +19,7 @@ export default function BountiesPage() {
 
 function BountiesPageContent() {
     const { user } = useAuth();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
     const [bounties, setBounties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("OPEN"); // OPEN, ASSIGNED, COMPLETED

@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function FeatureGuard({ feature, children }) {
     const { user } = useAuth();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
 
     const [enabled, setEnabled] = useState(true);
     const [loading, setLoading] = useState(true);

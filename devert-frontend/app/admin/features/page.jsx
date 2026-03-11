@@ -2,26 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
-import { Plus, Trash2, GripVertical, Save, Edit, Link as LinkIcon, FileText, Check } from "lucide-react";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { Plus, Trash2, GripVertical, Eye, EyeOff, Wifi, WifiOff } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 const DEFAULT_LINKS = [
-    { id: "0", name: "ABOUT", href: "/about", type: "internal" },
-    { id: "1", name: "HACKATHONS", href: "/hackathons", type: "internal" },
-    { id: "2", name: "CONTESTS", href: "/contests", type: "internal" },
-    { id: "3", name: "TEAMMATES", href: "/squadron", type: "internal" },
-    { id: "4", name: "EXECUTION", href: "/execution", type: "internal" },
-    { id: "5", name: "POSTMORTEMS", href: "/postmortems", type: "internal" },
-    { id: "6", name: "COURSES", href: "/courses", type: "internal" },
+    { id: "0", name: "COMMUNITY", href: "/community", type: "internal", visible: true, online: true },
+    { id: "1", name: "BUILD SPRINT", href: "/sprints", type: "internal", visible: true, online: true },
+    { id: "2", name: "CONTESTS", href: "/contests", type: "internal", visible: true, online: true },
+    { id: "3", name: "AGENT GARAGE", href: "/garage", type: "internal", visible: true, online: true },
+    { id: "4", name: "AGENT DEPLOYMENTS", href: "/deployments", type: "internal", visible: true, online: true },
+    { id: "5", name: "AGENT SHOWCASE", href: "/showcase", type: "internal", visible: true, online: true },
+    { id: "6", name: "PROMPT LAB", href: "/prompt-lab", type: "internal", visible: true, online: true },
 ];
 
 export default function FeaturesManager() {
     const [items, setItems] = useState([]);
     const [isAdding, setIsAdding] = useState(false);
     const [newItem, setNewItem] = useState({ name: "", href: "", type: "internal" });
-    const [saving, setSaving] = useState(false);
-
     const [enabled, setEnabled] = useState(false);
 
     useEffect(() => {
@@ -86,6 +84,26 @@ export default function FeaturesManager() {
             const updatedItems = items.filter(item => item.id !== id);
             await saveOrder(updatedItems);
         }
+    };
+
+    const toggleHideOnHome = async (id) => {
+        const updatedItems = items.map(item => {
+            if (item.id === id) {
+                return { ...item, hideOnHome: !item.hideOnHome };
+            }
+            return item;
+        });
+        await saveOrder(updatedItems);
+    };
+
+    const toggleVisibility = async (id) => {
+        const updatedItems = items.map(item => {
+            if (item.id === id) {
+                return { ...item, visible: item.visible === false ? true : false };
+            }
+            return item;
+        });
+        await saveOrder(updatedItems);
     };
 
     return (
@@ -171,8 +189,8 @@ export default function FeaturesManager() {
                 <div className="p-4 border-b border-white/10 grid grid-cols-12 text-xs font-mono text-gray-500 bg-white/5">
                     <div className="col-span-1">ORDER</div>
                     <div className="col-span-4">NAME</div>
-                    <div className="col-span-5">PATH</div>
-                    <div className="col-span-2 text-right">ACTIONS</div>
+                    <div className="col-span-4">PATH</div>
+                    <div className="col-span-3 text-right">ACTIONS</div>
                 </div>
 
                 <DragDropContext onDragEnd={handleDragEnd}>
@@ -194,14 +212,31 @@ export default function FeaturesManager() {
                                                     {item.name}
                                                     {item.type === 'external' && <LinkIcon size={10} className="text-gray-500" />}
                                                     {item.type === 'placeholder' && <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-1 rounded">SOON</span>}
+                                                    {item.hideOnHome && <span className="text-[10px] bg-blue-500/10 text-blue-500 px-1 rounded border border-blue-500/20">NO_HOME</span>}
+                                                    {item.visible === false && <span className="text-[10px] bg-red-500/10 text-red-500 px-1 rounded border border-red-500/20">HIDDEN</span>}
                                                 </div>
-                                                <div className="col-span-5 font-mono text-xs text-gray-400 truncate">
+                                                <div className="col-span-4 font-mono text-xs text-gray-400 truncate">
                                                     {item.href}
                                                 </div>
-                                                <div className="col-span-2 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="col-span-3 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => toggleHideOnHome(item.id)}
+                                                        className={`p-1 rounded hover:bg-white/10 ${item.hideOnHome ? 'text-blue-500' : 'text-gray-600'}`}
+                                                        title="Toggle Hide on Home"
+                                                    >
+                                                        {item.hideOnHome ? <WifiOff size={14} /> : <Wifi size={14} />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleVisibility(item.id)}
+                                                        className={`p-1 rounded hover:bg-white/10 ${item.visible === false ? 'text-gray-600' : 'text-green-500'}`}
+                                                        title="Toggle Visibility"
+                                                    >
+                                                        {item.visible === false ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                    </button>
                                                     <button
                                                         onClick={() => handleDelete(item.id)}
                                                         className="text-red-500 hover:text-red-400 p-1 hover:bg-red-500/10 rounded"
+                                                        title="Delete"
                                                     >
                                                         <Trash2 size={14} />
                                                     </button>

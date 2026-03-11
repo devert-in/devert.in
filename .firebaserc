@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "devert-4a52b"
-  }
+    "default": "devert-4a52b",
+    "DeVert": "devert-4a52b"
+  },
+  "targets": {},
+  "etags": {}
 }

@@ -21,7 +21,7 @@ export default function IncubatorPage() {
 function IncubatorPageContent() {
     const { user } = useAuth();
     const router = useRouter();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
 
     const [ideas, setIdeas] = useState([]);
     const [editedIdeas, setEditedIdeas] = useState([]);

@@ -139,7 +139,7 @@ function RequirementDetailContent() {
                     {/* Task Management */}
                     <div>
                         <div className="flex justify-between items-end mb-4">
-                            <h3 className="font-bold font-sans text-lg text-white">EXECUTION_TASKS</h3>
+                            <h3 className="font-bold font-sans text-lg text-white">AGENT_DEPLOYMENT_TASKS</h3>
                             <button
                                 onClick={() => setIsAddingTask(!isAddingTask)}
                                 className="text-xs font-mono bg-neon-cyan/10 text-neon-cyan border border-neon-cyan px-3 py-1 hover:bg-neon-cyan hover:text-black transition-colors"
@@ -159,7 +159,7 @@ function RequirementDetailContent() {
                                         required
                                     />
                                     <textarea
-                                        placeholder="Detailed Instructions for Executor..."
+                                        placeholder="Detailed Instructions for Architect..."
                                         rows={3}
                                         className="w-full bg-black border border-white/20 p-2 text-sm font-mono text-white rounded"
                                         value={newTask.description}
@@ -168,7 +168,7 @@ function RequirementDetailContent() {
                                     />
                                     <div className="grid grid-cols-2 gap-4">
                                         <input
-                                            placeholder="Executor Email (Must match exact)"
+                                            placeholder="Architect Email (Must match exact)"
                                             className="w-full bg-black border border-white/20 p-2 text-sm font-mono text-white rounded"
                                             value={newTask.executorEmail}
                                             onChange={e => setNewTask({ ...newTask, executorEmail: e.target.value })}
@@ -190,7 +190,7 @@ function RequirementDetailContent() {
 
                         <div className="space-y-4">
                             {tasks.length === 0 ? (
-                                <p className="text-gray-500 font-mono text-sm italic">No tasks assigned yet. Execution pending.</p>
+                                <p className="text-gray-500 font-mono text-sm italic">No tasks assigned yet. Deployment pending.</p>
                             ) : (
                                 tasks.map(task => (
                                     <div key={task.id} className="bg-black/40 border border-white/10 p-4 rounded hover:border-white/20">

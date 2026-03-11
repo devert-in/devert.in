@@ -6,7 +6,7 @@ import { collection, getDocs, query, orderBy, updateDoc, doc, where, writeBatch 
 import { Loader2, CheckCircle, XCircle, Shield, User, Search, Edit, Save, X, StopCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function ExecutorsAdminPage() {
+export default function ArchitectsAdminPage() {
     const [applications, setApplications] = useState([]);
     const [editedApplications, setEditedApplications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -100,7 +100,7 @@ export default function ExecutorsAdminPage() {
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-3xl font-bold font-sans text-white mb-2">SQUAD OPS</h1>
-                    <p className="text-gray-400 font-mono text-sm">Recruit, Vet, and Manage Executors.</p>
+                    <p className="text-gray-400 font-mono text-sm">Recruit, Vet, and Manage Architects.</p>
                 </div>
                 <div className="flex flex-col items-end gap-4">
                     <button

@@ -20,32 +20,18 @@ export function Navbar() {
     const { hasShownIntro } = useIntro();
 
     const DEFAULT_LINKS = [
-        { name: "ABOUT", href: "/about" },
-        { name: "HACKATHONS", href: "/hackathons" },
-        { name: "CONTESTS", href: "/contests" },
-        { name: "TEAMMATES", href: "/squadron" },
-        { name: "EXECUTION", href: "/execution" },
-        { name: "POSTMORTEMS", href: "/postmortems" },
-        { name: "COURSES", href: "/courses" },
+        { name: "HOME", href: "/" },
+        { name: "AGENT GARAGE", href: "/garage" },
+        { name: "PROMPT LAB", href: "/prompt-lab" },
+        { name: "BUILD SPRINT", href: "/sprints" },
+        { name: "AGENT SHOWCASE", href: "/showcase" },
+        { name: "COMMUNITY", href: "/community" },
     ];
 
     const [links, setLinks] = useState(DEFAULT_LINKS);
 
-    useEffect(() => {
-        let unsubscribe = () => { };
-        try {
-            unsubscribe = onSnapshot(doc(db, "system", "navigation"), (snapshot) => {
-                if (snapshot.exists() && snapshot.data().items) {
-                    setLinks(snapshot.data().items);
-                }
-            }, (error) => {
-                console.warn("Nav sync failed, using default:", error);
-            });
-        } catch (e) {
-            console.warn("Firestore not ready:", e);
-        }
-        return () => unsubscribe();
-    }, []);
+    // Navigation is locked to DEFAULT_LINKS to enforce pure Agent Garage branding.
+    // Database overrides are permanently bypassed.
 
     // 2. Conditional Logic / Returns happen AFTER all hooks
     if ((pathname === "/" && !hasShownIntro) || pathname.startsWith("/admin")) return null;
@@ -65,12 +51,17 @@ export function Navbar() {
 
                 {/* Desktop Nav */}
                 <div className="hidden md:flex items-center gap-8">
-                    {links.map((link) => {
-                        const isActive = pathname === link.href;
+                    {links.filter(link => {
+                        if (link.visible === false) return false;
+                        if (pathname === "/" && link.hideOnHome) return false;
+                        return true;
+                    }).map((link) => {
+                        const displayHref = link.href;
+                        const isActive = pathname === displayHref;
                         return (
                             <Link
                                 key={link.name}
-                                href={link.href}
+                                href={displayHref}
                                 target={link.external ? "_blank" : "_self"}
                                 className={`font-mono text-sm transition-colors relative group ${isActive ? "text-neon-cyan" : "text-gray-400 hover:text-foreground"}`}
                             >
@@ -123,16 +114,16 @@ export function Navbar() {
                                             onClick={() => setProfileOpen(false)}
                                             className="px-4 py-2 text-sm font-mono text-gray-200 hover:bg-white/10 hover:text-white flex items-center gap-2 rounded transition-colors"
                                         >
-                                            <Loader2 size={14} /> MY_PROJECTS
+                                            <Loader2 size={14} /> MY_DEPLOYMENTS
                                         </Link>
                                         <Link
-                                            href="/workspace"
+                                            href="/garage"
                                             onClick={() => setProfileOpen(false)}
                                             className="px-4 py-2 text-sm font-mono text-gray-200 hover:bg-white/10 hover:text-white flex items-center gap-2 rounded transition-colors"
                                         >
-                                            <Terminal size={14} /> WORKSPACE
+                                            <Terminal size={14} /> AGENT_GARAGE
                                         </Link>
-                                        {user.email.includes("admin") && (
+                                        {user.email === "admin@devert.in" && (
                                             <>
                                                 <Link
                                                     href="/admin"
@@ -151,11 +142,11 @@ export function Navbar() {
                                             </>
                                         )}
                                         <Link
-                                            href="/about"
+                                            href="/community"
                                             onClick={() => setProfileOpen(false)}
                                             className="px-4 py-2 text-sm font-mono text-gray-200 hover:bg-white/10 hover:text-white flex items-center gap-2 rounded transition-colors border-t border-white/10 mt-1"
                                         >
-                                            <Terminal size={14} /> ABOUT_DEVERT
+                                            <Terminal size={14} /> COMMUNITY
                                         </Link>
                                         <button
                                             onClick={() => { logout(); setProfileOpen(false); }}
@@ -190,18 +181,26 @@ export function Navbar() {
                     animate={{ opacity: 1, y: 0 }}
                     className="md:hidden absolute top-20 left-0 right-0 bg-background border-b border-border p-6 flex flex-col gap-6"
                 >
-                    {links.map((link) => (
-                        <Link
-                            key={link.name}
-                            href={link.href}
-                            target={link.external ? "_blank" : "_self"}
-                            onClick={() => setIsOpen(false)}
-                            className="font-mono text-lg text-gray-300 hover:text-neon-cyan flex items-center gap-3"
-                        >
-                            <span className="text-neon-green">&gt;</span>
-                            {link.name}
-                        </Link>
-                    ))}
+                    {links.filter(link => {
+                        if (link.visible === false) return false;
+                        if (pathname === "/" && link.hideOnHome) return false;
+                        return true;
+                    }).map((link) => {
+                        const displayHref = link.href;
+
+                        return (
+                            <Link
+                                key={link.name}
+                                href={displayHref}
+                                target={link.external ? "_blank" : "_self"}
+                                onClick={() => setIsOpen(false)}
+                                className="font-mono text-lg text-gray-300 hover:text-neon-cyan flex items-center gap-3"
+                            >
+                                <span className="text-neon-green">&gt;</span>
+                                {link.name}
+                            </Link>
+                        );
+                    })}
                     {user ? (
                         <>
                             <Link href="/profile" onClick={() => setIsOpen(false)} className="font-mono text-lg text-white font-bold flex items-center gap-3 pt-4 border-t border-white/10">

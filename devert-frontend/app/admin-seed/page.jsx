@@ -82,7 +82,7 @@ const POSTMORTEMS = [
         winningSignals: [],
         criticalMistakes: ["Feature creep", "No backup plan", "Ignored judging rubric"],
         patchIfRedeployed: ["Cut features by 50%", "Improve demo flow", "Focus on one metric"],
-        verdict: "Execution failed, not the idea.",
+        verdict: "Deployment failed, not the idea.",
         date: "2026-02-15"
     },
     {
@@ -92,11 +92,11 @@ const POSTMORTEMS = [
         teamSize: 3,
         stack: ["Solidity", "Next.js", "Foundry"],
         rank: "1/500",
-        whyWon: "Clear problem framing. MVP-first execution. Strong demo storytelling.",
+        whyWon: "Clear problem framing. MVP-first deployment. Strong demo storytelling.",
         winningSignals: ["Simple architecture", "One strong use-case", "Clean UI", "Judge-friendly demo"],
         criticalMistakes: [],
         patchIfRedeployed: ["Add better test coverage", "Optimize gas costs"],
-        verdict: "Perfect execution of a simple idea.",
+        verdict: "Perfect deployment of a simple idea.",
         date: "2025-11-20"
     },
     {

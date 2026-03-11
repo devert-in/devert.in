@@ -102,7 +102,7 @@ export default function PostmortemsManager() {
     };
 
     const handleDelete = async (docId) => {
-        if (!confirm("Delete this postmortem record?")) return;
+        if (!confirm("Delete this performance record?")) return;
         try {
             await deleteDoc(doc(db, "postmortems", docId));
             setPostmortems(prev => prev.filter(p => p.docId !== docId));
@@ -160,7 +160,7 @@ export default function PostmortemsManager() {
     };
 
     const handleSeed = async () => {
-        if (!confirm("WARNING: This will DELETE ALL existing POSTMORTEMS and replace them with REAL EXAMPLES. Proceed?")) return;
+        if (!confirm("WARNING: This will DELETE ALL existing PERFORMANCE LOGS and replace them with REAL EXAMPLES. Proceed?")) return;
 
         const realPostmortems = [
             {
@@ -217,7 +217,7 @@ export default function PostmortemsManager() {
                 })
             );
             await Promise.all(addPromises);
-            setDialog({ show: true, message: "Postmortem Archives Refreshed.", type: "success" });
+            setDialog({ show: true, message: "Performance Archives Refreshed.", type: "success" });
             fetchPostmortems();
         } catch (error) {
             console.error("Seeding failed:", error);
@@ -250,8 +250,8 @@ export default function PostmortemsManager() {
 
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold font-sans text-white">POSTMORTEM_LOGS</h1>
-                    <p className="font-mono text-xs text-gray-500">Analyze winning and losing patterns.</p>
+                    <h1 className="text-3xl font-bold font-sans text-white">PERFORMANCE_LOGS</h1>
+                    <p className="font-mono text-xs text-gray-500">Analyze agent deployment success patterns.</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -317,7 +317,7 @@ export default function PostmortemsManager() {
                             className="relative w-full max-w-2xl bg-[#0a0a0a] border border-white/20 p-8 shadow-2xl z-10 max-h-[90vh] overflow-y-auto"
                         >
                             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20} /></button>
-                            <h2 className="text-xl font-bold font-sans text-white mb-6">POSTMORTEM_ENTRY</h2>
+                            <h2 className="text-xl font-bold font-sans text-white mb-6">PERFORMANCE_LOG_ENTRY</h2>
 
                             <form onSubmit={handleSave} className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">

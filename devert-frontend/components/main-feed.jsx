@@ -4,26 +4,27 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, Play, Users, Crosshair, Rocket, Calendar, MapPin, Edit3, Save, Eye, EyeOff, StopCircle, X, Construction } from "lucide-react";
 import { useEffect, useState } from "react";
-import { collection, query, where, getDocs, limit, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { ExecutionModeSection } from "@/components/execution-mode-section";
 
 import { useAuth } from "@/context/AuthContext";
 
 const DEFAULT_FEED_CONFIG = {
     featured: { enabled: true, title: "Featured Event" },
-    active_ops: { enabled: true, title: "Active Operations" },
-    incubator: { enabled: true, title: "Idea Incubator" },
-    squadron: { enabled: true, title: "Squadron Uplink" },
-    executor: { enabled: true, title: "Become Executor" },
+    active_ops: { enabled: true, title: "Prompt Engineering Lab" },
+    incubator: { enabled: true, title: "Agent Builder Hub" },
+    squadron: { enabled: true, title: "Agent Hackathon Sprints" },
+    executor: { enabled: true, title: "Agent Showcase" },
+    learn_prompts: { enabled: true, title: "Learn Prompt Engineering" },
+    learn_agents: { enabled: true, title: "Learn What is Agents" },
 };
 
 export function MainFeed({ hasShownIntro }) {
     const { user, userData } = useAuth();
     const displayName = userData?.displayName || user?.email?.split('@')[0] || "OPERATIVE";
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
 
-    const [featuredHackathon, setFeaturedHackathon] = useState(null);
+    const [featuredHackathons, setFeaturedHackathons] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Admin Edit States
@@ -32,34 +33,67 @@ export function MainFeed({ hasShownIntro }) {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const initData = async () => {
+        let unsubscribeFeatured;
+        let unsubscribeConfig;
+
+        const initData = () => {
             try {
-                // Fetch Featured Hackathon
+                // Real-time Fetch Featured Hackathon (from 'hackathons' collection)
                 const q = query(
                     collection(db, "hackathons"),
                     where("isFeatured", "==", true),
-                    limit(1)
+                    limit(2)
                 );
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const docData = querySnapshot.docs[0].data();
-                    setFeaturedHackathon({ id: querySnapshot.docs[0].id, ...docData });
-                }
+                unsubscribeFeatured = onSnapshot(q, async (querySnapshot) => {
+                    if (!querySnapshot.empty) {
+                        const docsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        setFeaturedHackathons(docsData);
 
-                // Fetch Config
+                        // Temporary Autoseed for AI Genesis Hackathon if missing
+                        if (docsData.length === 1 && !docsData.some(h => h.title.includes("Genesis"))) {
+                            try {
+                                await addDoc(collection(db, "hackathons"), {
+                                    title: "Agent AI Genesis Hackathon",
+                                    registrationLink: "https://hackathon.devert.in",
+                                    description: "The ultimate DeVert special Hackathon. Compete to build the most advanced AI Agents and prompt logic systems globally.",
+                                    startDate: "2026-05-15T09:00:00.000Z",
+                                    endDate: "2026-05-17T18:00:00.000Z",
+                                    registrationDeadline: "2026-05-01T23:59:00.000Z",
+                                    prizes: "₹2,00,000 + Funding",
+                                    tags: ["Hackathon", "Agents", "Prompting"],
+                                    status: "UPCOMING",
+                                    isFeatured: true,
+                                    isSpecialEvent: true
+                                });
+                            } catch (e) {
+                                console.log("Failed to auto-seed", e);
+                            }
+                        }
+                    } else {
+                        setFeaturedHackathons([]);
+                    }
+                    setLoading(false);
+                });
+
+                // Real-time Fetch Config
                 const configRef = doc(db, "system", "main_feed_config");
-                const configSnap = await getDoc(configRef);
-                if (configSnap.exists()) {
-                    setConfig(configSnap.data());
-                }
+                unsubscribeConfig = onSnapshot(configRef, (configSnap) => {
+                    if (configSnap.exists()) {
+                        setConfig(configSnap.data());
+                    }
+                });
             } catch (error) {
                 console.error("Error initializing MainFeed:", error);
-            } finally {
                 setLoading(false);
             }
         };
 
         initData();
+
+        return () => {
+            if (unsubscribeFeatured) unsubscribeFeatured();
+            if (unsubscribeConfig) unsubscribeConfig();
+        };
     }, []);
 
     const toggleFeature = async (key) => {
@@ -161,13 +195,9 @@ export function MainFeed({ hasShownIntro }) {
                     <div className="flex-1">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="font-mono text-neon-cyan text-xs mb-1 tracking-widest">// IMPACT_ENGINE_ONLINE</p>
-                                <h1 className="text-3xl md:text-5xl font-bold font-sans text-foreground">
-                                    {user ? (
-                                        <>WELCOME BACK, <span className="text-neon-green">{displayName.toUpperCase()}</span></>
-                                    ) : (
-                                        <>SYSTEM STATUS: <span className="text-neon-green">ONLINE</span></>
-                                    )}
+                                <p className="font-mono text-neon-cyan text-xs mb-1 tracking-widest">// AGENT_GARAGE_ONLINE</p>
+                                <h1 className="text-4xl md:text-6xl font-bold font-sans text-foreground">
+                                    GARAGE OF <span className="text-neon-cyan">AI AGENTS</span>
                                 </h1>
                             </div>
                             {isAdmin && (
@@ -185,25 +215,9 @@ export function MainFeed({ hasShownIntro }) {
                                 </button>
                             )}
                         </div>
-                        <p className="text-muted-foreground font-mono text-sm mt-2">Don't just code. Solve real-world problems.</p>
+                        <p className="text-muted-foreground font-mono text-sm mt-2">DeVert is a focused hub for Prompt Engineering and AI Agent building. Build, experiment, and launch real AI systems.</p>
                     </div>
                     <div className="flex items-center gap-4 mt-4 md:mt-0">
-                        {/* DEVERT AI HIGHLIGHT CTA */}
-                        {/* DEVERT AI HIGHLIGHT CTA */}
-                        <Link href="/execution-ai" className="group relative pr-1">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg blur opacity-0 group-hover:opacity-50 transition duration-200"></div>
-                            <div className="relative flex items-center gap-3 px-4 py-2 bg-black border border-purple-500/50 rounded-lg group-hover:border-purple-400 transition-colors">
-                                <div className="p-1.5 bg-purple-500/20 rounded-md text-purple-400">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" /><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" /><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" /></svg>
-                                </div>
-                                <div className="text-left">
-                                    <div className="text-sm font-sans font-bold text-white flex items-center gap-1">
-                                        REALITY CHECK <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                                    </div>
-                                </div>
-                            </div>
-                        </Link>
-
                         <div className="flex items-center gap-2 text-muted-foreground font-mono text-[10px] hidden md:flex">
                             <span className="relative flex h-2 w-2">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
@@ -214,192 +228,308 @@ export function MainFeed({ hasShownIntro }) {
                     </div>
                 </motion.div>
 
-                <div className="grid lg:grid-cols-2 gap-6 mb-12">
-                    {/* Execution Mode AI Section */}
-                    <div className="h-full">
-                        <ExecutionModeSection />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-[minmax(180px,auto)]">
 
                     {/* Featured Operation Hero Banner */}
-                    {featuredHackathon && (
-                        <FeatureWrapper featureKey="featured" className="h-full">
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: 0.2 }}
-                                className="relative group h-full"
-                            >
-                                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                                <div className="relative bg-background border border-border p-8 rounded-lg flex flex-col justify-between gap-6 overflow-hidden h-full">
-                                    {/* Background Effect */}
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none"></div>
+                    {featuredHackathons.length > 0 && (
+                        <FeatureWrapper featureKey="featured" className="col-span-1 md:col-span-2 lg:col-span-3 row-span-1 h-full min-h-[300px]">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full h-full">
+                                { /* DEBUG START */ console.log("CURRENT FEATURED HACKATHONS ARR", featuredHackathons)}
+                                {featuredHackathons.map((featuredHackathon, idx) => (
+                                    <motion.div
+                                        key={featuredHackathon.id || idx}
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: 0.2 + (idx * 0.1) }}
+                                        className="relative group h-full w-full"
+                                    >
+                                        <div className="absolute -inset-px bg-gradient-to-r from-neon-green/30 via-black to-blue-500/20 rounded-2xl opacity-50 group-hover:opacity-100 transition duration-500"></div>
+                                        <div className={`relative bg-black/80 backdrop-blur-xl border border-white/10 p-6 md:p-8 rounded-2xl flex flex-col ${featuredHackathons.length === 1 ? 'xl:flex-row' : 'xl:flex-col'} justify-between gap-6 overflow-hidden h-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]`}>
+                                            {/* Abstract Grid Pattern */}
+                                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,255,136,0.1)_0%,transparent_70%)] pointer-events-none" />
 
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="flex h-2 w-2 relative">
-                                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${featuredHackathon.status === 'OPEN' ? 'bg-neon-green' : 'bg-red-500'}`}></span>
-                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${featuredHackathon.status === 'OPEN' ? 'bg-neon-green' : 'bg-red-500'}`}></span>
-                                            </span>
-                                            <span className={`text-[10px] font-mono font-bold tracking-widest ${featuredHackathon.status === 'OPEN' ? 'text-neon-green' : 'text-red-500'}`}>
-                                                {featuredHackathon.status === 'OPEN' ? 'SQUAD_REGISTRATION_OPEN' : 'PRIORITY_BROADCAST'}
-                                            </span>
-                                        </div>
-                                        <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground mb-2">
-                                            {featuredHackathon.title}
-                                        </h2>
-                                        <p className="text-muted-foreground font-mono text-xs md:text-sm h-20 overflow-hidden text-ellipsis line-clamp-3">
-                                            {featuredHackathon.description}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex flex-col items-start gap-4 relative z-10 w-full">
-                                        <div className="flex gap-4 w-full">
-                                            <div className="text-center px-4 py-2 bg-card-bg border border-border rounded min-w-[100px]">
-                                                <div className="text-lg font-bold text-foreground font-sans">{featuredHackathon.status}</div>
-                                                <div className="text-[9px] text-muted-foreground font-mono">STATUS</div>
+                                            <div className={`relative z-10 flex flex-col justify-start ${featuredHackathons.length === 1 ? 'xl:w-2/3' : 'w-full'}`}>
+                                                <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 w-max rounded-full bg-neon-green/10 border border-neon-green/20 backdrop-blur-sm">
+                                                    <span className="flex h-2 w-2 relative">
+                                                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${featuredHackathon.status === 'OPEN' ? 'bg-neon-green' : 'bg-red-500'}`}></span>
+                                                        <span className={`relative inline-flex rounded-full h-2 w-2 ${featuredHackathon.status === 'OPEN' ? 'bg-neon-green' : 'bg-red-500'}`}></span>
+                                                    </span>
+                                                    <span className={`text-[10px] uppercase font-bold tracking-widest ${featuredHackathon.status === 'OPEN' ? 'text-neon-green' : 'text-red-500'}`}>
+                                                        {featuredHackathon.status === 'OPEN' ? 'Active Mission' : 'Upcoming Event'}
+                                                    </span>
+                                                </div>
+                                                <h2 className={`font-bold font-sans text-white mb-3 leading-tight tracking-tight ${featuredHackathons.length === 1 ? 'text-3xl md:text-5xl lg:text-5xl' : 'text-2xl md:text-3xl lg:text-4xl'}`}>
+                                                    {featuredHackathon.title}
+                                                </h2>
+                                                <p className="text-gray-400 font-sans text-sm max-w-xl mb-0 line-clamp-3">
+                                                    {featuredHackathon.description}
+                                                </p>
                                             </div>
-                                            {featuredHackathon.startDate && (
-                                                <div className="text-center px-4 py-2 bg-card-bg border border-border rounded min-w-[100px] hidden md:block">
-                                                    <div className="text-lg font-bold text-foreground font-sans">{new Date(featuredHackathon.startDate).getDate()}</div>
-                                                    <div className="text-[9px] text-muted-foreground font-mono">
-                                                        {new Date(featuredHackathon.startDate).toLocaleString('default', { month: 'short' }).toUpperCase()}
+
+                                            <div className={`flex flex-col sm:flex-row ${featuredHackathons.length === 1 ? 'xl:flex-col items-center xl:items-end xl:w-1/3 xl:pl-8 xl:border-l' : 'flex-row items-center justify-between w-full pt-4 border-t'} border-white/10 relative z-10 shrink-0 gap-4 mt-auto`}>
+                                                <div className={`flex gap-3 ${featuredHackathons.length === 1 ? 'w-full sm:w-auto xl:w-full xl:justify-end' : ''}`}>
+                                                    <div className="flex flex-col justify-center px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-center">
+                                                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Status</div>
+                                                        <div className="text-sm font-bold text-white max-w-full overflow-hidden text-ellipsis">{featuredHackathon.status}</div>
+                                                    </div>
+                                                    {featuredHackathon.startDate && (
+                                                        <div className="flex flex-col justify-center px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-center hidden sm:flex">
+                                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Date</div>
+                                                            <div className="text-sm font-bold text-white flex items-center justify-center gap-1">
+                                                                {new Date(featuredHackathon.startDate).getDate()}
+                                                                <span className="text-[10px] font-normal text-gray-400">
+                                                                    {new Date(featuredHackathon.startDate).toLocaleString('default', { month: 'short' }).toUpperCase()}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <Link
+                                                    href={getLink(featuredHackathon)}
+                                                    target={featuredHackathon.registrationLink?.startsWith("http") ? "_blank" : "_self"}
+                                                    className={`${featuredHackathons.length === 1 ? 'w-full sm:w-auto px-6 py-4' : 'px-6 py-3'} bg-neon-green text-black font-bold text-sm hover:bg-white transition-all rounded-xl flex items-center justify-center gap-2 group/btn shadow-[0_0_30px_rgba(0,255,136,0.15)] hover:shadow-[0_0_30px_rgba(0,255,136,0.3)] ${!config.featured?.enabled ? 'pointer-events-none' : ''}`}
+                                                >
+                                                    <Rocket size={16} className="group-hover/btn:-translate-y-1 transition-transform" />
+                                                    {featuredHackathon.status === 'OPEN' ? 'Register Now' : 'View Details'}
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+
+                                {/* HARDCODED GENESIS FALLBACK IF LENGTH IS 1 to preserve half-screen alignment! */}
+                                {featuredHackathons.length === 1 && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.6, delay: 0.2 }}
+                                        className="relative group h-full w-full"
+                                    >
+                                        <div className="absolute -inset-px bg-gradient-to-r from-neon-green/30 via-black to-blue-500/20 rounded-2xl opacity-50 group-hover:opacity-100 transition duration-500"></div>
+                                        <div className="relative bg-black/80 backdrop-blur-xl border border-white/10 p-6 md:p-8 rounded-2xl flex flex-col xl:flex-col justify-between gap-6 overflow-hidden h-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                                            {/* Abstract Grid Pattern */}
+                                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,255,136,0.1)_0%,transparent_70%)] pointer-events-none" />
+
+                                            <div className="relative z-10 flex flex-col justify-start w-full">
+                                                <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 w-max rounded-full bg-neon-green/10 border border-neon-green/20 backdrop-blur-sm">
+                                                    <span className="flex h-2 w-2 relative">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-neon-green"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-green"></span>
+                                                    </span>
+                                                    <span className="text-[10px] uppercase font-bold tracking-widest text-neon-green">
+                                                        Upcoming Event
+                                                    </span>
+                                                </div>
+                                                <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold font-sans text-white mb-3 leading-tight tracking-tight">
+                                                    Agent AI Genesis Hackathon
+                                                </h2>
+                                                <p className="text-gray-400 font-sans text-sm max-w-xl mb-0 line-clamp-3">
+                                                    The ultimate DeVert special Hackathon. Compete to build the most advanced AI Agents and prompt logic systems globally.
+                                                </p>
+                                            </div>
+
+                                            <div className="flex flex-col sm:flex-row flex-row items-center justify-between w-full pt-4 border-t border-white/10 relative z-10 shrink-0 gap-4 mt-auto">
+                                                <div className="flex gap-3">
+                                                    <div className="flex flex-col justify-center px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-center">
+                                                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Status</div>
+                                                        <div className="text-sm font-bold text-white max-w-full overflow-hidden text-ellipsis">UPCOMING</div>
+                                                    </div>
+                                                    <div className="flex flex-col justify-center px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-center hidden sm:flex">
+                                                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Date</div>
+                                                        <div className="text-sm font-bold text-white flex items-center justify-center gap-1">
+                                                            15
+                                                            <span className="text-[10px] font-normal text-gray-400">MAY</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            )}
+                                                <Link
+                                                    href="/hackathons/mock_genesis_sprint"
+                                                    className="px-6 py-3 bg-neon-green text-black font-bold text-sm hover:bg-white transition-all rounded-xl flex items-center justify-center gap-2 group/btn shadow-[0_0_30px_rgba(0,255,136,0.15)] hover:shadow-[0_0_30px_rgba(0,255,136,0.3)]"
+                                                >
+                                                    <Rocket size={16} className="group-hover/btn:-translate-y-1 transition-transform" />
+                                                    View Details
+                                                </Link>
+                                            </div>
                                         </div>
-                                        <Link
-                                            href={getLink(featuredHackathon)}
-                                            target={featuredHackathon.registrationLink?.startsWith("http") ? "_blank" : "_self"}
-                                            className={`w-full px-8 py-3 bg-foreground text-background font-bold font-mono text-sm hover:opacity-80 transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.3)] text-center ${!config.featured?.enabled ? 'pointer-events-none' : ''}`}
-                                        >
-                                            <Rocket size={16} /> {featuredHackathon.status === 'OPEN' ? 'INITIATE_PROTOCOL' : 'VIEW_DOSSIER'}
-                                        </Link>
-                                    </div>
-                                </div>
-                            </motion.div>
+                                    </motion.div>
+                                )}
+                            </div>
                         </FeatureWrapper>
                     )}
-                </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                    {/* Operations Card */}
-                    <FeatureWrapper featureKey="active_ops">
+                    {/* Prompt Engineering Lab - Bento Small */}
+                    <FeatureWrapper featureKey="active_ops" className="col-span-1 row-span-1 h-full">
                         <motion.div
                             initial={{ opacity: hasShownIntro ? 1 : 0, x: hasShownIntro ? 0 : -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: hasShownIntro ? 0 : 0.1 }}
-                            className="bg-card-bg border border-border p-6 hover:border-neon-green/50 transition-all group relative overflow-hidden h-full"
+                            className="bg-black/40 backdrop-blur-lg border border-white/10 p-6 rounded-2xl hover:border-blue-500/50 hover:bg-black/60 transition-all group relative overflow-hidden h-full flex flex-col justify-between"
                         >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-neon-green/5 rounded-bl-full -mr-8 -mt-8"></div>
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="px-2 py-0.5 bg-neon-green/10 text-neon-green text-[10px] font-mono rounded border border-neon-green/20">
-                                    PRIORITY: HIGH
+                            <div className="absolute -inset-px bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl"></div>
+
+                            <div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                                        <Crosshair size={20} />
+                                    </div>
                                 </div>
-                                <Crosshair className="text-muted-foreground group-hover:text-neon-green transition-colors" size={24} />
+
+                                <h2 className="text-xl font-bold text-white mb-2 relative z-10">Prompt Engineering</h2>
+                                <p className="text-gray-400 text-sm leading-relaxed relative z-10">
+                                    Master LLM interactions. Test, evaluate, and optimize prompts for reliability and precision.
+                                </p>
                             </div>
 
-                            <h2 className="text-2xl font-bold font-sans mb-1 text-foreground">Active Operations</h2>
-                            <p className="text-muted-foreground font-mono text-xs mb-4">Solve real problems for local businesses & NGOs. Build a portfolio that actually matters.</p>
-
-                            <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground mb-6">
-                                <span>LIVE QUESTS: 12</span>
-                                <span>//</span>
-                                <span>IMPACT: CERTIFIED</span>
-                            </div>
-
-                            <Link href="/hackathons" className={`inline-flex items-center text-neon-green text-xs font-bold font-mono group-hover:translate-x-2 transition-transform ${!config.active_ops?.enabled ? 'pointer-events-none' : ''}`}>
-                                BROWSE_QUESTS <ArrowRight size={14} className="ml-2" />
+                            <Link href="/prompt-lab" className={`mt-6 inline-flex items-center text-blue-400 text-sm font-semibold group/link w-fit relative z-10 ${!config.active_ops?.enabled ? 'pointer-events-none' : ''}`}>
+                                Open Lab <ArrowRight size={16} className="ml-2 group-hover/link:translate-x-1 transition-transform" />
                             </Link>
                         </motion.div>
                     </FeatureWrapper>
 
-                    {/* Incubator Card */}
-                    <FeatureWrapper featureKey="incubator">
+                    {/* Agent Builder Hub - Bento Small */}
+                    <FeatureWrapper featureKey="incubator" className="col-span-1 row-span-1 h-full">
                         <motion.div
                             initial={{ opacity: hasShownIntro ? 1 : 0, x: hasShownIntro ? 0 : 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: hasShownIntro ? 0 : 0.2 }}
-                            className="bg-card-bg border border-border p-6 hover:border-purple-500/50 transition-all group relative overflow-hidden h-full"
+                            className="bg-black/40 backdrop-blur-lg border border-white/10 p-6 rounded-2xl hover:border-purple-500/50 hover:bg-black/60 transition-all group relative overflow-hidden h-full flex flex-col justify-between"
                         >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-bl-full -mr-8 -mt-8"></div>
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] font-mono rounded border border-purple-500/20">
-                                    INNOVATION_LAB
+                            <div className="absolute -inset-px bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl"></div>
+
+                            <div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                                        <Rocket size={20} />
+                                    </div>
                                 </div>
-                                <Rocket className="text-muted-foreground group-hover:text-purple-400 transition-colors" size={24} />
+
+                                <h2 className="text-xl font-bold text-white mb-2 relative z-10">Agent Builder Hub</h2>
+                                <p className="text-gray-400 text-sm leading-relaxed relative z-10">
+                                    Turn prompts into autonomous agents. Wire logic, tools, and actions into deployable AI.
+                                </p>
                             </div>
 
-                            <h2 className="text-2xl font-bold font-sans mb-1 text-foreground">Idea Incubator</h2>
-                            <p className="text-muted-foreground font-mono text-xs mb-4">Have a moonshot idea? Submit it. We build it together. Equity for everyone.</p>
-
-                            <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground mb-6">
-                                <span>SUBMISSIONS: 84</span>
-                                <span>//</span>
-                                <span>LAUNCHES: 3</span>
-                            </div>
-
-                            <Link href="/contests" className={`inline-flex items-center text-purple-400 text-xs font-bold font-mono group-hover:translate-x-2 transition-transform ${!config.incubator?.enabled ? 'pointer-events-none' : ''}`}>
-                                SUBMIT_BLUEPRINT <ArrowRight size={14} className="ml-2" />
+                            <Link href="/garage" className={`mt-6 inline-flex items-center text-purple-400 text-sm font-semibold group/link w-fit relative z-10 ${!config.incubator?.enabled ? 'pointer-events-none' : ''}`}>
+                                Start Building <ArrowRight size={16} className="ml-2 group-hover/link:translate-x-1 transition-transform" />
                             </Link>
                         </motion.div>
                     </FeatureWrapper>
 
-                    {/* Squadron Card */}
-                    <FeatureWrapper featureKey="squadron">
+                    {/* Squadron Card - Bento Small */}
+                    <FeatureWrapper featureKey="squadron" className="col-span-1 row-span-1 h-full">
                         <motion.div
                             initial={{ opacity: hasShownIntro ? 1 : 0, y: hasShownIntro ? 0 : 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: hasShownIntro ? 0 : 0.3 }}
-                            className="bg-card-bg border border-border p-6 hover:border-neon-cyan/50 transition-all group h-full"
+                            className="bg-black/40 backdrop-blur-lg border border-white/10 p-6 rounded-2xl hover:border-orange-500/50 hover:bg-black/60 transition-all group relative overflow-hidden h-full flex flex-col justify-between"
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="px-2 py-0.5 bg-neon-cyan/10 text-neon-cyan text-[10px] font-mono rounded border border-neon-cyan/20">
-                                    TEAM_MATCHMAKING
+                            <div className="absolute -inset-px bg-gradient-to-br from-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl"></div>
+
+                            <div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                    <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                                        <Users size={20} />
+                                    </div>
                                 </div>
-                                <Users className="text-muted-foreground group-hover:text-neon-cyan transition-colors" size={20} />
+
+                                <h2 className="text-xl font-bold text-white mb-2 relative z-10">Hackathon Sprints</h2>
+                                <p className="text-gray-400 text-sm leading-relaxed relative z-10">
+                                    Compete, collaborate, and build solutions fast. Real-world challenges solved by custom AI systems.
+                                </p>
                             </div>
 
-                            <h2 className="text-2xl font-bold font-sans mb-1 text-foreground">Squadron Uplink</h2>
-                            <p className="text-muted-foreground font-mono text-xs mb-4">Find your perfect teammate based on Tech Stack compatibility. Stop solo-queuing hackathons.</p>
-
-                            <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground mb-6">
-                                <span>OPERATIVES: 1,204</span>
-                                <span>//</span>
-                                <span>STATUS: LIVE</span>
-                            </div>
-
-                            <Link href="/squadron" className={`inline-flex items-center text-neon-cyan text-xs font-bold font-mono group-hover:translate-x-2 transition-transform ${!config.squadron?.enabled ? 'pointer-events-none' : ''}`}>
-                                FIND_TEAM <ArrowRight size={14} className="ml-2" />
+                            <Link href="/hackathons" className={`mt-6 inline-flex items-center text-orange-400 text-sm font-semibold group/link w-fit relative z-10 ${!config.squadron?.enabled ? 'pointer-events-none' : ''}`}>
+                                Join a Sprint <ArrowRight size={16} className="ml-2 group-hover/link:translate-x-1 transition-transform" />
                             </Link>
                         </motion.div>
                     </FeatureWrapper>
 
-                    {/* Executor Card */}
-                    <FeatureWrapper featureKey="executor">
+                    {/* Executor Card - Bento Medium Span */}
+                    <FeatureWrapper featureKey="executor" className="col-span-1 row-span-1 h-full">
                         <motion.div
                             initial={{ opacity: hasShownIntro ? 1 : 0, y: hasShownIntro ? 0 : 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: hasShownIntro ? 0 : 0.4 }}
-                            className="bg-card-bg border border-border p-6 hover:border-neon-cyan/50 transition-all group h-full"
+                            className="bg-black/40 backdrop-blur-lg border border-white/10 p-6 rounded-2xl hover:border-cyan-400/50 hover:bg-black/60 transition-all group relative overflow-hidden h-full flex flex-col justify-between"
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="px-2 py-0.5 bg-neon-cyan/10 text-neon-cyan text-[10px] font-mono rounded border border-neon-cyan/20">
-                                    CAREER_MODE
+                            <div className="absolute -inset-px bg-gradient-to-br from-cyan-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl"></div>
+
+                            <div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                    <div className="w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400">
+                                        <Play size={20} />
+                                    </div>
+                                    <div className="text-[10px] font-mono tracking-wider text-cyan-400/80 uppercase px-2 py-1 rounded-full border border-cyan-400/20">
+                                        Gallery
+                                    </div>
                                 </div>
-                                <Play className="text-muted-foreground group-hover:text-neon-cyan transition-colors" size={20} />
+
+                                <h2 className="text-xl font-bold text-white mb-2 relative z-10">Agent Showcase</h2>
+                                <p className="text-gray-400 text-sm leading-relaxed relative z-10">
+                                    Explore live agents developed by top operatives. Learn from the best configurations and copy them.
+                                </p>
                             </div>
 
-                            <h2 className="text-2xl font-bold font-sans mb-1 text-foreground">Become Executor</h2>
-                            <p className="text-muted-foreground font-mono text-xs mb-4">Stop bidding. Get assigned high-value tasks based on your skills. Guaranteed payment.</p>
+                            <Link href="/showcase" className={`mt-6 inline-flex items-center text-cyan-400 text-sm font-semibold group/link w-fit relative z-10 ${!config.executor?.enabled ? 'pointer-events-none' : ''}`}>
+                                View Systems <ArrowRight size={16} className="ml-2 group-hover/link:translate-x-1 transition-transform" />
+                            </Link>
+                        </motion.div>
+                    </FeatureWrapper>
 
-                            <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground mb-6">
-                                <span>AVG PAYOUT: ₹5k+</span>
-                                <span>//</span>
-                                <span>VETTING: REQUIRED</span>
+                    {/* Learn Prompt Engineering - Bento Small */}
+                    <FeatureWrapper featureKey="learn_prompts" className="col-span-1 row-span-1 h-full">
+                        <motion.div
+                            initial={{ opacity: hasShownIntro ? 1 : 0, y: hasShownIntro ? 0 : 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: hasShownIntro ? 0 : 0.5 }}
+                            className="bg-black/40 backdrop-blur-lg border border-white/10 p-6 rounded-2xl hover:border-pink-500/50 hover:bg-black/60 transition-all group relative overflow-hidden h-full flex flex-col justify-between"
+                        >
+                            <div className="absolute -inset-px bg-gradient-to-br from-pink-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl"></div>
+
+                            <div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                    <div className="w-10 h-10 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
+                                        <Edit3 size={20} />
+                                    </div>
+                                </div>
+
+                                <h2 className="text-xl font-bold text-white mb-2 relative z-10">Learn Prompt Engineering</h2>
+                                <p className="text-gray-400 text-sm leading-relaxed relative z-10">
+                                    Start from the basics to advanced prompt chaining. Master the art of directing intelligence.
+                                </p>
                             </div>
 
-                            <Link href="/join-executor" className={`inline-flex items-center text-neon-cyan text-xs font-bold font-mono group-hover:translate-x-2 transition-transform ${!config.executor?.enabled ? 'pointer-events-none' : ''}`}>
-                                APPLY_NOW <ArrowRight size={14} className="ml-2" />
+                            <Link href="/learn-prompts" className={`mt-6 inline-flex items-center text-pink-400 text-sm font-semibold group/link w-fit relative z-10 ${!config.learn_prompts?.enabled ? 'pointer-events-none' : ''}`}>
+                                Start Learning <ArrowRight size={16} className="ml-2 group-hover/link:translate-x-1 transition-transform" />
+                            </Link>
+                        </motion.div>
+                    </FeatureWrapper>
+
+                    {/* Learn What is Agents - Bento Small */}
+                    <FeatureWrapper featureKey="learn_agents" className="col-span-1 row-span-1 h-full">
+                        <motion.div
+                            initial={{ opacity: hasShownIntro ? 1 : 0, y: hasShownIntro ? 0 : 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: hasShownIntro ? 0 : 0.6 }}
+                            className="bg-black/40 backdrop-blur-lg border border-white/10 p-6 rounded-2xl hover:border-yellow-400/50 hover:bg-black/60 transition-all group relative overflow-hidden h-full flex flex-col justify-between"
+                        >
+                            <div className="absolute -inset-px bg-gradient-to-br from-yellow-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl"></div>
+
+                            <div>
+                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                    <div className="w-10 h-10 rounded-lg bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center text-yellow-400">
+                                        <Users size={20} />
+                                    </div>
+                                </div>
+
+                                <h2 className="text-xl font-bold text-white mb-2 relative z-10">What are Agents?</h2>
+                                <p className="text-gray-400 text-sm leading-relaxed relative z-10">
+                                    Discover how agents differ from bots. Learn the architecture of building autonomous AI entities.
+                                </p>
+                            </div>
+
+                            <Link href="/learn-agents" className={`mt-6 inline-flex items-center text-yellow-400 text-sm font-semibold group/link w-fit relative z-10 ${!config.learn_agents?.enabled ? 'pointer-events-none' : ''}`}>
+                                Explore Agents <ArrowRight size={16} className="ml-2 group-hover/link:translate-x-1 transition-transform" />
                             </Link>
                         </motion.div>
                     </FeatureWrapper>

@@ -75,7 +75,7 @@ export default function HirePage() {
 
             <main className="max-w-4xl mx-auto px-6 py-32">
                 <div className="mb-8">
-                    <Link href="/execution" className="inline-flex items-center text-gray-500 hover:text-foreground font-mono text-xs transition-colors group">
+                    <Link href="/deployments" className="inline-flex items-center text-gray-500 hover:text-foreground font-mono text-xs transition-colors group">
                         <ArrowLeft size={14} className="mr-2 group-hover:-translate-x-1 transition-transform" /> RETURN_TO_BOARD
                     </Link>
                 </div>
@@ -86,14 +86,14 @@ export default function HirePage() {
                     className="text-center mb-16"
                 >
                     <div className="inline-block px-3 py-1 border border-neon-green/30 bg-neon-green/5 text-neon-green text-xs font-mono tracking-widest mb-4">
-                        MANAGED EXECUTION
+                        MANAGED DEPLOYMENT
                     </div>
                     <h1 className="text-4xl md:text-6xl font-bold mb-6">
                         Build <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-green to-emerald-500">Reality</span>.
                     </h1>
                     <p className="text-gray-400 text-lg max-w-2xl mx-auto font-mono">
-                        DeVert is not a marketplace. We are your execution partner. <br />
-                        Submit your requirement. We manage the talent. You get the result.
+                        DeVert is not a marketplace. We are your deployment partner. <br />
+                        Submit your requirement. We manage the architects. You get the result.
                     </p>
                 </motion.div>
 
@@ -238,10 +238,10 @@ export default function HirePage() {
                                     disabled={isLoading}
                                     className="w-full md:w-auto px-8 py-4 bg-foreground text-background font-bold font-mono hover:bg-neon-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
-                                    {isLoading ? <Loader2 size={20} className="animate-spin" /> : "INITIATE_EXECUTION"}
+                                    {isLoading ? <Loader2 size={20} className="animate-spin" /> : "INITIATE_DEPLOYMENT"}
                                 </button>
                                 <p className="text-xs text-gray-500 font-mono">
-                                    By submitting, you agree that DeVert manages the execution process.
+                                    By submitting, you agree that DeVert manages the deployment process.
                                 </p>
                             </div>
 

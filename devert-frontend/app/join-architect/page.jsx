@@ -10,17 +10,17 @@ import { Navbar } from "@/components/navbar";
 import { useAuth } from "@/context/AuthContext";
 import FeatureGuard from "@/components/feature-guard";
 
-export default function JoinExecutorPage() {
+export default function JoinAgentArchitectPage() {
     return (
-        <FeatureGuard feature="join_executor">
-            <JoinExecutorPageContent />
+        <FeatureGuard feature="join_architect">
+            <JoinAgentArchitectPageContent />
         </FeatureGuard>
     );
 }
 
-function JoinExecutorPageContent() {
+function JoinAgentArchitectPageContent() {
     const { user } = useAuth();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -48,7 +48,7 @@ function JoinExecutorPageContent() {
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.join_executor === false) setIsModuleEnabled(false);
+                if (data.join_architect === false) setIsModuleEnabled(false);
             }
         } catch (error) {
             console.error("Error fetching module status:", error);
@@ -60,7 +60,7 @@ function JoinExecutorPageContent() {
         setIsModuleEnabled(newState);
         try {
             await setDoc(doc(db, "system", "feature_flags"), {
-                join_executor: newState
+                join_architect: newState
             }, { merge: true });
         } catch (error) {
             console.error("Error toggling module:", error);
@@ -126,7 +126,7 @@ function JoinExecutorPageContent() {
                 )}
 
                 <div className="flex justify-between items-start mb-8">
-                    <Link href="/execution" className="inline-flex items-center text-gray-500 hover:text-foreground font-mono text-xs transition-colors group">
+                    <Link href="/deployments" className="inline-flex items-center text-gray-500 hover:text-foreground font-mono text-xs transition-colors group">
                         <ArrowLeft size={14} className="mr-2 group-hover:-translate-x-1 transition-transform" /> RETURN_TO_BOARD
                     </Link>
 
@@ -150,14 +150,14 @@ function JoinExecutorPageContent() {
                     className="text-center mb-16"
                 >
                     <div className="inline-block px-3 py-1 border border-neon-cyan/30 bg-neon-cyan/5 text-neon-cyan text-xs font-mono tracking-widest mb-4">
-                        ELITE OPERATIVES ONLY
+                        ELITE AGENT ARCHITECTS ONLY
                     </div>
                     <h1 className="text-4xl md:text-6xl font-bold mb-6">
-                        Become an <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-blue-500">Executor</span>.
+                        Become an <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-blue-500">Agent Architect</span>.
                     </h1>
                     <p className="text-gray-400 text-lg max-w-2xl mx-auto font-mono">
                         Stop hunting for clients. Stop chasing payments. <br />
-                        DeVert assigns you work. You execute. You get paid.
+                        DeVert assigns you agent builds. You architect systems. You get paid.
                     </p>
                 </motion.div>
 
@@ -170,7 +170,7 @@ function JoinExecutorPageContent() {
                     </div>
                     <div className="bg-card-bg border border-border p-6 rounded-lg text-center">
                         <Code className="mx-auto text-neon-cyan mb-4" size={32} />
-                        <h3 className="font-bold mb-2">Pure Execution</h3>
+                        <h3 className="font-bold mb-2">Pure Architecting</h3>
                         <p className="text-sm text-gray-400">Focus on the code/deliverable. We manage the requirements and scope.</p>
                     </div>
                     <div className="bg-card-bg border border-border p-6 rounded-lg text-center">
@@ -208,7 +208,7 @@ function JoinExecutorPageContent() {
 
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-mono text-gray-500 uppercase tracking-wider">Operative Name</label>
+                                    <label className="text-xs font-mono text-gray-500 uppercase tracking-wider">Architect Name</label>
                                     <input
                                         type="text"
                                         name="name"
@@ -279,7 +279,7 @@ function JoinExecutorPageContent() {
                                     onChange={handleChange}
                                     rows={4}
                                     className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground focus:border-neon-cyan focus:outline-none transition-colors resize-none"
-                                    placeholder="Briefly tell us why you want to join the execution squad."
+                                    placeholder="Briefly tell us why you want to join the agent architect team."
                                     required
                                 />
                             </div>

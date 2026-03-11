@@ -20,27 +20,21 @@ export default function AboutDeVert() {
                 {/* Header */}
                 <div>
                     <h1 className="text-4xl md:text-5xl font-bold mb-4 text-neon-cyan">ABOUT_DEVERT</h1>
-                    <p className="text-xl text-gray-400 font-mono">Why We Built The Execution System</p>
+                    <p className="text-xl text-gray-400 font-mono">Why We Built The Agent Garage</p>
                 </div>
 
                 {/* Section: Why DeVert Exists */}
                 <section className="space-y-4">
-                    <h2 className="text-2xl font-bold text-white border-l-4 border-neon-green pl-4">Why DeVert Exists</h2>
+                    <h2 className="text-2xl font-bold text-white border-l-4 border-neon-green pl-4">The Philosophy</h2>
                     <p className="text-gray-300 leading-relaxed">
-                        DeVert was created from a simple frustration.
+                        Most people talk about AI.
                     </p>
                     <p className="text-gray-300 leading-relaxed">
-                        We saw people learning endlessly but struggling to execute.
-                        We saw real requirements break down midway due to poor coordination.
-                        We saw capable individuals stuck between preparation and real-world work.
-                    </p>
-                    <p className="text-gray-300 leading-relaxed">
-                        Across students, small businesses, NGOs, and early-stage founders, the pattern was the same:
+                        Few build working agents.
                     </p>
                     <p className="text-white font-bold text-lg font-mono bg-white/5 p-4 rounded border-l border-neon-cyan">
-                        Intent was strong. Execution was fragile.
+                        DeVert exists to help builders move from prompts → agents → real systems.
                     </p>
-                    <p className="text-gray-300 leading-relaxed">DeVert exists to address that gap.</p>
                 </section>
 
                 {/* Section: Who Built DeVert */}
@@ -50,10 +44,10 @@ export default function AboutDeVert() {
                         DeVert is being built by <a href="https://www.linkedin.com/in/adarisamuelprasad/" target="_blank" className="text-neon-cyan font-bold hover:underline">Samuel</a> and <a href="https://www.linkedin.com/in/bhanu-prasad-vengaladas-7095a6305/" target="_blank" className="text-neon-green font-bold hover:underline">Bhanu</a>.
                     </p>
                     <p className="text-gray-300 leading-relaxed">
-                        Both of us have worked closely with students, developers, and organizations where execution mattered more than theory. Over time, we realized that most systems reward learning, planning, and credentials — but very few are designed around getting work finished reliably.
+                        Both of us have worked closely with builders and developers where automation and systems mattered more than theory. Over time, we realized that most platforms reward learning prompt engineering — but very few are designed around deploying autonomous systems.
                     </p>
                     <p className="text-gray-300 leading-relaxed">
-                        DeVert is our attempt to rethink that problem from the ground up. Not as content. Not as advice. But as a system.
+                        DeVert is our attempt to rethink that problem from the ground up. Not as content. Not as tutorials. But as an Agent Garage.
                     </p>
                 </section>
 
@@ -62,15 +56,15 @@ export default function AboutDeVert() {
                     <h2 className="text-2xl font-bold text-white border-l-4 border-purple-500 pl-4">The Core Belief</h2>
                     <div className="bg-white/5 p-6 rounded-lg space-y-4 border border-white/10">
                         <p className="text-lg text-white font-medium">
-                            Execution fails not because people lack ability, but because systems are poorly designed.
+                            Most AI experiments fail to become useful because they lack systemic deployment and integration.
                         </p>
                         <ul className="list-disc list-inside text-gray-400 font-mono space-y-1 ml-4">
-                            <li>Motivation fades.</li>
-                            <li>Tools get abandoned.</li>
-                            <li>Plans stay in documents.</li>
+                            <li>Prompts break under edge cases.</li>
+                            <li>Single interactions don't scale.</li>
+                            <li>Ideas stay in chat windows.</li>
                         </ul>
                         <p className="text-neon-green font-bold">
-                            What lasts is structure, accountability, and clarity.
+                            What lasts is structure, multi-agent coordination, and real-world deployment.
                         </p>
                     </div>
                 </section>
@@ -80,19 +74,19 @@ export default function AboutDeVert() {
                     <div className="space-y-4">
                         <h3 className="text-xl font-bold text-neon-cyan mb-2">DeVert is:</h3>
                         <ul className="space-y-2 font-mono text-sm text-gray-300">
-                            <li className="flex items-center"><span className="text-neon-cyan mr-2">✓</span> Execution-first</li>
-                            <li className="flex items-center"><span className="text-neon-cyan mr-2">✓</span> Problem-driven</li>
-                            <li className="flex items-center"><span className="text-neon-cyan mr-2">✓</span> Grounded in real-world needs</li>
-                            <li className="flex items-center"><span className="text-neon-cyan mr-2">✓</span> Built carefully, not loudly</li>
+                            <li className="flex items-center"><span className="text-neon-cyan mr-2">✓</span> An AI Agent Garage</li>
+                            <li className="flex items-center"><span className="text-neon-cyan mr-2">✓</span> A hub for Agent Sprints</li>
+                            <li className="flex items-center"><span className="text-neon-cyan mr-2">✓</span> Focused on live implementations</li>
+                            <li className="flex items-center"><span className="text-neon-cyan mr-2">✓</span> Built for testing reality</li>
                         </ul>
                     </div>
                     <div className="space-y-4">
                         <h3 className="text-xl font-bold text-red-500 mb-2">DeVert is NOT:</h3>
                         <ul className="space-y-2 font-mono text-sm text-gray-300">
-                            <li className="flex items-center"><span className="text-red-500 mr-2">×</span> A freelancing platform</li>
-                            <li className="flex items-center"><span className="text-red-500 mr-2">×</span> A learning or course platform</li>
-                            <li className="flex items-center"><span className="text-red-500 mr-2">×</span> A motivational product</li>
-                            <li className="flex items-center"><span className="text-red-500 mr-2">×</span> A job board</li>
+                            <li className="flex items-center"><span className="text-red-500 mr-2">×</span> A prompt marketplace</li>
+                            <li className="flex items-center"><span className="text-red-500 mr-2">×</span> A tutorial website</li>
+                            <li className="flex items-center"><span className="text-red-500 mr-2">×</span> An educational platform</li>
+                            <li className="flex items-center"><span className="text-red-500 mr-2">×</span> A freelancing board</li>
                         </ul>
                     </div>
                 </section>
@@ -104,8 +98,8 @@ export default function AboutDeVert() {
                         "Just like IntroVert or ExtroVert... we thought to create something like Dev + Vert... so DeVert."
                     </p>
                     <p className="text-gray-300 leading-relaxed">
-                        The name DeVert comes from the idea of diverting effort toward execution.
-                        It also represents a personality type: <span className="text-neon-cyan font-bold">The Developer Type.</span>
+                        The name DeVert comes from the idea of diverting effort toward systemic AI automation.
+                        It also represents our primary builder: <span className="text-neon-cyan font-bold">The Agent Architect.</span>
                     </p>
 
                     <div className="pt-4">
@@ -115,7 +109,7 @@ export default function AboutDeVert() {
                             <span className="bg-black px-2 py-1 rounded">devert.in</span>
                             <span className="bg-black px-2 py-1 rounded">devvert</span>
                             <span className="bg-black px-2 py-1 rounded">de-vert</span>
-                            <span className="bg-black px-2 py-1 rounded">devert execution</span>
+                            <span className="bg-black px-2 py-1 rounded">devert agents</span>
                         </div>
                     </div>
                 </section>
@@ -133,8 +127,8 @@ export default function AboutDeVert() {
 
                 {/* Footer Note */}
                 <div className="pt-12 border-t border-white/10 text-center">
-                    <h3 className="text-2xl font-bold text-white mb-2">DeVert is not a platform.</h3>
-                    <p className="text-xl text-neon-cyan font-mono">It’s a system.</p>
+                    <h3 className="text-2xl font-bold text-white mb-2">DeVert - The Garage of Agents</h3>
+                    <p className="text-xl text-neon-cyan font-mono">Build Agents. Ship Reality.</p>
                     <p className="text-sm text-gray-500 mt-4">And it’s just getting started.</p>
                 </div>
             </motion.div>

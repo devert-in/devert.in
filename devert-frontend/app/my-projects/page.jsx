@@ -75,9 +75,9 @@ export default function MyProjectsPage() {
             <main className="max-w-4xl mx-auto px-6 py-32 min-h-[60vh]">
                 <div className="flex justify-between items-end mb-12">
                     <div>
-                        <h1 className="text-3xl md:text-5xl font-bold font-sans mb-2">MY_PROJECTS</h1>
+                        <h1 className="text-3xl md:text-5xl font-bold font-sans mb-2">MY_DEPLOYMENTS</h1>
                         <p className="text-gray-400 font-mono text-sm max-w-md">
-                            Track the status of your DeVert execution requests.
+                            Track the status of your DeVert agent deployment requests.
                         </p>
                     </div>
                     <Link href="/hire" className="hidden md:flex items-center gap-2 text-neon-green font-mono text-xs border border-neon-green/30 px-4 py-2 hover:bg-neon-green hover:text-black transition-all">
@@ -95,12 +95,12 @@ export default function MyProjectsPage() {
                         <div className="inline-block p-4 rounded-full bg-background mb-6 text-gray-400">
                             <Loader2 size={32} />
                         </div>
-                        <h3 className="text-xl font-bold text-foreground mb-2 font-sans">No Active Projects</h3>
+                        <h3 className="text-xl font-bold text-foreground mb-2 font-sans">No Active Deployments</h3>
                         <p className="text-gray-500 font-mono text-sm mb-8">
-                            You haven't submitted any requirements yet.
+                            You haven't requested any agents yet.
                         </p>
                         <Link href="/hire" className="inline-flex items-center gap-2 bg-neon-green text-black px-6 py-3 font-bold font-mono text-sm hover:bg-white transition-colors">
-                            START_EXECUTION <ArrowRight size={16} />
+                            START_DEPLOYMENT <ArrowRight size={16} />
                         </Link>
                     </div>
                 ) : (

@@ -31,8 +31,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-export default function HackathonsManager() {
-    const [hackathons, setHackathons] = useState([]);
+export default function SprintsManager() {
+    const [sprints, setsprints] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentHackathon, setCurrentHackathon] = useState(null); // null = new, obj = edit
@@ -53,7 +53,7 @@ export default function HackathonsManager() {
     });
 
     // Fetch Data
-    const fetchHackathons = async () => {
+    const fetchsprints = async () => {
         setLoading(true);
         try {
             const querySnapshot = await getDocs(collection(db, "hackathons"));
@@ -61,16 +61,16 @@ export default function HackathonsManager() {
                 id: doc.id,
                 ...doc.data()
             }));
-            setHackathons(hacks);
+            setsprints(hacks);
         } catch (error) {
-            console.error("Error fetching hackathons:", error);
+            console.error("Error fetching sprints:", error);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchHackathons();
+        fetchsprints();
     }, []);
 
     // Handlers
@@ -109,14 +109,14 @@ export default function HackathonsManager() {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm("Are you sure you want to delete this hackathon? This action cannot be undone.")) return;
+        if (!confirm("Are you sure you want to delete this agent sprint? This action cannot be undone.")) return;
 
         try {
             await deleteDoc(doc(db, "hackathons", id));
-            setHackathons(prev => prev.filter(h => h.id !== id));
+            setsprints(prev => prev.filter(h => h.id !== id));
         } catch (error) {
             console.error("Error deleting hackathon:", error);
-            setDialog({ show: true, message: "Failed to delete hackathon", type: "error" });
+            setDialog({ show: true, message: "Failed to delete sprint", type: "error" });
         }
     };
 
@@ -126,7 +126,7 @@ export default function HackathonsManager() {
         // If setting as featured, unfeature others (optional but good UX)
         if (formData.isFeatured) {
             const batch = writeBatch(db);
-            hackathons.forEach(h => {
+            sprints.forEach(h => {
                 if (h.isFeatured && h.id !== currentHackathon?.id) {
                     batch.update(doc(db, "hackathons", h.id), { isFeatured: false });
                 }
@@ -148,7 +148,7 @@ export default function HackathonsManager() {
                 await updateDoc(hackRef, dataToSave);
 
                 // Optimistic UI update
-                setHackathons(prev => prev.map(h => {
+                setsprints(prev => prev.map(h => {
                     if (h.id === currentHackathon.id) return { ...h, ...dataToSave };
                     if (formData.isFeatured && h.isFeatured) return { ...h, isFeatured: false }; // Unfeature others in UI
                     return h;
@@ -160,7 +160,7 @@ export default function HackathonsManager() {
                     createdAt: new Date().toISOString()
                 });
 
-                setHackathons(prev => {
+                setsprints(prev => {
                     const newList = [...prev, { id: docRef.id, ...dataToSave }];
                     if (formData.isFeatured) {
                         return newList.map(h => h.id === docRef.id ? h : { ...h, isFeatured: false });
@@ -171,17 +171,17 @@ export default function HackathonsManager() {
             setIsModalOpen(false);
             setDialog({ show: true, message: "Database Updated Successfully", type: "success" });
         } catch (error) {
-            console.error("Error saving hackathon:", error);
-            setDialog({ show: true, message: "Failed to save hackathon: " + error.message, type: "error" });
+            setDialog({ show: true, message: "Failed to save sprint: " + error.message, type: "error" });
         }
     };
 
     const handleSeed = async () => {
-        if (!confirm("WARNING: This will DELETE ALL existing hackathons and replace them with 9 REAL entries. Proceed?")) return;
+        if (!confirm("WARNING: This will DELETE ALL existing agent sprints and replace them with 9 REAL entries. Proceed?")) return;
 
-        const realHackathons = [
+        const realsprints = [
             { title: "The DeVert Cup 2026", registrationLink: "https://cup.devert.in", description: "The World Cup of Coding. Compete globally to claim the ultimate trophy and the title of #1 Developer.", startDate: "2026-06-15T09:00:00.000Z", endDate: "2026-06-20T18:00:00.000Z", registrationDeadline: "2026-06-01T23:59:00.000Z", prizes: "₹10,00,000 + Trophy", tags: ["Competitive Coding", "Global", "Flagship"], status: "UPCOMING", isFeatured: false },
-            { title: "DeVert Innovation Challenge", registrationLink: "https://innovation.devert.in", description: "Innovate Today. Define Tomorrow. Solve real-world problems using tech.", startDate: "2026-04-10T09:00:00.000Z", endDate: "2026-04-12T18:00:00.000Z", registrationDeadline: "2026-03-31T23:59:00.000Z", prizes: "Exclusive Swag + Certs", tags: ["Innovation", "Startup", "Social Impact"], status: "OPEN", isFeatured: true, isSpecialEvent: true },
+            { title: "Agents & Prompt Engineering Masterclass", registrationLink: "https://masterclass.devert.in", description: "Master the art of building autonomous logic. Turn prompts into deployed, multi-agent systems solving real scalable problems in production.", startDate: "2026-04-10T09:00:00.000Z", endDate: "2026-04-12T18:00:00.000Z", registrationDeadline: "2026-03-31T23:59:00.000Z", prizes: "Exclusive Swag + Certs", tags: ["Prompt Engineering", "AI Agents", "Architecture"], status: "OPEN", isFeatured: true, isSpecialEvent: true },
+            { title: "Agent AI Genesis Hackathon", registrationLink: "https://hackathon.devert.in", description: "The ultimate DeVert special Hackathon. Compete to build the most advanced AI Agents and prompt logic systems globally.", startDate: "2026-05-15T09:00:00.000Z", endDate: "2026-05-17T18:00:00.000Z", registrationDeadline: "2026-05-01T23:59:00.000Z", prizes: "₹2,00,000 + Funding", tags: ["Hackathon", "Agents", "Prompting"], status: "UPCOMING", isFeatured: true, isSpecialEvent: true },
             { title: "Hack For Tomorrow 2025", registrationLink: "https://hack2skill.com", description: "An offline hackathon with no restrictions on themes. Build for the future.", startDate: "2025-05-15T09:00:00.000Z", endDate: "2025-05-16T18:00:00.000Z", registrationDeadline: "2025-05-01T23:59:00.000Z", prizes: "₹2,00,000", tags: ["Open Innovation", "Offline"], status: "UPCOMING", isFeatured: false },
             { title: "CodeZen Hackathon 2025", registrationLink: "https://devfolio.co", description: "36-hour event focusing on innovation, collaboration, and learning in New Delhi.", startDate: "2025-02-28T09:00:00.000Z", endDate: "2025-03-01T21:00:00.000Z", registrationDeadline: "2025-02-20T23:59:00.000Z", prizes: "₹50,00,000", tags: ["Innovation", "Collaboration"], status: "UPCOMING", isFeatured: false },
             { title: "Mumbai Hacks 2025", registrationLink: "https://mumbaihacks.in", description: "India's premier hackathon with Nvidia, Meta, and Google. Huge prize pool.", startDate: "2025-08-13T09:00:00.000Z", endDate: "2025-08-14T18:00:00.000Z", registrationDeadline: "2025-08-01T23:59:00.000Z", prizes: "₹50,00,000", tags: ["GenAI", "Nvidia", "Meta"], status: "UPCOMING", isFeatured: false },
@@ -201,7 +201,7 @@ export default function HackathonsManager() {
             await Promise.all(deletePromises);
 
             // 2. Add new data
-            const addPromises = realHackathons.map(hack =>
+            const addPromises = realsprints.map(hack =>
                 addDoc(collection(db, "hackathons"), {
                     ...hack,
                     date: hack.startDate, // Legacy support
@@ -210,7 +210,7 @@ export default function HackathonsManager() {
             );
             await Promise.all(addPromises);
             setDialog({ show: true, message: "Database Refreshed with PRO Seed Data", type: "success" });
-            fetchHackathons();
+            fetchsprints();
         } catch (error) {
             console.error("Seeding failed:", error);
             setDialog({ show: true, message: "Seeding failed: " + error.message, type: "error" });
@@ -242,8 +242,8 @@ export default function HackathonsManager() {
 
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold font-sans text-white">HACKATHONS_DATABASE</h1>
-                    <p className="font-mono text-xs text-gray-500">Manage global events and challenges.</p>
+                    <h1 className="text-3xl font-bold font-sans text-white">AGENT_SPRINTS_DATABASE</h1>
+                    <p className="font-mono text-xs text-gray-500">Manage global agent building sprints and challenges.</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -265,7 +265,7 @@ export default function HackathonsManager() {
                 <div className="text-neon-cyan font-mono animate-pulse">Scanning database...</div>
             ) : (
                 <div className="grid grid-cols-1 gap-4">
-                    {hackathons.map((hack) => (
+                    {sprints.map((hack) => (
                         <div
                             key={hack.id}
                             className={`bg-black/40 border p-6 flex flex-col md:flex-row justify-between items-start md:items-center hover:border-white/30 transition-colors group ${hack.isFeatured ? 'border-neon-green/50 bg-neon-green/5' : 'border-white/10'}`}
@@ -312,7 +312,7 @@ export default function HackathonsManager() {
                         </div>
                     ))}
 
-                    {hackathons.length === 0 && (
+                    {sprints.length === 0 && (
                         <div className="text-center py-20 border border-dashed border-white/10 text-gray-500 font-mono">
                             NO ENTRIES FOUND. INITIATE FIRST EVENT.
                         </div>

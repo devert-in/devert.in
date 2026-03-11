@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Award, Zap, Edit3, Save, Eye, EyeOff, StopCircle, X, AlertTriangle, Construction } from "lucide-react";
+import { Trophy, Award, Zap, Edit3, Save, Eye, EyeOff, StopCircle, X, AlertTriangle, Construction, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -17,8 +17,8 @@ const ICON_MAP = {
 const DEFAULT_CONFIG = [
     {
         id: "hackathons",
-        title: "Latest Hackathons",
-        desc: "Dominate the arena. Curated list of high-value hackathons.",
+        title: "Agent Build Sprints",
+        desc: "Time-limited events. Build real AI agents solving practical tasks.",
         iconType: "trophy",
         border: "hover:border-neon-cyan",
         shadow: "hover:shadow-neon-cyan/20",
@@ -27,8 +27,8 @@ const DEFAULT_CONFIG = [
     },
     {
         id: "certifications",
-        title: "Certifications",
-        desc: "Badges that actually matter. Cloud, Security, AI.",
+        title: "Agent Workflows",
+        desc: "Experiment and deploy. Scripts, tools & prompt strategies.",
         iconType: "award",
         border: "hover:border-purple-500",
         shadow: "hover:shadow-purple-500/20",
@@ -37,8 +37,8 @@ const DEFAULT_CONFIG = [
     },
     {
         id: "hacks",
-        title: "Productivity Hacks",
-        desc: "Terminal velocity. Scripts & tools to code 10x faster.",
+        title: "Live Implementations",
+        desc: "Not concepts. Working systems. Learn from real agent experiments.",
         iconType: "zap",
         border: "hover:border-neon-green",
         shadow: "hover:shadow-neon-green/20",
@@ -49,7 +49,7 @@ const DEFAULT_CONFIG = [
 
 export function LootBox() {
     const { user } = useAuth();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
     const [items, setItems] = useState(DEFAULT_CONFIG);
     const [editedItems, setEditedItems] = useState(DEFAULT_CONFIG);
     const [isEditing, setIsEditing] = useState(false);
@@ -139,7 +139,7 @@ export function LootBox() {
                 <div className="flex items-end justify-between mb-16">
                     <div>
                         <h2 className="text-3xl md:text-5xl font-bold font-sans mb-2 text-foreground flex items-center gap-4">
-                            LOOT_BOX
+                            AGENT_TOOLKIT
                             {isAdmin && (
                                 <button
                                     onClick={() => {
@@ -151,15 +151,15 @@ export function LootBox() {
                                         }
                                     }}
                                     className={`text-xs px-3 py-1 border rounded font-mono flex items-center gap-2 transition-colors ${isEditing
-                                            ? "border-red-500 text-red-500 hover:bg-red-500/10"
-                                            : "border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10"
+                                        ? "border-red-500 text-red-500 hover:bg-red-500/10"
+                                        : "border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10"
                                         }`}
                                 >
                                     {isEditing ? <><X size={12} /> CANCEL</> : <><Edit3 size={12} /> ADMIN_EDIT</>}
                                 </button>
                             )}
                         </h2>
-                        <p className="font-mono text-gray-400">Equip yourself for the journey.</p>
+                        <p className="font-mono text-gray-400">Equip your agents for deployment.</p>
                     </div>
                     <div className="hidden md:block w-1/3 h-[1px] bg-gradient-to-l from-transparent to-gray-700"></div>
                 </div>
@@ -248,31 +248,33 @@ export function LootBox() {
 
                                         <Link href={item.href} className={`block h-full ${!isLive ? 'pointer-events-none' : ''}`}>
                                             <motion.div
-                                                whileHover={isLive ? { y: -10 } : {}}
-                                                className={`p-8 bg-card-bg backdrop-blur-md border border-border ${isLive ? item.border : 'border-gray-800'} ${isLive ? item.shadow : ''} transition-all duration-300 group hover:shadow-2xl flex flex-col h-full cursor-pointer relative overflow-hidden ${!isLive ? 'opacity-50 grayscale' : ''}`}
+                                                whileHover={isLive ? { y: -5 } : {}}
+                                                className={`p-8 bg-black/40 backdrop-blur-xl border border-white/10 ${isLive ? item.border : 'border-gray-800'} rounded-2xl transition-all duration-300 group hover:bg-black/60 flex flex-col h-full cursor-pointer relative overflow-hidden ${!isLive ? 'opacity-50 grayscale' : ''}`}
                                             >
                                                 {!isLive && isAdmin && (
-                                                    <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-mono px-2 py-1 z-50">
+                                                    <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-mono px-3 py-1 z-50 rounded-br-lg">
                                                         DISABLED (USER VIEW: HIDDEN)
                                                     </div>
                                                 )}
 
-                                                <div className="mb-6 bg-background w-16 h-16 flex items-center justify-center border border-border group-hover:border-transparent transition-colors relative z-10">
+                                                <div className="mb-6 w-14 h-14 rounded-xl flex items-center justify-center bg-white/5 border border-white/10 relative z-10 transition-colors group-hover:border-white/20">
                                                     {ICON_MAP[item.iconType] || <Zap />}
                                                 </div>
-                                                <h3 className="text-xl md:text-2xl font-bold font-sans mb-3 text-foreground relative z-10">{item.title}</h3>
-                                                <p className="font-mono text-sm text-muted-foreground leading-relaxed flex-grow relative z-10">{item.desc}</p>
+                                                <h3 className="text-xl md:text-2xl font-bold font-sans mb-3 text-white relative z-10">{item.title}</h3>
+                                                <p className="font-sans text-sm text-gray-400 flex-grow relative z-10">{item.desc}</p>
 
                                                 <div className="mt-8 flex justify-end relative z-10">
-                                                    <span className="text-xs font-mono text-muted-foreground group-hover:text-foreground transition-colors cursor-pointer">ACCESS -&gt;</span>
+                                                    <span className="text-sm font-semibold text-gray-500 group-hover:text-white transition-colors flex items-center gap-2">
+                                                        Access Vault <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                                    </span>
                                                 </div>
 
                                                 {/* Subtle hover gradient bloom */}
                                                 {isLive && (
-                                                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br ${item.iconType === 'trophy' ? 'from-neon-cyan/50 to-transparent' :
-                                                            item.iconType === 'award' ? 'from-purple-500/50 to-transparent' :
-                                                                'from-neon-green/50 to-transparent'
-                                                        }`}></div>
+                                                    <div className={`absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br ${item.iconType === 'trophy' ? 'from-neon-cyan/10 to-transparent' :
+                                                        item.iconType === 'award' ? 'from-purple-500/10 to-transparent' :
+                                                            'from-neon-green/10 to-transparent'
+                                                        } rounded-2xl pointer-events-none`}></div>
                                                 )}
                                             </motion.div>
                                         </Link>

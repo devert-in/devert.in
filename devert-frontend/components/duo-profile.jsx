@@ -42,7 +42,7 @@ const ICON_MAP = {
 
 export function DuoProfile() {
     const { user } = useAuth();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
 
     const [data, setData] = useState(DEFAULT_DATA);
     const [isEditing, setIsEditing] = useState(false);

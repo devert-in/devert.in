@@ -39,6 +39,7 @@ export default function CoursesManager() {
         modules: 0,
         duration: "",
         platform: "",
+        tree: "AI_CORE",
         description: "",
         thumbnail: "from-gray-800 to-black" // Gradient classes
     };
@@ -81,6 +82,7 @@ export default function CoursesManager() {
             modules: course.modules,
             duration: course.duration,
             platform: course.platform || "",
+            tree: course.tree || "AI_CORE",
             description: course.description,
             thumbnail: course.thumbnail || "from-gray-800 to-black"
         });
@@ -125,62 +127,215 @@ export default function CoursesManager() {
     };
 
     const handleSeed = async () => {
-        if (!confirm("WARNING: This will DELETE ALL existing INTEL/Courses and replace them with REAL educational content. Proceed?")) return;
+        if (!confirm("WARNING: This will DELETE ALL existing PROMPT_LAB Modules and replace them with REAL educational content. Proceed?")) return;
 
         const realCourses = [
+            // --- AI & MACHINE LEARNING TREE ---
             {
-                title: "Generative AI for Everyone",
-                level: "Beginner",
-                modules: 8,
-                duration: "6 Weeks",
-                platform: "DeepLearning.AI",
-                description: "Understand how Generative AI works, what it can do, and its potential risks and benefits. No coding required.",
+                title: "Introduction to Artificial Intelligence",
+                level: "Very Beginner",
+                modules: 4,
+                duration: "2 Weeks",
+                platform: "Coursera",
+                tree: "AI_CORE",
+                description: "What is AI? History, terminology, and basic concepts. Perfect starting point for complete novices.",
                 thumbnail: "from-blue-900 to-black"
             },
             {
-                title: "Google Cloud Skills Boost: GenAI Path",
-                level: "Intermediate",
-                modules: 10,
-                duration: "40 Hours",
-                platform: "Google Cloud",
-                description: "Official path to master Generative AI on Google Cloud. Covers LLMs, Palm API, and Vertex AI.",
-                thumbnail: "from-blue-600 to-blue-900"
+                title: "Machine Learning for Everyone",
+                level: "Beginner",
+                modules: 6,
+                duration: "4 Weeks",
+                platform: "Kaggle",
+                tree: "AI_CORE",
+                description: "No-code introduction to ML concepts. Supervised vs Unsupervised learning, regression, and classification.",
+                thumbnail: "from-blue-800 to-black"
             },
             {
-                title: "CS50's Introduction to AI with Python",
+                title: "Supervised Machine Learning: Regression & Classification",
                 level: "Intermediate",
-                modules: 7,
-                duration: "7 Weeks",
-                platform: "Harvard edX",
-                description: "Explore the concepts and algorithms at the foundation of modern artificial intelligence.",
-                thumbnail: "from-red-900 to-black"
+                modules: 12,
+                duration: "8 Weeks",
+                platform: "Stanford / DeepLearning.AI",
+                tree: "AI_CORE",
+                description: "Build real ML models. Gradient descent, cost functions, linear & logistic regression from scratch.",
+                thumbnail: "from-blue-600 to-black"
             },
             {
-                title: "Machine Learning Specialization",
+                title: "Deep Learning Specialization",
                 level: "Advanced",
-                modules: 3,
+                modules: 5,
                 duration: "3 Months",
-                platform: "Stanford Online",
-                description: "The most famous ML course, updated. Master the fundamentals of machine learning and how to use them.",
+                platform: "DeepLearning.AI",
+                tree: "AI_CORE",
+                description: "Neural Networks, CNNs, RNNs, LSTMs, and Transformers. The state-of-the-art in AI.",
                 thumbnail: "from-purple-900 to-black"
             },
             {
-                title: "AWS Cloud Practitioner Essentials",
-                level: "Beginner",
-                modules: 12,
-                duration: "6 Hours",
-                platform: "AWS Training",
-                description: "Learn the fundamentals of the AWS Cloud to start your cloud journey. Essential for certification.",
-                thumbnail: "from-orange-600 to-black"
+                title: "AGI & Consciousness Engineering",
+                level: "Ultra-Advanced",
+                modules: 10,
+                duration: "6 Months",
+                platform: "OpenAI Research",
+                tree: "AI_CORE",
+                description: "Theoretical frameworks for Artificial General Intelligence. Cognitive architectures and consciousness modeling.",
+                thumbnail: "from-purple-600 to-black"
+            },
+
+            // --- JAVA DEVELOPMENT TREE ---
+            {
+                title: "Java Programming Basics",
+                level: "Very Beginner",
+                modules: 5,
+                duration: "3 Weeks",
+                platform: "Codecademy",
+                tree: "DEV_OPS",
+                description: "Variables, loops, arrays, and string manipulation. Your first steps into the Java ecosystem.",
+                thumbnail: "from-red-900 to-black"
             },
             {
-                title: "Prompt Engineering for Developers",
+                title: "Object-Oriented Programming in Java",
+                level: "Beginner",
+                modules: 6,
+                duration: "4 Weeks",
+                platform: "Udacity",
+                tree: "DEV_OPS",
+                description: "Classes, Objects, Inheritance, Polymorphism, and Encapsulation. The core of Java design.",
+                thumbnail: "from-red-800 to-black"
+            },
+            {
+                title: "Java Collections & Generics",
                 level: "Intermediate",
-                modules: 9,
-                duration: "2 Hours",
-                platform: "OpenAI x DeepLearning.AI",
-                description: "Learn how to use Large Language Models (LLMs) to build powerful applications. Best for devs.",
+                modules: 4,
+                duration: "2 Weeks",
+                platform: "Pluralsight",
+                tree: "DEV_OPS",
+                description: "Lists, Sets, Maps, and Queues. Writing efficient and type-safe code.",
+                thumbnail: "from-orange-800 to-black"
+            },
+            {
+                title: "Spring Framework Masterclass",
+                level: "Advanced",
+                modules: 15,
+                duration: "10 Weeks",
+                platform: "Baeldung",
+                tree: "DEV_OPS",
+                description: "Dependency Injection, Spring MVC, Spring Data JPA. Building enterprise-grade applications.",
                 thumbnail: "from-green-800 to-black"
+            },
+            {
+                title: "JVM Internals & Bytecode Manipulation",
+                level: "Ultra-Advanced",
+                modules: 8,
+                duration: "3 Months",
+                platform: "Oracle Advanced",
+                tree: "DEV_OPS",
+                description: "Deep dive into the Java Virtual Machine. Garbage collection tuning, JIT compilation, and bytecode engineering.",
+                thumbnail: "from-red-600 to-black"
+            },
+
+            // --- DATA SCIENCE TREE ---
+            {
+                title: "Data Science Math Skills",
+                level: "Very Beginner",
+                modules: 4,
+                duration: "3 Weeks",
+                platform: "Duke University",
+                tree: "DATA_SCI",
+                description: "Set theory, algebra, and basic plotting statistics needed for data science.",
+                thumbnail: "from-purple-900 to-black"
+            },
+            {
+                title: "SQL needed for Data Science",
+                level: "Beginner",
+                modules: 5,
+                duration: "4 Weeks",
+                platform: "Datacamp",
+                tree: "DATA_SCI",
+                description: "Querying databases, joins, aggregations, and window functions used by data analysts.",
+                thumbnail: "from-blue-500 to-black"
+            },
+            {
+                title: "Data Visualization with Tableau & PowerBI",
+                level: "Intermediate",
+                modules: 6,
+                duration: "5 Weeks",
+                platform: "Udemy",
+                tree: "DATA_SCI",
+                description: "Creating dashboards and storytelling with data. Visual best practices.",
+                thumbnail: "from-yellow-600 to-black"
+            },
+            {
+                title: "Big Data Analysis with Spark",
+                level: "Advanced",
+                modules: 8,
+                duration: "6 Weeks",
+                platform: "Databricks",
+                tree: "DATA_SCI",
+                description: "Processing massive datasets using Apache Spark and PySpark. Distributed computing.",
+                thumbnail: "from-orange-500 to-black"
+            },
+            {
+                title: "Reinforcement Learning in Quantitative Finance",
+                level: "Ultra-Advanced",
+                modules: 12,
+                duration: "4 Months",
+                platform: "MIT FinTech",
+                tree: "DATA_SCI",
+                description: "Applying advanced RL agents to high-frequency trading and portfolio optimization.",
+                thumbnail: "from-green-900 to-black"
+            },
+
+            // --- NETWORKING & SECURITY TREE ---
+            {
+                title: "Networking Fundamentals",
+                level: "Very Beginner",
+                modules: 5,
+                duration: "3 Weeks",
+                platform: "Cisco",
+                tree: "SEC_OPS",
+                description: "What is an IP address? LAN vs WAN? Routers vs Switches? The internet infrastructure.",
+                thumbnail: "from-blue-900 to-black"
+            },
+            {
+                title: "The OSI Model & TCP/IP",
+                level: "Beginner",
+                modules: 7,
+                duration: "4 Weeks",
+                platform: "CompTIA",
+                tree: "SEC_OPS",
+                description: "Deep dive into the 7 layers of networking. Handshakes, packets, and frames.",
+                thumbnail: "from-green-900 to-black"
+            },
+            {
+                title: "Cybersecurity Fundamentals",
+                level: "Intermediate",
+                modules: 8,
+                duration: "6 Weeks",
+                platform: "Google",
+                tree: "SEC_OPS",
+                description: "Threats, attacks, and vulnerabilities. Encryption, firewalls, and securing networks.",
+                thumbnail: "from-red-900 to-black"
+            },
+            {
+                title: "Cloud Networking (AWS/Azure)",
+                level: "Advanced",
+                modules: 10,
+                duration: "8 Weeks",
+                platform: "A Cloud Guru",
+                tree: "SEC_OPS",
+                description: "VPCs, Subnets, Load Balancers, and Direct Connect. Networking in the cloud era.",
+                thumbnail: "from-orange-700 to-black"
+            },
+            {
+                title: "Zero Trust Architecture & Nation-State Defense",
+                level: "Ultra-Advanced",
+                modules: 14,
+                duration: "5 Months",
+                platform: "NSA / CyberCom",
+                tree: "SEC_OPS",
+                description: "Architecting defense systems against state-sponsored actors. Advanced persistent threats (APTs) and air-gapped networks.",
+                thumbnail: "from-red-800 to-black"
             }
         ];
 
@@ -199,7 +354,7 @@ export default function CoursesManager() {
                 })
             );
             await Promise.all(addPromises);
-            setDialog({ show: true, message: "Intel Database Refreshed with 6 Core Modules.", type: "success" });
+            setDialog({ show: true, message: "Prompt Lab Database Refreshed with 8 Core Modules across 4 Levels.", type: "success" });
             fetchCourses();
         } catch (error) {
             console.error("Seeding failed:", error);
@@ -232,8 +387,8 @@ export default function CoursesManager() {
 
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold font-sans text-white">INTEL_DATABASE</h1>
-                    <p className="font-mono text-xs text-gray-500">Manage learning modules and courseware.</p>
+                    <h1 className="text-3xl font-bold font-sans text-white">PROMPT_LAB_DATABASE</h1>
+                    <p className="font-mono text-xs text-gray-500">Manage prompt lab modules and experiments.</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -284,7 +439,7 @@ export default function CoursesManager() {
                             </div>
                         </div>
                     ))}
-                    {courses.length === 0 && <div className="text-center py-20 text-gray-500 font-mono">NO INTEL FOUND.</div>}
+                    {courses.length === 0 && <div className="text-center py-20 text-gray-500 font-mono">NO LAB MODULES FOUND.</div>}
                 </div>
             )}
 
@@ -309,17 +464,28 @@ export default function CoursesManager() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="label">LEVEL</label>
-                                        <select className="input" value={formData.level} onChange={e => setFormData({ ...formData, level: e.target.value })}>
-                                            <option>Beginner</option>
-                                            <option>Intermediate</option>
-                                            <option>Advanced</option>
+                                        <label className="label">TREE / CATEGORY</label>
+                                        <select className="input" value={formData.tree} onChange={e => setFormData({ ...formData, tree: e.target.value })}>
+                                            <option value="AI_CORE">AI & Machine Learning</option>
+                                            <option value="DEV_OPS">Development (Java/Web)</option>
+                                            <option value="DATA_SCI">Data Science</option>
+                                            <option value="SEC_OPS">Networking & Security</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="label">PLATFORM</label>
-                                        <input className="input" value={formData.platform} onChange={e => setFormData({ ...formData, platform: e.target.value })} />
+                                        <label className="label">LEVEL</label>
+                                        <select className="input" value={formData.level} onChange={e => setFormData({ ...formData, level: e.target.value })}>
+                                            <option>Very Beginner</option>
+                                            <option>Beginner</option>
+                                            <option>Intermediate</option>
+                                            <option>Advanced</option>
+                                            <option>Ultra-Advanced</option>
+                                        </select>
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="label">PLATFORM</label>
+                                    <input className="input" value={formData.platform} onChange={e => setFormData({ ...formData, platform: e.target.value })} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>

@@ -95,7 +95,7 @@ export default function ChallengePage() {
     const notifyBackend = async () => {
         try {
             const leadMember = formData.members[0];
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : 'http://localhost:8080';
             await fetch(`${apiUrl}/api/notify/challenge-connected`, {
                 method: "POST",
                 headers: {

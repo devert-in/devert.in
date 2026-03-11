@@ -90,9 +90,9 @@ export default function SystemSettingsPage() {
 
             <div className="grid gap-4 max-w-3xl">
                 <FeatureRow
-                    label="HACKATHONS_MODULE"
+                    label="AGENT_SPRINTS_MODULE"
                     id="hackathons"
-                    description="Allow users to view and join hackathons."
+                    description="Allow users to view and join agent sprints."
                 />
                 <FeatureRow
                     label="CONTESTS_ENGINE"
@@ -100,24 +100,24 @@ export default function SystemSettingsPage() {
                     description="Enable War Games and coding contests."
                 />
                 <FeatureRow
-                    label="SQUADRON_NET"
+                    label="AGENT_TEAMS_NET"
                     id="squadron"
-                    description="Teammate finding and squad formation."
+                    description="Teammate finding and agent build squad formation."
                 />
                 <FeatureRow
-                    label="EXECUTION_PAYLOADS"
+                    label="AGENT_DEPLOYMENTS"
                     id="execution"
-                    description="Freelance and bounty execution platform."
+                    description="Agent building and deployment platform."
                 />
                 <FeatureRow
-                    label="ARCHIVE_ACCESS (Postmortems)"
+                    label="AGENT_SHOWCASE"
                     id="postmortems"
-                    description="Access to past project case studies."
+                    description="Access to past agent performance logs and showcases."
                 />
                 <FeatureRow
-                    label="EDUCATION_GRID (Courses)"
+                    label="PROMPT_LAB_MODULE"
                     id="courses"
-                    description="Learning materials and course enrollment."
+                    description="Prompt experimentation and intelligence access."
                 />
                 <FeatureRow
                     label="PAYMENT_GATEWAY"

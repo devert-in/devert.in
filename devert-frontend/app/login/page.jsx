@@ -38,7 +38,7 @@ export default function LoginPage() {
                     displayName: user.displayName || email.split('@')[0],
                     lastLogin: serverTimestamp(),
                     createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime) : serverTimestamp(),
-                    role: email.includes("admin") ? "admin" : "user", // Simple role assignment for demo
+                    role: email === "admin@devert.in" ? "admin" : "user", // Simple role assignment for demo
                     photoURL: user.photoURL || null
                 }, { merge: true });
             } catch (dbError) {
@@ -47,7 +47,7 @@ export default function LoginPage() {
             }
 
             // Basic admin check simulation
-            if (email.includes("admin")) {
+            if (email === "admin@devert.in") {
                 console.log("Admin logged in");
                 router.push("/admin");
             } else {

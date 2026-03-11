@@ -26,7 +26,7 @@ function SquadronPageContent() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [dialog, setDialog] = useState({ show: false, message: "", type: "info" });
     const { user, userData } = useAuth();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
 
     // Module Status State
     const [isModuleEnabled, setIsModuleEnabled] = useState(true);
@@ -120,7 +120,7 @@ function SquadronPageContent() {
 
             await batch.commit();
             setOperatives(JSON.parse(JSON.stringify(editedOperatives)));
-            setDialog({ show: true, message: "SQUAD_DATABASE_UPDATED", type: "success" });
+            setDialog({ show: true, message: "TEAM_DATABASE_UPDATED", type: "success" });
             setIsEditing(false);
         } catch (err) {
             console.error("Error saving changes:", err);
@@ -227,10 +227,10 @@ function SquadronPageContent() {
                             {isEditing && <span className="text-red-500 ml-2 animate-none">[ADMIN_EDIT_PROTOCOL]</span>}
                         </div>
                         <h1 className="text-4xl md:text-6xl font-bold font-sans mb-2 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">
-                            FIND TEAMMATES
+                            AGENT TEAMS
                         </h1>
                         <p className="text-gray-400 font-mono text-sm max-w-xl">
-                            Connect with developers. Build your squad. Ship products.
+                            Connect with developers. Build your agent team. Deploy systems.
                         </p>
                     </div>
                     <div className="mt-6 md:mt-0 flex gap-4">
@@ -381,7 +381,7 @@ function SquadronPageContent() {
 
                             <form onSubmit={handleBroadcast} className="space-y-4">
                                 <div>
-                                    <label className="label">OPERATIVE ROLE</label>
+                                    <label className="label">AGENT BUILDER ROLE</label>
                                     <input
                                         className="input"
                                         value={formData.role}

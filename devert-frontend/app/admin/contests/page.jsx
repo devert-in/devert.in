@@ -132,7 +132,7 @@ export default function ContestsManager() {
     };
 
     const handleSeed = async () => {
-        if (!confirm("WARNING: This will DELETE ALL existing CONTESTS and replace them with REAL COMPETITIVE PROGRAMMING EVENTS. Proceed?")) return;
+        if (!confirm("WARNING: This will DELETE ALL existing CONTESTS and replace them with REAL AGENT CHALLENGES. Proceed?")) return;
 
         const realContests = [
             {
@@ -218,7 +218,7 @@ export default function ContestsManager() {
                 })
             );
             await Promise.all(addPromises);
-            setDialog({ show: true, message: "War Games Arena Refreshed.", type: "success" });
+            setDialog({ show: true, message: "Agent War Games Refreshed.", type: "success" });
             fetchContests();
         } catch (error) {
             console.error("Seeding failed:", error);
@@ -251,8 +251,8 @@ export default function ContestsManager() {
 
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold font-sans text-white">WAR_GAMES_ARENA</h1>
-                    <p className="font-mono text-xs text-gray-500">Manage competitive programming events.</p>
+                    <h1 className="text-3xl font-bold font-sans text-white">AGENT_WAR_GAMES_ARENA</h1>
+                    <p className="font-mono text-xs text-gray-500">Manage agent-based competitive events.</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -304,7 +304,7 @@ export default function ContestsManager() {
                             </div>
                         </div>
                     ))}
-                    {contests.length === 0 && <div className="text-center py-20 text-gray-500 font-mono">NO ACTIVE WAR GAMES.</div>}
+                    {contests.length === 0 && <div className="text-center py-20 text-gray-500 font-mono">NO ACTIVE AGENT WAR GAMES.</div>}
                 </div>
             )}
 

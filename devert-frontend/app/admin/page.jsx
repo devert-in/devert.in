@@ -155,7 +155,7 @@ export default function AdminDashboard() {
                     subtitle={`${stats.activeUsers24h} active in last 24h`}
                 />
                 <StatCard
-                    title="Active Hackathons"
+                    title="Active Agent Sprints"
                     value={loading ? "-" : stats.hackathons}
                     icon={Trophy}
                     color="neon-green"

@@ -24,17 +24,17 @@ export function ExecutionModeSection() {
                     </div>
 
                     <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground mb-2">
-                        EXECUTION <span className="text-neon-cyan">&gt;</span> LEARNING
+                        AGENTS <span className="text-neon-cyan">&gt;</span> PROMPTS
                     </h2>
 
                     <p className="text-muted-foreground font-mono text-xs md:text-sm h-20 overflow-hidden line-clamp-3">
-                        Stop consuming. Start building. Select your weakness, and DeVert will give you the strict guidance you need to break the cycle.
+                        Most people talk about AI. Few build useful agents. DeVert exists to turn ideas into operational AI systems.
                     </p>
                 </div>
 
                 <div className="relative z-10 w-full">
                     <Link
-                        href="/execution-ai"
+                        href="/agent-reality"
                         className="w-full px-8 py-3 bg-neon-cyan text-black font-bold font-mono text-sm hover:bg-white hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] transition-all flex items-center justify-center gap-2 text-center rounded-lg"
                     >
                         INITIATE GUIDANCE <Zap size={16} />

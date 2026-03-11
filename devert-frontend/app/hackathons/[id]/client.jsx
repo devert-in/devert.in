@@ -53,6 +53,25 @@ export default function HackathonDetailsPage() {
 
     useEffect(() => {
         const fetchHackathon = async () => {
+            if (id === "mock_genesis_sprint") {
+                setHackathon({
+                    id: "mock_genesis_sprint",
+                    title: "Agent AI Genesis Hackathon",
+                    registrationLink: "https://hackathon.devert.in",
+                    description: "The ultimate DeVert special Hackathon. Compete to build the most advanced AI Agents and prompt logic systems globally. This will push your skills to the absolute limit.",
+                    startDate: "2026-05-15T09:00:00.000Z",
+                    endDate: "2026-05-17T18:00:00.000Z",
+                    registrationDeadline: "2026-05-01T23:59:00.000Z",
+                    prizes: "₹2,00,000 + Funding",
+                    tags: ["Hackathon", "Agents", "Prompting"],
+                    status: "OPEN",
+                    isFeatured: true,
+                    isSpecialEvent: true
+                });
+                setLoading(false);
+                return;
+            }
+
             try {
                 const docRef = doc(db, "hackathons", id);
                 const docSnap = await getDoc(docRef);
@@ -89,7 +108,7 @@ export default function HackathonDetailsPage() {
             const registrationData = {
                 name: regForm.teamName,
                 role: `Squad Leader`, // For the card context
-                stack: ["Hackathon Team", hackathon.title],
+                stack: ["Agent Sprint Team", hackathon.title],
                 level: "Recruiting",
                 status: needsMembers ? "ONLINE" : "FULL",
                 lookingFor: needsMembers ? `Looking for ${4 - teamSize} operative(s) for ${hackathon.title}.` : "Squad deployed.",
@@ -197,13 +216,39 @@ export default function HackathonDetailsPage() {
                 <div className="grid md:grid-cols-2 gap-8 mb-16">
                     <div className="space-y-6">
                         <div className="p-6 bg-white/5 border border-white/10">
-                            <h3 className="text-gray-500 font-mono text-xs mb-2 flex items-center"><Clock size={14} className="mr-2" /> TIMELINE</h3>
-                            <Timeline steps={[
-                                { title: "Phase 1: Registration", date: "Now Open", status: "active" },
-                                { title: "Phase 2: Idea Submission", date: "TBA", status: "upcoming" },
-                                { title: "Phase 3: Prototype Dev", date: "TBA", status: "upcoming" },
-                                { title: "Grand Finale (Online)", date: "Date to be Announced", status: "upcoming" }
-                            ]} />
+                            <h3 className="text-gray-500 font-mono text-xs mb-4 flex items-center"><Clock size={14} className="mr-2" /> TIMELINE</h3>
+                            {hackathon.title.includes("Masterclass") ? (
+                                <Timeline steps={[
+                                    { title: "Day 1: Prompt Engineering Foundations", date: "April 10, 09:00 AM", status: "active" },
+                                    { title: "Day 1: Advanced Prompt Chaining", date: "April 10, 02:00 PM", status: "upcoming" },
+                                    { title: "Day 2: AI Agents Architecture", date: "April 11, 09:00 AM", status: "upcoming" },
+                                    { title: "Day 3: Deployment & Showcase", date: "April 12, 11:00 AM", status: "upcoming" }
+                                ]} />
+                            ) : hackathon.title.includes("Genesis") ? (
+                                <Timeline steps={[
+                                    { title: "Phase 1: Team Formation & Registration", date: "May 1 - May 10", status: "active" },
+                                    { title: "Phase 2: Hackathon Kickoff & Ideation", date: "May 15, 09:00 AM", status: "upcoming" },
+                                    { title: "Phase 3: Build & Integrate", date: "May 15 - May 16", status: "upcoming" },
+                                    { title: "Final Pitches & Judging", date: "May 17, 02:00 PM", status: "upcoming" }
+                                ]} />
+                            ) : (
+                                <Timeline steps={[
+                                    { title: "Phase 1: Registration", date: "Now Open", status: "active" },
+                                    { title: "Phase 2: Idea Submission", date: "TBA", status: "upcoming" },
+                                    { title: "Phase 3: Prototype Dev", date: "TBA", status: "upcoming" },
+                                    { title: "Grand Finale (Online)", date: "Date to be Announced", status: "upcoming" }
+                                ]} />
+                            )}
+                        </div>
+
+                        <div className="p-6 bg-white/5 border border-white/10">
+                            <h3 className="text-gray-500 font-mono text-xs mb-4 flex items-center"><Shield size={14} className="mr-2" /> REGISTRATION PROCEDURE</h3>
+                            <ul className="text-gray-300 font-mono text-sm space-y-3 pl-4 list-disc marker:text-neon-cyan">
+                                <li><strong>Step 1:</strong> Form a squad of 2 to 4 operatives or register as a Solo Operative.</li>
+                                <li><strong>Step 2:</strong> Click [REGISTER NOW] to complete the Squad Registration Form. Provide necessary academic/professional details.</li>
+                                <li><strong>Step 3:</strong> Access the internal dashboard once authenticated. Receive your Squad Deployment Kit.</li>
+                                <li><strong>Step 4:</strong> Adhere to the timeline above. Submit projects locally via the designated portal before the deadline.</li>
+                            </ul>
                         </div>
                     </div>
 

@@ -25,18 +25,18 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import FeatureGuard from "@/components/feature-guard";
 
-export default function ExecutionBoard() {
+export default function AgentDeployments() {
     return (
-        <FeatureGuard feature="execution">
-            <ExecutionBoardContent />
+        <FeatureGuard feature="deployments">
+            <AgentDeploymentsContent />
         </FeatureGuard>
     );
 }
 
-function ExecutionBoardContent() {
+function AgentDeploymentsContent() {
     const { user, userData } = useAuth();
     const router = useRouter();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
 
     const [requirements, setRequirements] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -57,7 +57,7 @@ function ExecutionBoardContent() {
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.execution === false) setIsModuleEnabled(false);
+                if (data.deployments === false) setIsModuleEnabled(false);
             }
         } catch (error) {
             console.error("Error fetching module status:", error);
@@ -69,7 +69,7 @@ function ExecutionBoardContent() {
         setIsModuleEnabled(newState);
         try {
             await setDoc(doc(db, "system", "feature_flags"), {
-                execution: newState
+                deployments: newState
             }, { merge: true });
         } catch (error) {
             console.error("Error toggling module:", error);
@@ -92,7 +92,7 @@ function ExecutionBoardContent() {
             activeItems.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
             setRequirements(activeItems);
         } catch (error) {
-            console.error("Error fetching execution board:", error);
+            console.error("Error fetching deployments board:", error);
         } finally {
             setLoading(false);
         }
@@ -118,7 +118,7 @@ function ExecutionBoardContent() {
 
             if (appsSnap.empty) {
                 // Redirect to fill details
-                router.push(`/join-executor?returnTo=/execution`);
+                router.push(`/join-architect?returnTo=/deployments`);
                 return;
             }
 
@@ -185,11 +185,11 @@ function ExecutionBoardContent() {
                             <Zap size={14} /> LIVE OPERATIONS
                         </div>
                         <h1 className="text-4xl md:text-5xl font-bold font-sans mb-4">
-                            EXECUTION BOARD
+                            AGENT DEPLOYMENTS
                         </h1>
                         <p className="text-gray-400 font-mono text-sm max-w-xl">
-                            Real requirements active on DeVert. <br />
-                            Clients: Post work. Executors: Take initiative.
+                            Active agent build requests on DeVert. <br />
+                            Clients: Request agents. Architects: Deploy systems.
                         </p>
                     </div>
 
@@ -214,7 +214,7 @@ function ExecutionBoardContent() {
                             <Briefcase size={16} /> DEPLOY PROJECT
                         </Link>
                         <Link
-                            href="/join-executor"
+                            href="/join-architect"
                             className="flex-1 md:flex-none px-6 py-3 border border-neon-cyan text-neon-cyan font-bold font-mono hover:bg-neon-cyan hover:text-black transition-all flex items-center justify-center gap-2 text-sm"
                         >
                             <Code size={16} /> REGISTER PROFILE
@@ -326,7 +326,7 @@ function RequirementCard({ data, currentUserId, onShowInterest, processing }) {
             <div className="relative z-10">
                 {data.status === 'ASSIGNED' ? (
                     <div className="w-full py-3 bg-neon-cyan/5 border border-neon-cyan/20 text-neon-cyan font-mono text-xs flex items-center justify-center gap-2">
-                        <Lock size={14} /> EXECUTOR DEPLOYED
+                        <Lock size={14} /> ARCHITECT DEPLOYED
                     </div>
                 ) : (
                     <div className="flex items-center gap-3">
@@ -343,7 +343,7 @@ function RequirementCard({ data, currentUserId, onShowInterest, processing }) {
                         </button>
 
                         {interestCount > 0 && (
-                            <div className="h-full px-3 border border-white/10 flex items-center justify-center bg-white/5 text-gray-400 font-mono text-xs gap-1" title={`${interestCount} operatives interested`}>
+                            <div className="h-full px-3 border border-white/10 flex items-center justify-center bg-white/5 text-gray-400 font-mono text-xs gap-1" title={`${interestCount} architects interested`}>
                                 <Users size={14} /> {interestCount}
                             </div>
                         )}

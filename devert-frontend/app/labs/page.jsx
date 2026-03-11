@@ -19,7 +19,7 @@ export default function LabsPage() {
 
 function LabsPageContent() {
     const { user } = useAuth();
-    const isAdmin = user?.email?.includes("admin");
+    const isAdmin = user?.email === "admin@devert.in";
     const [isModuleEnabled, setIsModuleEnabled] = useState(true);
 
     useEffect(() => {

@@ -71,8 +71,8 @@ export default function WorkspacePage() {
             <div className="max-w-4xl mx-auto px-6 py-32 min-h-[60vh]">
                 <div className="flex justify-between items-end mb-8 border-b border-border pb-4">
                     <div>
-                        <h1 className="text-3xl font-bold font-sans">EXECUTION_WORKSPACE</h1>
-                        <p className="text-gray-400 font-mono text-sm">Operative: {user.email}</p>
+                        <h1 className="text-3xl font-bold font-sans">AGENT_GARAGE</h1>
+                        <p className="text-gray-400 font-mono text-sm">Architect: {user.email}</p>
                     </div>
                     <div className="text-right">
                         <div className="text-2xl font-bold font-mono text-neon-cyan">{tasks.filter(t => t.status === 'ASSIGNED').length}</div>
@@ -86,7 +86,7 @@ export default function WorkspacePage() {
                     <div className="bg-card-bg border border-border p-12 text-center rounded-lg">
                         <h3 className="text-xl font-bold text-gray-600 mb-2">NO_ACTIVE_ASSIGNMENTS</h3>
                         <p className="text-gray-500 font-mono text-sm mb-6">You are currently on standby.</p>
-                        <Link href="/join-executor" className="text-neon-cyan hover:underline font-mono text-sm">
+                        <Link href="/join-architect" className="text-neon-cyan hover:underline font-mono text-sm">
                             Apply for more roles
                         </Link>
                     </div>

@@ -35,7 +35,7 @@ export default function AdminLayout({ children }) {
         const unsubscribe = onAuthStateChanged(auth, (authUser) => {
             if (!authUser) {
                 router.push("/login");
-            } else if (!authUser.email.includes("admin")) {
+            } else if (authUser.email !== "admin@devert.in") {
                 router.push("/"); // Redirect non-admins
             } else {
                 setUser(authUser);
@@ -63,12 +63,12 @@ export default function AdminLayout({ children }) {
         { name: "DASHBOARD", href: "/admin", icon: LayoutDashboard },
         { name: "FEATURES", href: "/admin/features", icon: Layers },
         { name: "CLIENT OPS", href: "/admin/requirements", icon: Briefcase },
-        { name: "SQUAD OPS", href: "/admin/executors", icon: Shield },
+        { name: "SQUAD OPS", href: "/admin/architects", icon: Shield },
         { name: "USER BASE", href: "/admin/users", icon: Users },
         { name: "FINANCE", href: "/admin/finance", icon: CreditCard },
-        { name: "HACKATHONS", href: "/admin/hackathons", icon: Trophy },
-        { name: "POSTMORTEMS", href: "/admin/postmortems", icon: Activity },
-        { name: "COURSES", href: "/admin/courses", icon: BookOpen },
+        { name: "AGENT SPRINTS", href: "/admin/hackathons", icon: Trophy },
+        { name: "PERFORMANCE LOGS", href: "/admin/postmortems", icon: Activity },
+        { name: "PROMPT LAB", href: "/admin/courses", icon: BookOpen },
         { name: "WARGAMES", href: "/admin/contests", icon: Gamepad },
         { name: "SYSTEM", href: "/admin/settings", icon: Database },
     ];
@@ -99,8 +99,8 @@ export default function AdminLayout({ children }) {
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
                 className={`
                     fixed top-0 left-0 h-[100dvh] z-40 bg-card-bg border-r border-border flex flex-col
-                    lg:relative lg:translate-x-0 lg:h-screen lg:block
-                    ${!isSidebarOpen ? "hidden lg:block lg:w-0 lg:border-none lg:opacity-0" : ""}
+                    lg:relative lg:translate-x-0 lg:h-screen lg:flex
+                    ${!isSidebarOpen ? "hidden lg:flex lg:w-0 lg:border-none lg:opacity-0" : ""}
                 `}
                 style={{ width: 240 }} // Force width for motion
             >
