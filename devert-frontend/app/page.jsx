@@ -3,10 +3,8 @@
 import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { IntroSplash } from "@/components/intro-splash";
-import { MainFeed } from "@/components/main-feed";
-import { StackMarquee } from "@/components/stack-marquee";
+import { LandingPage } from "@/components/landing-page";
 
-import { LootBox } from "@/components/loot-box";
 import { UiEffects } from "@/components/ui-effects";
 import { useIntro } from "@/context/IntroContext";
 
@@ -30,11 +28,7 @@ export default function Home() {
       </AnimatePresence>
 
       {showContent && (
-        <>
-          <MainFeed hasShownIntro={hasShownIntro} />
-          <StackMarquee />
-          <LootBox />
-        </>
+        <LandingPage hasShownIntro={hasShownIntro} />
       )}
     </main>
   );

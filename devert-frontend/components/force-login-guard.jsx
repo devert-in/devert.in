@@ -14,7 +14,7 @@ export function ForceLoginGuard({ children }) {
     useEffect(() => {
         if (!loading) {
             // List of public paths
-            const publicPaths = ["/login"];
+            const publicPaths = ["/login", "/", "/about"];
 
             // Logic: If not logged in AND not on a public path
             if (!user && !publicPaths.includes(pathname)) {
@@ -39,7 +39,8 @@ export function ForceLoginGuard({ children }) {
 
     // While performing the redirect check for unauthenticated users on protected routes
     // we want to render nothing or a spinner to prevent "flash of content"
-    if (!user && pathname !== "/login") {
+    const publicPaths = ["/login", "/", "/about"];
+    if (!user && !publicPaths.includes(pathname)) {
         return (
             <div className="h-screen w-screen bg-[#050505] flex flex-col items-center justify-center text-white">
                 <ShieldAlert className="text-red-500 mb-4 animate-pulse" size={32} />

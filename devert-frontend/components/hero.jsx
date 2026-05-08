@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 
 export function Hero({ hasShownIntro }) {
-    const fullText = "> Initializing Devert.in...";
+    const fullText = "> Initializing DeVert.in...";
     const [text, setText] = useState(hasShownIntro ? fullText : "");
 
     useEffect(() => {

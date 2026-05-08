@@ -20,7 +20,8 @@ import {
     CreditCard,
     Database,
     Gamepad,
-    Layers
+    Layers,
+    CheckCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -64,12 +65,12 @@ export default function AdminLayout({ children }) {
         { name: "FEATURES", href: "/admin/features", icon: Layers },
         { name: "CLIENT OPS", href: "/admin/requirements", icon: Briefcase },
         { name: "SQUAD OPS", href: "/admin/architects", icon: Shield },
+        { name: "SPRINT REGISTRATIONS", href: "/admin/registrations", icon: CheckCircle },
         { name: "USER BASE", href: "/admin/users", icon: Users },
         { name: "FINANCE", href: "/admin/finance", icon: CreditCard },
         { name: "AGENT SPRINTS", href: "/admin/hackathons", icon: Trophy },
         { name: "PERFORMANCE LOGS", href: "/admin/postmortems", icon: Activity },
-        { name: "PROMPT LAB", href: "/admin/courses", icon: BookOpen },
-        { name: "WARGAMES", href: "/admin/contests", icon: Gamepad },
+        { name: "PROMPT LAB", href: "/admin/contests", icon: Gamepad },
         { name: "SYSTEM", href: "/admin/settings", icon: Database },
     ];
 

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 export function IntroSplash({ onComplete }) {
     const [text, setText] = useState("");
-    const fullText = "> Initializing Devert.in...";
+    const fullText = "> Initializing DeVert.in...";
 
     useEffect(() => {
         let i = 0;

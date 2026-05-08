@@ -13,9 +13,11 @@ export function UiEffects() {
 
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
     const [isHovering, setIsHovering] = useState(false);
+    const [hasMoved, setHasMoved] = useState(false);
 
     useEffect(() => {
         const mouseMove = (e) => {
+            if (!hasMoved) setHasMoved(true);
             setMousePosition({
                 x: e.clientX,
                 y: e.clientY
@@ -30,7 +32,7 @@ export function UiEffects() {
         return () => {
             window.removeEventListener("mousemove", mouseMove);
         }
-    }, []);
+    }, [hasMoved]);
 
     return (
         <>
@@ -42,12 +44,13 @@ export function UiEffects() {
 
             {/* Custom Cursor */}
             <motion.div
-                className="fixed top-0 left-0 w-10 h-10 rounded-full border border-neon-green/50 pointer-events-none z-[100] hidden md:block mix-blend-difference"
+                className="fixed top-0 left-0 w-10 h-10 rounded-full border border-neon-green/50 pointer-events-none z-[100] hidden md:block"
                 animate={{
                     x: mousePosition.x - 20,
                     y: mousePosition.y - 20,
                     scale: isHovering ? 2 : 1,
-                    borderColor: isHovering ? '#00FFFF' : 'rgba(0, 255, 65, 0.5)'
+                    borderColor: isHovering ? '#00FFFF' : 'rgba(0, 255, 65, 0.5)',
+                    opacity: hasMoved ? 1 : 0
                 }}
                 transition={{
                     type: "spring",
@@ -61,6 +64,7 @@ export function UiEffects() {
                 animate={{
                     x: mousePosition.x - 4,
                     y: mousePosition.y - 4,
+                    opacity: hasMoved ? 1 : 0
                 }}
                 transition={{
                     type: "spring",

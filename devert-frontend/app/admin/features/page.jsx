@@ -8,12 +8,11 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 const DEFAULT_LINKS = [
     { id: "0", name: "COMMUNITY", href: "/community", type: "internal", visible: true, online: true },
-    { id: "1", name: "BUILD SPRINT", href: "/sprints", type: "internal", visible: true, online: true },
-    { id: "2", name: "CONTESTS", href: "/contests", type: "internal", visible: true, online: true },
-    { id: "3", name: "AGENT GARAGE", href: "/garage", type: "internal", visible: true, online: true },
-    { id: "4", name: "AGENT DEPLOYMENTS", href: "/deployments", type: "internal", visible: true, online: true },
-    { id: "5", name: "AGENT SHOWCASE", href: "/showcase", type: "internal", visible: true, online: true },
-    { id: "6", name: "PROMPT LAB", href: "/prompt-lab", type: "internal", visible: true, online: true },
+    { id: "1", name: "BUILD ARENA", href: "/arena", type: "internal", visible: true, online: true },
+    { id: "2", name: "BOUNTIES", href: "/bounties", type: "internal", visible: true, online: true },
+    { id: "3", name: "BUILDER WORKSPACE", href: "/workspace", type: "internal", visible: true, online: true },
+    { id: "4", name: "PROOF GALLERY", href: "/showcase", type: "internal", visible: true, online: true },
+    { id: "5", name: "PROMPT LAB", href: "/prompt-lab", type: "internal", visible: true, online: true },
 ];
 
 export default function FeaturesManager() {

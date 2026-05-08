@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Award, Zap, Edit3, Save, Eye, EyeOff, StopCircle, X, AlertTriangle, Construction, ArrowRight } from "lucide-react";
+import { Trophy, Award, Zap, Edit3, Save, Eye, EyeOff, StopCircle, X, AlertTriangle, Construction, ArrowRight, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -12,37 +12,38 @@ const ICON_MAP = {
     trophy: <Trophy className="text-neon-cyan" size={32} />,
     award: <Award className="text-purple-500" size={32} />,
     zap: <Zap className="text-neon-green" size={32} />,
+    dashboard: <LayoutDashboard className="text-neon-cyan" size={32} />,
 };
 
 const DEFAULT_CONFIG = [
     {
-        id: "hackathons",
-        title: "Agent Build Sprints",
-        desc: "Time-limited events. Build real AI agents solving practical tasks.",
-        iconType: "trophy",
+        id: "proof-card",
+        title: "Proof Card",
+        desc: "Your verifiable identity. Not a list of titles, but a dynamic gallery of your best work.",
+        iconType: "award",
         border: "hover:border-neon-cyan",
         shadow: "hover:shadow-neon-cyan/20",
-        href: "/hackathons",
+        href: "/profile",
         enabled: true
     },
     {
-        id: "certifications",
-        title: "Agent Workflows",
-        desc: "Experiment and deploy. Scripts, tools & prompt strategies.",
-        iconType: "award",
-        border: "hover:border-purple-500",
-        shadow: "hover:shadow-purple-500/20",
-        href: "/courses",
-        enabled: true
-    },
-    {
-        id: "hacks",
-        title: "Live Implementations",
-        desc: "Not concepts. Working systems. Learn from real agent experiments.",
+        id: "build-trail",
+        title: "Build Trail",
+        desc: "The timeline of your grit. Every project from idea to deployment, tracked and verified.",
         iconType: "zap",
         border: "hover:border-neon-green",
         shadow: "hover:shadow-neon-green/20",
-        href: "/resources",
+        href: "/my-projects",
+        enabled: true
+    },
+    {
+        id: "skill-rank",
+        title: "Skill Battles",
+        desc: "Compete with the top 1%. Prove your technical superiority in real-world scenarios.",
+        iconType: "trophy",
+        border: "hover:border-purple-500",
+        shadow: "hover:shadow-purple-500/20",
+        href: "/arena",
         enabled: true
     }
 ];
@@ -66,7 +67,6 @@ export function LootBox() {
                     setItems(docSnap.data().items);
                     setEditedItems(docSnap.data().items);
                 } else {
-                    // Initialize if not exists
                     setItems(DEFAULT_CONFIG);
                     setEditedItems(DEFAULT_CONFIG);
                 }
@@ -81,36 +81,27 @@ export function LootBox() {
     }, []);
 
     const handleEditChange = (index, field, value) => {
+        if (!isAdmin) return;
         const newItems = [...editedItems];
         newItems[index] = { ...newItems[index], [field]: value };
         setEditedItems(newItems);
     };
 
-    // Immediate toggle for admins
     const toggleItemStatus = async (index) => {
-        const newItems = [...items]; // Operate on live items if not in edit mode, but better to use state
+        if (!isAdmin) return;
+        const newItems = [...items];
         newItems[index].enabled = !newItems[index].enabled;
         setItems(newItems);
 
-        // Optimistic update to DB
         try {
             await setDoc(doc(db, "system", "lootbox"), {
                 items: newItems,
-                updatedAt: new Date().toISOString(),
-                updatedBy: user.email
+                author: user.email,
+                updatedAt: new Date().toISOString()
             }, { merge: true });
-        } catch (err) {
-            console.error("Failed to toggle status", err);
-            // Revert on error
-            newItems[index].enabled = !newItems[index].enabled;
-            setItems(newItems);
+        } catch (error) {
+            console.error("Save failed", error);
         }
-    };
-
-    const handleEditToggleEnable = (index) => {
-        const newItems = [...editedItems];
-        newItems[index] = { ...newItems[index], enabled: !newItems[index].enabled };
-        setEditedItems(newItems);
     };
 
     const saveChanges = async () => {
@@ -118,207 +109,156 @@ export function LootBox() {
         try {
             await setDoc(doc(db, "system", "lootbox"), {
                 items: editedItems,
-                updatedAt: new Date().toISOString(),
-                updatedBy: user.email
-            });
-            setItems(JSON.parse(JSON.stringify(editedItems)));
+                author: user.email,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+            setItems(editedItems);
             setIsEditing(false);
         } catch (error) {
-            console.error("Error saving lootbox config:", error);
-            alert("Failed to save changes.");
+            console.error("Save failed", error);
         } finally {
             setSaving(false);
         }
     };
 
-    const displayItems = isEditing ? editedItems : items;
+    if (loading) return null;
 
     return (
-        <section className="py-32 px-4 relative z-10">
-            <div className="max-w-6xl mx-auto">
-                <div className="flex items-end justify-between mb-16">
-                    <div>
-                        <h2 className="text-3xl md:text-5xl font-bold font-sans mb-2 text-foreground flex items-center gap-4">
-                            AGENT_TOOLKIT
+        <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {items.map((item, idx) => {
+                    if (!item.enabled && !isAdmin) return null;
+                    
+                    return (
+                        <motion.div
+                            key={item.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: idx * 0.1 }}
+                            className={`group relative p-6 bg-card-bg bg-gradient-to-br from-white/10 to-transparent backdrop-blur-xl border border-border rounded-2xl transition-all duration-500 overflow-hidden shadow-premium hover:shadow-2xl ${item.border} ${item.shadow} ${!item.enabled ? 'opacity-50 grayscale' : ''}`}
+                        >
+                            {!item.enabled && (
+                                <div className="absolute top-4 right-4 text-gray-500 font-mono text-[10px] uppercase flex items-center gap-2">
+                                    <EyeOff size={12} /> Hidden_from_public
+                                </div>
+                            )}
+
                             {isAdmin && (
                                 <button
-                                    onClick={() => {
-                                        if (isEditing) {
-                                            setEditedItems(JSON.parse(JSON.stringify(items)));
-                                            setIsEditing(false);
-                                        } else {
-                                            setIsEditing(true);
-                                        }
-                                    }}
-                                    className={`text-xs px-3 py-1 border rounded font-mono flex items-center gap-2 transition-colors ${isEditing
-                                        ? "border-red-500 text-red-500 hover:bg-red-500/10"
-                                        : "border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10"
-                                        }`}
+                                    onClick={(e) => { e.preventDefault(); toggleItemStatus(idx); }}
+                                    className="absolute top-4 left-4 z-20 p-2 bg-background/50 border border-border rounded-full text-muted-foreground hover:text-neon-cyan transition-colors"
                                 >
-                                    {isEditing ? <><X size={12} /> CANCEL</> : <><Edit3 size={12} /> ADMIN_EDIT</>}
+                                    {item.enabled ? <Eye size={14} /> : <EyeOff size={14} />}
                                 </button>
                             )}
-                        </h2>
-                        <p className="font-mono text-gray-400">Equip your agents for deployment.</p>
-                    </div>
-                    <div className="hidden md:block w-1/3 h-[1px] bg-gradient-to-l from-transparent to-gray-700"></div>
-                </div>
 
-                <div className="grid md:grid-cols-3 gap-8">
-                    {displayItems.map((item, i) => {
-                        // View Logic
-                        const isLive = item.enabled;
-                        const showUnderConstruction = !isLive && !isAdmin && !isEditing;
-
-                        if (showUnderConstruction) {
-                            return (
-                                <div key={i} className="h-full p-8 bg-card-bg/50 border border-white/5 flex flex-col items-center justify-center text-center relative overflow-hidden grayscale opacity-75">
-                                    <div className="absolute inset-0 stripes-bg opacity-10"></div>
-                                    <Construction className="text-yellow-500 mb-4 animate-pulse" size={48} />
-                                    <h3 className="text-xl font-bold font-sans text-gray-500 mb-2">UNDER CONSTRUCTION</h3>
-                                    <p className="font-mono text-xs text-gray-600">This module is currently being upgraded. Check back later.</p>
-                                    <div className="mt-4 px-3 py-1 bg-yellow-500/10 text-yellow-500 text-[10px] font-mono border border-yellow-500/20 rounded">
-                                        STATUS: 503_MAINTENANCE
-                                    </div>
+                            <div className="relative z-10 transition-transform duration-500 group-hover:-translate-y-2">
+                                <div className="mb-4 transform group-hover:scale-110 transition-transform duration-500">
+                                    {ICON_MAP[item.iconType]}
                                 </div>
-                            )
-                        }
-
-                        return (
-                            <div key={i} className="h-full relative group">
-                                {isEditing ? (
-                                    // Edit Mode Card
-                                    <div className={`p-6 bg-black border ${item.enabled ? 'border-neon-cyan/50' : 'border-gray-800 opacity-75'} flex flex-col h-full gap-4`}>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <div className="font-mono text-xs text-gray-500">ITEM_{i + 1}</div>
-                                            <button
-                                                onClick={() => handleEditToggleEnable(i)}
-                                                className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold font-mono ${item.enabled ? 'bg-neon-green/20 text-neon-green' : 'bg-red-500/20 text-red-500'}`}
-                                            >
-                                                {item.enabled ? <><Eye size={12} /> ENABLED</> : <><EyeOff size={12} /> DISABLED</>}
-                                            </button>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-[10px] font-mono text-gray-500 block mb-1">TITLE</label>
-                                            <input
-                                                value={item.title}
-                                                onChange={e => handleEditChange(i, 'title', e.target.value)}
-                                                className="w-full bg-white/5 border border-white/10 p-2 text-white font-bold"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="text-[10px] font-mono text-gray-500 block mb-1">DESCRIPTION</label>
-                                            <textarea
-                                                value={item.desc}
-                                                onChange={e => handleEditChange(i, 'desc', e.target.value)}
-                                                className="w-full bg-white/5 border border-white/10 p-2 text-gray-300 text-sm h-20 resize-none"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="text-[10px] font-mono text-gray-500 block mb-1">LINK (HREF)</label>
-                                            <input
-                                                value={item.href}
-                                                onChange={e => handleEditChange(i, 'href', e.target.value)}
-                                                className="w-full bg-white/5 border border-white/10 p-2 text-neon-cyan font-mono text-xs"
-                                            />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    // Live Mode Card (Admin sees controls, user sees content)
-                                    <div className="relative h-full">
-                                        {/* Admin Inline Status Toggle */}
-                                        {isAdmin && (
-                                            <div className="absolute top-4 right-4 z-50">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        toggleItemStatus(i);
-                                                    }}
-                                                    className={`p-2 rounded-full backdrop-blur-md border shadow-lg transition-all ${isLive ? 'bg-neon-green/10 text-neon-green border-neon-green hover:bg-red-500 hover:border-red-500 hover:text-white' : 'bg-red-500 text-white border-red-500 hover:bg-neon-green hover:border-neon-green hover:text-black'}`}
-                                                    title={isLive ? "Click to Disable" : "Click to Enable"}
-                                                >
-                                                    {isLive ? <Eye size={16} /> : <EyeOff size={16} />}
-                                                </button>
-                                            </div>
-                                        )}
-
-                                        <Link href={item.href} className={`block h-full ${!isLive ? 'pointer-events-none' : ''}`}>
-                                            <motion.div
-                                                whileHover={isLive ? { y: -5 } : {}}
-                                                className={`p-8 bg-black/40 backdrop-blur-xl border border-white/10 ${isLive ? item.border : 'border-gray-800'} rounded-2xl transition-all duration-300 group hover:bg-black/60 flex flex-col h-full cursor-pointer relative overflow-hidden ${!isLive ? 'opacity-50 grayscale' : ''}`}
-                                            >
-                                                {!isLive && isAdmin && (
-                                                    <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-mono px-3 py-1 z-50 rounded-br-lg">
-                                                        DISABLED (USER VIEW: HIDDEN)
-                                                    </div>
-                                                )}
-
-                                                <div className="mb-6 w-14 h-14 rounded-xl flex items-center justify-center bg-white/5 border border-white/10 relative z-10 transition-colors group-hover:border-white/20">
-                                                    {ICON_MAP[item.iconType] || <Zap />}
-                                                </div>
-                                                <h3 className="text-xl md:text-2xl font-bold font-sans mb-3 text-white relative z-10">{item.title}</h3>
-                                                <p className="font-sans text-sm text-gray-400 flex-grow relative z-10">{item.desc}</p>
-
-                                                <div className="mt-8 flex justify-end relative z-10">
-                                                    <span className="text-sm font-semibold text-gray-500 group-hover:text-white transition-colors flex items-center gap-2">
-                                                        Access Vault <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                                                    </span>
-                                                </div>
-
-                                                {/* Subtle hover gradient bloom */}
-                                                {isLive && (
-                                                    <div className={`absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br ${item.iconType === 'trophy' ? 'from-neon-cyan/10 to-transparent' :
-                                                        item.iconType === 'award' ? 'from-purple-500/10 to-transparent' :
-                                                            'from-neon-green/10 to-transparent'
-                                                        } rounded-2xl pointer-events-none`}></div>
-                                                )}
-                                            </motion.div>
-                                        </Link>
-                                    </div>
-                                )}
+                                <h3 className="text-xl font-bold font-sans text-foreground mb-2 tracking-tighter uppercase">{item.title}</h3>
+                                <p className="text-muted-foreground text-[13px] font-mono leading-relaxed mb-6">{item.desc}</p>
+                                
+                                <Link
+                                    href={item.link || item.href}
+                                    className="inline-flex items-center gap-3 text-[11px] font-bold font-mono tracking-widest text-foreground group-hover:text-neon-cyan transition-colors uppercase"
+                                >
+                                    ACCESS_MODULE <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                </Link>
                             </div>
-                        )
-                    })}
-                </div>
+
+                            {/* Background decorative path */}
+                            <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity pointer-events-none">
+                                {ICON_MAP[item.iconType]}
+                            </div>
+                        </motion.div>
+                    );
+                })}
+
+                {isAdmin && (
+                    <motion.button
+                        layout
+                        onClick={() => setIsEditing(!isEditing)}
+                        className="fixed bottom-10 right-10 z-[300] bg-neon-cyan text-black px-8 py-3 rounded-xl font-bold font-mono text-xs shadow-[0_10px_40px_rgba(34,211,238,0.3)] flex items-center gap-3 hover:scale-110 transition-all uppercase"
+                    >
+                        {isEditing ? <X size={16} /> : <Edit3 size={16} />}
+                        {isEditing ? "CLOSE_INTERFACE" : "EDIT_MODULES"}
+                    </motion.button>
+                )}
             </div>
 
-            {/* Admin Save Bar */}
             <AnimatePresence>
                 {isEditing && (
                     <motion.div
-                        initial={{ y: 100 }}
-                        animate={{ y: 0 }}
-                        exit={{ y: 100 }}
-                        className="fixed bottom-0 left-0 right-0 p-4 bg-black/90 backdrop-blur-md border-t border-neon-cyan z-50 flex items-center justify-between"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="fixed inset-4 md:inset-20 bg-background/95 backdrop-blur-2xl border border-neon-cyan/30 z-[300] p-8 md:p-12 overflow-y-auto rounded-3xl shadow-premium"
                     >
-                        <div className="text-neon-cyan font-mono text-sm animate-pulse">
-                            LOOTBOX_CONFIG // ADMIN_MODE
+                        <div className="flex justify-between items-center mb-12">
+                            <div>
+                                <h2 className="text-3xl font-black font-sans text-neon-cyan tracking-tighter uppercase">MODULE_EDITOR</h2>
+                                <p className="text-gray-500 font-mono text-xs tracking-widest mt-2 uppercase">Authorized session: {user?.email}</p>
+                            </div>
+                            <button onClick={() => setIsEditing(false)} className="text-gray-500 hover:text-white"><X size={32} /></button>
                         </div>
-                        <div className="flex gap-4">
+
+                        <div className="grid md:grid-cols-3 gap-8 mb-12">
+                            {editedItems.map((item, index) => (
+                                <div key={index} className="bg-white/5 border border-white/10 p-6 rounded-2xl relative">
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="p-3 bg-black rounded-xl border border-white/5">{ICON_MAP[item.iconType]}</div>
+                                        <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">ST0T_{index+1}</div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-[9px] font-mono text-gray-600 uppercase mb-1 block">Title</label>
+                                            <input
+                                                className="w-full bg-card-bg border border-border p-3 text-foreground font-mono text-xs rounded-xl focus:border-neon-cyan outline-none"
+                                                value={item.title}
+                                                onChange={(e) => handleEditChange(index, 'title', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-mono text-gray-600 uppercase mb-1 block">Description</label>
+                                            <textarea
+                                                className="w-full bg-black border border-white/10 p-3 text-white font-mono text-xs rounded-xl h-24 focus:border-neon-cyan outline-none"
+                                                value={item.desc}
+                                                onChange={(e) => handleEditChange(index, 'desc', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-mono text-gray-600 uppercase mb-1 block">URI_PATH</label>
+                                            <input
+                                                className="w-full bg-black border border-white/10 p-3 text-white font-mono text-xs rounded-xl focus:border-neon-cyan outline-none"
+                                                value={item.href || item.link}
+                                                onChange={(e) => handleEditChange(index, 'href', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex justify-end pt-12 border-t border-white/10 gap-4">
                             <button
-                                onClick={() => {
-                                    setIsEditing(false);
-                                    setEditedItems(JSON.parse(JSON.stringify(items)));
-                                }}
-                                className="px-6 py-2 border border-red-500 text-red-500 font-mono text-sm hover:bg-red-500/10"
+                                onClick={() => setIsEditing(false)}
+                                className="px-10 py-4 text-[11px] font-mono text-gray-400 hover:text-white"
                             >
-                                DISCARD
+                                ABORT_CHANGES
                             </button>
                             <button
                                 onClick={saveChanges}
                                 disabled={saving}
-                                className="px-6 py-2 bg-neon-cyan text-black font-bold font-mono text-sm hover:opacity-80 disabled:opacity-50 flex items-center gap-2"
+                                className="bg-neon-cyan text-black px-12 py-4 rounded-xl font-black font-mono text-xs shadow-2xl hover:scale-105 transition-all flex items-center gap-3 uppercase"
                             >
-                                {saving ? <><StopCircle className="animate-spin" size={16} /> SAVING...</> : <><Save size={16} /> SAVE_CHANGES</>}
+                                {saving ? "PLANET_ALIGNED..." : <><Save size={16}/> COMMMIT_TO_CORE</>}
                             </button>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
-        </section>
+        </div>
     );
 }

@@ -35,7 +35,7 @@ export function Footer() {
                             <a href="https://www.instagram.com/devert.in" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
                                 <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /instagram
                             </a>
-                            <a href="https://www.linkedin.com/company/devert-in/" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
+                            <a href="https://www.linkedin.com/company/111474265/" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
                                 <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /linkedin
                             </a>
                             <a href="https://youtube.com/@devert5" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
@@ -47,7 +47,7 @@ export function Footer() {
                     <div className="mt-12 hidden lg:block">
                         <div className="flex gap-6 mb-4">
                             <SocialIcon href="https://www.instagram.com/devert.in" icon={<Instagram size={24} />} />
-                            <SocialIcon href="https://www.linkedin.com/company/devert-in/" icon={<Linkedin size={24} />} />
+                            <SocialIcon href="https://www.linkedin.com/company/111474265/" icon={<Linkedin size={24} />} />
                             <SocialIcon href="https://youtube.com/@devert5" icon={<Youtube size={24} />} />
                         </div>
                         <p className="font-mono text-xs text-gray-600">
@@ -70,7 +70,7 @@ export function Footer() {
                 <div className="lg:hidden flex flex-col items-center gap-6 mt-8">
                     <div className="flex gap-6">
                         <SocialIcon href="https://www.instagram.com/devert.in" icon={<Instagram size={28} />} />
-                        <SocialIcon href="https://www.linkedin.com/company/devert-in/" icon={<Linkedin size={28} />} />
+                        <SocialIcon href="https://www.linkedin.com/company/111474265/" icon={<Linkedin size={28} />} />
                         <SocialIcon href="https://youtube.com/@devert5" icon={<Youtube size={28} />} />
                     </div>
 

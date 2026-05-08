@@ -90,34 +90,34 @@ export default function SystemSettingsPage() {
 
             <div className="grid gap-4 max-w-3xl">
                 <FeatureRow
-                    label="AGENT_SPRINTS_MODULE"
+                    label="HACKATHONS_MODULE"
                     id="hackathons"
-                    description="Allow users to view and join agent sprints."
+                    description="Allow users to view and join hackathons."
                 />
                 <FeatureRow
-                    label="CONTESTS_ENGINE"
+                    label="SKILL_ARENA_ENGINE"
                     id="contests"
-                    description="Enable War Games and coding contests."
+                    description="Enable Skill Battles and coding contests."
                 />
                 <FeatureRow
-                    label="AGENT_TEAMS_NET"
+                    label="BUILDER_TEAMS_NET"
                     id="squadron"
-                    description="Teammate finding and agent build squad formation."
+                    description="Teammate finding and project squad formation."
                 />
                 <FeatureRow
-                    label="AGENT_DEPLOYMENTS"
+                    label="BOUNTIES_PLATFORM"
                     id="execution"
-                    description="Agent building and deployment platform."
+                    description="Project building and bounty deployment platform."
                 />
                 <FeatureRow
-                    label="AGENT_SHOWCASE"
+                    label="PROOF_GALLERY"
                     id="postmortems"
-                    description="Access to past agent performance logs and showcases."
+                    description="Access to verified project proofs and showcases."
                 />
                 <FeatureRow
-                    label="PROMPT_LAB_MODULE"
+                    label="RESOURCE_LAB_MODULE"
                     id="courses"
-                    description="Prompt experimentation and intelligence access."
+                    description="Documentation and technical resource access."
                 />
                 <FeatureRow
                     label="PAYMENT_GATEWAY"
