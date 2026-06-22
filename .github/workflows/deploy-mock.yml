@@ -26,9 +26,6 @@ jobs:
         working-directory: devert-frontend
 
       - name: Deploy to Firebase Hosting (mock preview)
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: devert-me
-          channelId: mock
+        run: npx firebase-tools hosting:channel:deploy mock --project devert-me --expires 7d
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
