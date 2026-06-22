@@ -1,29 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  /* Premium Light Mode */
-  --background: #fdfdfd;
-  --foreground: #0f172a;
-  --neon-cyan: #0ea5e9;
-  --neon-green: #10b981;
-  --border: rgba(0, 0, 0, 0.08);
-  --card-bg: #f8fafc;
-  --card-glass: rgba(255, 255, 255, 0.7);
-  --grid-color: rgba(15, 23, 42, 0.03);
-  --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
-}
-
-.dark {
-  /* Cyberpunk Dark Mode (Premium) */
-  --background: #131f3a;
-  --foreground: #f1f5f9;
-  --neon-cyan: #22d3ee;
-  --neon-green: #34d399;
-  --border: rgba(255, 255, 255, 0.18);
-  --card-bg: #1e2d4a;
-  --card-glass: rgba(30, 45, 74, 0.85);
-  --grid-color: rgba(255, 255, 255, 0.06);
-  --shadow: 0 10px 50px -15px rgba(0, 0, 0, 0.3);
+  --background: #050505;
+  --foreground: #e8e8e8;
+  --neon-cyan: #00FFFF;
+  --neon-green: #00FF41;
+  --surface: rgba(255, 255, 255, 0.03);
+  --border: rgba(255, 255, 255, 0.08);
+  --grid-color: rgba(0, 255, 255, 0.025);
 }
 
 @theme inline {
@@ -31,119 +15,144 @@
   --color-foreground: var(--foreground);
   --color-neon-cyan: var(--neon-cyan);
   --color-neon-green: var(--neon-green);
+  --color-surface: var(--surface);
   --color-border: var(--border);
-  --color-card-bg: var(--card-bg);
-  --color-card-glass: var(--card-glass);
-  --shadow-premium: var(--shadow);
   --font-sans: var(--font-space-grotesk);
   --font-mono: var(--font-jetbrains-mono);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
 }
 
-/* Custom Utilities */
+::selection {
+  background: #00FF41;
+  color: #000;
+}
+
+/* Grid background */
 .grid-bg {
-  background-size: 50px 50px;
-  background-image: linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+  background-image:
+    linear-gradient(rgba(0, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
-.bg-stripes-white {
-  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.05) 75%, transparent 75%, transparent);
-  background-size: 10px 10px;
+/* Terminal window chrome */
+.terminal-window {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-/* DatePicker Overrides for Cyberpunk Theme */
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Scanlines overlay */
+.scanlines {
+  position: relative;
+}
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.06) 3px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Glow utilities */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.25), 0 0 50px rgba(0, 255, 255, 0.08);
+}
+.glow-green {
+  box-shadow: 0 0 20px rgba(0, 255, 65, 0.25), 0 0 50px rgba(0, 255, 65, 0.08);
+}
+.text-glow-cyan {
+  text-shadow: 0 0 30px rgba(0, 255, 255, 0.6), 0 0 60px rgba(0, 255, 255, 0.2);
+}
+.text-glow-green {
+  text-shadow: 0 0 30px rgba(0, 255, 65, 0.6), 0 0 60px rgba(0, 255, 65, 0.2);
+}
+
+/* Flicker */
+@keyframes flicker {
+  0%, 92%, 100% { opacity: 1; }
+  93% { opacity: 0.75; }
+  94% { opacity: 1; }
+  96% { opacity: 0.6; }
+  97% { opacity: 1; }
+}
+.flicker { animation: flicker 10s infinite; }
+
+/* Cursor blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.cursor-blink { animation: blink 1s step-end infinite; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 255, 255, 0.15); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 255, 255, 0.35); }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* DatePicker overrides */
 .react-datepicker {
   background-color: #0a0a0a !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
   font-family: var(--font-mono) !important;
   color: #fff !important;
 }
-
 .react-datepicker__header {
   background-color: #050505 !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
-
 .react-datepicker__current-month,
 .react-datepicker-time__header,
-.react-datepicker-year-header {
-  color: #fff !important;
-}
-
+.react-datepicker-year-header { color: #fff !important; }
 .react-datepicker__day-name,
 .react-datepicker__day,
-.react-datepicker__time-name {
-  color: #ccc !important;
-}
-
-.react-datepicker__day:hover,
-.react-datepicker__month-text:hover,
-.react-datepicker__quarter-text:hover,
-.react-datepicker__year-text:hover {
-  background-color: rgba(0, 255, 65, 0.2) !important;
-  color: #fff !important;
-}
-
+.react-datepicker__time-name { color: #ccc !important; }
+.react-datepicker__day:hover { background-color: rgba(0, 255, 65, 0.15) !important; color: #fff !important; }
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
   background-color: var(--neon-cyan) !important;
   color: #000 !important;
   font-weight: bold;
-}
-
-.react-datepicker__time-container {
-  border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-
-.react-datepicker__time-container .react-datepicker__time {
-  background-color: #0a0a0a !important;
-}
-
-.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item {
-  color: #ccc !important;
-}
-
-.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item:hover {
-  background-color: rgba(0, 255, 65, 0.2) !important;
-  color: #fff !important;
-}
-
-.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected {
-  background-color: var(--neon-cyan) !important;
-  color: #000 !important;
-}
-
-/* Custom Scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--border);
-  border-radius: 3px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--neon-cyan);
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
 }

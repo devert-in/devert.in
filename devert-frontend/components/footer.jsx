@@ -1,96 +1,111 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Instagram, Linkedin, Github, Youtube } from "lucide-react";
-import { DuoProfile } from "@/components/duo-profile";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
 import { useIntro } from "@/context/IntroContext";
 
+const SOCIAL_LINKS = [
+  { label: "instagram", href: "https://www.instagram.com/devert.in" },
+  { label: "linkedin",  href: "https://www.linkedin.com/company/111474265/" },
+  { label: "youtube",   href: "https://youtube.com/@devert5" },
+  { label: "github",    href: "https://github.com" },
+];
+
+const MANIFEST = [
+  "// DeVert is not a content channel.",
+  "// It's an operating system for serious developers.",
+  "// Built by two friends who got tired of mediocre dev content.",
+  "// Join or stay behind.",
+];
+
 export function Footer() {
-    const pathname = usePathname();
-    const { hasShownIntro } = useIntro();
+  const pathname = usePathname();
+  const { hasShownIntro } = useIntro();
 
-    if ((pathname === "/" && !hasShownIntro) || pathname.startsWith("/admin")) return null;
+  if ((pathname === "/" && !hasShownIntro) || pathname.startsWith("/admin")) return null;
 
-    return (
-        <footer className="pt-20 pb-10 px-4 bg-background border-t border-border relative overflow-hidden">
-            {/* Background Grid Accent */}
-            <div className="absolute top-0 left-0 w-full h-full grid-bg opacity-10 pointer-events-none"></div>
+  return (
+    <footer className="relative border-t border-white/5 pb-28 mt-20 overflow-hidden">
+      <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
 
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 relative z-10 mb-20">
-                {/* Left Column: CTA & Links */}
-                <div className="flex flex-col justify-between">
-                    <div>
-                        <motion.h2
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            className="text-2xl md:text-5xl font-bold font-sans mb-8"
-                        >
-                            READY TO <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-green to-neon-cyan">DEVERT?</span>
-                        </motion.h2>
-
-                        <div className="flex flex-col gap-4 font-mono text-gray-400 text-lg">
-                            <a href="https://www.instagram.com/devert.in" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
-                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /instagram
-                            </a>
-                            <a href="https://www.linkedin.com/company/111474265/" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
-                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /linkedin
-                            </a>
-                            <a href="https://youtube.com/@devert5" target="_blank" className="hover:text-neon-cyan transition-colors flex items-center gap-2 group">
-                                <span className="text-neon-green opacity-0 group-hover:opacity-100 transition-opacity">&gt;</span> cd /youtube
-                            </a>
-                        </div>
-                    </div>
-
-                    <div className="mt-12 hidden lg:block">
-                        <div className="flex gap-6 mb-4">
-                            <SocialIcon href="https://www.instagram.com/devert.in" icon={<Instagram size={24} />} />
-                            <SocialIcon href="https://www.linkedin.com/company/111474265/" icon={<Linkedin size={24} />} />
-                            <SocialIcon href="https://youtube.com/@devert5" icon={<Youtube size={24} />} />
-                        </div>
-                        <p className="font-mono text-xs text-gray-600">
-                            © 2026 DEVERT.IN // SYSTEM_ONLINE
-                        </p>
-                        <Link href="/about" className="text-xs font-mono text-neon-cyan hover:text-white transition-colors mt-4 block">
-                            &gt; INIT_SEQUENCE: ABOUT_DEVERT
-                        </Link>
-                    </div>
-                </div>
-
-                {/* Right Column: Duo Profile */}
-                <div className="flex justify-end items-center">
-                    <div className="w-full max-w-lg">
-                        <DuoProfile />
-                    </div>
-                </div>
-
-                {/* Mobile Footer Info (Visible only on mobile) */}
-                <div className="lg:hidden flex flex-col items-center gap-6 mt-8">
-                    <div className="flex gap-6">
-                        <SocialIcon href="https://www.instagram.com/devert.in" icon={<Instagram size={28} />} />
-                        <SocialIcon href="https://www.linkedin.com/company/111474265/" icon={<Linkedin size={28} />} />
-                        <SocialIcon href="https://youtube.com/@devert5" icon={<Youtube size={28} />} />
-                    </div>
-
-                    <Link href="/about" className="text-sm font-mono text-neon-cyan hover:text-white transition-colors border border-neon-cyan/30 px-4 py-2 rounded bg-neon-cyan/5">
-                        &gt; ABOUT DEVERT
-                    </Link>
-
-                    <p className="font-mono text-xs text-gray-600">
-                        © 2026 DEVERT.IN // SYSTEM_ONLINE
-                    </p>
-                </div>
+      <div className="relative max-w-6xl mx-auto px-6 pt-16">
+        <div className="grid md:grid-cols-2 gap-12 mb-12">
+          {/* Left — manifest */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <p className="font-mono text-xs text-neon-green/50 mb-4 tracking-wider">
+              $ cat /etc/devert/manifest.txt
+            </p>
+            <div className="space-y-1.5">
+              {MANIFEST.map((line, i) => (
+                <motion.p
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 }}
+                  className="font-mono text-sm text-white/35 leading-relaxed"
+                >
+                  {line}
+                </motion.p>
+              ))}
             </div>
-        </footer>
-    );
-}
+          </motion.div>
 
-function SocialIcon({ icon, href }) {
-    return (
-        <a href={href} target="_blank" className="text-gray-400 hover:text-neon-cyan hover:scale-110 transition-all duration-300">
-            {icon}
-        </a>
-    )
+          {/* Right — social + CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="flex flex-col justify-between"
+          >
+            <div>
+              <p className="font-mono text-xs text-white/20 mb-5 tracking-wider">
+                $ ls /social
+              </p>
+              <div className="flex flex-col gap-3">
+                {SOCIAL_LINKS.map((link) => (
+                  <motion.a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    whileHover={{ x: 6 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                    className="group flex items-center gap-2 font-mono text-sm text-white/30 hover:text-neon-cyan transition-colors w-fit"
+                  >
+                    <span className="text-white/12 group-hover:text-neon-cyan/40 transition-colors">$</span>
+                    <span>cd /{link.label}</span>
+                  </motion.a>
+                ))}
+              </div>
+            </div>
+
+            <motion.a
+              href="/login"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="mt-8 inline-block font-mono text-xs text-black bg-neon-green px-6 py-3 w-fit hover:bg-neon-cyan transition-colors"
+            >
+              [ JOIN_THE_SQUAD ]
+            </motion.a>
+          </motion.div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="border-t border-white/5 pt-6 flex flex-wrap items-center justify-between gap-4">
+          <p className="font-mono text-xs text-white/15">
+            © 2026 DeVert.in — All systems operational.
+          </p>
+          <p className="font-mono text-xs text-white/15">
+            Built by The Duo // v2.0
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
 }

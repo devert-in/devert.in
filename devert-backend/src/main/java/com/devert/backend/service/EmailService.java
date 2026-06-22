@@ -99,4 +99,56 @@ public class EmailService {
             throw new RuntimeException("Failed to send email", e);
         }
     }
+
+    public void sendOTP(String toEmail, String otp) {
+        String subject = "🔑 DEVERT_IDENTITY_VERIFICATION: Access Code [" + otp + "]";
+        
+        String htmlBody = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <style>
+                  body { background-color: #050505; color: #a0a0a0; font-family: 'Courier New', Courier, monospace; padding: 20px; }
+                  .container { max-width: 500px; margin: 0 auto; border: 1px solid #00f3ff; background-color: #0a0a0a; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); }
+                  .header { background-color: #000; padding: 20px; border-bottom: 2px solid #00f3ff; text-align: center; }
+                  .logo { color: #fff; font-size: 24px; font-weight: bold; letter-spacing: 2px; }
+                  .content { padding: 40px; text-align: center; }
+                  .otp-box { background-color: rgba(0, 243, 255, 0.05); border: 1px dashed #00f3ff; padding: 30px; margin: 20px 0; }
+                  .otp-code { font-size: 42px; font-weight: bold; color: #00f3ff; letter-spacing: 12px; font-family: 'Courier New', monospace; }
+                  .footer { border-top: 1px solid #333; padding: 20px; font-size: 10px; text-align: center; color: #555; }
+                </style>
+                </head>
+                <body>
+                <div class="container">
+                  <div class="header">
+                    <div class="logo">DEVERT<span style="color:#00f3ff">.IN</span></div>
+                    <div style="font-size: 10px; color: #555; margin-top: 5px;">SECURITY_IDENTITY_SERVICE // ENCRYPTED</div>
+                  </div>
+                  <div class="content">
+                    <p style="font-size: 14px; margin-bottom: 20px;">SYSTEM_AUTH_REQUEST_RECEIVED</p>
+                    <p>Enter the following code to verify your identity and gain access to the DeVert Platform:</p>
+                    <div class="otp-box">
+                      <div class="otp-code">%s</div>
+                    </div>
+                    <p style="font-size: 10px; color: #666;">Code expires in 10 minutes. If you did not request this, please report immediately.</p>
+                  </div>
+                  <div class="footer">
+                    <p>© 2026 DEVERT.IN // PR00F_0F_W0RK_PLATFORM</p>
+                  </div>
+                </div>
+                </body>
+                </html>
+                """.formatted(otp);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new RuntimeException("Failed to send OTP", e);
+        }
+    }
 }

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { IntroSplash } from "@/components/intro-splash";
 import { LandingPage } from "@/components/landing-page";
-
 import { UiEffects } from "@/components/ui-effects";
 import { useIntro } from "@/context/IntroContext";
 
@@ -20,16 +19,12 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <UiEffects />
-
       <AnimatePresence mode="wait">
         {!showContent && (
           <IntroSplash onComplete={handleIntroComplete} />
         )}
       </AnimatePresence>
-
-      {showContent && (
-        <LandingPage hasShownIntro={hasShownIntro} />
-      )}
+      {showContent && <LandingPage />}
     </main>
   );
 }
