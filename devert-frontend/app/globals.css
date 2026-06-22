@@ -27,10 +27,12 @@
 
 html {
   scroll-behavior: smooth;
+  background: #050505;
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
+  background: #050505;
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
