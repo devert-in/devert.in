@@ -11,16 +11,7 @@
       "**/node_modules/**"
     ],
     "cleanUrls": true,
-    "trailingSlash": false,
-    "rewrites": [
-      {
-        "source": "/api/**",
-        "run": {
-          "serviceId": "devert-backend",
-          "region": "us-central1"
-        }
-      }
-    ]
+    "trailingSlash": false
   },
   "storage": {
     "rules": "storage.rules"
