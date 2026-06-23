@@ -5,7 +5,7 @@ import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBrDM6gD4j1X0rj76UtTQfaiaayRemCmIc",
-  authDomain: "devert-me.firebaseapp.com",
+  authDomain: "devert.in",
   projectId: "devert-me",
   storageBucket: "devert-me.firebasestorage.app",
   messagingSenderId: "550891323057",
