@@ -1,9 +1,8 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { initializeFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
-// Your web app's Firebase configuration
-// REPLACE WITH YOUR ACTUAL CONFIG FROM FIREBASE CONSOLE
 const firebaseConfig = {
   apiKey: "AIzaSyBrDM6gD4j1X0rj76UtTQfaiaayRemCmIc",
   authDomain: "devert-me.firebaseapp.com",
@@ -14,12 +13,7 @@ const firebaseConfig = {
   measurementId: "G-RJ85KZJZT5"
 };
 
-// Initialize Firebase
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-// Initialize Firestore with settings to avoid timeout issues
-import { initializeFirestore } from "firebase/firestore";
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-});
+export const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+export const storage = getStorage(app);

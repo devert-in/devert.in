@@ -2,85 +2,70 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is admin (requires custom claim or specific email)
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
     function isAdmin() {
-       return request.auth != null && request.auth.token.email == 'admin@devert.in';
+      return isAuth() && request.auth.token.email == 'adari.samuel.prasad@udyogahconnect.com';
     }
 
-    // Hackathons: Anyone can read, only Admins can write
-    match /hackathons/{hackathonId} {
-      allow read: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']));
+    // Users — any logged-in user can read profiles; only owner/admin can write
+    match /users/{uid} {
+      allow read:           if isAuth();
+      allow create:         if isOwner(uid);
+      allow update:         if isOwner(uid) || isAdmin();
+      allow delete:         if isAdmin();
     }
 
-    // Sprints (Replacements for Hackathons): Anyone can read, only Admins can write
-    match /sprints/{sprintId} {
-      allow read: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']));
+    // Projects (Shipyard) — public read, owner writes
+    match /projects/{projectId} {
+      allow read:           if true;
+      allow create:         if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
-    // Courses: Anyone can read, only Admins can write
-    match /courses/{courseId} {
-      allow read: if true;
+    // Missions — admin creates, public reads
+    match /missions/{missionId} {
+      allow read:  if true;
       allow write: if isAdmin();
     }
 
-    // Postmortems: Anyone can read, only Admins can write
-    match /postmortems/{pmId} {
-      allow read: if true;
+    // User missions — owner + admin
+    match /user_missions/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
+      match /progress/{missionId} {
+        allow read, write: if isOwner(uid) || isAdmin();
+      }
+    }
+
+    // Arena matches
+    match /arena_matches/{matchId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAdmin();
+    }
+
+    // Grind log (daily problems per user)
+    match /grind_log/{uid}/entries/{entryId} {
+      allow read:  if isAuth();
+      allow write: if isOwner(uid);
+    }
+
+    // Leaderboard — public read, admin writes
+    match /leaderboard/{uid} {
+      allow read:  if true;
       allow write: if isAdmin();
     }
 
-    // Bounties: Anyone can read, only Admins can write
-    match /bounties/{bountyId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Contests: Anyone can read, Auth users can create (propose), Admins can manage, Hosts can edit their own
-    match /contests/{contestId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow delete: if isAdmin();
-      allow update: if isAdmin() 
-        || (request.auth != null && resource.data.host == request.auth.token.email)
-        || (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']));
-    }
-    
-    // Users: Users can read/write their own data
-    match /users/{userId} {
-      allow read, write: if (request.auth != null && request.auth.uid == userId) || isAdmin();
-    }
-
-    // Squadron: Anyone can read, Authenticated users can post, Owners/Admins can delete
-    match /squadron/{docId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-
-    // Incubator Ideas: Public read, Auth create, Voting allowed
-    match /incubator_ideas/{ideaId} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // Challenge Registrations: Auth create
-    match /challenge_registrations/{regId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // System Settings & Feature Flags (Critical for UI Toggles)
+    // System config & feature flags
     match /system/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    // Legacy support if needed
-    match /system_settings/{document=**} {
-      allow read: if true;
+      allow read:  if true;
       allow write: if isAdmin();
     }
   }
