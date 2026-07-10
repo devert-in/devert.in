@@ -1,60 +1,82 @@
-"use client";
+﻿"use client";
 
 import { Hero } from "@/components/hero";
+import { MissionVision } from "@/components/mission-vision";
+import { PlatformPromises } from "@/components/platform-promises";
 import { ShipyardPreview } from "@/components/shipyard-preview";
+import { CoreFeatures } from "@/components/core-features";
 import { MissionBoard } from "@/components/mission-board";
+import { HowItWorks } from "@/components/how-it-works";
 import { GrindPreview } from "@/components/grind-preview";
+import { PlatformStats } from "@/components/platform-stats";
+import { BenefitsByAudience } from "@/components/benefits-by-audience";
 import { DuoTerminal } from "@/components/duo-terminal";
 import { RankLadder } from "@/components/rank-ladder";
+import { FaqSection } from "@/components/faq-section";
 import { SignalCta } from "@/components/signal-cta";
+
+const Divider = () => (
+  <div className="max-w-6xl mx-auto px-6">
+    <div className="border-t border-white/5" />
+  </div>
+);
 
 export function LandingPage() {
   return (
     <div className="relative">
-      {/* Section 1 — HUD Hero */}
+      {/* Section 1 - HUD Hero */}
       <Hero />
+      <Divider />
 
-      {/* Horizontal rule */}
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="border-t border-white/5" />
-      </div>
+      {/* Section 2 - Mission & Vision */}
+      <MissionVision />
+      <Divider />
 
-      {/* Section 2 — This Week in the Shipyard */}
+      {/* Section 3 - Platform Promises */}
+      <PlatformPromises />
+      <Divider />
+
+      {/* Section 4 - This Week in the Shipyard */}
       <ShipyardPreview />
+      <Divider />
 
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="border-t border-white/5" />
-      </div>
+      {/* Section 5 - Core Features */}
+      <CoreFeatures />
+      <Divider />
 
-      {/* Section 3 — Mission Board */}
+      {/* Section 6 - Mission Board */}
       <MissionBoard />
+      <Divider />
 
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="border-t border-white/5" />
-      </div>
+      {/* Section 7 - How It Works */}
+      <HowItWorks />
+      <Divider />
 
-      {/* Section 4 — Today's Grind */}
+      {/* Section 8 - Today's Grind */}
       <GrindPreview />
+      <Divider />
 
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="border-t border-white/5" />
-      </div>
+      {/* Section 9 - Platform Stats */}
+      <PlatformStats />
+      <Divider />
 
-      {/* Section 5 — Duo Terminal */}
+      {/* Section 10 - Benefits by Audience */}
+      <BenefitsByAudience />
+      <Divider />
+
+      {/* Section 11 - Duo Terminal */}
       <DuoTerminal />
+      <Divider />
 
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="border-t border-white/5" />
-      </div>
-
-      {/* Section 6 — Rank Ladder */}
+      {/* Section 12 - Rank Ladder */}
       <RankLadder />
+      <Divider />
 
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="border-t border-white/5" />
-      </div>
+      {/* Section 13 - FAQ */}
+      <FaqSection />
+      <Divider />
 
-      {/* Section 7 — Signal CTA */}
+      {/* Section 14 - Signal CTA */}
       <SignalCta />
     </div>
   );

@@ -11,7 +11,11 @@
       "**/node_modules/**"
     ],
     "cleanUrls": true,
-    "trailingSlash": false
+    "trailingSlash": false,
+    "rewrites": [
+      { "source": "/u/**", "destination": "/u.html" },
+      { "source": "/h/**", "destination": "/h.html" }
+    ]
   },
   "storage": {
     "rules": "storage.rules"

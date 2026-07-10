@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
-import { Terminal, Wifi, AlertCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Terminal, Wifi, AlertCircle, X } from "lucide-react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { useAuth } from "@/context/AuthContext";
 
 const BOOT_LINES = [
   "Connecting to devert.in...",
@@ -14,12 +15,21 @@ const BOOT_LINES = [
   "Ready. Awaiting credentials.",
 ];
 
-export default function LoginPage() {
+function LoginContent() {
   const [bootDone, setBootDone] = useState(false);
   const [visibleLines, setVisibleLines] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
+
+  const next = searchParams.get("next") || "/";
+
+  // Already logged in → go straight to destination
+  useEffect(() => {
+    if (!authLoading && user) router.push(next);
+  }, [user, authLoading]);
 
   useEffect(() => {
     let i = 0;
@@ -40,7 +50,7 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      router.push("/");
+      router.push(next);
     } catch (e) {
       setError("Authentication failed. Try again.");
       setLoading(false);
@@ -68,9 +78,14 @@ export default function LoginPage() {
             <div className="terminal-dot bg-green-500/70" />
             <Terminal size={11} className="ml-2 text-white/25" />
             <span className="font-mono text-[11px] text-white/25 ml-1">ssh devert.in</span>
-            <div className="ml-auto flex items-center gap-1.5">
-              <Wifi size={10} className="text-neon-green/60" />
-              <span className="font-mono text-[10px] text-neon-green/60">CONNECTED</span>
+            <div className="ml-auto flex items-center gap-3">
+              <span className="flex items-center gap-1.5">
+                <Wifi size={10} className="text-neon-green/60" />
+                <span className="font-mono text-[10px] text-neon-green/60">CONNECTED</span>
+              </span>
+              <button onClick={() => router.push("/")} className="text-white/25 hover:text-white/60 transition-colors">
+                <X size={12} />
+              </button>
             </div>
           </div>
 
@@ -166,5 +181,13 @@ export default function LoginPage() {
         </motion.p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }

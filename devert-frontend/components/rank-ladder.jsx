@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -24,7 +24,7 @@ export function RankLadder() {
         >
           <div>
             <p className="font-mono text-xs text-neon-green/55 mb-2 tracking-wider">
-              // /ranks — tier_registry.json
+              // /ranks - tier_registry.json
             </p>
             <h2 className="font-sans font-bold text-white tracking-tighter" style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)" }}>
               THE <span className="text-neon-cyan">LADDER</span>

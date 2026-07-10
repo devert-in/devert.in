@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -28,51 +28,94 @@ export function AuthProvider({ children }) {
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-
-      if (currentUser) {
-        try {
-          const docRef  = doc(db, "users", currentUser.uid);
-          const docSnap = await getDoc(docRef);
-
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setUserData({ ...data, tier: getTier(data.xp) });
-          } else {
-            // First login — create profile
-            const newProfile = {
-              uid:         currentUser.uid,
-              email:       currentUser.email,
-              displayName: currentUser.displayName || "",
-              photoURL:    currentUser.photoURL    || "",
-              handle:      makeHandle(currentUser),
-              bio:         "",
-              xp:          0,
-              credits:     0,
-              ships:       0,
-              arenaWins:   0,
-              streak:      0,
-              skills:      [],
-              joinedAt:    serverTimestamp(),
-              lastActiveAt: serverTimestamp(),
-            };
-            await setDoc(docRef, newProfile);
-            setUserData({ ...newProfile, tier: getTier(0) });
-          }
-        } catch (err) {
-          console.error("AuthContext: Firestore error", err);
-          setUserData(null);
-        }
-      } else {
+      if (!currentUser) {
         setUserData(null);
+        setLoading(false);
       }
-
-      setLoading(false);
     });
-
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
+
+  // Live subscription to the user's own profile doc, so likes/comments/follows/
+  // etc. from OTHER users update this account's stats everywhere in the app
+  // (profile, navbar, dashboard) without a manual refresh.
+  useEffect(() => {
+    if (!user) return;
+    const docRef = doc(db, "users", user.uid);
+    let unsubscribeDoc = () => {};
+
+    (async () => {
+      try {
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // Backfill fields missing on older accounts
+          const patch = {};
+          if (!data.uid) patch.uid = user.uid;
+          if (!data.displayNameLower && data.displayName) patch.displayNameLower = data.displayName.toLowerCase();
+          if (data.pulsePostsCount        === undefined) patch.pulsePostsCount        = 0;
+          if (data.totalLikesReceived     === undefined) patch.totalLikesReceived     = 0;
+          if (data.totalCommentsReceived  === undefined) patch.totalCommentsReceived  = 0;
+          if (data.totalSavesReceived     === undefined) patch.totalSavesReceived     = 0;
+          if (data.totalSharesReceived    === undefined) patch.totalSharesReceived    = 0;
+          if (Object.keys(patch).length > 0) updateDoc(docRef, patch).catch(() => {});
+        } else {
+          // First login - create profile
+          const newProfile = {
+            uid:               user.uid,
+            email:             user.email,
+            displayName:       user.displayName || "",
+            displayNameLower:  (user.displayName || "").toLowerCase(),
+            photoURL:          user.photoURL    || "",
+            handle:            makeHandle(user),
+            bio:            "",
+            location:       "",
+            github:         "",
+            linkedin:       "",
+            twitter:        "",
+            website:        "",
+            xp:             0,
+            credits:        0,
+            ships:          0,
+            arenaWins:      0,
+            streak:         0,
+            skills:         [],
+            projects:       [],
+            followersCount: 0,
+            followingCount: 0,
+            pulsePostsCount:       0,
+            totalLikesReceived:    0,
+            totalCommentsReceived: 0,
+            totalSavesReceived:    0,
+            totalSharesReceived:   0,
+            joinedAt:       serverTimestamp(),
+            lastActiveAt:   serverTimestamp(),
+          };
+          await setDoc(docRef, newProfile);
+        }
+
+        unsubscribeDoc = onSnapshot(docRef, snap => {
+          if (snap.exists()) {
+            const data = snap.data();
+            setUserData({ ...data, uid: user.uid, tier: getTier(data.xp) });
+          }
+          setLoading(false);
+        }, err => {
+          console.error("AuthContext: profile listener error", err);
+          setLoading(false);
+        });
+      } catch (err) {
+        console.error("AuthContext: Firestore error", err);
+        setUserData(null);
+        setLoading(false);
+      }
+    })();
+
+    return () => unsubscribeDoc();
+  }, [user]);
 
   const logout = async () => {
     await signOut(auth);
@@ -80,6 +123,9 @@ export function AuthProvider({ children }) {
     setUserData(null);
   };
 
+  // Kept for callers that want an immediate, guaranteed-fresh read right
+  // after their own write - the live listener above will also pick it up,
+  // this just skips waiting on listener latency.
   const refreshProfile = async () => {
     if (!user) return;
     const docRef  = doc(db, "users", user.uid);
@@ -90,8 +136,19 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateProfile = async (updates) => {
+    if (!user) return;
+    const docRef  = doc(db, "users", user.uid);
+    const payload = { ...updates, lastActiveAt: serverTimestamp() };
+    if (updates.displayName !== undefined) {
+      payload.displayNameLower = updates.displayName.toLowerCase();
+    }
+    await updateDoc(docRef, payload);
+    setUserData(prev => ({ ...prev, ...updates }));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, userData, loading, logout, refreshProfile, getTier }}>
+    <AuthContext.Provider value={{ user, userData, loading, logout, refreshProfile, updateProfile, getTier }}>
       {children}
     </AuthContext.Provider>
   );

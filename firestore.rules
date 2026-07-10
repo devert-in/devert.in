@@ -12,31 +12,46 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuth() && request.auth.token.email == 'adari.samuel.prasad@udyogahconnect.com';
+      return isAuth() && request.auth.token.email == 'devert.contact@gmail.com';
     }
 
-    // Users — any logged-in user can read profiles; only owner/admin can write
+    // Users - public read (profiles are sharable); only owner/admin can write
+    // Any auth user may update these specific aggregate counters only - each
+    // is bumped by whoever performs the interaction (follow, like, comment,
+    // save, share) on someone else's account/post, one field per write.
     match /users/{uid} {
-      allow read:           if isAuth();
-      allow create:         if isOwner(uid);
-      allow update:         if isOwner(uid) || isAdmin();
-      allow delete:         if isAdmin();
+      allow read:   if true;
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin()
+        || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'followersCount', 'pulsePostsCount',
+          'totalLikesReceived', 'totalCommentsReceived', 'totalSavesReceived', 'totalSharesReceived',
+          'totalViewsReceived', 'totalRepostsReceived', 'totalRepostsMade',
+        ]));
+      allow delete: if isAdmin();
     }
 
-    // Projects (Shipyard) — public read, owner writes
+    // Follows - anyone can read; only follower can create/delete their own follow
+    match /follows/{followId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.followerId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.followerId == request.auth.uid;
+    }
+
+    // Projects (Shipyard) - public read, owner writes
     match /projects/{projectId} {
       allow read:           if true;
       allow create:         if isAuth() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
-    // Missions — admin creates, public reads
+    // Missions - admin creates, public reads
     match /missions/{missionId} {
       allow read:  if true;
       allow write: if isAdmin();
     }
 
-    // User missions — owner + admin
+    // User missions - owner + admin
     match /user_missions/{uid} {
       allow read, write: if isOwner(uid) || isAdmin();
       match /progress/{missionId} {
@@ -57,16 +72,177 @@ service cloud.firestore {
       allow write: if isOwner(uid);
     }
 
-    // Leaderboard — public read, admin writes
+    // Leaderboard - public read, admin writes
     match /leaderboard/{uid} {
       allow read:  if true;
       allow write: if isAdmin();
     }
 
-    // System config & feature flags
+    // Daily grind challenges - admin sets, authenticated users read
+    match /dailyGrind/{dateId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // System config, feature flags, arena challenges, broadcast schedule, intel
     match /system/{document=**} {
       allow read:  if true;
       allow write: if isAdmin();
+    }
+
+    // Past broadcast episodes
+    match /broadcasts/{docId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Platform changelog
+    match /changelog/{docId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Intel - curated news articles
+    match /intel_news/{docId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Intel - job opportunities
+    match /intel_jobs/{docId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Hackathons - public read, admin writes
+    match /hackathons/{slug} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Hackathon registrations - public read, owner creates/deletes
+    match /hackathon_registrations/{docId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // Broadcast stream registrations - auth create own, read own
+    match /stream_registrations/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // Hackathon submissions - public read, owner creates/updates pre-deadline, admin scores
+    match /hackathon_submissions/{docId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Pulse posts - public read, any auth user can create (UGC).
+    // Full-field edits are owner/admin only; any authenticated user may
+    // update ONLY the engagement counters below - needed when liking,
+    // commenting, saving, sharing, or viewing someone else's post.
+    match /pulse_posts/{postId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.uid == request.auth.uid || isAdmin()
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          ['likeCount', 'commentCount', 'saveCount', 'shareCount', 'viewCount', 'repostCount']
+        )
+      );
+      allow delete: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // Pulse likes - public read, auth user manages their own like
+    match /pulse_likes/{likeId} {
+      allow read:   if true;
+      allow create: if isAuth();
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // Pulse reposts - public read, auth user manages their own repost
+    match /pulse_reposts/{repostId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // Pulse comments - public read, auth user creates their own; owner/admin deletes
+    match /pulse_comments/{commentId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // Pulse saves - owner reads/writes their own saves
+    match /pulse_saves/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // User earnings - owner/admin reads; any auth user can write (needed for client-side batch coin grants)
+    match /user_earnings/{uid} {
+      allow read:  if isOwner(uid) || isAdmin();
+      allow write: if isAuth();
+    }
+
+    // Payout requests - owner creates/reads own; admin manages all
+    match /payout_requests/{requestId} {
+      allow read:           if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create:         if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Intel resources - public read, admin writes
+    match /intel_resources/{moduleId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Notifications - public read; any auth user can create (for platform events); admin manages
+    match /notifications/{notifId} {
+      allow read:           if true;
+      allow create:         if isAuth();
+      allow update, delete: if isAdmin();
+    }
+
+    // Admin audit trail - admin-only, both read and write
+    match /admin_activity_log/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Coin earning/spending ledger - written by whoever triggers the event
+    // (may credit a different uid than the actor, e.g. a liker crediting
+    // the post author), readable only by the owner or admin.
+    match /coin_transactions/{txId} {
+      allow read:   if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuth();
+    }
+
+    // Learning ecosystem - Course -> Module -> Task(+Quiz) hierarchy.
+    // Content is admin-authored, publicly readable; nested subcollections
+    // inherit the same shape so new levels (module exams, etc.) slot in
+    // without a rules rewrite.
+    match /courses/{courseId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+      match /modules/{moduleId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+        match /tasks/{taskId} {
+          allow read:  if true;
+          allow write: if isAdmin();
+        }
+      }
+    }
+
+    // Per-user learning progress - owner or admin only.
+    match /user_learning/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
     }
   }
 }

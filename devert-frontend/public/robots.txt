@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /wallet
+Disallow: /api/
+
+Sitemap: https://devert.in/sitemap.xml

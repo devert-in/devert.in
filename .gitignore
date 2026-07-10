@@ -53,6 +53,13 @@ out/
 .env.local
 
 # =====================
+# Secrets / service accounts
+# =====================
+scripts/service-account.json
+*-service-account.json
+serviceAccountKey.json
+
+# =====================
 # Maven / Java
 # =====================
 devert-backend/target/

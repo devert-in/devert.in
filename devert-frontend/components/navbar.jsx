@@ -1,23 +1,25 @@
-"use client";
+﻿"use client";
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy, ScrollText, LogIn, Terminal, Command, User, LogOut } from "lucide-react";
+import { Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy, ScrollText, LogIn, Command, User, LogOut, Flame, Activity, Wallet } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
+import { NotificationBell } from "@/components/notification-bell";
 
 const NAV_ITEMS = [
-  { icon: Home,       label: "Home",      href: "/" },
-  { icon: Swords,     label: "Arena",     href: "/arena" },
-  { icon: Anchor,     label: "Shipyard",  href: "/shipyard" },
-  { icon: Radio,      label: "Intel",     href: "/intel" },
-  { icon: Target,     label: "Missions",  href: "/missions" },
-  { icon: Zap,        label: "Grind",     href: "/grind" },
-  { icon: Tv2,        label: "Broadcast", href: "/broadcast" },
-  { icon: Trophy,     label: "Ranks",     href: "/ranks" },
-  { icon: ScrollText, label: "Logs",      href: "/logs" },
+  { icon: Home,       label: "Home",       href: "/"           },
+  { icon: Swords,     label: "Arena",      href: "/arena"      },
+  { icon: Anchor,     label: "Shipyard",   href: "/shipyard"   },
+  { icon: Radio,      label: "Intel",      href: "/intel"      },
+  { icon: Target,     label: "Missions",   href: "/missions"   },
+  { icon: Zap,        label: "Grind",      href: "/grind"      },
+  { icon: Tv2,        label: "Broadcast",  href: "/broadcast"  },
+  { icon: Trophy,     label: "Ranks",      href: "/ranks"      },
+  { icon: Flame,      label: "Hackathons", href: "/hackathons" },
+  { icon: ScrollText, label: "Logs",       href: "/logs"       },
 ];
 
 export function Navbar() {
@@ -27,8 +29,9 @@ export function Navbar() {
   const navRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
-  useEffect(() => { setProfileOpen(false); }, [pathname]);
+  useEffect(() => { setProfileOpen(false); setConfirmLogout(false); }, [pathname]);
 
   if (pathname === "/" && !hasShownIntro) return null;
   if (pathname.startsWith("/admin")) return null;
@@ -43,9 +46,11 @@ export function Navbar() {
   const hideTooltip = () => setTooltip(null);
 
   return (
-    <nav ref={navRef} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-max max-w-[calc(100vw-2rem)]">
+    <nav ref={navRef} className="fixed left-1/2 -translate-x-1/2 z-40 w-max max-w-[calc(100vw-2rem)]"
+      style={{ bottom: "max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem))" }}
+    >
 
-      {/* Tooltip — outside overflow, never clipped */}
+      {/* Tooltip - outside overflow, never clipped */}
       <AnimatePresence>
         {tooltip && (
           <motion.div
@@ -70,7 +75,7 @@ export function Navbar() {
         )}
       </AnimatePresence>
 
-      {/* Profile dropdown — outside overflow, never clipped */}
+      {/* Profile dropdown - outside overflow, never clipped */}
       <AnimatePresence>
         {profileOpen && (
           <motion.div
@@ -92,13 +97,38 @@ export function Navbar() {
                 <User size={12} /> Dev Card
               </div>
             </Link>
+            <Link href="/wallet" onClick={() => setProfileOpen(false)}>
+              <div className="flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-white/55 hover:text-neon-cyan hover:bg-white/3 transition-colors cursor-pointer">
+                <Wallet size={12} /> Wallet
+              </div>
+            </Link>
             <div className="h-px bg-white/6 mx-3" />
-            <button
-              onClick={async () => { await logout(); setProfileOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-white/55 hover:text-red-400 hover:bg-red-500/5 transition-colors"
-            >
-              <LogOut size={12} /> Logout
-            </button>
+            {confirmLogout ? (
+              <div className="px-4 py-3">
+                <p className="font-mono text-[10px] text-white/40 mb-2">confirm logout?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => { await logout(); setProfileOpen(false); setConfirmLogout(false); }}
+                    className="flex-1 font-mono text-[11px] py-1.5 text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors"
+                  >
+                    yes
+                  </button>
+                  <button
+                    onClick={() => setConfirmLogout(false)}
+                    className="flex-1 font-mono text-[11px] py-1.5 text-white/40 border border-white/10 hover:bg-white/5 transition-colors"
+                  >
+                    cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmLogout(true)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-white/55 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+              >
+                <LogOut size={12} /> Logout
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -123,15 +153,26 @@ export function Navbar() {
             maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
           }}
         >
-          {/* Logo */}
-          <Link href="/">
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              className="w-9 h-9 flex items-center justify-center rounded-xl mr-1 flex-shrink-0"
-              style={{ background: "rgba(0,255,255,0.08)" }}
-              onMouseEnter={(e) => showTooltip(e, "DeVert")}
-              onMouseLeave={hideTooltip}
+          {/* Pinned Pulse shortcut */}
+          <Link href="/pulse"
+            onMouseEnter={(e) => showTooltip(e, "Pulse")}
+            onMouseLeave={hideTooltip}
+          >
+            <motion.div
+              whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.88 }}
+              className="relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors flex-shrink-0 mr-1"
+              style={{
+                background: pathname === "/pulse" ? "rgba(0,255,65,0.12)" : "rgba(0,255,65,0.06)",
+                boxShadow:  pathname === "/pulse" ? "0 0 14px rgba(0,255,65,0.2)" : "none",
+              }}
             >
-              <Terminal size={15} className="text-neon-cyan" />
+              <Activity size={15} style={{ color: pathname === "/pulse" ? "#00FF41" : "rgba(0,255,65,0.55)" }} />
+              {pathname === "/pulse" && (
+                <motion.div layoutId="dockActive"
+                  className="absolute -bottom-0.5 w-1 h-1 rounded-full"
+                  style={{ background: "#00FF41" }}
+                />
+              )}
             </motion.div>
           </Link>
 
@@ -183,6 +224,9 @@ export function Navbar() {
           >
             <Command size={14} style={{ color: "rgba(0,255,65,0.5)" }} />
           </motion.button>
+
+          {/* Notification Bell */}
+          <NotificationBell showTooltip={showTooltip} hideTooltip={hideTooltip} />
 
           {/* Profile / Login */}
           {user ? (
