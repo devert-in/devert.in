@@ -5,9 +5,11 @@
     "deploy": "npm --prefix devert-frontend run build && npx firebase-tools deploy --only hosting,firestore:rules --project devert-me",
     "deploy:rules": "npx firebase-tools deploy --only firestore:rules --project devert-me",
     "deploy:hosting": "npm --prefix devert-frontend run build && npx firebase-tools deploy --only hosting --project devert-me",
-    "upload:resources": "node scripts/upload-intel-resources.mjs"
+    "upload:resources": "node scripts/upload-intel-resources.mjs",
+    "test": "npx firebase-tools emulators:exec --only firestore \"node --test test/\""
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "firebase-admin": "^12.7.0"
   }
 }

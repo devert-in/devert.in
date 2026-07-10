@@ -17,6 +17,20 @@ import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 
 /* ─── helpers ─── */
+
+// Best-effort confirmation email via devert-backend. Firestore registration
+// above is already the source of truth - this is a nice-to-have side effect,
+// so it silently no-ops if no backend URL is configured or the call fails.
+function notifyChallengeConnected(email, leadName, teamName) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl || !email) return;
+  fetch(`${apiUrl}/api/notify/challenge-connected`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, leadName, teamName }),
+  }).catch(() => {});
+}
+
 function statusMeta(s) {
   switch (s) {
     case "active":   return { label: "LIVE",     color: "#00FF41", bg: "rgba(0,255,65,0.08)",   pulse: true  };
@@ -305,6 +319,7 @@ export default function HackathonDetailPage() {
         await updateDoc(hackRef, { registrationCount: increment(1) });
         setHackathon(h => ({ ...h, registrationCount: (h.registrationCount || 0) + 1 }));
         setRegistered(true);
+        notifyChallengeConnected(user.email, userData?.displayName || userData?.handle || "builder", hackathon.title || slug);
       }
     } catch (e) { console.error(e); }
     setRegLoading(false);

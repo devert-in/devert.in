@@ -100,45 +100,50 @@ public class EmailService {
         }
     }
 
-    public void sendOTP(String toEmail, String otp) {
-        String subject = "🔑 DEVERT_IDENTITY_VERIFICATION: Access Code [" + otp + "]";
-        
+    public void sendPayoutStatus(String toEmail, String displayName, String status, int coins, double inrAmount) {
+        boolean approved = "approved".equalsIgnoreCase(status);
+        String accent = approved ? "#00ff41" : "#ff5050";
+        String subject = approved
+                ? "✅ PAYOUT_APPROVED: ₹" + String.format("%.2f", inrAmount) + " on the way"
+                : "PAYOUT_REQUEST_DECLINED: " + coins + " coins";
+
+        String statusLine = approved
+                ? "Your payout request has been approved and is being processed."
+                : "Your payout request could not be processed this time. Your coins have not been deducted.";
+
         String htmlBody = """
                 <!DOCTYPE html>
                 <html>
                 <head>
                 <style>
                   body { background-color: #050505; color: #a0a0a0; font-family: 'Courier New', Courier, monospace; padding: 20px; }
-                  .container { max-width: 500px; margin: 0 auto; border: 1px solid #00f3ff; background-color: #0a0a0a; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); }
-                  .header { background-color: #000; padding: 20px; border-bottom: 2px solid #00f3ff; text-align: center; }
+                  .container { max-width: 500px; margin: 0 auto; border: 1px solid %s; background-color: #0a0a0a; box-shadow: 0 0 20px %s33; }
+                  .header { background-color: #000; padding: 20px; border-bottom: 2px solid %s; text-align: center; }
                   .logo { color: #fff; font-size: 24px; font-weight: bold; letter-spacing: 2px; }
-                  .content { padding: 40px; text-align: center; }
-                  .otp-box { background-color: rgba(0, 243, 255, 0.05); border: 1px dashed #00f3ff; padding: 30px; margin: 20px 0; }
-                  .otp-code { font-size: 42px; font-weight: bold; color: #00f3ff; letter-spacing: 12px; font-family: 'Courier New', monospace; }
+                  .content { padding: 30px; line-height: 1.6; }
+                  .amount { font-size: 36px; font-weight: bold; color: %s; text-align: center; margin: 20px 0; }
                   .footer { border-top: 1px solid #333; padding: 20px; font-size: 10px; text-align: center; color: #555; }
                 </style>
                 </head>
                 <body>
                 <div class="container">
                   <div class="header">
-                    <div class="logo">DEVERT<span style="color:#00f3ff">.IN</span></div>
-                    <div style="font-size: 10px; color: #555; margin-top: 5px;">SECURITY_IDENTITY_SERVICE // ENCRYPTED</div>
+                    <div class="logo">DEVERT<span style="color:%s">.IN</span></div>
+                    <div style="font-size: 10px; color: #555; margin-top: 5px;">WALLET_SERVICE // ENCRYPTED</div>
                   </div>
                   <div class="content">
-                    <p style="font-size: 14px; margin-bottom: 20px;">SYSTEM_AUTH_REQUEST_RECEIVED</p>
-                    <p>Enter the following code to verify your identity and gain access to the DeVert Platform:</p>
-                    <div class="otp-box">
-                      <div class="otp-code">%s</div>
-                    </div>
-                    <p style="font-size: 10px; color: #666;">Code expires in 10 minutes. If you did not request this, please report immediately.</p>
+                    <p>OPERATIVE <span style="color:#fff;font-weight:bold;">%s</span>,</p>
+                    <p>%s</p>
+                    <div class="amount">₹%.2f</div>
+                    <p style="font-size: 11px; color: #666; text-align:center;">(%d coins)</p>
                   </div>
                   <div class="footer">
-                    <p>© 2026 DEVERT.IN // PR00F_0F_W0RK_PLATFORM</p>
+                    <p>© 2026 DEVERT.IN // WALLET_SYSTEM</p>
                   </div>
                 </div>
                 </body>
                 </html>
-                """.formatted(otp);
+                """.formatted(accent, accent, accent, accent, accent, displayName, statusLine, inrAmount, coins);
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -148,7 +153,7 @@ public class EmailService {
             helper.setText(htmlBody, true);
             mailSender.send(message);
         } catch (MessagingException e) {
-            throw new RuntimeException("Failed to send OTP", e);
+            throw new RuntimeException("Failed to send payout status email", e);
         }
     }
 }

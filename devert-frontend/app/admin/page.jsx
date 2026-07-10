@@ -40,6 +40,30 @@ function logAdminActivity(action, detail) {
   }).catch(() => {});
 }
 
+// Best-effort payout confirmation email via devert-backend. The Firestore
+// status update is already the source of truth by the time this fires - this
+// is a nice-to-have side effect, so it silently no-ops if no backend URL is
+// configured or the call fails.
+function notifyPayoutStatus(req, status) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) return;
+  getDoc(doc(db, "users", req.uid)).then(snap => {
+    const email = snap.exists() ? snap.data().email : null;
+    if (!email) return;
+    fetch(`${apiUrl}/api/notify/payout-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        displayName: snap.data().displayName || req.handle || "builder",
+        status,
+        coins: req.coins || 0,
+        inrAmount: req.inrAmount || 0,
+      }),
+    }).catch(() => {});
+  }).catch(() => {});
+}
+
 function Input({ label, value, onChange, placeholder, maxLength, hint, type = "text" }) {
   return (
     <div>
@@ -1479,6 +1503,7 @@ function PayoutsPanel() {
         ctaHref: "/wallet",
         ctaLabel: "view wallet",
       });
+      notifyPayoutStatus(req, "approved");
       load();
     } catch (e) { console.error(e); }
     finally { setWorking(p => ({ ...p, [req.id]: false })); }
@@ -1497,6 +1522,7 @@ function PayoutsPanel() {
         ctaHref: "/wallet",
         ctaLabel: "view wallet",
       });
+      notifyPayoutStatus(req, "rejected");
       load();
     } catch (e) { console.error(e); }
     finally { setWorking(p => ({ ...p, [req.id]: false })); }
@@ -2998,13 +3024,11 @@ function AdminCommandPalette({ onClose, onNavigate }) {
 }
 
 export default function AdminPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, isAdmin, adminChecked, logout } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("moderation");
   const [pendingCount, setPendingCount] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
-
-  const isAdmin = user?.email === ADMIN_EMAIL;
 
   // Live pending-moderation count, shown as a badge on the tab and a banner
   // on Overview - this is the number admins care about above everything else.
@@ -3035,11 +3059,11 @@ export default function AdminPage() {
   // not a /login?next=/admin URL revealing the route exists. Straight to
   // /pulse, silently, exactly like the route was never there.
   useEffect(() => {
-    if (loading) return;
+    if (loading || !adminChecked) return;
     if (!user || !isAdmin) router.replace("/pulse");
-  }, [user, loading, isAdmin]);
+  }, [user, loading, isAdmin, adminChecked]);
 
-  if (loading || !user || !isAdmin) {
+  if (loading || !adminChecked || !user || !isAdmin) {
     return <main className="min-h-screen bg-background" />;
   }
 

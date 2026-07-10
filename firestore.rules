@@ -14,7 +14,11 @@ service cloud.firestore {
     // Admin is a custom auth claim (set via scripts/set-admin-claim.mjs), not
     // a hardcoded email - lets us add/revoke admins without redeploying rules.
     function isAdmin() {
-      return isAuth() && request.auth.token.admin == true;
+      // .get() with a default, not dot-access - a regular user's token has
+      // no `admin` key at all (never had the claim set), and dot-accessing a
+      // genuinely missing map key throws in rules, denying the ENTIRE
+      // expression this is OR'd into (not just evaluating falsy).
+      return isAuth() && request.auth.token.get('admin', false) == true;
     }
 
     // Live economy config (system/economy), with a sane fallback if it's
@@ -225,15 +229,18 @@ service cloud.firestore {
       allow read:  if isOwner(uid) || isAdmin();
       allow create, update: if isOwner(uid) || isAdmin() || (
         isAuth()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pulseCoins', 'totalCoins'])
-        && request.resource.data.diff(resource.data).affectedKeys().size() == 2
-        && (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0))
-           == (request.resource.data.get('totalCoins', 0) - resource.data.get('totalCoins', 0))
+        // `resource` is null on a first-ever create (no doc existed before) -
+        // every real write here is a merge of just these two fields, so this
+        // holds for create and update alike without needing resource.diff().
+        && request.resource.data.keys().hasOnly(['pulseCoins', 'totalCoins'])
+        && request.resource.data.keys().size() == 2
+        && (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0)))
+           == (request.resource.data.totalCoins - (resource == null ? 0 : resource.data.get('totalCoins', 0)))
         && (
-          (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0)) == economyVal('PER_LIKE', 10)
-          || (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0)) == -economyVal('PER_LIKE', 10)
-          || (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0)) == economyVal('PER_COMMENT', 25)
-          || (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0)) == economyVal('PER_SAVE', 15)
+          (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0))) == economyVal('PER_LIKE', 10)
+          || (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0))) == -economyVal('PER_LIKE', 10)
+          || (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0))) == economyVal('PER_COMMENT', 25)
+          || (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0))) == economyVal('PER_SAVE', 15)
         )
       );
     }

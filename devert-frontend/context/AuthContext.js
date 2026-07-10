@@ -26,13 +26,31 @@ export function AuthProvider({ children }) {
   const [user, setUser]         = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading]   = useState(true);
+  // Derived from the `admin` custom auth claim (see scripts/set-admin-claim.mjs)
+  // - the actual authority is the matching check in firestore.rules/storage.rules;
+  // this just drives what the client renders/redirects. Resolves asynchronously
+  // (a token fetch), independently of `loading` above - adminChecked lets
+  // callers (the admin route's gate) wait for it instead of racing it.
+  const [isAdmin, setIsAdmin]           = useState(false);
+  const [adminChecked, setAdminChecked] = useState(false);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
         setUserData(null);
+        setIsAdmin(false);
+        setAdminChecked(true);
         setLoading(false);
+        return;
+      }
+      try {
+        const token = await currentUser.getIdTokenResult();
+        setIsAdmin(token.claims.admin === true);
+      } catch {
+        setIsAdmin(false);
+      } finally {
+        setAdminChecked(true);
       }
     });
     return () => unsubscribeAuth();
@@ -148,7 +166,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, logout, refreshProfile, updateProfile, getTier }}>
+    <AuthContext.Provider value={{ user, userData, loading, isAdmin, adminChecked, logout, refreshProfile, updateProfile, getTier }}>
       {children}
     </AuthContext.Provider>
   );
