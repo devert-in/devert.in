@@ -12,7 +12,7 @@ export function HomeDashboard() {
   return (
     <main className="min-h-screen pt-10 pb-32 px-4 relative">
       <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
-      <div className="relative max-w-xl mx-auto">
+      <div className="relative max-w-xl lg:max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <p className="font-mono text-xs text-neon-green/55 mb-2 tracking-wider">// / - command_center.home</p>
           <h1 className="font-sans font-bold tracking-tighter text-white leading-none"
@@ -21,12 +21,18 @@ export function HomeDashboard() {
           </h1>
         </motion.div>
 
-        <WelcomeBanner />
-        <TodayTaskCard />
-        <QuickStatsRow />
-        <QuickActionsGrid />
-        <NotificationsSummary />
-        <PlatformUpdates />
+        <div className="lg:grid lg:grid-cols-3 lg:gap-6 lg:items-start">
+          <div className="lg:col-span-2">
+            <WelcomeBanner />
+            <TodayTaskCard />
+            <QuickStatsRow />
+            <QuickActionsGrid />
+          </div>
+          <div className="lg:col-span-1">
+            <NotificationsSummary />
+            <PlatformUpdates />
+          </div>
+        </div>
       </div>
     </main>
   );

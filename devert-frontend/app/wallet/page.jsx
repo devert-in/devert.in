@@ -207,7 +207,7 @@ export default function WalletPage() {
     <main className="min-h-screen pt-10 pb-32 relative">
       <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
 
-      <div className="relative max-w-2xl mx-auto px-6">
+      <div className="relative max-w-2xl lg:max-w-5xl mx-auto px-6">
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
@@ -220,6 +220,9 @@ export default function WalletPage() {
             Earn coins from likes, comments &amp; saves on your Pulse posts.
           </p>
         </motion.div>
+
+        <div className="lg:grid lg:grid-cols-5 lg:gap-6 lg:items-start">
+        <div className="lg:col-span-3">
 
         {/* Balance grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
@@ -464,6 +467,9 @@ export default function WalletPage() {
           </div>
         </motion.div>
 
+        </div>
+        <div className="lg:col-span-2">
+
         {/* Transaction history */}
         {transactions.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
@@ -524,6 +530,9 @@ export default function WalletPage() {
             </div>
           </motion.div>
         )}
+
+        </div>
+        </div>
       </div>
     </main>
   );

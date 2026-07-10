@@ -146,7 +146,7 @@ export function Navbar() {
       >
         {/* ── Scrollable section: logo + nav items ── */}
         <div
-          className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto no-scrollbar scroll-smooth min-w-0"
+          className="flex items-center gap-0.5 lg:gap-1 px-2 py-2 lg:px-2.5 lg:py-2.5 overflow-x-auto no-scrollbar scroll-smooth min-w-0"
           style={{
             /* Fade right edge to hint at scrollable content */
             WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
@@ -159,14 +159,18 @@ export function Navbar() {
             onMouseLeave={hideTooltip}
           >
             <motion.div
-              whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.88 }}
-              className="relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors flex-shrink-0 mr-1"
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}
+              className="relative flex items-center justify-center gap-2 w-9 h-9 lg:w-auto lg:h-10 lg:px-3.5 rounded-xl transition-colors flex-shrink-0 mr-1"
               style={{
                 background: pathname === "/pulse" ? "rgba(0,255,65,0.12)" : "rgba(0,255,65,0.06)",
                 boxShadow:  pathname === "/pulse" ? "0 0 14px rgba(0,255,65,0.2)" : "none",
               }}
             >
               <Activity size={15} style={{ color: pathname === "/pulse" ? "#00FF41" : "rgba(0,255,65,0.55)" }} />
+              <span className="hidden lg:inline font-mono text-xs whitespace-nowrap"
+                style={{ color: pathname === "/pulse" ? "#00FF41" : "rgba(0,255,65,0.55)" }}>
+                Pulse
+              </span>
               {pathname === "/pulse" && (
                 <motion.div layoutId="dockActive"
                   className="absolute -bottom-0.5 w-1 h-1 rounded-full"
@@ -187,15 +191,19 @@ export function Navbar() {
                 onMouseLeave={hideTooltip}
               >
                 <motion.div
-                  whileHover={{ scale: 1.15 }}
-                  whileTap={{ scale: 0.88 }}
-                  className="relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors flex-shrink-0"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.94 }}
+                  className="relative flex items-center justify-center gap-2 w-9 h-9 lg:w-auto lg:h-10 lg:px-3.5 rounded-xl transition-colors flex-shrink-0"
                   style={{
                     background: isActive ? "rgba(0,255,255,0.1)" : "transparent",
                     boxShadow: isActive ? "0 0 14px rgba(0,255,255,0.18)" : "none",
                   }}
                 >
                   <Icon size={15} style={{ color: isActive ? "#00FFFF" : "rgba(255,255,255,0.38)" }} />
+                  <span className="hidden lg:inline font-mono text-xs whitespace-nowrap"
+                    style={{ color: isActive ? "#00FFFF" : "rgba(255,255,255,0.38)" }}>
+                    {item.label}
+                  </span>
                   {isActive && (
                     <motion.div layoutId="dockActive"
                       className="absolute -bottom-0.5 w-1 h-1 rounded-full"
@@ -212,17 +220,20 @@ export function Navbar() {
         </div>
 
         {/* ── Pinned section: always visible on mobile ── */}
-        <div className="flex items-center gap-0.5 px-2 py-2 flex-shrink-0 border-l border-white/8">
+        <div className="flex items-center gap-0.5 lg:gap-1 px-2 py-2 lg:px-2.5 flex-shrink-0 border-l border-white/8">
 
           {/* Cmd+K */}
           <motion.button
-            whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.88 }}
-            className="w-9 h-9 flex items-center justify-center rounded-xl"
+            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}
+            className="flex items-center justify-center gap-2 w-9 h-9 lg:w-auto lg:h-10 lg:px-3 rounded-xl"
             onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
             onMouseEnter={(e) => showTooltip(e, "Search")}
             onMouseLeave={hideTooltip}
           >
             <Command size={14} style={{ color: "rgba(0,255,65,0.5)" }} />
+            <span className="hidden lg:inline font-mono text-xs whitespace-nowrap" style={{ color: "rgba(0,255,65,0.5)" }}>
+              Search
+            </span>
           </motion.button>
 
           {/* Notification Bell */}
@@ -231,11 +242,11 @@ export function Navbar() {
           {/* Profile / Login */}
           {user ? (
             <motion.button
-              whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}
               onClick={() => { setProfileOpen(p => !p); hideTooltip(); }}
               onMouseEnter={(e) => showTooltip(e, "Account")}
               onMouseLeave={hideTooltip}
-              className="w-9 h-9 flex items-center justify-center rounded-xl transition-colors"
+              className="flex items-center justify-center w-9 h-9 lg:w-10 lg:h-10 rounded-xl transition-colors"
               style={{
                 background: profileOpen || pathname === "/profile" ? "rgba(0,255,65,0.12)" : "rgba(0,255,65,0.05)",
                 boxShadow: profileOpen ? "0 0 14px rgba(0,255,65,0.22)" : "none",
@@ -248,11 +259,14 @@ export function Navbar() {
               onMouseEnter={(e) => showTooltip(e, "Login")}
               onMouseLeave={hideTooltip}
             >
-              <motion.div whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.88 }}
-                className="w-9 h-9 flex items-center justify-center rounded-xl"
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}
+                className="flex items-center justify-center gap-2 w-9 h-9 lg:w-auto lg:h-10 lg:px-3.5 rounded-xl"
                 style={{ background: "rgba(0,255,65,0.06)" }}
               >
                 <LogIn size={15} style={{ color: "rgba(0,255,65,0.65)" }} />
+                <span className="hidden lg:inline font-mono text-xs whitespace-nowrap" style={{ color: "rgba(0,255,65,0.65)" }}>
+                  Login
+                </span>
               </motion.div>
             </Link>
           )}

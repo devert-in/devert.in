@@ -11,8 +11,28 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == uid;
     }
 
+    // Admin is a custom auth claim (set via scripts/set-admin-claim.mjs), not
+    // a hardcoded email - lets us add/revoke admins without redeploying rules.
     function isAdmin() {
-      return isAuth() && request.auth.token.email == 'devert.contact@gmail.com';
+      return isAuth() && request.auth.token.admin == true;
+    }
+
+    // Live economy config (system/economy), with a sane fallback if it's
+    // somehow missing - used to bound coin-reward deltas below to whatever
+    // the admin has actually configured, instead of a value baked into rules.
+    function economyVal(field, fallback) {
+      return exists(/databases/$(database)/documents/system/economy)
+        ? get(/databases/$(database)/documents/system/economy).data.get(field, fallback)
+        : fallback;
+    }
+
+    // A single write may never move a user's own XP by more than this in one
+    // shot - blocks "set xp to 999999999" from devtools. Doesn't stop a
+    // scripted loop of small increments; closing that fully needs the reward
+    // logic moved server-side (blocked on Cloud Functions billing for now).
+    function xpDeltaSane() {
+      return !('xp' in request.resource.data.diff(resource.data).affectedKeys())
+        || (request.resource.data.get('xp', 0) - resource.data.get('xp', 0)) <= 500;
     }
 
     // Users - public read (profiles are sharable); only owner/admin can write
@@ -22,7 +42,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow read:   if true;
       allow create: if isOwner(uid);
-      allow update: if isOwner(uid) || isAdmin()
+      allow update: if (isOwner(uid) && xpDeltaSane()) || isAdmin()
         || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'followersCount', 'pulsePostsCount',
           'totalLikesReceived', 'totalCommentsReceived', 'totalSavesReceived', 'totalSharesReceived',
@@ -145,14 +165,25 @@ service cloud.firestore {
     // Pulse posts - public read, any auth user can create (UGC).
     // Full-field edits are owner/admin only; any authenticated user may
     // update ONLY the engagement counters below - needed when liking,
-    // commenting, saving, sharing, or viewing someone else's post.
+    // commenting, saving, sharing, or viewing someone else's post. Each
+    // such write may move exactly ONE of these fields by exactly ±1 - not
+    // an arbitrary jump - so a single write can't fake a pile of engagement.
     match /pulse_posts/{postId} {
       allow read:   if true;
       allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
       allow update: if isAuth() && (
         resource.data.uid == request.auth.uid || isAdmin()
-        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-          ['likeCount', 'commentCount', 'saveCount', 'shareCount', 'viewCount', 'repostCount']
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['likeCount', 'commentCount', 'saveCount', 'shareCount', 'viewCount', 'repostCount']
+          )
+          && request.resource.data.diff(resource.data).affectedKeys().size() == 1
+          && (request.resource.data.get('likeCount', 0)    - resource.data.get('likeCount', 0))    in [-1, 0, 1]
+          && (request.resource.data.get('commentCount', 0) - resource.data.get('commentCount', 0)) in [-1, 0, 1]
+          && (request.resource.data.get('saveCount', 0)    - resource.data.get('saveCount', 0))    in [-1, 0, 1]
+          && (request.resource.data.get('shareCount', 0)   - resource.data.get('shareCount', 0))   in [-1, 0, 1]
+          && (request.resource.data.get('viewCount', 0)    - resource.data.get('viewCount', 0))    in [-1, 0, 1]
+          && (request.resource.data.get('repostCount', 0)  - resource.data.get('repostCount', 0))  in [-1, 0, 1]
         )
       );
       allow delete: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
@@ -184,10 +215,27 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
-    // User earnings - owner/admin reads; any auth user can write (needed for client-side batch coin grants)
+    // User earnings - owner/admin reads and writes freely (self-serve
+    // conversion/spend). A non-owner may ONLY credit pulseCoins+totalCoins
+    // together, by the same amount, and that amount must equal a live,
+    // admin-configured per-like/comment/save rate - this is what lets a
+    // liker/commenter/saver's client credit the POST AUTHOR's balance
+    // without being able to set anyone's balance to an arbitrary number.
     match /user_earnings/{uid} {
       allow read:  if isOwner(uid) || isAdmin();
-      allow write: if isAuth();
+      allow create, update: if isOwner(uid) || isAdmin() || (
+        isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pulseCoins', 'totalCoins'])
+        && request.resource.data.diff(resource.data).affectedKeys().size() == 2
+        && (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0))
+           == (request.resource.data.get('totalCoins', 0) - resource.data.get('totalCoins', 0))
+        && (
+          (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0)) == economyVal('PER_LIKE', 10)
+          || (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0)) == -economyVal('PER_LIKE', 10)
+          || (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0)) == economyVal('PER_COMMENT', 25)
+          || (request.resource.data.get('pulseCoins', 0) - resource.data.get('pulseCoins', 0)) == economyVal('PER_SAVE', 15)
+        )
+      );
     }
 
     // Payout requests - owner creates/reads own; admin manages all
@@ -217,10 +265,22 @@ service cloud.firestore {
 
     // Coin earning/spending ledger - written by whoever triggers the event
     // (may credit a different uid than the actor, e.g. a liker crediting
-    // the post author), readable only by the owner or admin.
+    // the post author), readable only by the owner or admin. Self-logged
+    // entries (task rewards, XP conversion) are free-form since they only
+    // ever affect the writer's own history; entries logged against SOMEONE
+    // ELSE's uid must be a known received-engagement type at the matching
+    // live rate, so a forged ledger entry can't misrepresent what happened.
     match /coin_transactions/{txId} {
       allow read:   if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow create: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.amount is number
+        && request.resource.data.type is string
+        && (
+          request.resource.data.uid == request.auth.uid
+          || (request.resource.data.type == 'like_received'    && request.resource.data.amount == economyVal('PER_LIKE', 10))
+          || (request.resource.data.type == 'comment_received' && request.resource.data.amount == economyVal('PER_COMMENT', 25))
+          || (request.resource.data.type == 'save_received'    && request.resource.data.amount == economyVal('PER_SAVE', 15))
+        );
     }
 
     // Learning ecosystem - Course -> Module -> Task(+Quiz) hierarchy.
