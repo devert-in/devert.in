@@ -2270,6 +2270,307 @@ function LearningPanel() {
   );
 }
 
+// ── Aptitude & Reasoning panel ────────────────────────────────────────────────
+
+const APTITUDE_CATEGORIES = ["Quantitative", "Logical", "Verbal"];
+const CSV_HELP = `Columns (first row = header, exact names): question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty
+- correctOption is 1-4 (which option is right)
+- videoUrl and difficulty (easy/medium/hard) are optional - difficulty defaults to "medium" if blank
+- Wrap any field containing a comma in double quotes`;
+
+function blankTopicForm() { return { category: "Quantitative", name: "", description: "" }; }
+function blankQuestionForm() { return { question: "", options: ["", "", "", ""], correctIndex: 0, explanation: "", videoUrl: "", difficulty: "medium" }; }
+
+// Small hand-rolled CSV parser - handles quoted fields with embedded commas
+// and escaped ("") quotes, which is the part a naive .split(',') gets wrong.
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else field += c;
+    } else if (c === '"') { inQuotes = true; }
+    else if (c === ',') { row.push(field); field = ""; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && next === '\n') i++;
+      row.push(field); field = "";
+      if (row.length > 1 || row[0] !== "") rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function csvRowsToQuestions(rows) {
+  if (rows.length < 2) return { questions: [], errors: ["No data rows found (need a header row + at least one question row)."] };
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const col = name => header.indexOf(name);
+  const need = ["question", "option1", "option2", "option3", "option4", "correctoption"];
+  const missing = need.filter(n => col(n) === -1);
+  if (missing.length) return { questions: [], errors: [`Missing required column(s): ${missing.join(", ")}`] };
+
+  const questions = [];
+  const errors = [];
+  rows.slice(1).forEach((r, i) => {
+    const lineNo = i + 2;
+    const question = (r[col("question")] || "").trim();
+    const options = [1, 2, 3, 4].map(n => (r[col(`option${n}`)] || "").trim());
+    const correctRaw = (r[col("correctoption")] || "").trim();
+    const correctIndex = parseInt(correctRaw, 10) - 1;
+    if (!question || options.some(o => !o) || ![0, 1, 2, 3].includes(correctIndex)) {
+      errors.push(`Row ${lineNo}: skipped - missing question/option or correctOption isn't 1-4.`);
+      return;
+    }
+    questions.push({
+      question, options, correctIndex,
+      explanation: col("explanation") !== -1 ? (r[col("explanation")] || "").trim() : "",
+      videoUrl:    col("videourl")    !== -1 ? (r[col("videourl")]    || "").trim() : "",
+      difficulty:  (col("difficulty") !== -1 && (r[col("difficulty")] || "").trim()) || "medium",
+    });
+  });
+  return { questions, errors };
+}
+
+function AptitudePanel() {
+  const [topics,   setTopics]   = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [expandedTopic, setExpandedTopic] = useState(null);
+  const [questions, setQuestions] = useState({});
+
+  const [topicForm, setTopicForm] = useState(blankTopicForm());
+  const [savingTopic, setSavingTopic] = useState(false);
+  const [qForm, setQForm] = useState(blankQuestionForm());
+  const [savingQ, setSavingQ] = useState(false);
+
+  const [csvText, setCsvText] = useState("");
+  const [csvResult, setCsvResult] = useState(null);
+  const [importing, setImporting] = useState(false);
+
+  const loadTopics = () => {
+    setLoading(true);
+    getDocs(query(collection(db, "aptitude_topics"), orderBy("order", "asc")))
+      .then(snap => setTopics(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { loadTopics(); }, []);
+
+  const loadQuestions = (topicId) => {
+    getDocs(query(collection(db, "aptitude_topics", topicId, "questions"), orderBy("order", "asc")))
+      .then(snap => setQuestions(p => ({ ...p, [topicId]: snap.docs.map(d => ({ id: d.id, ...d.data() })) })))
+      .catch(console.error);
+  };
+
+  const toggleTopic = (topicId) => {
+    if (expandedTopic === topicId) { setExpandedTopic(null); return; }
+    setExpandedTopic(topicId);
+    setCsvText(""); setCsvResult(null);
+    if (!questions[topicId]) loadQuestions(topicId);
+  };
+
+  const handleAddTopic = async () => {
+    if (!topicForm.name.trim()) return;
+    setSavingTopic(true);
+    try {
+      await addDoc(collection(db, "aptitude_topics"), {
+        category: topicForm.category,
+        name: topicForm.name.trim(),
+        description: topicForm.description.trim(),
+        status: "published",
+        order: topics.length,
+        createdAt: serverTimestamp(),
+      });
+      setTopicForm(blankTopicForm());
+      logAdminActivity("created aptitude topic", topicForm.name.trim());
+      loadTopics();
+    } catch (e) { console.error(e); }
+    finally { setSavingTopic(false); }
+  };
+
+  const handleDeleteTopic = async (topicId) => {
+    if (!confirm("Delete this topic and all its questions? This can't be undone.")) return;
+    try {
+      const qSnap = await getDocs(collection(db, "aptitude_topics", topicId, "questions"));
+      await Promise.all(qSnap.docs.map(q => deleteDoc(q.ref)));
+      await deleteDoc(doc(db, "aptitude_topics", topicId));
+      loadTopics();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleAddQuestion = async (topicId) => {
+    if (!qForm.question.trim() || qForm.options.some(o => !o.trim())) return;
+    setSavingQ(true);
+    try {
+      const count = (questions[topicId] || []).length;
+      await addDoc(collection(db, "aptitude_topics", topicId, "questions"), {
+        ...qForm, question: qForm.question.trim(), options: qForm.options.map(o => o.trim()),
+        order: count, createdAt: serverTimestamp(),
+      });
+      setQForm(blankQuestionForm());
+      loadQuestions(topicId);
+    } catch (e) { console.error(e); }
+    finally { setSavingQ(false); }
+  };
+
+  const handleDeleteQuestion = async (topicId, questionId) => {
+    if (!confirm("Delete this question?")) return;
+    await deleteDoc(doc(db, "aptitude_topics", topicId, "questions", questionId));
+    loadQuestions(topicId);
+  };
+
+  const handleImportCsv = async (topicId) => {
+    const { questions: parsed, errors } = csvRowsToQuestions(parseCSV(csvText));
+    if (parsed.length === 0) { setCsvResult({ imported: 0, errors }); return; }
+    setImporting(true);
+    try {
+      const startOrder = (questions[topicId] || []).length;
+      // Firestore batches cap at 500 writes - chunk generously under that.
+      for (let i = 0; i < parsed.length; i += 400) {
+        const chunk = parsed.slice(i, i + 400);
+        const batch = writeBatch(db);
+        chunk.forEach((q, idx) => {
+          const ref = doc(collection(db, "aptitude_topics", topicId, "questions"));
+          batch.set(ref, { ...q, order: startOrder + i + idx, createdAt: serverTimestamp() });
+        });
+        await batch.commit();
+      }
+      logAdminActivity("bulk imported aptitude questions", `${parsed.length} question(s)`);
+      setCsvResult({ imported: parsed.length, errors });
+      setCsvText("");
+      loadQuestions(topicId);
+    } catch (e) { console.error(e); setCsvResult({ imported: 0, errors: [...errors, "Import failed - check console."] }); }
+    finally { setImporting(false); }
+  };
+
+  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  return (
+    <div className="space-y-4">
+      <p className="font-mono text-[10px] text-white/18">
+        Topic -&gt; Question bank. No sequential unlock - students practice any topic, any order, unlimited attempts.
+      </p>
+
+      {topics.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no topics yet</p>}
+
+      {APTITUDE_CATEGORIES.map(cat => {
+        const catTopics = topics.filter(t => t.category === cat);
+        if (catTopics.length === 0) return null;
+        return (
+          <div key={cat}>
+            <p className="font-mono text-[9px] text-white/25 tracking-widest mb-1.5">{cat.toUpperCase()}</p>
+            <div className="space-y-2 mb-3">
+              {catTopics.map(topic => (
+                <div key={topic.id} className="border border-white/8 rounded-lg overflow-hidden">
+                  <button onClick={() => toggleTopic(topic.id)} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/2 transition-colors text-left">
+                    <ListChecks size={13} className="text-neon-cyan/60" />
+                    <span className="font-sans text-sm text-white/80 flex-1">{topic.name}</span>
+                    <span className="font-mono text-[9px] text-white/25">{(questions[topic.id] || []).length || ""}</span>
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic.id); }} className="text-white/20 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                    {expandedTopic === topic.id ? <ChevronUp size={12} className="text-white/30" /> : <ChevronDown size={12} className="text-white/30" />}
+                  </button>
+
+                  {expandedTopic === topic.id && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-white/6 pt-3">
+                      {(questions[topic.id] || []).map((q, i) => (
+                        <div key={q.id} className="flex items-center gap-2 border border-white/6 rounded px-3 py-2">
+                          <span className="font-mono text-[9px] text-white/25 w-5">{i + 1}</span>
+                          <span className="font-mono text-xs text-white/60 flex-1 truncate">{q.question}</span>
+                          <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded">{q.difficulty}</span>
+                          {q.videoUrl && <ExternalLink size={10} className="text-neon-purple/60" />}
+                          <button onClick={() => handleDeleteQuestion(topic.id, q.id)} className="text-white/20 hover:text-red-400 transition-colors"><Trash2 size={11} /></button>
+                        </div>
+                      ))}
+
+                      {/* Manual add */}
+                      <div className="border border-dashed border-white/10 rounded-lg p-3 space-y-2">
+                        <p className="font-mono text-[9px] text-neon-green tracking-wider">+ add question manually</p>
+                        <Textarea label="QUESTION" value={qForm.question} onChange={v => setQForm(p => ({ ...p, question: v }))} rows={2} placeholder="A shopkeeper marks up an item by 40%..." />
+                        {qForm.options.map((opt, oi) => (
+                          <div key={oi} className="flex items-center gap-2">
+                            <button onClick={() => setQForm(p => ({ ...p, correctIndex: oi }))}
+                              className="w-4 h-4 rounded-full border flex-shrink-0 transition-colors"
+                              style={{ borderColor: qForm.correctIndex === oi ? "#00FF41" : "rgba(255,255,255,0.2)", background: qForm.correctIndex === oi ? "#00FF41" : "transparent" }} />
+                            <input value={opt} onChange={e => setQForm(p => ({ ...p, options: p.options.map((o, idx) => idx === oi ? e.target.value : o) }))}
+                              placeholder={`Option ${oi + 1}`}
+                              className="flex-1 font-mono text-[11px] text-white/70 px-2 py-1 rounded outline-none"
+                              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
+                          </div>
+                        ))}
+                        <Textarea label="EXPLANATION" value={qForm.explanation} onChange={v => setQForm(p => ({ ...p, explanation: v }))} rows={3} placeholder="Step-by-step worked solution..." />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input label="VIDEO URL (optional)" value={qForm.videoUrl} onChange={v => setQForm(p => ({ ...p, videoUrl: v }))} placeholder="https://youtu.be/..." />
+                          <div>
+                            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+                            <select value={qForm.difficulty} onChange={e => setQForm(p => ({ ...p, difficulty: e.target.value }))}
+                              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                              <option value="easy">easy</option>
+                              <option value="medium">medium</option>
+                              <option value="hard">hard</option>
+                            </select>
+                          </div>
+                        </div>
+                        <button onClick={() => handleAddQuestion(topic.id)} disabled={savingQ}
+                          className="w-full font-mono text-xs py-2 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
+                          {savingQ ? "saving..." : "add question"}
+                        </button>
+                      </div>
+
+                      {/* Bulk CSV import */}
+                      <div className="border border-dashed border-neon-purple/25 rounded-lg p-3 space-y-2">
+                        <p className="font-mono text-[9px] text-neon-purple tracking-wider">+ bulk import from CSV</p>
+                        <pre className="font-mono text-[9px] text-white/25 whitespace-pre-wrap leading-relaxed">{CSV_HELP}</pre>
+                        <textarea value={csvText} onChange={e => setCsvText(e.target.value)} rows={5}
+                          placeholder="question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty"
+                          className="w-full font-mono text-[11px] text-white/70 px-3 py-2 rounded outline-none"
+                          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(199,125,255,0.2)" }} />
+                        {csvResult && (
+                          <p className="font-mono text-[10px]" style={{ color: csvResult.imported > 0 ? "#00FF41" : "#FF5050" }}>
+                            {csvResult.imported > 0 && `imported ${csvResult.imported} question(s). `}
+                            {csvResult.errors.length > 0 && `${csvResult.errors.length} row(s) skipped: ${csvResult.errors.slice(0, 3).join(" ")}`}
+                          </p>
+                        )}
+                        <button onClick={() => handleImportCsv(topic.id)} disabled={importing || !csvText.trim()}
+                          className="w-full font-mono text-xs py-2 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/8 transition-colors disabled:opacity-50">
+                          {importing ? "importing..." : "import CSV"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="border border-white/6 rounded-lg p-4 space-y-3">
+        <p className="font-mono text-[10px] text-neon-green tracking-wider">// add topic</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
+            <select value={topicForm.category} onChange={e => setTopicForm(p => ({ ...p, category: e.target.value }))}
+              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {APTITUDE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <Input label="TOPIC NAME" value={topicForm.name} onChange={v => setTopicForm(p => ({ ...p, name: v }))} placeholder="Percentages" />
+        </div>
+        <Textarea label="DESCRIPTION" value={topicForm.description} onChange={v => setTopicForm(p => ({ ...p, description: v }))} rows={2} placeholder="What this topic covers..." />
+        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleAddTopic} disabled={savingTopic}
+          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
+          <Plus size={12} className="inline mr-1" /> {savingTopic ? "adding..." : "add topic"}
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
 // ── Hackathons panel ──────────────────────────────────────────────────────────
 
 const HACKATHON_STATUSES = [
@@ -3214,6 +3515,9 @@ export default function AdminPage() {
               <>
                 <Section title="LEARNING PATHS" icon={GraduationCap} color="#00FF41" defaultOpen={true}>
                   <LearningPanel />
+                </Section>
+                <Section title="APTITUDE & REASONING" icon={ListChecks} color="#00FFFF">
+                  <AptitudePanel />
                 </Section>
                 <Section title="INTEL FEED" icon={Radio} color="#C77DFF">
                   <IntelPanel />

@@ -311,5 +311,22 @@ service cloud.firestore {
     match /user_learning/{uid} {
       allow read, write: if isOwner(uid) || isAdmin();
     }
+
+    // Aptitude & Reasoning - Topic -> Question bank, admin-authored, publicly
+    // readable, no sequential unlock (unlike Learning tasks - any topic, any
+    // order, unlimited re-attempts is the whole point of a practice bank).
+    match /aptitude_topics/{topicId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+      match /questions/{questionId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // Per-user aptitude practice progress - owner or admin only.
+    match /user_aptitude_progress/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
+    }
   }
 }

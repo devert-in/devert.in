@@ -97,3 +97,22 @@ test("only a user with the admin custom claim can write system config", async ()
   const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
   await assertSucceeds(admin.firestore().doc("system/economy").set({ PER_LIKE: 999 }));
 });
+
+test("anyone can read aptitude topics/questions, only admin can write them", async () => {
+  const guest = testEnv.unauthenticatedContext();
+  await assertSucceeds(guest.firestore().doc("aptitude_topics/percentages").get());
+  await assertFails(guest.firestore().doc("aptitude_topics/percentages").set({ name: "hack" }));
+
+  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
+  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages").set({ name: "Percentages", category: "Quantitative" }));
+  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages/questions/q1").set({ question: "2+2?" }));
+});
+
+test("a user can only read/write their own aptitude progress, not someone else's", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("user_aptitude_progress/owner-uid").set({ attempted: {} }));
+
+  const other = testEnv.authenticatedContext("other-uid");
+  await assertFails(other.firestore().doc("user_aptitude_progress/owner-uid").set({ attempted: {} }));
+  await assertFails(other.firestore().doc("user_aptitude_progress/owner-uid").get());
+});

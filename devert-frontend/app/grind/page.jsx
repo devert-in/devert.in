@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { TodayTaskCard } from "@/components/today-task-card";
+import { AptitudeSection } from "@/components/aptitude-section";
 
 const TYPE_ICONS = { DSA: Code, SYSTEM_DESIGN: Cpu, BUILD: Zap };
 
@@ -363,6 +364,9 @@ export default function GrindPage() {
             })}
           </div>
         )}
+
+        {/* Aptitude & Reasoning */}
+        <AptitudeSection />
 
         {/* History */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
