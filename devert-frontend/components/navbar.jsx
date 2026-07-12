@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy, ScrollText, LogIn, Terminal, Command, User, LogOut } from "lucide-react";
+import { Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy, ScrollText, LogIn, Terminal, Command, User, LogOut, GraduationCap } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { icon: Radio,      label: "Intel",     href: "/intel" },
   { icon: Target,     label: "Missions",  href: "/missions" },
   { icon: Zap,        label: "Grind",     href: "/grind" },
+  { icon: GraduationCap, label: "Prep",   href: "/prep" },
   { icon: Tv2,        label: "Broadcast", href: "/broadcast" },
   { icon: Trophy,     label: "Ranks",     href: "/ranks" },
   { icon: ScrollText, label: "Logs",      href: "/logs" },
@@ -138,7 +139,9 @@ export function Navbar() {
           <div className="w-px h-5 bg-white/8 mx-1 flex-shrink-0" />
 
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/" && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (
               <Link key={item.href} href={item.href}

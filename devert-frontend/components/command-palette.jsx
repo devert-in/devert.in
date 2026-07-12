@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy, ScrollText, LogIn, Terminal, X, User } from "lucide-react";
+import { Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy, ScrollText, LogIn, Terminal, X, User, GraduationCap } from "lucide-react";
 
 const COMMANDS = [
   { icon: Home,       label: "Home",      desc: "Command Center",         href: "/" },
@@ -12,6 +12,7 @@ const COMMANDS = [
   { icon: Radio,      label: "Intel",     desc: "Dev Intelligence Feed",  href: "/intel" },
   { icon: Target,     label: "Missions",  desc: "Hackathons as Missions", href: "/missions" },
   { icon: Zap,        label: "Grind",     desc: "Daily Challenges",       href: "/grind" },
+  { icon: GraduationCap, label: "Prep",   desc: "Placements Prep Portal", href: "/prep" },
   { icon: Tv2,        label: "Broadcast", desc: "DevCast Live",           href: "/broadcast" },
   { icon: Trophy,     label: "Ranks",     desc: "Tier Leaderboard",       href: "/ranks" },
   { icon: ScrollText, label: "Logs",      desc: "System Changelog",       href: "/logs" },

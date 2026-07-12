@@ -1,0 +1,42 @@
+[
+  {
+    "type": "coding",
+    "category": "dsa",
+    "topic": "Arrays",
+    "difficulty": "easy",
+    "prompt": "Read an integer n, then n space-separated integers on the next line. Print the sum of all the integers.\n\n**Input**\n```\n5\n1 2 3 4 5\n```\n**Output**\n```\n15\n```",
+    "explanation": "Read n, read the array, accumulate a running sum, and print it. Watch out for reading the whole line of integers rather than one value at a time.",
+    "starterCode": {
+      "python": "n = int(input())\narr = list(map(int, input().split()))\n# TODO: print the sum\n",
+      "java": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int n = sc.nextInt();\n        int sum = 0;\n        for (int i = 0; i < n; i++) sum += sc.nextInt();\n        System.out.println(sum);\n    }\n}\n",
+      "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    int n; cin >> n;\n    long long sum = 0;\n    for (int i = 0; i < n; i++) { int x; cin >> x; sum += x; }\n    cout << sum << endl;\n    return 0;\n}\n"
+    },
+    "testCases": [
+      { "input": "5\n1 2 3 4 5", "expectedOutput": "15", "hidden": false },
+      { "input": "3\n10 20 30", "expectedOutput": "60", "hidden": false },
+      { "input": "1\n7", "expectedOutput": "7", "hidden": true },
+      { "input": "4\n-1 -2 3 4", "expectedOutput": "4", "hidden": true },
+      { "input": "6\n100 200 300 400 500 600", "expectedOutput": "2100", "hidden": true }
+    ],
+    "tags": ["arrays", "sum", "beginner"]
+  },
+  {
+    "type": "coding",
+    "category": "dsa",
+    "topic": "Strings",
+    "difficulty": "medium",
+    "prompt": "Read a single line string s. Print \"YES\" if it is a palindrome (ignoring case), otherwise print \"NO\".\n\n**Input**\n```\nMadam\n```\n**Output**\n```\nYES\n```",
+    "explanation": "Normalize the string to a single case, then compare it to its reverse. If they match, it's a palindrome.",
+    "starterCode": {
+      "python": "s = input().strip()\n# TODO: check palindrome (case-insensitive) and print YES/NO\n",
+      "java": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        String s = sc.nextLine().trim().toLowerCase();\n        String rev = new StringBuilder(s).reverse().toString();\n        System.out.println(s.equals(rev) ? \"YES\" : \"NO\");\n    }\n}\n"
+    },
+    "testCases": [
+      { "input": "Madam", "expectedOutput": "YES", "hidden": false },
+      { "input": "hello", "expectedOutput": "NO", "hidden": false },
+      { "input": "racecar", "expectedOutput": "YES", "hidden": true },
+      { "input": "A", "expectedOutput": "YES", "hidden": true }
+    ],
+    "tags": ["strings", "palindrome"]
+  }
+]

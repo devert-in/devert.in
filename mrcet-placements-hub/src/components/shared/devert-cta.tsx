@@ -22,15 +22,15 @@ export function DevertCTA() {
           Level Up Your Placement Prep with Devert
         </h2>
         <p className="max-w-xl text-sm text-white/70 sm:text-base">
-          The official skill development, mock test, and interactive coding practice ecosystem for MRCET engineers.
+          The official Placements Prep portal — skill development, mock tests, and interactive coding practice for MRCET engineers.
         </p>
         <a
-          href="https://devert.in"
+          href="https://devert.in/prep?src=mrcet"
           target="_blank"
           rel="noopener noreferrer"
           className="mt-2 inline-flex items-center gap-2 rounded-full bg-gold-gradient px-6 py-3 text-sm font-bold text-navy-950 shadow-[0_0_30px_-6px_rgba(255,176,0,0.8)] transition-transform hover:-translate-y-0.5 hover:shadow-[0_0_44px_-4px_rgba(255,176,0,0.95)]"
         >
-          Launch Practice Portal on Devert
+          Launch Placements Prep on Devert
           <ArrowRight size={16} />
         </a>
       </div>
