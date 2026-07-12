@@ -9,13 +9,14 @@ import {
   Send, ChevronDown, Check, Loader2, Upload, UserPlus, UserMinus,
   MoreVertical, Pencil, Trash2, Eye, Repeat, Wallet,
 } from "lucide-react";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import {
   collection, query, orderBy, where, getDocs, getDoc,
   doc, setDoc, addDoc, deleteDoc, updateDoc, onSnapshot, startAfter,
   increment, arrayUnion, arrayRemove,
   serverTimestamp, writeBatch, limit,
 } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "@/context/AuthContext";
 import { writeNotification } from "@/components/notification-bell";
 import { ECONOMY as COINS, loadEconomy, logCoinTransaction } from "@/lib/economy";
@@ -37,23 +38,11 @@ function dataUrlToFile(dataUrl, filename) {
   return new File([arr], filename, { type: mime });
 }
 
-// TEMPORARY: Firebase Storage is unavailable (billing account disabled), so
-// post images upload to Cloudinary's free tier via an unsigned preset
-// instead. Swap back to Firebase Storage once billing is restored.
-const CLOUDINARY_CLOUD_NAME    = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-async function uploadToCloudinary(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-    method: "POST",
-    body: formData,
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "Image upload failed.");
-  return data.secure_url;
+async function uploadPulseImage(file, uid) {
+  const path = `pulse_images/${uid}/${crypto.randomUUID()}-${file.name}`;
+  const sRef = storageRef(storage, path);
+  await uploadBytes(sRef, file);
+  return getDownloadURL(sRef);
 }
 
 function timeAgo(ts) {
@@ -157,7 +146,7 @@ function CreatePostModal({ user, userData, onClose, existing, onSaved }) {
         onClose();
         return;
       }
-      const imageUrls = imageFiles.length ? await Promise.all(imageFiles.map(uploadToCloudinary)) : [];
+      const imageUrls = imageFiles.length ? await Promise.all(imageFiles.map(f => uploadPulseImage(f, user.uid))) : [];
       await addDoc(collection(db, "pulse_posts"), {
         uid:          user.uid,
         handle:       userData?.handle || user.email,
