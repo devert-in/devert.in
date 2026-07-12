@@ -10,7 +10,7 @@ import {
   Tv2, GitCommit, Radio, Activity, BookOpen, Wallet, ShieldCheck,
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
-  GraduationCap, Lock as LockIcon, ListChecks,
+  GraduationCap, Lock as LockIcon, ListChecks, Download,
 } from "lucide-react";
 import {
   db
@@ -2276,14 +2276,38 @@ const APTITUDE_CATEGORIES = ["Quantitative", "Logical", "Verbal"];
 const CSV_HELP = `Columns (first row = header, exact names): question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty
 - correctOption is 1-4 (which option is right)
 - videoUrl and difficulty (easy/medium/hard) are optional - difficulty defaults to "medium" if blank
-- Wrap any field containing a comma in double quotes`;
+- Wrap any field containing a comma in double quotes (only needed for actual .csv files - pasting straight from Excel/Sheets works as-is)`;
+
+const CSV_TEMPLATE_HEADER = "question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty";
+const CSV_TEMPLATE_EXAMPLE_ROWS = [
+  ['What is 20% of 150?', '20', '30', '35', '40', '2', '20% = 1/5, so 150 / 5 = 30.', '', 'easy'],
+  ['A number increased by 25% gives 100. What is the original number?', '70', '75', '80', '85', '3', 'Let the number be N. N + 25% of N = 100, so 1.25N = 100, N = 80.', 'https://youtu.be/example', 'medium'],
+];
+const CSV_TEMPLATE = [CSV_TEMPLATE_HEADER, ...CSV_TEMPLATE_EXAMPLE_ROWS.map(r =>
+  r.map(f => (f.includes(",") || f.includes('"') ? `"${f.replace(/"/g, '""')}"` : f)).join(",")
+)].join("\n");
+
+function downloadCsvTemplate() {
+  const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "aptitude-questions-template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function blankTopicForm() { return { category: "Quantitative", name: "", description: "" }; }
 function blankQuestionForm() { return { question: "", options: ["", "", "", ""], correctIndex: 0, explanation: "", videoUrl: "", difficulty: "medium" }; }
 
-// Small hand-rolled CSV parser - handles quoted fields with embedded commas
-// and escaped ("") quotes, which is the part a naive .split(',') gets wrong.
+// Small hand-rolled delimited-text parser - handles quoted fields with
+// embedded commas/tabs and escaped ("") quotes, which a naive .split() gets
+// wrong. Auto-detects comma vs tab so pasting directly out of Excel/Google
+// Sheets (which copies as tab-separated) works without an explicit "export
+// as CSV" step - only a real .csv file needs actual comma-quoting.
 function parseCSV(text) {
+  const firstLine = text.split(/\r?\n/, 1)[0] || "";
+  const delimiter = (firstLine.split("\t").length > firstLine.split(",").length) ? "\t" : ",";
   const rows = [];
   let row = [], field = "", inQuotes = false;
   for (let i = 0; i < text.length; i++) {
@@ -2293,7 +2317,7 @@ function parseCSV(text) {
       else if (c === '"') { inQuotes = false; }
       else field += c;
     } else if (c === '"') { inQuotes = true; }
-    else if (c === ',') { row.push(field); field = ""; }
+    else if (c === delimiter) { row.push(field); field = ""; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && next === '\n') i++;
       row.push(field); field = "";
@@ -2522,8 +2546,17 @@ function AptitudePanel() {
 
                       {/* Bulk CSV import */}
                       <div className="border border-dashed border-neon-purple/25 rounded-lg p-3 space-y-2">
-                        <p className="font-mono text-[9px] text-neon-purple tracking-wider">+ bulk import from CSV</p>
+                        <div className="flex items-center justify-between">
+                          <p className="font-mono text-[9px] text-neon-purple tracking-wider">+ bulk import from CSV</p>
+                          <button onClick={downloadCsvTemplate}
+                            className="flex items-center gap-1 font-mono text-[9px] text-white/40 hover:text-neon-purple transition-colors">
+                            <Download size={10} /> download template
+                          </button>
+                        </div>
                         <pre className="font-mono text-[9px] text-white/25 whitespace-pre-wrap leading-relaxed">{CSV_HELP}</pre>
+                        <p className="font-mono text-[9px] text-white/18">
+                          Fill the template in Excel/Google Sheets, then either paste the cells directly here (Ctrl+A, Ctrl+C in the sheet, Ctrl+V below) or export as .csv and paste that text.
+                        </p>
                         <textarea value={csvText} onChange={e => setCsvText(e.target.value)} rows={5}
                           placeholder="question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty"
                           className="w-full font-mono text-[11px] text-white/70 px-3 py-2 rounded outline-none"
