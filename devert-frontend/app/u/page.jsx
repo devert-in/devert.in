@@ -40,7 +40,7 @@ function StatBox({ label, value, color }) {
 }
 
 export default function PublicDevCard() {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const pathname = usePathname();
 
   // Read handle from URL path: /u/somehandle → "somehandle"
@@ -152,12 +152,13 @@ export default function PublicDevCard() {
         await updateDoc(theirRef, { followersCount: increment(1) });
         setProfile(p => ({ ...p, followersCount: (p.followersCount || 0) + 1 }));
         setFollowing(true);
+        // Link to the FOLLOWER's profile, not the recipient's own (`handle` here is
+        // the page's route param - the profile just gained a follower, not who it is).
         writeNotification(profile.uid, {
           type: "follow",
-          title: `@${user.displayName || "someone"} followed you`,
+          title: `@${userData?.handle || "someone"} followed you`,
           body: "You have a new follower on DeVert.",
-          ctaHref: `/u/${handle}`,
-          ctaLabel: "view profile",
+          ...(userData?.handle ? { ctaHref: `/u/${userData.handle}`, ctaLabel: "view profile" } : {}),
         });
       }
     } catch (e) { console.error(e); }

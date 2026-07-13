@@ -1038,12 +1038,13 @@ export default function PulsePage() {
         await setDoc(followRef, { followerId: user.uid, followeeId: authorUid, createdAt: serverTimestamp() });
         await updateDoc(myRef,    { followingCount: increment(1) });
         await updateDoc(theirRef, { followersCount: increment(1) });
+        // Link to the FOLLOWER's own profile, not post.handle (that's the post
+        // author - the person receiving this notification, not who sent it).
         writeNotification(authorUid, {
           type: "follow",
           title: `@${userData?.handle || "someone"} followed you`,
           body: "You have a new follower on DeVert.",
-          ctaHref: `/u/${post.handle}`,
-          ctaLabel: "view profile",
+          ...(userData?.handle ? { ctaHref: `/u/${userData.handle}`, ctaLabel: "view profile" } : {}),
         });
       }
     } catch (e) {

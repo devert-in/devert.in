@@ -31,6 +31,17 @@ html {
   color-scheme: dark;
 }
 
+/* Native <select> popups follow the OS theme in some Chromium/Windows builds even
+   with color-scheme: dark set on <html> - force the option list itself to match the
+   app's dark palette rather than relying on that alone. */
+select {
+  color-scheme: dark;
+}
+select option {
+  background-color: #0a0a0a;
+  color: #e5e5e5;
+}
+
 body {
   background: #050505;
   color: var(--foreground);

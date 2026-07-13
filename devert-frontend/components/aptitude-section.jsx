@@ -82,7 +82,21 @@ export function AptitudeSection() {
       }, { merge: true });
 
       if (awardXp > 0) {
-        await setDoc(doc(db, "users", user.uid), { xp: increment(awardXp) }, { merge: true });
+        // Aptitude practice is now Grind's main daily activity (the self-reported
+        // DSA/SystemDesign/Build challenge that used to drive `streak` was removed as
+        // redundant with Arena Solo Challenges/CodeLab) - so a first correct answer of
+        // the day is what keeps the streak alive now, same day/yesterday/reset logic.
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        const u = userSnap.exists() ? userSnap.data() : {};
+        const lastPracticed = u.lastSolvedDate || "";
+        const yesterday = new Date(Date.now() + 5.5 * 60 * 60 * 1000 - 86400000).toISOString().slice(0, 10);
+        let newStreak = u.streak || 0;
+        if (lastPracticed !== today) {
+          newStreak = lastPracticed === yesterday ? newStreak + 1 : 1;
+        }
+        await setDoc(doc(db, "users", user.uid), {
+          xp: increment(awardXp), streak: newStreak, lastSolvedDate: today,
+        }, { merge: true });
         setXpToast(awardXp);
         setTimeout(() => setXpToast(null), 2000);
       }

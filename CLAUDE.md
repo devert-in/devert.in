@@ -15,14 +15,15 @@ no application server in the request path.
     using SMTP credentials that must stay server-side. The frontend calls
     this via `NEXT_PUBLIC_API_URL` and no-ops silently if that's unset, so
     its absence never breaks a real feature.
-  - CodeLab's code execution/grading: proxies Judge0 CE calls (the API key
-    must never reach the browser) and grades submissions against hidden
-    test cases, which it reads server-side via `firebase-admin` — the ONLY
-    code path that ever sees them, since Firestore rules block every client
-    read of `problems/{id}/hiddenTests`. `FirebaseConfig`'s Firestore bean
-    fails soft (returns null, logs a warning) if
-    `FIREBASE_SERVICE_ACCOUNT_JSON`/`JUDGE0_API_KEY` aren't set, so a missing
-    secret degrades CodeLab endpoints only — it never takes down email.
+  - CodeLab's code execution/grading: proxies Judge0 CE calls (`Judge0Service`,
+    hosted on RapidAPI — the API key must never reach the browser) and grades
+    submissions against hidden test cases, which it reads server-side via
+    `firebase-admin` — the ONLY code path that ever sees them, since Firestore
+    rules block every client read of `problems/{id}/hiddenTests`.
+    `FirebaseConfig`'s Firestore bean fails soft (returns null, logs a
+    warning) if `FIREBASE_SERVICE_ACCOUNT_JSON`/`JUDGE0_API_KEY` aren't set,
+    so a missing secret degrades CodeLab's endpoints only — it never takes
+    down email.
 - `scripts/` — one-off Node admin scripts using `firebase-admin` +
   `scripts/service-account.json` (gitignored, never commit it). Includes
   `set-admin-claim.mjs` for granting/revoking admin access.

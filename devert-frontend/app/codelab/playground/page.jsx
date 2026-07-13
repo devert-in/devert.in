@@ -43,8 +43,8 @@ export default function PlaygroundPage() {
     <main className="min-h-screen pt-10 pb-32 px-6 relative">
       <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
       <div className="relative max-w-4xl mx-auto">
-        <Link href="/arena" className="inline-flex items-center gap-1.5 font-mono text-xs text-white/30 hover:text-white/60 transition-colors mb-6">
-          <ArrowLeft size={12} /> back to arena
+        <Link href="/codelab" className="inline-flex items-center gap-1.5 font-mono text-xs text-white/30 hover:text-white/60 transition-colors mb-6">
+          <ArrowLeft size={12} /> back to codelab
         </Link>
 
         <p className="font-mono text-xs text-neon-green/55 mb-2 tracking-wider">// codelab.playground</p>
@@ -103,7 +103,6 @@ export default function PlaygroundPage() {
                     <pre className="font-mono text-xs text-red-400/70 whitespace-pre-wrap bg-red-500/5 rounded-lg p-3 border border-red-500/15 max-h-48 overflow-y-auto">{result.stderr || result.compileOutput}</pre>
                   </div>
                 )}
-                <p className="font-mono text-[9px] text-white/25">{result.timeMs}ms · {result.memoryKb} KB</p>
               </div>
             )}
           </div>

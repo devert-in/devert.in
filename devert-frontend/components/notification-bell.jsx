@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, ExternalLink, RefreshCw, UserPlus, Repeat2, Heart, MessageCircle, CheckCircle2, XCircle, Coins, Settings, Info, AlertTriangle, Gift } from "lucide-react";
 import Link from "next/link";
@@ -77,7 +78,16 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
   const [unread,   setUnread]   = useState(0);
   const [open,     setOpen]     = useState(false);
   const [loading,  setLoading]  = useState(false);
-  const panelRef = useRef(null);
+  const [coords,   setCoords]   = useState(null);
+  const [mounted,  setMounted]  = useState(false);
+  const buttonRef = useRef(null);
+  const panelRef  = useRef(null);
+
+  // The navbar's dock shell has overflow-hidden (see components/navbar.jsx) - an
+  // absolutely-positioned dropdown here would render clipped/invisible, same reason
+  // the Tooltip/Profile dropdown there are rendered outside it. Portalling to
+  // document.body with viewport-fixed coordinates sidesteps that entirely.
+  useEffect(() => { setMounted(true); }, []);
 
   const fetchNotifs = useCallback(async () => {
     if (!user) return;
@@ -107,6 +117,10 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
 
   const handleOpen = () => {
     const next = !open;
+    if (next && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({ bottom: window.innerHeight - rect.top + 12, right: window.innerWidth - rect.right });
+    }
     setOpen(next);
     if (next) {
       persistRead(notifs.map(n => n.id));
@@ -114,10 +128,15 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
     }
   };
 
-  // close on outside click
+  // close on outside click - checks the button AND the portalled panel, since the
+  // panel no longer lives inside this component's own DOM subtree.
   useEffect(() => {
     if (!open) return;
-    const fn = (e) => { if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false); };
+    const fn = (e) => {
+      if (buttonRef.current?.contains(e.target)) return;
+      if (panelRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
   }, [open]);
@@ -125,8 +144,9 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
   if (!user) return null;
 
   return (
-    <div ref={panelRef} className="relative">
+    <div className="relative">
       <motion.button
+        ref={buttonRef}
         whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.88 }}
         onClick={handleOpen}
         onMouseEnter={showTooltip ? (e) => showTooltip(e, "Notifications") : undefined}
@@ -151,23 +171,28 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
         </AnimatePresence>
       </motion.button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.94 }}
-            transition={{ duration: 0.14 }}
-            className="absolute bottom-full mb-3 right-0 flex flex-col rounded-2xl overflow-hidden"
-            style={{
-              width: 310,
-              maxHeight: 440,
-              background: "rgba(5,5,5,0.97)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 8px 40px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.03)",
-              zIndex: 60,
-            }}
-          >
+      {mounted && createPortal(
+        <AnimatePresence>
+          {open && coords && (
+            <motion.div
+              ref={panelRef}
+              initial={{ opacity: 0, y: 10, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.94 }}
+              transition={{ duration: 0.14 }}
+              className="flex flex-col rounded-2xl overflow-hidden"
+              style={{
+                position: "fixed",
+                bottom: coords.bottom,
+                right: coords.right,
+                width: 310,
+                maxHeight: 440,
+                background: "rgba(5,5,5,0.97)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 8px 40px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.03)",
+                zIndex: 200,
+              }}
+            >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/6 flex-shrink-0">
               <div className="flex items-center gap-2">
@@ -232,15 +257,17 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
               )}
             </div>
 
-            {/* Footer */}
-            <div className="px-4 py-2.5 border-t border-white/5 flex-shrink-0">
-              <p className="font-mono text-[9px] text-white/15 text-center">
-                // likes · comments · follows · admin alerts
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {/* Footer */}
+              <div className="px-4 py-2.5 border-t border-white/5 flex-shrink-0">
+                <p className="font-mono text-[9px] text-white/15 text-center">
+                  // likes · comments · follows · admin alerts
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

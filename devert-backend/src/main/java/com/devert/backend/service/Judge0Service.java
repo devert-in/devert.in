@@ -14,10 +14,10 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-// Proxies code execution to Judge0 CE so the API key never reaches the browser. Phase 1
-// targets the hosted Judge0 CE listing on RapidAPI (self-hosting is a documented future
-// option, not built now) - the language IDs below match Judge0 CE's classic default
-// language list; verify against your instance's GET /languages if results look wrong.
+// Proxies code execution to Judge0 CE, hosted on RapidAPI, so the API key never
+// reaches the browser. The language IDs below match Judge0 CE's classic default
+// language list; verify against your RapidAPI listing's GET /languages if results
+// look wrong (different Judge0 CE listings occasionally support a different set).
 @Service
 public class Judge0Service {
 
@@ -49,7 +49,8 @@ public class Judge0Service {
 
     // Passing expectedOutput lets Judge0 itself do the (whitespace-trimmed) comparison
     // and set status to Accepted(3)/Wrong Answer(4) - avoids re-implementing Judge0's
-    // own output-normalization rules here.
+    // own output-normalization rules here. Used by GradingService for real submissions;
+    // the plain "Run" endpoint (Playground / sample-only runs) omits it.
     public Judge0Result run(int languageId, String sourceCode, String stdin, String expectedOutput) {
         RestTemplate restTemplate = new RestTemplate();
 

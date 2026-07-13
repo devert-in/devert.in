@@ -16,7 +16,7 @@ const SUBTABS = [
   { key: "leaderboard", label: "Leaderboards", icon: Trophy },
 ];
 
-export function CodeLabHub({ onGoToContests }) {
+export function CodeLabHub() {
   const { user } = useAuth();
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,14 +73,14 @@ export function CodeLabHub({ onGoToContests }) {
           })}
         </div>
         <div className="flex gap-1.5">
-          <Link href="/arena/codelab/playground"
+          <Link href="/codelab/playground"
             className="flex items-center gap-1.5 font-mono text-[11px] px-3 py-1.5 rounded-lg border border-neon-green/30 text-neon-green hover:bg-neon-green/8 transition-colors">
             <Terminal size={11} /> Playground
           </Link>
-          <button onClick={onGoToContests}
+          <Link href="/arena?tab=contests"
             className="flex items-center gap-1.5 font-mono text-[11px] px-3 py-1.5 rounded-lg border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors">
             <Swords size={11} /> Contests
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export function CodeLabHub({ onGoToContests }) {
       {subtab === "myprogress" && (
         !user ? (
           <p className="font-mono text-xs text-white/20 text-center py-10">
-            <a href="/login?next=/arena" className="text-neon-cyan hover:underline">login</a> to track your CodeLab progress
+            <a href="/login?next=/codelab" className="text-neon-cyan hover:underline">login</a> to track your CodeLab progress
           </p>
         ) : (
           <div className="space-y-6">

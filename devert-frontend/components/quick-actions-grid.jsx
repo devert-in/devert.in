@@ -2,17 +2,18 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Swords, Anchor, Zap, Radio, Target, Tv2, Trophy, Wallet } from "lucide-react";
+import { Swords, Anchor, Zap, Radio, Target, Tv2, Trophy, Wallet, ScrollText } from "lucide-react";
 
 const ACTIONS = [
-  { icon: Zap,     label: "Grind",     href: "/grind",     color: "#00FF41" },
-  { icon: Swords,  label: "Arena",     href: "/arena",     color: "#FF9500" },
-  { icon: Anchor,  label: "Shipyard",  href: "/shipyard",  color: "#00FFFF" },
-  { icon: Target,  label: "Missions",  href: "/missions",  color: "#FF6430" },
-  { icon: Radio,   label: "Intel",     href: "/intel",     color: "#C77DFF" },
-  { icon: Tv2,     label: "Broadcast", href: "/broadcast", color: "#FFD700" },
-  { icon: Trophy,  label: "Ranks",     href: "/ranks",     color: "#00FF41" },
-  { icon: Wallet,  label: "Wallet",    href: "/wallet",    color: "#00FFFF" },
+  { icon: Zap,        label: "Grind",     href: "/grind",     color: "#00FF41" },
+  { icon: Swords,     label: "Arena",     href: "/arena",     color: "#FF9500" },
+  { icon: Anchor,     label: "Shipyard",  href: "/shipyard",  color: "#00FFFF" },
+  { icon: Target,     label: "Missions",  href: "/missions",  color: "#FF6430" },
+  { icon: Radio,      label: "Intel",     href: "/intel",     color: "#C77DFF" },
+  { icon: Tv2,        label: "Broadcast", href: "/broadcast", color: "#FFD700" },
+  { icon: Trophy,     label: "Ranks",     href: "/ranks",     color: "#00FF41" },
+  { icon: Wallet,     label: "Wallet",    href: "/wallet",    color: "#00FFFF" },
+  { icon: ScrollText, label: "Logs",      href: "/logs",      color: "#C77DFF" },
 ];
 
 export function QuickActionsGrid() {

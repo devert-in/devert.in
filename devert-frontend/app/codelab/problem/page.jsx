@@ -74,7 +74,7 @@ function ProblemContent() {
   };
 
   const handleSubmit = async () => {
-    if (!user) { window.location.href = `/login?next=${encodeURIComponent(`/arena/codelab/problem?id=${problemId}`)}`; return; }
+    if (!user) { window.location.href = `/login?next=${encodeURIComponent(`/codelab/problem?id=${problemId}`)}`; return; }
     setSubmitting(true); setError(""); setVerdict(null);
     try {
       const result = await submitCode({ uid: user.uid, problemId, language, code });
@@ -97,8 +97,8 @@ function ProblemContent() {
     <main className="min-h-screen pt-10 pb-32 px-6 relative">
       <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
       <div className="relative max-w-7xl mx-auto">
-        <Link href="/arena" className="inline-flex items-center gap-1.5 font-mono text-xs text-white/30 hover:text-white/60 transition-colors mb-6">
-          <ArrowLeft size={12} /> back to arena
+        <Link href="/codelab" className="inline-flex items-center gap-1.5 font-mono text-xs text-white/30 hover:text-white/60 transition-colors mb-6">
+          <ArrowLeft size={12} /> back to codelab
         </Link>
 
         <div className="grid lg:grid-cols-2 gap-6 items-start">

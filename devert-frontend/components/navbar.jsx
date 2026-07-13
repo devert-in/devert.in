@@ -3,23 +3,25 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy, ScrollText, LogIn, Command, User, LogOut, Flame, Activity, Wallet } from "lucide-react";
+import { Home, Swords, Radio, Target, Zap, Tv2, Flame, Code2, LogIn, Command, User, LogOut, Activity, Wallet } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notification-bell";
 
+// Shipyard, Ranks, and Logs deliberately live only in the Home dashboard's quick
+// actions (components/quick-actions-grid.jsx), not here - keeps the persistent dock
+// to the modules used every session. CodeLab is its own top-level route (app/codelab/),
+// separate from Arena (which still hosts Solo Challenges + Contests).
 const NAV_ITEMS = [
   { icon: Home,       label: "Home",       href: "/"           },
   { icon: Swords,     label: "Arena",      href: "/arena"      },
-  { icon: Anchor,     label: "Shipyard",   href: "/shipyard"   },
+  { icon: Code2,      label: "CodeLab",    href: "/codelab"    },
+  { icon: Zap,        label: "Grind",      href: "/grind"      },
   { icon: Radio,      label: "Intel",      href: "/intel"      },
   { icon: Target,     label: "Missions",   href: "/missions"   },
-  { icon: Zap,        label: "Grind",      href: "/grind"      },
   { icon: Tv2,        label: "Broadcast",  href: "/broadcast"  },
-  { icon: Trophy,     label: "Ranks",      href: "/ranks"      },
   { icon: Flame,      label: "Hackathons", href: "/hackathons" },
-  { icon: ScrollText, label: "Logs",       href: "/logs"       },
 ];
 
 export function Navbar() {

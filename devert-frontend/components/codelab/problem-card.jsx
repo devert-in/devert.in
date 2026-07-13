@@ -38,7 +38,7 @@ export function ProblemCard({ problem, solved }) {
           {problem.xpReward > 0 && <span className="flex items-center gap-1" style={{ color: "#00FF41" }}><Zap size={10} /> {problem.xpReward} XP</span>}
           {problem.coinReward > 0 && <span className="flex items-center gap-1" style={{ color: "#FFD700" }}><Coins size={10} /> {problem.coinReward}</span>}
         </div>
-        <Link href={`/arena/codelab/problem?id=${problem.id}`}
+        <Link href={`/codelab/problem?id=${problem.id}`}
           className="block text-center font-mono text-xs py-2 rounded-lg border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors">
           solve
         </Link>

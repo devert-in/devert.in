@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Swords, Timer, Users, Terminal, Lock, Trophy, Medal, X, Zap, CheckCircle, AlertTriangle } from "lucide-react";
 import { db } from "@/lib/firebase";
@@ -10,9 +11,17 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { ContestHub } from "@/components/contests/contest-hub";
-import { CodeLabHub } from "@/components/codelab/codelab-hub";
 
 const TIER_COLORS = { LEGEND: "#FFD700", ELITE: "#FF6B35", ARCHITECT: "#00FFFF", BUILDER: "#00FF41", RECRUIT: "#666" };
+
+// Arena hosts two different kinds of competition - the heading/tagline should describe
+// whichever one is active instead of always saying "Code Combat" (accurate only for
+// Solo Challenges; Contests can be Aptitude/SQL/CS-fundamentals, not just code). CodeLab
+// used to be a third tab here but now lives at its own top-level /codelab route.
+const ARENA_TAB_META = {
+  solo:     { breadcrumb: "code_combat.exe", tagline: "Head-to-head. Timed. Brutal. No mercy." },
+  contests: { breadcrumb: "contests.db",     tagline: "Scheduled contests across Aptitude, Programming, and CS fundamentals." },
+};
 
 function getTierName(xp = 0) {
   if (xp >= 10000) return "LEGEND";
@@ -252,9 +261,10 @@ function ResultModal({ result, onClose }) {
   );
 }
 
-export default function ArenaPage() {
+function ArenaContent() {
   const { user, userData, refreshProfile } = useAuth();
-  const [arenaTab, setArenaTab] = useState("solo");
+  const initialTab = useSearchParams().get("tab");
+  const [arenaTab, setArenaTab] = useState(["solo", "contests"].includes(initialTab) ? initialTab : "solo");
   const [leaderboard, setLeaderboard] = useState([]);
   const [challenges,  setChallenges]  = useState([]);
   const [loadingLB,   setLoadingLB]   = useState(true);
@@ -356,14 +366,14 @@ export default function ArenaPage() {
 
       <div className="relative max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
-          <p className="font-mono text-xs text-neon-green/55 mb-3 tracking-wider">// /arena - code_combat.exe</p>
+          <p className="font-mono text-xs text-neon-green/55 mb-3 tracking-wider">// /arena - {ARENA_TAB_META[arenaTab].breadcrumb}</p>
           <h1 className="font-sans font-bold tracking-tighter text-white leading-none mb-3" style={{ fontSize: "clamp(2.5rem,7vw,5rem)" }}>
-            CODE <span className="text-neon-cyan">COMBAT</span>
+            THE <span className="text-neon-cyan">ARENA</span>
           </h1>
-          <p className="font-mono text-sm text-white/35">Head-to-head. Timed. Brutal. No mercy.</p>
+          <p className="font-mono text-sm text-white/35">{ARENA_TAB_META[arenaTab].tagline}</p>
 
           <div className="flex gap-2 mt-6">
-            {[{ key: "solo", label: "Solo Challenges" }, { key: "contests", label: "Contests" }, { key: "codelab", label: "CodeLab" }].map(t => (
+            {[{ key: "solo", label: "Solo Challenges" }, { key: "contests", label: "Contests" }].map(t => (
               <button key={t.key} onClick={() => setArenaTab(t.key)}
                 className="font-mono text-xs px-4 py-2 rounded-lg transition-colors"
                 style={{
@@ -378,7 +388,6 @@ export default function ArenaPage() {
         </motion.div>
 
         {arenaTab === "contests" && <ContestHub />}
-        {arenaTab === "codelab" && <CodeLabHub onGoToContests={() => setArenaTab("contests")} />}
 
         {arenaTab === "solo" && (
         <div className="grid md:grid-cols-2 gap-6">
@@ -515,5 +524,13 @@ export default function ArenaPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function ArenaPage() {
+  return (
+    <Suspense fallback={null}>
+      <ArenaContent />
+    </Suspense>
   );
 }
