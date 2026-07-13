@@ -18,6 +18,7 @@ import {
 import { writeNotification } from "@/components/notification-bell";
 import { DEFAULT_TIERS } from "@/lib/ranks";
 import { DEFAULT_ECONOMY } from "@/lib/economy";
+import { CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES, contestPhase } from "@/lib/contests";
 import {
   collection, query, orderBy, where, getDocs, addDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch
@@ -2604,6 +2605,648 @@ function AptitudePanel() {
   );
 }
 
+// ── Contest Platform panel ────────────────────────────────────────────────────
+
+const CONTEST_STATUSES = [
+  { v: "draft",     c: "rgba(255,255,255,0.4)" },
+  { v: "published", c: "#00FF41" },
+  { v: "archived",  c: "rgba(255,255,255,0.25)" },
+];
+
+function blankContestForm() {
+  return {
+    title: "", category: CONTEST_CATEGORIES[0], difficulty: "Easy", bannerUrl: "",
+    description: "", rules: "", eligibility: "", organizer: "", tags: "",
+    registrationStart: "", registrationEnd: "", contestStart: "", contestEnd: "",
+    durationMinutes: "60", prizeXp: "100", prizeCoins: "50", prizeText: "", status: "draft",
+  };
+}
+
+function blankContestQuestionForm(type = "mcq") {
+  return {
+    type, question: "", options: ["", "", "", ""], correctIndices: [0], correctText: "",
+    marks: "1", negativeMarks: "0", explanation: "", topic: "", difficulty: "medium",
+  };
+}
+
+const CONTEST_CSV_HEADER = "question,optiona,optionb,optionc,optiond,correctanswer,type,difficulty,marks,negativemarks,explanation,topic";
+const CONTEST_CSV_EXAMPLE_ROWS = [
+  ['What is the time complexity of binary search?', 'O(n)', 'O(log n)', 'O(n^2)', 'O(1)', 'B', 'mcq', 'medium', '2', '0', 'Binary search halves the search space every step.', 'Algorithms'],
+  ['Java is platform independent.', 'True', 'False', '', '', 'True', 'truefalse', 'easy', '1', '0', 'Java compiles to bytecode run by the JVM on any platform.', 'Java Basics'],
+  ['Which of these are valid SQL joins? (select all that apply)', 'INNER', 'OUTER', 'CARTESIAN', 'RECURSIVE', 'A,B,C', 'multiselect', 'hard', '3', '1', 'INNER, OUTER (LEFT/RIGHT/FULL) and CARTESIAN (CROSS) are all valid SQL join types.', 'SQL'],
+  ['The ___ keyword is used to inherit a class in Java.', '', '', '', '', 'extends', 'fillblank', 'easy', '1', '0', 'A subclass uses `extends` to inherit from a superclass.', 'Java Basics'],
+];
+const CONTEST_CSV_TEMPLATE = [CONTEST_CSV_HEADER, ...CONTEST_CSV_EXAMPLE_ROWS.map(r =>
+  r.map(f => (f.includes(",") || f.includes('"') ? `"${f.replace(/"/g, '""')}"` : f)).join(",")
+)].join("\n");
+const CONTEST_CSV_HELP = `Columns (first row = header, exact names): question,optionA,optionB,optionC,optionD,correctAnswer,type,difficulty,marks,negativeMarks,explanation,topic
+type: mcq | multiselect | truefalse | fillblank
+correctAnswer: letter(s) A-D for mcq/multiselect (e.g. "B" or "A,C"), True/False for truefalse, the accepted text for fillblank (use | for alternatives, e.g. "extends|inherits")`;
+
+function downloadContestCsvTemplate() {
+  const blob = new Blob([CONTEST_CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "contest-questions-template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Parses bulk-imported contest questions into a {questions, answerKey} pair per row -
+// questions hold no correct-answer data (mirrors the Firestore split), answerKey data
+// is written to a sibling subcollection so it can be read-gated separately.
+function csvRowsToContestQuestions(rows) {
+  if (rows.length < 2) return { questions: [], errors: ["No data rows found (need a header row + at least one question row)."] };
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const col = name => header.indexOf(name);
+  const missing = ["question", "correctanswer"].filter(n => col(n) === -1);
+  if (missing.length) return { questions: [], errors: [`Missing required column(s): ${missing.join(", ")}`] };
+
+  const letters = ["a", "b", "c", "d"];
+  const questions = [];
+  const errors = [];
+
+  rows.slice(1).forEach((r, i) => {
+    const lineNo = i + 2;
+    const get = name => (col(name) !== -1 ? (r[col(name)] || "").trim() : "");
+    const question = get("question");
+    const type = (get("type").toLowerCase() || "mcq");
+    const correctRaw = get("correctanswer");
+    const marks = parseFloat(get("marks")) || 1;
+    const negativeMarks = parseFloat(get("negativemarks")) || 0;
+    const explanation = get("explanation");
+    const topic = get("topic");
+    const difficulty = get("difficulty") || "medium";
+
+    if (!question || !correctRaw) { errors.push(`Row ${lineNo}: skipped - missing question or correctAnswer.`); return; }
+    if (!QUESTION_TYPES.includes(type)) { errors.push(`Row ${lineNo}: skipped - unknown type "${type}".`); return; }
+
+    if (type === "fillblank") {
+      questions.push({ question, type, options: [], marks, negativeMarks, explanation, topic, difficulty, correctOptionIds: [], correctText: correctRaw });
+      return;
+    }
+    if (type === "truefalse") {
+      const norm = correctRaw.toLowerCase();
+      const correctId = (norm === "true" || norm === "t") ? "true" : "false";
+      questions.push({
+        question, type, options: [{ id: "true", text: "True" }, { id: "false", text: "False" }],
+        marks, negativeMarks, explanation, topic, difficulty, correctOptionIds: [correctId], correctText: "",
+      });
+      return;
+    }
+    // mcq / multiselect
+    const optionTexts = letters.map(l => get(`option${l}`));
+    const options = letters.map((id, idx) => ({ id, text: optionTexts[idx] })).filter(o => o.text);
+    if (options.length < 2) { errors.push(`Row ${lineNo}: skipped - needs at least 2 non-empty options.`); return; }
+    const correctOptionIds = correctRaw.split(",").map(s => s.trim().toLowerCase()).filter(l => options.some(o => o.id === l));
+    if (correctOptionIds.length === 0) { errors.push(`Row ${lineNo}: skipped - correctAnswer must reference option letters A-D.`); return; }
+    if (type === "mcq" && correctOptionIds.length !== 1) { errors.push(`Row ${lineNo}: skipped - mcq needs exactly one correct option.`); return; }
+    questions.push({ question, type, options, marks, negativeMarks, explanation, topic, difficulty, correctOptionIds, correctText: "" });
+  });
+
+  return { questions, errors };
+}
+
+function ContestsPanel() {
+  const [contests, setContests] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [expanded, setExpanded] = useState(null);
+  const [cQuestions, setCQuestions] = useState({});
+  const [registrations, setRegistrations] = useState({});
+  const [announcements, setAnnouncements] = useState({});
+  const [announcementText, setAnnouncementText] = useState("");
+  const [postingAnnouncement, setPostingAnnouncement] = useState(false);
+
+  const [form, setForm] = useState(blankContestForm());
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState("");
+
+  const [qForm, setQForm] = useState(blankContestQuestionForm());
+  const [savingQ, setSavingQ] = useState(false);
+
+  const [csvText, setCsvText] = useState("");
+  const [csvResult, setCsvResult] = useState(null);
+  const [importing, setImporting] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    getDocs(query(collection(db, "contests"), orderBy("createdAt", "desc")))
+      .then(snap => setContests(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const stats = {
+    total: contests.length,
+    live: contests.filter(c => contestPhase(c) === "live").length,
+    upcoming: contests.filter(c => c.status === "published" && contestPhase(c) === "upcoming").length,
+    draft: contests.filter(c => c.status === "draft").length,
+    registrations: contests.reduce((sum, c) => sum + (c.participantCount || 0), 0),
+  };
+
+  const loadQuestions = (contestId) => {
+    Promise.all([
+      getDocs(query(collection(db, "contests", contestId, "questions"), orderBy("order", "asc"))),
+      getDocs(collection(db, "contests", contestId, "answerKeys")),
+    ]).then(([qSnap, akSnap]) => {
+      const keys = {};
+      akSnap.docs.forEach(d => { keys[d.id] = d.data(); });
+      setCQuestions(p => ({ ...p, [contestId]: qSnap.docs.map(d => ({ id: d.id, ...d.data(), ...keys[d.id] })) }));
+    }).catch(console.error);
+  };
+
+  const loadRegistrations = (contestId) => {
+    getDocs(collection(db, "contests", contestId, "registrations"))
+      .then(snap => setRegistrations(p => ({ ...p, [contestId]: snap.docs.map(d => ({ uid: d.id, ...d.data() })) })))
+      .catch(console.error);
+  };
+
+  const loadAnnouncements = (contestId) => {
+    getDocs(query(collection(db, "contests", contestId, "announcements"), orderBy("createdAt", "desc")))
+      .then(snap => setAnnouncements(p => ({ ...p, [contestId]: snap.docs.map(d => ({ id: d.id, ...d.data() })) })))
+      .catch(console.error);
+  };
+
+  const handlePostAnnouncement = async (contestId) => {
+    if (!announcementText.trim()) return;
+    setPostingAnnouncement(true);
+    try {
+      await addDoc(collection(db, "contests", contestId, "announcements"), {
+        text: announcementText.trim(), createdAt: serverTimestamp(),
+      });
+      setAnnouncementText("");
+      loadAnnouncements(contestId);
+    } catch (e) { console.error(e); }
+    finally { setPostingAnnouncement(false); }
+  };
+
+  const toggleExpand = (contestId) => {
+    if (expanded === contestId) { setExpanded(null); return; }
+    setExpanded(contestId);
+    setCsvText(""); setCsvResult(null); setQForm(blankContestQuestionForm()); setAnnouncementText("");
+    if (!cQuestions[contestId]) loadQuestions(contestId);
+    if (!announcements[contestId]) loadAnnouncements(contestId);
+  };
+
+  const handleCreate = async () => {
+    if (!form.title.trim() || !form.contestStart || !form.contestEnd) {
+      return setError("Title, contest start, and contest end are required.");
+    }
+    setSaving(true); setError("");
+    try {
+      const contestStart = new Date(form.contestStart);
+      const contestEnd = new Date(form.contestEnd);
+      const registrationEnd = form.registrationEnd ? new Date(form.registrationEnd) : contestStart;
+      const registrationStart = form.registrationStart ? new Date(form.registrationStart) : new Date();
+      await addDoc(collection(db, "contests"), {
+        title: form.title.trim(), category: form.category, difficulty: form.difficulty,
+        bannerUrl: form.bannerUrl.trim(), description: form.description.trim(), rules: form.rules.trim(),
+        eligibility: form.eligibility.trim(), organizer: form.organizer.trim(),
+        tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+        registrationStart, registrationEnd, contestStart, contestEnd,
+        durationMinutes: parseInt(form.durationMinutes) || 60,
+        prizeXp: parseInt(form.prizeXp) || 0, prizeCoins: parseInt(form.prizeCoins) || 0,
+        prizeText: form.prizeText.trim(), status: form.status,
+        participantCount: 0, questionCount: 0,
+        createdAt: serverTimestamp(), createdBy: ADMIN_EMAIL,
+      });
+      setForm(blankContestForm());
+      logAdminActivity("created contest", form.title.trim());
+      load();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleSetStatus = async (contestId, status) => {
+    await updateDoc(doc(db, "contests", contestId), { status });
+    logAdminActivity(`contest -> ${status}`, contestId);
+    load();
+  };
+
+  const handleDuplicate = async (contest) => {
+    try {
+      const [qSnap, akSnap] = await Promise.all([
+        getDocs(collection(db, "contests", contest.id, "questions")),
+        getDocs(collection(db, "contests", contest.id, "answerKeys")),
+      ]);
+      const { id, participantCount, createdAt, ...rest } = contest;
+      const newRef = await addDoc(collection(db, "contests"), {
+        ...rest, title: `${contest.title} (Copy)`, status: "draft", participantCount: 0,
+        createdAt: serverTimestamp(), createdBy: ADMIN_EMAIL,
+      });
+      await Promise.all([
+        ...qSnap.docs.map(d => setDoc(doc(db, "contests", newRef.id, "questions", d.id), d.data())),
+        ...akSnap.docs.map(d => setDoc(doc(db, "contests", newRef.id, "answerKeys", d.id), d.data())),
+      ]);
+      logAdminActivity("duplicated contest", contest.title);
+      load();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDelete = async (contestId, title) => {
+    if (!confirm(`Delete "${title}" and all its questions/registrations/submissions? This can't be undone.`)) return;
+    try {
+      const [qSnap, akSnap, regSnap, subSnap] = await Promise.all([
+        getDocs(collection(db, "contests", contestId, "questions")),
+        getDocs(collection(db, "contests", contestId, "answerKeys")),
+        getDocs(collection(db, "contests", contestId, "registrations")),
+        getDocs(collection(db, "contests", contestId, "submissions")),
+      ]);
+      await Promise.all([
+        ...qSnap.docs.map(d => deleteDoc(d.ref)), ...akSnap.docs.map(d => deleteDoc(d.ref)),
+        ...regSnap.docs.map(d => deleteDoc(d.ref)), ...subSnap.docs.map(d => deleteDoc(d.ref)),
+      ]);
+      await deleteDoc(doc(db, "contests", contestId));
+      logAdminActivity("deleted contest", title);
+      load();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleAddQuestion = async (contestId) => {
+    const letters = ["a", "b", "c", "d"];
+    let options = [], correctOptionIds = [], correctText = "";
+    if (qForm.type === "fillblank") {
+      correctText = qForm.correctText.trim();
+      if (!qForm.question.trim() || !correctText) return;
+    } else if (qForm.type === "truefalse") {
+      options = [{ id: "true", text: "True" }, { id: "false", text: "False" }];
+      correctOptionIds = [qForm.correctIndices[0] === 1 ? "false" : "true"];
+      if (!qForm.question.trim()) return;
+    } else {
+      const texts = qForm.options.map(o => o.trim());
+      options = letters.map((id, idx) => ({ id, text: texts[idx] })).filter(o => o.text);
+      correctOptionIds = qForm.correctIndices.map(i => letters[i]).filter(id => options.some(o => o.id === id));
+      if (!qForm.question.trim() || options.length < 2 || correctOptionIds.length === 0) return;
+    }
+
+    setSavingQ(true);
+    try {
+      const count = (cQuestions[contestId] || []).length;
+      const qRef = doc(collection(db, "contests", contestId, "questions"));
+      await setDoc(qRef, {
+        type: qForm.type, question: qForm.question.trim(), options,
+        marks: parseFloat(qForm.marks) || 1, negativeMarks: parseFloat(qForm.negativeMarks) || 0,
+        topic: qForm.topic.trim(), difficulty: qForm.difficulty, order: count, createdAt: serverTimestamp(),
+      });
+      await setDoc(doc(db, "contests", contestId, "answerKeys", qRef.id), {
+        correctOptionIds, correctText, explanation: qForm.explanation.trim(),
+      });
+      await updateDoc(doc(db, "contests", contestId), { questionCount: increment(1) });
+      setQForm(blankContestQuestionForm(qForm.type));
+      loadQuestions(contestId);
+      load();
+    } catch (e) { console.error(e); }
+    finally { setSavingQ(false); }
+  };
+
+  const handleDeleteQuestion = async (contestId, questionId) => {
+    if (!confirm("Delete this question?")) return;
+    await deleteDoc(doc(db, "contests", contestId, "questions", questionId));
+    await deleteDoc(doc(db, "contests", contestId, "answerKeys", questionId));
+    await updateDoc(doc(db, "contests", contestId), { questionCount: increment(-1) });
+    loadQuestions(contestId);
+    load();
+  };
+
+  const handleImportCsv = async (contestId) => {
+    const { questions: parsed, errors } = csvRowsToContestQuestions(parseCSV(csvText));
+    if (parsed.length === 0) { setCsvResult({ imported: 0, errors }); return; }
+    setImporting(true);
+    try {
+      const startOrder = (cQuestions[contestId] || []).length;
+      // Two writes per row (question + answerKey) - chunk well under the 500-write cap.
+      for (let i = 0; i < parsed.length; i += 200) {
+        const chunk = parsed.slice(i, i + 200);
+        const batch = writeBatch(db);
+        chunk.forEach((q, idx) => {
+          const qRef = doc(collection(db, "contests", contestId, "questions"));
+          batch.set(qRef, {
+            type: q.type, question: q.question, options: q.options, marks: q.marks,
+            negativeMarks: q.negativeMarks, topic: q.topic, difficulty: q.difficulty,
+            order: startOrder + i + idx, createdAt: serverTimestamp(),
+          });
+          batch.set(doc(db, "contests", contestId, "answerKeys", qRef.id), {
+            correctOptionIds: q.correctOptionIds, correctText: q.correctText, explanation: q.explanation,
+          });
+        });
+        await batch.commit();
+      }
+      await updateDoc(doc(db, "contests", contestId), { questionCount: increment(parsed.length) });
+      logAdminActivity("bulk imported contest questions", `${parsed.length} question(s)`);
+      setCsvResult({ imported: parsed.length, errors });
+      setCsvText("");
+      loadQuestions(contestId);
+      load();
+    } catch (e) { console.error(e); setCsvResult({ imported: 0, errors: [...errors, "Import failed - check console."] }); }
+    finally { setImporting(false); }
+  };
+
+  const exportRegistrationsCsv = (contestId, title) => {
+    const rows = registrations[contestId] || [];
+    const csv = ["uid,registeredAt", ...rows.map(r => `${r.uid},${toDate(r.registeredAt)?.toISOString() || ""}`)].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${title.replace(/\s+/g, "-").toLowerCase()}-registrations.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  function toDate(v) { return v ? (typeof v.toDate === "function" ? v.toDate() : new Date(v)) : null; }
+
+  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "TOTAL", v: stats.total, c: "#00FFFF" },
+          { label: "LIVE", v: stats.live, c: "#00FF41" },
+          { label: "UPCOMING", v: stats.upcoming, c: "#FF9500" },
+          { label: "REGISTRATIONS", v: stats.registrations, c: "#C77DFF" },
+        ].map(s => (
+          <div key={s.label} className="border border-white/6 rounded-lg p-3 text-center">
+            <p className="font-mono text-lg font-bold" style={{ color: s.c }}>{s.v}</p>
+            <p className="font-mono text-[9px] text-white/25 tracking-wider mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {contests.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no contests yet</p>}
+
+      <div className="space-y-2">
+        {contests.map(contest => {
+          const sc = CONTEST_STATUSES.find(s => s.v === contest.status) || CONTEST_STATUSES[0];
+          const phase = contestPhase(contest);
+          return (
+            <div key={contest.id} className="border border-white/8 rounded-lg overflow-hidden">
+              <button onClick={() => toggleExpand(contest.id)} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/2 transition-colors text-left flex-wrap">
+                <Trophy size={13} className="text-neon-cyan/60 flex-shrink-0" />
+                <span className="font-sans text-sm text-white/80 flex-1 min-w-0 truncate">{contest.title}</span>
+                <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded flex-shrink-0">{contest.category}</span>
+                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: sc.c, background: `${sc.c}15` }}>{contest.status.toUpperCase()}</span>
+                {contest.status === "published" && (
+                  <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{phase.toUpperCase()}</span>
+                )}
+                <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{contest.questionCount || 0}q · {contest.participantCount || 0} reg</span>
+                {expanded === contest.id ? <ChevronUp size={12} className="text-white/30 flex-shrink-0" /> : <ChevronDown size={12} className="text-white/30 flex-shrink-0" />}
+              </button>
+
+              {expanded === contest.id && (
+                <div className="px-4 pb-4 space-y-4 border-t border-white/6 pt-3">
+                  {/* Lifecycle actions */}
+                  <div className="flex flex-wrap gap-2">
+                    {contest.status !== "published" && (
+                      <button onClick={() => handleSetStatus(contest.id, "published")} className="font-mono text-[10px] px-2.5 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/8 transition-colors">publish</button>
+                    )}
+                    {contest.status === "published" && (
+                      <button onClick={() => handleSetStatus(contest.id, "draft")} className="font-mono text-[10px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:bg-white/5 transition-colors">unpublish</button>
+                    )}
+                    {contest.status !== "archived" && (
+                      <button onClick={() => handleSetStatus(contest.id, "archived")} className="font-mono text-[10px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:bg-white/5 transition-colors">archive</button>
+                    )}
+                    <button onClick={() => handleDuplicate(contest)} className="font-mono text-[10px] px-2.5 py-1 rounded border border-neon-cyan/25 text-neon-cyan/70 hover:bg-neon-cyan/8 transition-colors">duplicate</button>
+                    <button onClick={() => handleDelete(contest.id, contest.title)} className="font-mono text-[10px] px-2.5 py-1 rounded border border-red-500/25 text-red-400/70 hover:bg-red-500/8 transition-colors ml-auto">delete</button>
+                  </div>
+
+                  {/* Questions */}
+                  <div>
+                    <p className="font-mono text-[9px] text-white/25 tracking-widest mb-1.5">QUESTIONS</p>
+                    <div className="space-y-2">
+                      {(cQuestions[contest.id] || []).map((q, i) => (
+                        <div key={q.id} className="flex items-center gap-2 border border-white/6 rounded px-3 py-2">
+                          <span className="font-mono text-[9px] text-white/25 w-5">{i + 1}</span>
+                          <span className="font-mono text-xs text-white/60 flex-1 truncate">{q.question}</span>
+                          <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded">{q.type}</span>
+                          <span className="font-mono text-[9px] text-neon-cyan/60">{q.marks}pt</span>
+                          <button onClick={() => handleDeleteQuestion(contest.id, q.id)} className="text-white/20 hover:text-red-400 transition-colors"><Trash2 size={11} /></button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Manual add */}
+                    <div className="border border-dashed border-white/10 rounded-lg p-3 space-y-2 mt-2">
+                      <p className="font-mono text-[9px] text-neon-green tracking-wider">+ add question manually</p>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {QUESTION_TYPES.map(t => (
+                          <button key={t} onClick={() => setQForm(blankContestQuestionForm(t))}
+                            className="font-mono text-[10px] px-2.5 py-1 rounded transition-colors"
+                            style={{
+                              color: qForm.type === t ? "#00FFFF" : "rgba(255,255,255,0.3)",
+                              background: qForm.type === t ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                              border: qForm.type === t ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                            }}>{t}</button>
+                        ))}
+                      </div>
+                      <Textarea label="QUESTION" value={qForm.question} onChange={v => setQForm(p => ({ ...p, question: v }))} rows={2} placeholder="What does the JVM do?" />
+
+                      {qForm.type === "fillblank" ? (
+                        <Input label="ACCEPTED ANSWER(S) - use | for alternatives" value={qForm.correctText} onChange={v => setQForm(p => ({ ...p, correctText: v }))} placeholder="extends|inherits" />
+                      ) : qForm.type === "truefalse" ? (
+                        <div className="flex gap-2">
+                          {["True", "False"].map((label, idx) => (
+                            <button key={label} onClick={() => setQForm(p => ({ ...p, correctIndices: [idx] }))}
+                              className="flex-1 font-mono text-xs py-2 rounded border transition-colors"
+                              style={{
+                                color: qForm.correctIndices[0] === idx ? "#00FF41" : "rgba(255,255,255,0.4)",
+                                borderColor: qForm.correctIndices[0] === idx ? "rgba(0,255,65,0.4)" : "rgba(255,255,255,0.1)",
+                                background: qForm.correctIndices[0] === idx ? "rgba(0,255,65,0.08)" : "transparent",
+                              }}>{label}</button>
+                          ))}
+                        </div>
+                      ) : (
+                        qForm.options.map((opt, oi) => (
+                          <div key={oi} className="flex items-center gap-2">
+                            <button onClick={() => setQForm(p => {
+                              const already = p.correctIndices.includes(oi);
+                              if (p.type === "multiselect") {
+                                return { ...p, correctIndices: already ? p.correctIndices.filter(i => i !== oi) : [...p.correctIndices, oi] };
+                              }
+                              return { ...p, correctIndices: [oi] };
+                            })}
+                              className="w-4 h-4 flex-shrink-0 transition-colors"
+                              style={{
+                                borderRadius: qForm.type === "multiselect" ? 4 : 999,
+                                border: `1px solid ${qForm.correctIndices.includes(oi) ? "#00FF41" : "rgba(255,255,255,0.2)"}`,
+                                background: qForm.correctIndices.includes(oi) ? "#00FF41" : "transparent",
+                              }} />
+                            <input value={opt} onChange={e => setQForm(p => ({ ...p, options: p.options.map((o, idx) => idx === oi ? e.target.value : o) }))}
+                              placeholder={`Option ${oi + 1}`}
+                              className="flex-1 font-mono text-[11px] text-white/70 px-2 py-1 rounded outline-none"
+                              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
+                          </div>
+                        ))
+                      )}
+
+                      <Textarea label="EXPLANATION" value={qForm.explanation} onChange={v => setQForm(p => ({ ...p, explanation: v }))} rows={2} placeholder="Shown to participants after the contest ends..." />
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <Input label="MARKS" value={qForm.marks} onChange={v => setQForm(p => ({ ...p, marks: v }))} placeholder="1" />
+                        <Input label="NEGATIVE" value={qForm.negativeMarks} onChange={v => setQForm(p => ({ ...p, negativeMarks: v }))} placeholder="0" />
+                        <Input label="TOPIC" value={qForm.topic} onChange={v => setQForm(p => ({ ...p, topic: v }))} placeholder="Arrays" />
+                        <div>
+                          <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+                          <select value={qForm.difficulty} onChange={e => setQForm(p => ({ ...p, difficulty: e.target.value }))}
+                            className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
+                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <option value="easy">easy</option><option value="medium">medium</option><option value="hard">hard</option>
+                          </select>
+                        </div>
+                      </div>
+                      <button onClick={() => handleAddQuestion(contest.id)} disabled={savingQ}
+                        className="w-full font-mono text-xs py-2 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
+                        {savingQ ? "saving..." : "add question"}
+                      </button>
+                    </div>
+
+                    {/* Bulk CSV import */}
+                    <div className="border border-dashed border-neon-purple/25 rounded-lg p-3 space-y-2 mt-3">
+                      <div className="flex items-center justify-between">
+                        <p className="font-mono text-[9px] text-neon-purple tracking-wider">+ bulk import from CSV</p>
+                        <button onClick={downloadContestCsvTemplate} className="flex items-center gap-1 font-mono text-[9px] text-white/40 hover:text-neon-purple transition-colors">
+                          <Download size={10} /> download template
+                        </button>
+                      </div>
+                      <pre className="font-mono text-[9px] text-white/25 whitespace-pre-wrap leading-relaxed">{CONTEST_CSV_HELP}</pre>
+                      <textarea value={csvText} onChange={e => setCsvText(e.target.value)} rows={5}
+                        placeholder="question,optionA,optionB,optionC,optionD,correctAnswer,type,difficulty,marks,negativeMarks,explanation,topic"
+                        className="w-full font-mono text-[11px] text-white/70 px-3 py-2 rounded outline-none"
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(199,125,255,0.2)" }} />
+                      {csvResult && (
+                        <p className="font-mono text-[10px]" style={{ color: csvResult.imported > 0 ? "#00FF41" : "#FF5050" }}>
+                          {csvResult.imported > 0 && `imported ${csvResult.imported} question(s). `}
+                          {csvResult.errors.length > 0 && `${csvResult.errors.length} row(s) skipped: ${csvResult.errors.slice(0, 3).join(" ")}`}
+                        </p>
+                      )}
+                      <button onClick={() => handleImportCsv(contest.id)} disabled={importing || !csvText.trim()}
+                        className="w-full font-mono text-xs py-2 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/8 transition-colors disabled:opacity-50">
+                        {importing ? "importing..." : "import CSV"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Registrations */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="font-mono text-[9px] text-white/25 tracking-widest">REGISTRATIONS ({contest.participantCount || 0})</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => loadRegistrations(contest.id)} className="font-mono text-[9px] text-white/40 hover:text-neon-cyan transition-colors">load</button>
+                        {registrations[contest.id] && (
+                          <button onClick={() => exportRegistrationsCsv(contest.id, contest.title)} className="flex items-center gap-1 font-mono text-[9px] text-white/40 hover:text-neon-cyan transition-colors">
+                            <Download size={10} /> export CSV
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {registrations[contest.id] && (
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {registrations[contest.id].length === 0 && <p className="font-mono text-[10px] text-white/20">no registrations yet</p>}
+                        {registrations[contest.id].map(r => (
+                          <div key={r.uid} className="font-mono text-[10px] text-white/40 flex items-center justify-between border-b border-white/4 py-1">
+                            <span className="truncate">{r.uid}</span>
+                            <span className="text-white/20 flex-shrink-0 ml-2">{toDate(r.registeredAt)?.toLocaleString() || ""}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Announcements */}
+                  <div>
+                    <p className="font-mono text-[9px] text-white/25 tracking-widest mb-1.5">ANNOUNCEMENTS</p>
+                    <div className="space-y-1 mb-2">
+                      {(announcements[contest.id] || []).map(a => (
+                        <p key={a.id} className="font-mono text-[10px] text-white/45 border-b border-white/4 py-1">{a.text}</p>
+                      ))}
+                      {announcements[contest.id]?.length === 0 && <p className="font-mono text-[10px] text-white/20">no announcements yet</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <input value={announcementText} onChange={e => setAnnouncementText(e.target.value)}
+                        placeholder="Post an update for registered participants..."
+                        className="flex-1 font-mono text-[11px] text-white/70 px-3 py-2 rounded outline-none"
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
+                      <button onClick={() => handlePostAnnouncement(contest.id)} disabled={postingAnnouncement || !announcementText.trim()}
+                        className="font-mono text-[10px] px-3 rounded border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors disabled:opacity-50">
+                        post
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Create contest */}
+      <div className="border border-white/6 rounded-lg p-4 space-y-3">
+        <p className="font-mono text-[10px] text-neon-green tracking-wider">// create contest</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Java Fundamentals Contest #1" />
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
+            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
+              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {CONTEST_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <Textarea label="DESCRIPTION" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} rows={2} placeholder="What this contest covers..." />
+        <Textarea label="RULES" value={form.rules} onChange={v => setForm(p => ({ ...p, rules: v }))} rows={2} placeholder="No external tools, one attempt per participant..." />
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+            <select value={form.difficulty} onChange={e => setForm(p => ({ ...p, difficulty: e.target.value }))}
+              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {CONTEST_DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <Input label="ELIGIBILITY" value={form.eligibility} onChange={v => setForm(p => ({ ...p, eligibility: v }))} placeholder="Open to all" />
+          <Input label="ORGANIZER" value={form.organizer} onChange={v => setForm(p => ({ ...p, organizer: v }))} placeholder="DeVert" />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="BANNER URL (optional)" value={form.bannerUrl} onChange={v => setForm(p => ({ ...p, bannerUrl: v }))} placeholder="https://..." />
+          <Input label="TAGS (comma separated)" value={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="DSA, Interview Prep" />
+        </div>
+        <p className="font-mono text-[9px] text-white/25 tracking-wider mt-2">SCHEDULE (leave registration blank to allow registering until contest start)</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="REGISTRATION START" type="datetime-local" value={form.registrationStart} onChange={v => setForm(p => ({ ...p, registrationStart: v }))} />
+          <Input label="REGISTRATION END" type="datetime-local" value={form.registrationEnd} onChange={v => setForm(p => ({ ...p, registrationEnd: v }))} />
+          <Input label="CONTEST START" type="datetime-local" value={form.contestStart} onChange={v => setForm(p => ({ ...p, contestStart: v }))} />
+          <Input label="CONTEST END" type="datetime-local" value={form.contestEnd} onChange={v => setForm(p => ({ ...p, contestEnd: v }))} />
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Input label="DURATION (minutes)" value={form.durationMinutes} onChange={v => setForm(p => ({ ...p, durationMinutes: v }))} placeholder="60" />
+          <Input label="PRIZE XP" value={form.prizeXp} onChange={v => setForm(p => ({ ...p, prizeXp: v }))} placeholder="100" />
+          <Input label="PRIZE COINS" value={form.prizeCoins} onChange={v => setForm(p => ({ ...p, prizeCoins: v }))} placeholder="50" />
+        </div>
+        <Input label="PRIZE TEXT (optional)" value={form.prizeText} onChange={v => setForm(p => ({ ...p, prizeText: v }))} placeholder="Top 3 get DeVert merch" />
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
+          <div className="flex gap-2">
+            {CONTEST_STATUSES.map(s => (
+              <button key={s.v} onClick={() => setForm(p => ({ ...p, status: s.v }))}
+                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
+                style={{
+                  color: form.status === s.v ? s.c : "rgba(255,255,255,0.3)",
+                  background: form.status === s.v ? `${s.c}12` : "rgba(255,255,255,0.03)",
+                  border: form.status === s.v ? `1px solid ${s.c}35` : "1px solid rgba(255,255,255,0.06)",
+                }}>{s.v.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
+        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleCreate} disabled={saving}
+          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+          <Plus size={12} /> {saving ? "creating..." : "create contest"}
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
 // ── Hackathons panel ──────────────────────────────────────────────────────────
 
 const HACKATHON_STATUSES = [
@@ -3514,6 +4157,9 @@ export default function AdminPage() {
                 </Section>
                 <Section title="ARENA CHALLENGES" icon={Swords} color="#FF9500">
                   <ArenaPanel />
+                </Section>
+                <Section title="CONTESTS" icon={Trophy} color="#00FFFF">
+                  <ContestsPanel />
                 </Section>
                 <Section title="HACKATHONS" icon={Trophy} color="#FF6430">
                   <HackathonsPanel />

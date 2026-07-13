@@ -7,6 +7,7 @@ import { QuickStatsRow } from "@/components/quick-stats-row";
 import { QuickActionsGrid } from "@/components/quick-actions-grid";
 import { NotificationsSummary } from "@/components/notifications-summary";
 import { PlatformUpdates } from "@/components/platform-updates";
+import { UpcomingContestsCard } from "@/components/upcoming-contests-card";
 
 export function HomeDashboard() {
   return (
@@ -29,6 +30,7 @@ export function HomeDashboard() {
             <QuickActionsGrid />
           </div>
           <div className="lg:col-span-1">
+            <UpcomingContestsCard />
             <NotificationsSummary />
             <PlatformUpdates />
           </div>

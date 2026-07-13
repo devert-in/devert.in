@@ -328,5 +328,112 @@ service cloud.firestore {
     match /user_aptitude_progress/{uid} {
       allow read, write: if isOwner(uid) || isAdmin();
     }
+
+    // Contest Platform - scheduled, ranked, multi-question events. Admin-authored,
+    // publicly readable once published. Questions hold NO correct-answer data (so a
+    // participant can't read answers from the network tab mid-contest) - that lives in
+    // the sibling answerKeys subcollection, gated to open only once the contest has
+    // ended for everyone. Submissions are created immutably (raw answers only) during
+    // the contest, then get exactly one bounded, irreversible grading update after
+    // answerKeys unlock - client-computed and only coarsely bounded (can't exceed the
+    // contest's own announced prize caps), not re-verified server-side, since rules
+    // can't loop over question docs. Same accepted trust-boundary trade-off as the coin
+    // economy (see economyVal()/xpDeltaSane() above) - a real Cloud Function is the
+    // future hardening step, not something solved here.
+    match /contests/{contestId} {
+      allow read:   if (resource != null && resource.data.status == 'published') || isAdmin();
+      allow create, delete: if isAdmin();
+      // Any signed-in user may bump participantCount by exactly +-1 (registering /
+      // unregistering) - same bounded shared-counter pattern as pulse_posts counters.
+      allow update: if isAdmin() || (isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantCount'])
+        && (request.resource.data.get('participantCount', 0) - resource.data.get('participantCount', 0)) in [-1, 1]);
+
+      match /questions/{questionId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }
+
+      match /answerKeys/{questionId} {
+        allow read: if isAdmin() || (isAuth() &&
+          request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
+        allow write: if isAdmin();
+      }
+
+      match /announcements/{announcementId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }
+
+      // Owner reads/creates their own registration within the registration window;
+      // admin can read all (registrations viewer). Non-owner may bump the parent
+      // contest's participantCount by exactly +1 as part of registering - same bounded
+      // shared-counter pattern used for pulse_posts engagement counts.
+      match /registrations/{uid} {
+        allow read:   if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid) && request.resource.data.registeredAt != null
+          && request.time <= get(/databases/$(database)/documents/contests/$(contestId)).data.registrationEnd;
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      // Owner creates their own submission once, with raw answers only (no score/grade
+      // fields yet). The one legal follow-up is the owner flipping graded false->true
+      // after contestEnd, with xpEarned/coinsEarned bounded to the contest's own prize
+      // caps. Anyone signed in can read submissions once the contest has ended - that's
+      // what powers the per-contest leaderboard.
+      match /submissions/{uid} {
+        allow read: if isOwner(uid) || isAdmin() || (isAuth() &&
+          request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
+        allow create: if isOwner(uid)
+          && request.resource.data.graded == false
+          && !('score' in request.resource.data)
+          && !('xpEarned' in request.resource.data)
+          && !('coinsEarned' in request.resource.data);
+        allow update: if isOwner(uid)
+          && resource.data.graded == false
+          && request.resource.data.graded == true
+          && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd
+          && request.resource.data.xpEarned >= 0
+          && request.resource.data.xpEarned <= get(/databases/$(database)/documents/contests/$(contestId)).data.get('prizeXp', 0)
+          && request.resource.data.coinsEarned >= 0
+          && request.resource.data.coinsEarned <= get(/databases/$(database)/documents/contests/$(contestId)).data.get('prizeCoins', 0);
+      }
+    }
+
+    // CodeLab - problems/playground platform. Problems and their sample tests are
+    // world-readable (needed to render the problem statement); hidden tests are
+    // admin-only and are NEVER read by any client code path - unlike Contests' answer
+    // keys (which unlock after a contestEnd timestamp), problems are evergreen with no
+    // "end time" to gate behind, so hidden tests can only ever be read server-side, by
+    // devert-backend's firebase-admin SDK (which bypasses these rules entirely). Grading
+    // happens the same way: codelab_submissions is owner/admin READ-only from the
+    // client - every write is performed by the trusted backend after running the
+    // hidden tests itself, so there's no bounded-trust compromise to make here.
+    match /problems/{problemId} {
+      allow read:  if (resource != null && resource.data.status == 'published') || isAdmin();
+      allow write: if isAdmin();
+
+      match /sampleTests/{testId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }
+
+      match /hiddenTests/{testId} {
+        allow read:  if isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    match /codelab_submissions/{submissionId} {
+      allow read:  if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Per-user CodeLab progress - owner or admin only. Written by devert-backend's
+    // admin SDK after each graded submission; the owner-write path exists only so
+    // future client-side preference writes (if any) have somewhere sane to land.
+    match /user_codelab_progress/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
+    }
   }
 }

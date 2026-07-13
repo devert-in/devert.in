@@ -116,3 +116,149 @@ test("a user can only read/write their own aptitude progress, not someone else's
   await assertFails(other.firestore().doc("user_aptitude_progress/owner-uid").set({ attempted: {} }));
   await assertFails(other.firestore().doc("user_aptitude_progress/owner-uid").get());
 });
+
+// --- Contest Platform ---
+
+const FUTURE = new Date(Date.now() + 60 * 60 * 1000); // +1h, mirrors an in-progress/upcoming contest
+const PAST = new Date(Date.now() - 60 * 60 * 1000);    // -1h, mirrors a contest that has ended
+
+async function seedContest(ctx, contestId, overrides = {}) {
+  await ctx.firestore().doc(`contests/${contestId}`).set({
+    status: "published",
+    registrationEnd: FUTURE,
+    contestEnd: FUTURE,
+    prizeXp: 100,
+    prizeCoins: 50,
+    participantCount: 0,
+    ...overrides,
+  });
+}
+
+test("a non-admin cannot read a contest's answerKeys before contestEnd, but can after", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedContest(ctx, "c-live", { contestEnd: FUTURE });
+    await seedContest(ctx, "c-ended", { contestEnd: PAST });
+    await ctx.firestore().doc("contests/c-live/answerKeys/q1").set({ correctOptionIds: ["a"] });
+    await ctx.firestore().doc("contests/c-ended/answerKeys/q1").set({ correctOptionIds: ["a"] });
+  });
+  const user = testEnv.authenticatedContext("user-uid");
+  await assertFails(user.firestore().doc("contests/c-live/answerKeys/q1").get());
+  await assertSucceeds(user.firestore().doc("contests/c-ended/answerKeys/q1").get());
+});
+
+test("a user can create their own contest submission with raw answers only, not with a score", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await seedContest(ctx, "c1"); });
+  const user = testEnv.authenticatedContext("user-uid");
+  await assertSucceeds(user.firestore().doc("contests/c1/submissions/user-uid").set({
+    answers: { q1: "a" }, graded: false,
+  }));
+  await assertFails(user.firestore().doc("contests/c1/submissions/other-uid").set({
+    answers: { q1: "a" }, graded: false,
+  }));
+  await assertFails(user.firestore().doc("contests/c1/submissions/user-uid2").set({
+    answers: { q1: "a" }, graded: false, score: 999,
+  }));
+});
+
+test("a user cannot grade their own contest submission before contestEnd, or above the contest's prize caps", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedContest(ctx, "c-live", { contestEnd: FUTURE, prizeXp: 100, prizeCoins: 50 });
+    await seedContest(ctx, "c-ended", { contestEnd: PAST, prizeXp: 100, prizeCoins: 50 });
+    await ctx.firestore().doc("contests/c-live/submissions/user-uid").set({ answers: {}, graded: false });
+    await ctx.firestore().doc("contests/c-ended/submissions/user-uid").set({ answers: {}, graded: false });
+  });
+  const user = testEnv.authenticatedContext("user-uid");
+  // Contest still running - grading update rejected regardless of amount.
+  await assertFails(user.firestore().doc("contests/c-live/submissions/user-uid").update({
+    graded: true, score: 10, xpEarned: 50, coinsEarned: 20,
+  }));
+  // Contest ended, but claiming more than the announced prize cap - rejected.
+  await assertFails(user.firestore().doc("contests/c-ended/submissions/user-uid").update({
+    graded: true, score: 999, xpEarned: 99999, coinsEarned: 50,
+  }));
+  // Contest ended, within caps - allowed, exactly once.
+  await assertSucceeds(user.firestore().doc("contests/c-ended/submissions/user-uid").update({
+    graded: true, score: 10, xpEarned: 50, coinsEarned: 20,
+  }));
+});
+
+test("contest submissions are readable by anyone signed in once the contest ends (drives the leaderboard)", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedContest(ctx, "c-live", { contestEnd: FUTURE });
+    await seedContest(ctx, "c-ended", { contestEnd: PAST });
+    await ctx.firestore().doc("contests/c-live/submissions/author-uid").set({ answers: {}, graded: false });
+    await ctx.firestore().doc("contests/c-ended/submissions/author-uid").set({ answers: {}, graded: false });
+  });
+  const other = testEnv.authenticatedContext("other-uid");
+  await assertFails(other.firestore().doc("contests/c-live/submissions/author-uid").get());
+  await assertSucceeds(other.firestore().doc("contests/c-ended/submissions/author-uid").get());
+});
+
+test("any signed-in user may bump a contest's participantCount by exactly one, not an arbitrary amount", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await seedContest(ctx, "c1", { participantCount: 0 }); });
+  const user = testEnv.authenticatedContext("user-uid");
+  await assertFails(user.firestore().doc("contests/c1").update({ participantCount: 500 }));
+  await assertSucceeds(user.firestore().doc("contests/c1").update({ participantCount: 1 }));
+});
+
+test("only admin can write contest questions/answerKeys; anyone can read published contests and their questions", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await seedContest(ctx, "c1"); });
+  const guest = testEnv.unauthenticatedContext();
+  await assertSucceeds(guest.firestore().doc("contests/c1").get());
+  await assertSucceeds(guest.firestore().doc("contests/c1/questions/q1").get());
+  await assertFails(guest.firestore().doc("contests/c1/questions/q1").set({ question: "hack" }));
+
+  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
+  await assertSucceeds(admin.firestore().doc("contests/c1/questions/q1").set({ question: "2+2?", options: [] }));
+  await assertSucceeds(admin.firestore().doc("contests/c1/answerKeys/q1").set({ correctOptionIds: ["a"] }));
+});
+
+// --- CodeLab ---
+
+async function seedProblem(ctx, problemId, overrides = {}) {
+  await ctx.firestore().doc(`problems/${problemId}`).set({ status: "published", ...overrides });
+}
+
+test("anyone can read a published problem and its sample tests; a client can NEVER read hidden tests", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedProblem(ctx, "p1");
+    await ctx.firestore().doc("problems/p1/sampleTests/t1").set({ input: "1", expectedOutput: "1" });
+    await ctx.firestore().doc("problems/p1/hiddenTests/t1").set({ input: "2", expectedOutput: "4" });
+  });
+  const guest = testEnv.unauthenticatedContext();
+  await assertSucceeds(guest.firestore().doc("problems/p1").get());
+  await assertSucceeds(guest.firestore().doc("problems/p1/sampleTests/t1").get());
+  await assertFails(guest.firestore().doc("problems/p1/hiddenTests/t1").get());
+
+  const user = testEnv.authenticatedContext("user-uid");
+  await assertFails(user.firestore().doc("problems/p1/hiddenTests/t1").get());
+
+  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
+  await assertSucceeds(admin.firestore().doc("problems/p1/hiddenTests/t1").get());
+});
+
+test("only admin can write problems/sample/hidden tests", async () => {
+  const user = testEnv.authenticatedContext("user-uid");
+  await assertFails(user.firestore().doc("problems/p1").set({ status: "published", title: "hack" }));
+  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
+  await assertSucceeds(admin.firestore().doc("problems/p1").set({ status: "published", title: "Two Sum" }));
+});
+
+test("codelab_submissions are owner/admin read-only; a client can never write one directly (grading is backend-only)", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("codelab_submissions/s1").set({ uid: "owner-uid", verdict: "Accepted" });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("codelab_submissions/s1").get());
+  await assertFails(owner.firestore().doc("codelab_submissions/s1").set({ uid: "owner-uid", verdict: "Accepted" }));
+
+  const other = testEnv.authenticatedContext("other-uid");
+  await assertFails(other.firestore().doc("codelab_submissions/s1").get());
+});
+
+test("a user can only read/write their own codelab progress, not someone else's", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("user_codelab_progress/owner-uid").set({ solvedProblems: {} }));
+  const other = testEnv.authenticatedContext("other-uid");
+  await assertFails(other.firestore().doc("user_codelab_progress/owner-uid").get());
+});

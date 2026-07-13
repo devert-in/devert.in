@@ -23,7 +23,43 @@
         { "fieldPath": "targetUid", "order": "ASCENDING"  },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "graded",           "order": "ASCENDING"  },
+        { "fieldPath": "score",            "order": "DESCENDING" },
+        { "fieldPath": "timeTakenSeconds", "order": "ASCENDING"  }
+      ]
+    },
+    {
+      "collectionGroup": "submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "graded", "order": "ASCENDING" },
+        { "fieldPath": "score",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "codelab_submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid",       "order": "ASCENDING"  },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "announcements",
+      "fieldPath": "createdAt",
+      "indexes": [
+        { "queryScope": "COLLECTION",       "order": "ASCENDING"  },
+        { "queryScope": "COLLECTION",       "order": "DESCENDING" },
+        { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING"  },
+        { "queryScope": "COLLECTION_GROUP", "order": "DESCENDING" }
+      ]
+    }
+  ]
 }

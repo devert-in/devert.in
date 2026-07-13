@@ -9,6 +9,7 @@ import {
   doc, getDoc, addDoc, updateDoc, increment, serverTimestamp,
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
+import { ContestHub } from "@/components/contests/contest-hub";
 
 const TIER_COLORS = { LEGEND: "#FFD700", ELITE: "#FF6B35", ARCHITECT: "#00FFFF", BUILDER: "#00FF41", RECRUIT: "#666" };
 
@@ -252,6 +253,7 @@ function ResultModal({ result, onClose }) {
 
 export default function ArenaPage() {
   const { user, userData, refreshProfile } = useAuth();
+  const [arenaTab, setArenaTab] = useState("solo");
   const [leaderboard, setLeaderboard] = useState([]);
   const [challenges,  setChallenges]  = useState([]);
   const [loadingLB,   setLoadingLB]   = useState(true);
@@ -358,8 +360,25 @@ export default function ArenaPage() {
             CODE <span className="text-neon-cyan">COMBAT</span>
           </h1>
           <p className="font-mono text-sm text-white/35">Head-to-head. Timed. Brutal. No mercy.</p>
+
+          <div className="flex gap-2 mt-6">
+            {[{ key: "solo", label: "Solo Challenges" }, { key: "contests", label: "Contests" }].map(t => (
+              <button key={t.key} onClick={() => setArenaTab(t.key)}
+                className="font-mono text-xs px-4 py-2 rounded-lg transition-colors"
+                style={{
+                  color: arenaTab === t.key ? "#00FFFF" : "rgba(255,255,255,0.35)",
+                  background: arenaTab === t.key ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                  border: arenaTab === t.key ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </motion.div>
 
+        {arenaTab === "contests" && <ContestHub />}
+
+        {arenaTab === "solo" && (
         <div className="grid md:grid-cols-2 gap-6">
           {/* Challenges */}
           <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
@@ -491,6 +510,7 @@ export default function ArenaPage() {
             </div>
           </motion.div>
         </div>
+        )}
       </div>
     </main>
   );
