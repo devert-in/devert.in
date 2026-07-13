@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Zap, Anchor, Swords, Coins, Trophy } from "lucide-react";
+import { Zap, Anchor, Swords, Coins, Trophy, Code2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export function QuickStatsRow() {
@@ -16,6 +16,9 @@ export function QuickStatsRow() {
     ...(userData.contestsParticipated ? [
       { label: "CONTEST XP",    val: (userData.contestXp || 0).toLocaleString(),    icon: Trophy, color: "#C77DFF" },
       { label: "CONTEST COINS", val: (userData.contestCoins || 0).toLocaleString(), icon: Trophy, color: "#FFD700" },
+    ] : []),
+    ...(userData.problemsSolvedCount ? [
+      { label: "PROBLEMS SOLVED", val: userData.problemsSolvedCount, icon: Code2, color: "#C77DFF" },
     ] : []),
   ];
 

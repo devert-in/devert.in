@@ -110,10 +110,14 @@ public class GradingService {
         if (accepted) problemUpdate.put("acceptedSubmissions", FieldValue.increment(1));
         problemRef.set(problemUpdate, com.google.cloud.firestore.SetOptions.merge()).get();
 
-        if (xpEarned > 0 || coinsEarned > 0) {
+        if (xpEarned > 0 || coinsEarned > 0 || (accepted && !alreadySolved)) {
             Map<String, Object> userUpdate = new HashMap<>();
-            userUpdate.put("xp", FieldValue.increment(xpEarned));
-            userUpdate.put("credits", FieldValue.increment(coinsEarned));
+            if (xpEarned > 0) userUpdate.put("xp", FieldValue.increment(xpEarned));
+            if (coinsEarned > 0) userUpdate.put("credits", FieldValue.increment(coinsEarned));
+            // Denormalized onto the public users doc (like arenaWins/contestXp) so a
+            // "Top Solvers" leaderboard can query it directly - user_codelab_progress
+            // itself stays owner-only readable, same privacy default as Aptitude.
+            if (accepted && !alreadySolved) userUpdate.put("problemsSolvedCount", FieldValue.increment(1));
             db.collection("users").document(uid).set(userUpdate, com.google.cloud.firestore.SetOptions.merge()).get();
         }
 

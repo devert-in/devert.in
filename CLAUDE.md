@@ -9,12 +9,20 @@ no application server in the request path.
 - `devert-frontend/` — the actual product. Next.js 16 App Router, `output:
   'export'` (static export, no server-side rendering, no API routes).
 - `devert-backend/` — a small Spring Boot service that does ONLY things a
-  browser can't safely do: send real emails (payout status, hackathon
-  registration confirmation) using SMTP credentials that must stay
-  server-side. It has no other job. It is not currently deployed (blocked on
-  the project's Firebase billing account being reactivated — see below); the
-  frontend calls it via `NEXT_PUBLIC_API_URL` and no-ops silently if that's
-  unset, so its absence never breaks a real feature.
+  browser can't safely do. Deployed on Render (`render.yaml`, free plan,
+  Singapore region). Two jobs:
+  - Send real emails (payout status, hackathon registration confirmation)
+    using SMTP credentials that must stay server-side. The frontend calls
+    this via `NEXT_PUBLIC_API_URL` and no-ops silently if that's unset, so
+    its absence never breaks a real feature.
+  - CodeLab's code execution/grading: proxies Judge0 CE calls (the API key
+    must never reach the browser) and grades submissions against hidden
+    test cases, which it reads server-side via `firebase-admin` — the ONLY
+    code path that ever sees them, since Firestore rules block every client
+    read of `problems/{id}/hiddenTests`. `FirebaseConfig`'s Firestore bean
+    fails soft (returns null, logs a warning) if
+    `FIREBASE_SERVICE_ACCOUNT_JSON`/`JUDGE0_API_KEY` aren't set, so a missing
+    secret degrades CodeLab endpoints only — it never takes down email.
 - `scripts/` — one-off Node admin scripts using `firebase-admin` +
   `scripts/service-account.json` (gitignored, never commit it). Includes
   `set-admin-claim.mjs` for granting/revoking admin access.

@@ -10,7 +10,7 @@ import {
   Tv2, GitCommit, Radio, Activity, BookOpen, Wallet, ShieldCheck,
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
-  GraduationCap, Lock as LockIcon, ListChecks, Download,
+  GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff,
 } from "lucide-react";
 import {
   db
@@ -19,6 +19,7 @@ import { writeNotification } from "@/components/notification-bell";
 import { DEFAULT_TIERS } from "@/lib/ranks";
 import { DEFAULT_ECONOMY } from "@/lib/economy";
 import { CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES, contestPhase } from "@/lib/contests";
+import { CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, CODELAB_LANGUAGES } from "@/lib/codelab";
 import {
   collection, query, orderBy, where, getDocs, addDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch
@@ -3247,6 +3248,368 @@ function ContestsPanel() {
   );
 }
 
+// ── CodeLab problems panel ────────────────────────────────────────────────────
+
+const CODELAB_STATUSES = [
+  { v: "draft",     c: "rgba(255,255,255,0.4)" },
+  { v: "published", c: "#00FF41" },
+];
+
+function blankProblemForm() {
+  return {
+    title: "", category: CODELAB_CATEGORIES[0], difficulty: "Easy", tags: "",
+    statement: "", constraints: "", examplesText: "", hints: "",
+    estimatedTime: "15", xpReward: "50", coinReward: "20", status: "draft",
+  };
+}
+
+function blankTestForm() { return { input: "", expectedOutput: "", explanation: "", points: "1" }; }
+
+const CODELAB_CSV_HEADER = "type,input,expectedoutput,explanation,points";
+const CODELAB_CSV_EXAMPLE_ROWS = [
+  ['sample', '5\n3', '8', 'Add the two numbers: 5 + 3 = 8.', ''],
+  ['hidden', '100\n250', '350', '', '1'],
+  ['hidden', '-5\n5', '0', '', '1'],
+];
+const CODELAB_CSV_TEMPLATE = [CODELAB_CSV_HEADER, ...CODELAB_CSV_EXAMPLE_ROWS.map(r =>
+  r.map(f => (f.includes(",") || f.includes('"') || f.includes("\n") ? `"${f.replace(/"/g, '""')}"` : f)).join(",")
+)].join("\n");
+const CODELAB_CSV_HELP = `Columns (first row = header, exact names): type,input,expectedOutput,explanation,points
+type: sample (shown to solvers in the problem statement) or hidden (never shown - used for grading only)
+explanation is only used for sample tests; points only for hidden tests (defaults to 1)`;
+
+function downloadCodelabCsvTemplate() {
+  const blob = new Blob([CODELAB_CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "codelab-testcases-template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvRowsToTestCases(rows) {
+  if (rows.length < 2) return { sampleTests: [], hiddenTests: [], errors: ["No data rows found (need a header row + at least one test case row)."] };
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const col = name => header.indexOf(name);
+  const missing = ["type", "input", "expectedoutput"].filter(n => col(n) === -1);
+  if (missing.length) return { sampleTests: [], hiddenTests: [], errors: [`Missing required column(s): ${missing.join(", ")}`] };
+
+  const sampleTests = [], hiddenTests = [], errors = [];
+  rows.slice(1).forEach((r, i) => {
+    const lineNo = i + 2;
+    const get = name => (col(name) !== -1 ? (r[col(name)] || "").trim() : "");
+    const type = get("type").toLowerCase();
+    const input = get("input");
+    const expectedOutput = get("expectedoutput");
+    if (!expectedOutput || !["sample", "hidden"].includes(type)) {
+      errors.push(`Row ${lineNo}: skipped - type must be "sample" or "hidden", and expectedOutput is required.`);
+      return;
+    }
+    if (type === "sample") sampleTests.push({ input, expectedOutput, explanation: get("explanation") });
+    else hiddenTests.push({ input, expectedOutput, points: parseFloat(get("points")) || 1 });
+  });
+  return { sampleTests, hiddenTests, errors };
+}
+
+function CodingProblemsPanel() {
+  const [problems, setProblems] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [expanded, setExpanded] = useState(null);
+  const [sampleTests, setSampleTests] = useState({});
+  const [hiddenTests, setHiddenTests] = useState({});
+
+  const [form, setForm] = useState(blankProblemForm());
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState("");
+
+  const [sampleForm, setSampleForm] = useState(blankTestForm());
+  const [hiddenForm, setHiddenForm] = useState(blankTestForm());
+  const [savingTest, setSavingTest] = useState(false);
+
+  const [csvText, setCsvText] = useState("");
+  const [csvResult, setCsvResult] = useState(null);
+  const [importing, setImporting] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    getDocs(query(collection(db, "problems"), orderBy("createdAt", "desc")))
+      .then(snap => setProblems(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const loadTests = (problemId) => {
+    Promise.all([
+      getDocs(collection(db, "problems", problemId, "sampleTests")),
+      getDocs(collection(db, "problems", problemId, "hiddenTests")),
+    ]).then(([sSnap, hSnap]) => {
+      setSampleTests(p => ({ ...p, [problemId]: sSnap.docs.map(d => ({ id: d.id, ...d.data() })) }));
+      setHiddenTests(p => ({ ...p, [problemId]: hSnap.docs.map(d => ({ id: d.id, ...d.data() })) }));
+    }).catch(console.error);
+  };
+
+  const toggleExpand = (problemId) => {
+    if (expanded === problemId) { setExpanded(null); return; }
+    setExpanded(problemId);
+    setCsvText(""); setCsvResult(null); setSampleForm(blankTestForm()); setHiddenForm(blankTestForm());
+    if (!sampleTests[problemId]) loadTests(problemId);
+  };
+
+  const handleCreate = async () => {
+    if (!form.title.trim() || !form.statement.trim()) return setError("Title and problem statement are required.");
+    setSaving(true); setError("");
+    try {
+      await addDoc(collection(db, "problems"), {
+        title: form.title.trim(), category: form.category, difficulty: form.difficulty,
+        tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+        statement: form.statement.trim(), constraints: form.constraints.trim(),
+        examplesText: form.examplesText.trim(),
+        hints: form.hints.split("\n").map(h => h.trim()).filter(Boolean),
+        estimatedTime: parseInt(form.estimatedTime) || 15,
+        xpReward: parseInt(form.xpReward) || 0, coinReward: parseInt(form.coinReward) || 0,
+        status: form.status, totalSubmissions: 0, acceptedSubmissions: 0,
+        createdAt: serverTimestamp(), createdBy: ADMIN_EMAIL,
+      });
+      setForm(blankProblemForm());
+      logAdminActivity("created coding problem", form.title.trim());
+      load();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleSetStatus = async (problemId, status) => {
+    await updateDoc(doc(db, "problems", problemId), { status });
+    load();
+  };
+
+  const handleDelete = async (problemId, title) => {
+    if (!confirm(`Delete "${title}" and all its test cases? This can't be undone.`)) return;
+    try {
+      const [sSnap, hSnap] = await Promise.all([
+        getDocs(collection(db, "problems", problemId, "sampleTests")),
+        getDocs(collection(db, "problems", problemId, "hiddenTests")),
+      ]);
+      await Promise.all([...sSnap.docs.map(d => deleteDoc(d.ref)), ...hSnap.docs.map(d => deleteDoc(d.ref))]);
+      await deleteDoc(doc(db, "problems", problemId));
+      logAdminActivity("deleted coding problem", title);
+      load();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleAddTest = async (problemId, isHidden) => {
+    const f = isHidden ? hiddenForm : sampleForm;
+    if (!f.expectedOutput.trim()) return;
+    setSavingTest(true);
+    try {
+      const coll = isHidden ? "hiddenTests" : "sampleTests";
+      const payload = isHidden
+        ? { input: f.input, expectedOutput: f.expectedOutput.trim(), points: parseFloat(f.points) || 1 }
+        : { input: f.input, expectedOutput: f.expectedOutput.trim(), explanation: f.explanation.trim() };
+      await addDoc(collection(db, "problems", problemId, coll), payload);
+      (isHidden ? setHiddenForm : setSampleForm)(blankTestForm());
+      loadTests(problemId);
+    } catch (e) { console.error(e); }
+    finally { setSavingTest(false); }
+  };
+
+  const handleDeleteTest = async (problemId, testId, isHidden) => {
+    await deleteDoc(doc(db, "problems", problemId, isHidden ? "hiddenTests" : "sampleTests", testId));
+    loadTests(problemId);
+  };
+
+  const handleImportCsv = async (problemId) => {
+    const { sampleTests: parsedSample, hiddenTests: parsedHidden, errors } = csvRowsToTestCases(parseCSV(csvText));
+    if (parsedSample.length === 0 && parsedHidden.length === 0) { setCsvResult({ imported: 0, errors }); return; }
+    setImporting(true);
+    try {
+      const batch = writeBatch(db);
+      parsedSample.forEach(t => batch.set(doc(collection(db, "problems", problemId, "sampleTests")), t));
+      parsedHidden.forEach(t => batch.set(doc(collection(db, "problems", problemId, "hiddenTests")), t));
+      await batch.commit();
+      const total = parsedSample.length + parsedHidden.length;
+      logAdminActivity("bulk imported test cases", `${total} test case(s)`);
+      setCsvResult({ imported: total, errors });
+      setCsvText("");
+      loadTests(problemId);
+    } catch (e) { console.error(e); setCsvResult({ imported: 0, errors: [...errors, "Import failed - check console."] }); }
+    finally { setImporting(false); }
+  };
+
+  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  return (
+    <div className="space-y-5">
+      <p className="font-mono text-[10px] text-white/18">
+        Sample tests are shown to solvers in the problem statement. Hidden tests are NEVER sent to the browser -
+        devert-backend reads them server-side to grade submissions.
+      </p>
+
+      {problems.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no problems yet</p>}
+
+      <div className="space-y-2">
+        {problems.map(problem => {
+          const sc = CODELAB_STATUSES.find(s => s.v === problem.status) || CODELAB_STATUSES[0];
+          return (
+            <div key={problem.id} className="border border-white/8 rounded-lg overflow-hidden">
+              <button onClick={() => toggleExpand(problem.id)} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/2 transition-colors text-left flex-wrap">
+                <Code2 size={13} className="text-neon-cyan/60 flex-shrink-0" />
+                <span className="font-sans text-sm text-white/80 flex-1 min-w-0 truncate">{problem.title}</span>
+                <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded flex-shrink-0">{problem.category}</span>
+                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: sc.c, background: `${sc.c}15` }}>{problem.status.toUpperCase()}</span>
+                <span className="font-mono text-[9px] text-white/25 flex-shrink-0">
+                  {(sampleTests[problem.id]?.length || 0)}s / {(hiddenTests[problem.id]?.length || 0)}h tests
+                </span>
+                {expanded === problem.id ? <ChevronUp size={12} className="text-white/30 flex-shrink-0" /> : <ChevronDown size={12} className="text-white/30 flex-shrink-0" />}
+              </button>
+
+              {expanded === problem.id && (
+                <div className="px-4 pb-4 space-y-4 border-t border-white/6 pt-3">
+                  <div className="flex flex-wrap gap-2">
+                    {problem.status !== "published" && (
+                      <button onClick={() => handleSetStatus(problem.id, "published")} className="font-mono text-[10px] px-2.5 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/8 transition-colors">publish</button>
+                    )}
+                    {problem.status === "published" && (
+                      <button onClick={() => handleSetStatus(problem.id, "draft")} className="font-mono text-[10px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:bg-white/5 transition-colors">unpublish</button>
+                    )}
+                    <button onClick={() => handleDelete(problem.id, problem.title)} className="font-mono text-[10px] px-2.5 py-1 rounded border border-red-500/25 text-red-400/70 hover:bg-red-500/8 transition-colors ml-auto">delete</button>
+                  </div>
+
+                  {/* Sample tests */}
+                  <div>
+                    <p className="font-mono text-[9px] text-neon-green tracking-widest mb-1.5 flex items-center gap-1"><Eye size={10} /> SAMPLE TESTS (visible to solvers)</p>
+                    <div className="space-y-1.5 mb-2">
+                      {(sampleTests[problem.id] || []).map(t => (
+                        <div key={t.id} className="flex items-center gap-2 border border-white/6 rounded px-3 py-2">
+                          <span className="font-mono text-[10px] text-white/50 flex-1 truncate">in: {t.input || "(empty)"} -&gt; out: {t.expectedOutput}</span>
+                          <button onClick={() => handleDeleteTest(problem.id, t.id, false)} className="text-white/20 hover:text-red-400 transition-colors"><Trash2 size={11} /></button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-2 mb-2">
+                      <Textarea label="INPUT (stdin)" value={sampleForm.input} onChange={v => setSampleForm(p => ({ ...p, input: v }))} rows={2} placeholder="5&#10;3" />
+                      <Textarea label="EXPECTED OUTPUT" value={sampleForm.expectedOutput} onChange={v => setSampleForm(p => ({ ...p, expectedOutput: v }))} rows={2} placeholder="8" />
+                    </div>
+                    <Input label="EXPLANATION (optional)" value={sampleForm.explanation} onChange={v => setSampleForm(p => ({ ...p, explanation: v }))} placeholder="Why this output is correct..." />
+                    <button onClick={() => handleAddTest(problem.id, false)} disabled={savingTest}
+                      className="w-full mt-2 font-mono text-xs py-2 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
+                      add sample test
+                    </button>
+                  </div>
+
+                  {/* Hidden tests */}
+                  <div className="border border-dashed border-red-500/20 rounded-lg p-3">
+                    <p className="font-mono text-[9px] text-red-400/70 tracking-widest mb-1.5 flex items-center gap-1"><EyeOff size={10} /> HIDDEN TESTS (never shown to solvers - grading only)</p>
+                    <div className="space-y-1.5 mb-2">
+                      {(hiddenTests[problem.id] || []).map(t => (
+                        <div key={t.id} className="flex items-center gap-2 border border-white/6 rounded px-3 py-2">
+                          <span className="font-mono text-[10px] text-white/50 flex-1 truncate">in: {t.input || "(empty)"} -&gt; out: {t.expectedOutput}</span>
+                          <span className="font-mono text-[9px] text-neon-cyan/60">{t.points}pt</span>
+                          <button onClick={() => handleDeleteTest(problem.id, t.id, true)} className="text-white/20 hover:text-red-400 transition-colors"><Trash2 size={11} /></button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-2 mb-2">
+                      <Textarea label="INPUT (stdin)" value={hiddenForm.input} onChange={v => setHiddenForm(p => ({ ...p, input: v }))} rows={2} placeholder="100&#10;250" />
+                      <Textarea label="EXPECTED OUTPUT" value={hiddenForm.expectedOutput} onChange={v => setHiddenForm(p => ({ ...p, expectedOutput: v }))} rows={2} placeholder="350" />
+                    </div>
+                    <Input label="POINTS" value={hiddenForm.points} onChange={v => setHiddenForm(p => ({ ...p, points: v }))} placeholder="1" />
+                    <button onClick={() => handleAddTest(problem.id, true)} disabled={savingTest}
+                      className="w-full mt-2 font-mono text-xs py-2 text-red-400 border border-red-500/30 hover:bg-red-500/8 transition-colors disabled:opacity-50">
+                      add hidden test
+                    </button>
+                  </div>
+
+                  {/* Bulk CSV import */}
+                  <div className="border border-dashed border-neon-purple/25 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="font-mono text-[9px] text-neon-purple tracking-wider">+ bulk import test cases from CSV</p>
+                      <button onClick={downloadCodelabCsvTemplate} className="flex items-center gap-1 font-mono text-[9px] text-white/40 hover:text-neon-purple transition-colors">
+                        <Download size={10} /> download template
+                      </button>
+                    </div>
+                    <pre className="font-mono text-[9px] text-white/25 whitespace-pre-wrap leading-relaxed">{CODELAB_CSV_HELP}</pre>
+                    <textarea value={csvText} onChange={e => setCsvText(e.target.value)} rows={5}
+                      placeholder="type,input,expectedOutput,explanation,points"
+                      className="w-full font-mono text-[11px] text-white/70 px-3 py-2 rounded outline-none"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(199,125,255,0.2)" }} />
+                    {csvResult && (
+                      <p className="font-mono text-[10px]" style={{ color: csvResult.imported > 0 ? "#00FF41" : "#FF5050" }}>
+                        {csvResult.imported > 0 && `imported ${csvResult.imported} test case(s). `}
+                        {csvResult.errors.length > 0 && `${csvResult.errors.length} row(s) skipped: ${csvResult.errors.slice(0, 3).join(" ")}`}
+                      </p>
+                    )}
+                    <button onClick={() => handleImportCsv(problem.id)} disabled={importing || !csvText.trim()}
+                      className="w-full font-mono text-xs py-2 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/8 transition-colors disabled:opacity-50">
+                      {importing ? "importing..." : "import CSV"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Create problem */}
+      <div className="border border-white/6 rounded-lg p-4 space-y-3">
+        <p className="font-mono text-[10px] text-neon-green tracking-wider">// create problem</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Two Sum" />
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
+            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
+              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {CODELAB_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <Textarea label="PROBLEM STATEMENT" value={form.statement} onChange={v => setForm(p => ({ ...p, statement: v }))} rows={4} placeholder="Given an array of integers..." />
+        <Textarea label="CONSTRAINTS" value={form.constraints} onChange={v => setForm(p => ({ ...p, constraints: v }))} rows={2} placeholder="1 <= n <= 10^5" />
+        <Textarea label="EXAMPLES" value={form.examplesText} onChange={v => setForm(p => ({ ...p, examplesText: v }))} rows={3} placeholder={"Input: [2,7,11,15], target=9\nOutput: [0,1]"} />
+        <Textarea label="HINTS (one per line)" value={form.hints} onChange={v => setForm(p => ({ ...p, hints: v }))} rows={2} placeholder={"Try a hash map.\nThink about complements."} />
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+            <select value={form.difficulty} onChange={e => setForm(p => ({ ...p, difficulty: e.target.value }))}
+              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {CODELAB_DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <Input label="TAGS (comma separated)" value={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="Array, Hash Map" />
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Input label="ESTIMATED TIME (min)" value={form.estimatedTime} onChange={v => setForm(p => ({ ...p, estimatedTime: v }))} placeholder="15" />
+          <Input label="XP REWARD" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: v }))} placeholder="50" />
+          <Input label="COIN REWARD" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: v }))} placeholder="20" />
+        </div>
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
+          <div className="flex gap-2">
+            {CODELAB_STATUSES.map(s => (
+              <button key={s.v} onClick={() => setForm(p => ({ ...p, status: s.v }))}
+                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
+                style={{
+                  color: form.status === s.v ? s.c : "rgba(255,255,255,0.3)",
+                  background: form.status === s.v ? `${s.c}12` : "rgba(255,255,255,0.03)",
+                  border: form.status === s.v ? `1px solid ${s.c}35` : "1px solid rgba(255,255,255,0.06)",
+                }}>{s.v.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
+        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleCreate} disabled={saving}
+          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+          <Plus size={12} /> {saving ? "creating..." : "create problem"}
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
 // ── Hackathons panel ──────────────────────────────────────────────────────────
 
 const HACKATHON_STATUSES = [
@@ -4160,6 +4523,9 @@ export default function AdminPage() {
                 </Section>
                 <Section title="CONTESTS" icon={Trophy} color="#00FFFF">
                   <ContestsPanel />
+                </Section>
+                <Section title="CODELAB PROBLEMS" icon={Code2} color="#C77DFF">
+                  <CodingProblemsPanel />
                 </Section>
                 <Section title="HACKATHONS" icon={Trophy} color="#FF6430">
                   <HackathonsPanel />

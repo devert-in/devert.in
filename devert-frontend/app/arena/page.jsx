@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { ContestHub } from "@/components/contests/contest-hub";
+import { CodeLabHub } from "@/components/codelab/codelab-hub";
 
 const TIER_COLORS = { LEGEND: "#FFD700", ELITE: "#FF6B35", ARCHITECT: "#00FFFF", BUILDER: "#00FF41", RECRUIT: "#666" };
 
@@ -362,7 +363,7 @@ export default function ArenaPage() {
           <p className="font-mono text-sm text-white/35">Head-to-head. Timed. Brutal. No mercy.</p>
 
           <div className="flex gap-2 mt-6">
-            {[{ key: "solo", label: "Solo Challenges" }, { key: "contests", label: "Contests" }].map(t => (
+            {[{ key: "solo", label: "Solo Challenges" }, { key: "contests", label: "Contests" }, { key: "codelab", label: "CodeLab" }].map(t => (
               <button key={t.key} onClick={() => setArenaTab(t.key)}
                 className="font-mono text-xs px-4 py-2 rounded-lg transition-colors"
                 style={{
@@ -377,6 +378,7 @@ export default function ArenaPage() {
         </motion.div>
 
         {arenaTab === "contests" && <ContestHub />}
+        {arenaTab === "codelab" && <CodeLabHub onGoToContests={() => setArenaTab("contests")} />}
 
         {arenaTab === "solo" && (
         <div className="grid md:grid-cols-2 gap-6">

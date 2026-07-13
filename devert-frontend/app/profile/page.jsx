@@ -240,6 +240,7 @@ export default function ProfilePage() {
   const credits     = userData?.credits ?? 0;
   const ships       = userData?.ships ?? 0;
   const arenaWins   = userData?.arenaWins ?? 0;
+  const problemsSolved = userData?.problemsSolvedCount ?? 0;
   const streak      = userData?.streak ?? 0;
   const skills      = userData?.skills || [];
   const projects    = userData?.projects || [];
@@ -261,6 +262,7 @@ export default function ProfilePage() {
     { label: "XP",        value: xp.toLocaleString(),     color: "#00FFFF" },
     { label: "SHIPS",     value: String(ships),            color: "#00FF41" },
     { label: "ARENA",     value: String(arenaWins),        color: "#FF9500" },
+    { label: "SOLVED",    value: String(problemsSolved),   color: "#C77DFF" },
     { label: "STREAK",    value: `${streak}d`,            color: "#FF6430" },
     { label: "CREDITS",   value: credits.toLocaleString(), color: "#FFD700" },
     { label: "FOLLOWERS", value: String(followers), color: "#C77DFF", onClick: () => setFollowersOpen(true) },
