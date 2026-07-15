@@ -24,6 +24,8 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: devert-frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://devert-backend-550891323057.asia-south1.run.app
 
       - name: Deploy to Firebase Hosting (live)
         run: npx firebase-tools deploy --only hosting --project devert-me

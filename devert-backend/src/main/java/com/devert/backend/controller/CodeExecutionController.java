@@ -2,94 +2,176 @@ package com.devert.backend.controller;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.devert.backend.dto.ArenaSubmitRequest;
 import com.devert.backend.dto.CodeRunRequest;
 import com.devert.backend.dto.CodeSubmitRequest;
+import com.devert.backend.service.CodeExecutionService;
 import com.devert.backend.service.GradingService;
-import com.devert.backend.service.Judge0Service;
+import com.devert.backend.service.RateLimiter;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseToken;
 
 @RestController
 @RequestMapping("/api/coding")
-@CrossOrigin(origins = "*")
 public class CodeExecutionController {
 
+    private static final Logger log = LoggerFactory.getLogger(CodeExecutionController.class);
+
     @Autowired
-    private Judge0Service judge0;
+    private CodeExecutionService codeExecutionService;
 
     @Autowired
     private GradingService gradingService;
 
-    // Basic in-process cooldown - not real auth/rate-limiting (no per-user identity is
-    // verified here yet), just a cheap guard against a scripted loop burning through
-    // the Judge0 quota. Resets on redeploy and doesn't coordinate across instances -
-    // documented as a Phase 2 hardening gap (needs Firebase ID token verification).
-    private final Map<String, Long> lastRunAt = new ConcurrentHashMap<>();
+    @Autowired
+    private RateLimiter rateLimiter;
+
+    @Autowired(required = false)
+    private FirebaseAuth firebaseAuth;
+
+    // Playground's "run" is intentionally usable signed-out (no ID token to key on),
+    // so this is IP-keyed: a tight per-second spacing plus a wider 5-minute window cap
+    // so a scripted loop can't just wait out the short cooldown. Submissions ARE signed
+    // in, so they're keyed by the verified uid instead of IP. Both limiters are
+    // in-process - see RateLimiter's javadoc for why that's an accepted tradeoff here.
     private static final long RUN_COOLDOWN_MS = 2000;
+    private static final int RUN_WINDOW_LIMIT = 20;
+    private static final long RUN_WINDOW_MS = 5 * 60 * 1000;
     private static final long SUBMIT_COOLDOWN_MS = 5000;
+    private static final int SUBMIT_WINDOW_LIMIT = 15;
+    private static final long SUBMIT_WINDOW_MS = 10 * 60 * 1000;
+
+    // Generous but bounded - a legitimate solution is never anywhere near this size;
+    // this exists purely to cap the payload we forward to Judge0 on someone's behalf.
+    private static final int MAX_CODE_LENGTH = 20_000;
 
     @PostMapping("/run")
     public ResponseEntity<?> run(@RequestBody CodeRunRequest request, HttpServletRequest httpRequest) {
-        if (cooling(httpRequest.getRemoteAddr(), RUN_COOLDOWN_MS)) {
+        String ip = httpRequest.getRemoteAddr();
+        if (!rateLimiter.allow("run:" + ip, 1, RUN_COOLDOWN_MS)
+            || !rateLimiter.allow("run-window:" + ip, RUN_WINDOW_LIMIT, RUN_WINDOW_MS)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(err("Slow down - try again in a few seconds."));
         }
-        Integer languageId = judge0.languageId(request.getLanguage());
-        if (languageId == null) {
+        if (request.getCode() != null && request.getCode().length() > MAX_CODE_LENGTH) {
+            return ResponseEntity.badRequest().body(err("Code is too long."));
+        }
+        String compilerId = codeExecutionService.compilerId(request.getLanguage());
+        if (compilerId == null) {
             return ResponseEntity.badRequest().body(err("Unsupported language: " + request.getLanguage()));
         }
         try {
-            Judge0Service.Judge0Result result = judge0.run(languageId, request.getCode(), request.getStdin());
+            CodeExecutionService.ExecutionResult result = codeExecutionService.run(compilerId, request.getCode(), request.getStdin());
             Map<String, Object> body = new HashMap<>();
-            body.put("stdout", result.stdout);
-            body.put("stderr", result.stderr);
-            body.put("compileOutput", result.compileOutput);
-            body.put("status", result.status != null ? result.status.description : "Unknown");
+            body.put("stdout", result.output);
+            // No separate compile-output field from this provider - error text (compile
+            // or runtime) all comes back in one field. See CodeExecutionService's class
+            // comment on the error-fidelity gap for Python/Java/JS specifically.
+            body.put("stderr", result.error);
+            body.put("compileOutput", null);
+            body.put("status", result.status != null ? result.status : "Unknown");
             body.put("timeMs", result.time != null ? (long) (Double.parseDouble(result.time) * 1000) : 0);
             body.put("memoryKb", result.memory);
             return ResponseEntity.ok(body);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Code execution failed", e);
             return ResponseEntity.internalServerError().body(err("Execution failed: " + e.getMessage()));
         }
     }
 
     @PostMapping("/submit")
-    public ResponseEntity<?> submit(@RequestBody CodeSubmitRequest request, HttpServletRequest httpRequest) {
-        if (request.getUid() == null || request.getProblemId() == null) {
-            return ResponseEntity.badRequest().body(err("uid and problemId are required."));
+    public ResponseEntity<?> submit(@RequestBody CodeSubmitRequest request, HttpServletRequest httpRequest,
+                                     @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (firebaseAuth == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(err("Submissions aren't configured yet."));
         }
-        if (cooling(request.getUid(), SUBMIT_COOLDOWN_MS)) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(err("Sign in required."));
+        }
+        // The verified token's own uid is the ONLY identity ever used below - the
+        // request body's uid (if the client still sends one) is never trusted, since
+        // that was letting anyone grant XP/coins to an arbitrary account by guessing
+        // their uid.
+        String uid;
+        try {
+            FirebaseToken decoded = firebaseAuth.verifyIdToken(authHeader.substring(7));
+            uid = decoded.getUid();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(err("Invalid or expired session - please sign in again."));
+        }
+        if (request.getProblemId() == null) {
+            return ResponseEntity.badRequest().body(err("problemId is required."));
+        }
+        if (request.getCode() != null && request.getCode().length() > MAX_CODE_LENGTH) {
+            return ResponseEntity.badRequest().body(err("Code is too long."));
+        }
+        if (!rateLimiter.allow("submit:" + uid, 1, SUBMIT_COOLDOWN_MS)
+            || !rateLimiter.allow("submit-window:" + uid, SUBMIT_WINDOW_LIMIT, SUBMIT_WINDOW_MS)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(err("Please wait before submitting again."));
         }
         try {
             Map<String, Object> result = gradingService.gradeSubmission(
-                request.getUid(), request.getProblemId(), request.getLanguage(), request.getCode()
+                uid, request.getProblemId(), request.getLanguage(), request.getCode()
             );
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(err(e.getMessage()));
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Grading failed for uid={} problemId={}", uid, request.getProblemId(), e);
             return ResponseEntity.internalServerError().body(err("Grading failed: " + e.getMessage()));
         }
     }
 
-    private boolean cooling(String key, long cooldownMs) {
-        if (key == null) return false;
-        long now = System.currentTimeMillis();
-        Long last = lastRunAt.put(key, now);
-        return last != null && (now - last) < cooldownMs;
+    @PostMapping("/arena/submit")
+    public ResponseEntity<?> arenaSubmit(@RequestBody ArenaSubmitRequest request, HttpServletRequest httpRequest,
+                                          @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (firebaseAuth == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(err("Arena submissions aren't configured yet."));
+        }
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(err("Sign in required."));
+        }
+        String uid;
+        try {
+            FirebaseToken decoded = firebaseAuth.verifyIdToken(authHeader.substring(7));
+            uid = decoded.getUid();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(err("Invalid or expired session - please sign in again."));
+        }
+        if (request.getMatchId() == null) {
+            return ResponseEntity.badRequest().body(err("matchId is required."));
+        }
+        if (request.getCode() != null && request.getCode().length() > MAX_CODE_LENGTH) {
+            return ResponseEntity.badRequest().body(err("Code is too long."));
+        }
+        if (!rateLimiter.allow("submit:" + uid, 1, SUBMIT_COOLDOWN_MS)
+            || !rateLimiter.allow("submit-window:" + uid, SUBMIT_WINDOW_LIMIT, SUBMIT_WINDOW_MS)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(err("Please wait before submitting again."));
+        }
+        try {
+            Map<String, Object> result = gradingService.gradeArenaSubmission(
+                uid, request.getMatchId(), request.getLanguage(), request.getCode()
+            );
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(err(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Arena grading failed for uid={} matchId={}", uid, request.getMatchId(), e);
+            return ResponseEntity.internalServerError().body(err("Grading failed: " + e.getMessage()));
+        }
     }
 
     private Map<String, String> err(String message) {

@@ -12,13 +12,14 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.SetOptions;
 
 // Runs entirely server-side: reads hidden test cases via the admin SDK (bypassing
-// Firestore rules - this is the ONLY code path that ever reads them), grades against
-// Judge0, then writes the submission and awards XP/coins itself. The client never sees
-// hidden test content and never has a legal path to write a submission or its own
-// grade - see firestore.rules's codelab_submissions/hiddenTests rules for the other
-// half of this trust boundary.
+// Firestore rules - this is the ONLY code path that ever reads them), grades by running
+// each test through CodeExecutionService and comparing output itself, then writes the
+// submission and awards XP/coins. The client never sees hidden test content and never
+// has a legal path to write a submission or its own grade - see firestore.rules's
+// codelab_submissions/hiddenTests rules for the other half of this trust boundary.
 @Service
 public class GradingService {
 
@@ -26,21 +27,225 @@ public class GradingService {
     private Firestore db;
 
     @Autowired
-    private Judge0Service judge0;
+    private CodeExecutionService codeExecutionService;
 
     public Map<String, Object> gradeSubmission(String uid, String problemId, String language, String code) throws Exception {
         if (db == null) {
             throw new IllegalStateException("CodeLab isn't configured yet (missing FIREBASE_SERVICE_ACCOUNT_JSON).");
         }
-        Integer languageId = judge0.languageId(language);
-        if (languageId == null) {
-            throw new IllegalArgumentException("Unsupported language: " + language);
-        }
+        // Normalize casing before persisting anywhere - languageId() (inside
+        // runProblemTests) already lowercases for the lookup, but a raw API call with
+        // e.g. "Java" would otherwise fragment languageUsage stats into a separate key
+        // from "java".
+        language = language.toLowerCase();
 
         DocumentReference problemRef = db.collection("problems").document(problemId);
         DocumentSnapshot problem = problemRef.get().get();
         if (!problem.exists()) {
             throw new IllegalArgumentException("Problem not found: " + problemId);
+        }
+
+        ProblemGradeResult grade = runProblemTests(problemRef, language, code);
+
+        boolean accepted = grade.accepted;
+        long xpReward = problem.contains("xpReward") ? problem.getLong("xpReward") : 0;
+        long coinReward = problem.contains("coinReward") ? problem.getLong("coinReward") : 0;
+
+        DocumentReference progressRef = db.collection("user_codelab_progress").document(uid);
+        DocumentReference userRef = db.collection("users").document(uid);
+        DocumentReference submissionRef = db.collection("codelab_submissions").document();
+
+        // Loop-mutated locals aren't effectively final, so the transaction lambda below
+        // needs its own stable copies to close over.
+        String finalLanguage = language;
+        String finalVerdict = grade.verdict;
+        int finalPassed = grade.passed;
+        int totalTests = grade.totalTests;
+        long finalMaxTimeMs = grade.maxTimeMs;
+        long finalMaxMemoryKb = grade.maxMemoryKb;
+
+        // Wrapped in a transaction so two near-simultaneous submissions for the same
+        // problem can't both read solvedProblems=false and both get awarded XP/coins:
+        // Firestore retries this whole callback if progressRef changes underneath it,
+        // so the loser of the race re-reads an already-solved doc and earns nothing.
+        return db.runTransaction(transaction -> {
+            DocumentSnapshot progressSnap = transaction.get(progressRef).get();
+            boolean alreadySolved = progressSnap.exists()
+                && progressSnap.contains("solvedProblems." + problemId)
+                && Boolean.TRUE.equals(progressSnap.get("solvedProblems." + problemId));
+
+            long xpEarned = (accepted && !alreadySolved) ? xpReward : 0;
+            long coinsEarned = (accepted && !alreadySolved) ? coinReward : 0;
+
+            Map<String, Object> submission = new HashMap<>();
+            submission.put("uid", uid);
+            submission.put("problemId", problemId);
+            submission.put("language", finalLanguage);
+            submission.put("code", code);
+            submission.put("verdict", finalVerdict);
+            submission.put("testsPassed", finalPassed);
+            submission.put("testsTotal", totalTests);
+            submission.put("runtimeMs", finalMaxTimeMs);
+            submission.put("memoryKb", finalMaxMemoryKb);
+            submission.put("xpEarned", xpEarned);
+            submission.put("coinsEarned", coinsEarned);
+            submission.put("createdAt", FieldValue.serverTimestamp());
+            transaction.set(submissionRef, submission);
+
+            Map<String, Object> progressUpdate = new HashMap<>();
+            progressUpdate.put("totalSubmissions", FieldValue.increment(1));
+            progressUpdate.put("languageUsage." + finalLanguage, FieldValue.increment(1));
+            if (accepted && !alreadySolved) {
+                progressUpdate.put("solvedProblems." + problemId, true);
+                progressUpdate.put("problemsSolvedCount", FieldValue.increment(1));
+            }
+            transaction.set(progressRef, progressUpdate, SetOptions.merge());
+
+            Map<String, Object> problemUpdate = new HashMap<>();
+            problemUpdate.put("totalSubmissions", FieldValue.increment(1));
+            if (accepted) problemUpdate.put("acceptedSubmissions", FieldValue.increment(1));
+            transaction.set(problemRef, problemUpdate, SetOptions.merge());
+
+            if (xpEarned > 0 || coinsEarned > 0 || (accepted && !alreadySolved)) {
+                Map<String, Object> userUpdate = new HashMap<>();
+                if (xpEarned > 0) userUpdate.put("xp", FieldValue.increment(xpEarned));
+                if (coinsEarned > 0) userUpdate.put("credits", FieldValue.increment(coinsEarned));
+                // Denormalized onto the public users doc (like arenaWins/contestXp) so a
+                // "Top Solvers" leaderboard can query it directly - user_codelab_progress
+                // itself stays owner-only readable, same privacy default as Aptitude.
+                if (accepted && !alreadySolved) userUpdate.put("problemsSolvedCount", FieldValue.increment(1));
+                transaction.set(userRef, userUpdate, SetOptions.merge());
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("verdict", finalVerdict);
+            result.put("testsPassed", finalPassed);
+            result.put("testsTotal", totalTests);
+            result.put("xpEarned", xpEarned);
+            result.put("coinsEarned", coinsEarned);
+            result.put("runtimeMs", finalMaxTimeMs);
+            result.put("alreadySolved", alreadySolved);
+            return result;
+        }).get();
+    }
+
+    // Arena solo challenges are "a CodeLab problem + a timed session wrapper" - graded
+    // through this exact same execution/hidden-test pipeline, just with a different reward
+    // shape (arena_matches' own xpBase + a speed bonus, not the problem's xpReward/
+    // coinReward) and a different collection to resolve. See firestore.rules'
+    // arena_matches block: the client can create a session and self-report a harmless
+    // loss, but only this method (via firebase-admin, bypassing rules) can ever flip a
+    // match to "won" or touch xp/arenaWins.
+    public Map<String, Object> gradeArenaSubmission(String uid, String matchId, String language, String code) throws Exception {
+        if (db == null) {
+            throw new IllegalStateException("Arena grading isn't configured yet (missing FIREBASE_SERVICE_ACCOUNT_JSON).");
+        }
+        language = language.toLowerCase();
+
+        DocumentReference matchRef = db.collection("arena_matches").document(matchId);
+        DocumentSnapshot match = matchRef.get().get();
+        if (!match.exists()) {
+            throw new IllegalArgumentException("Match not found: " + matchId);
+        }
+        if (!uid.equals(match.getString("uid"))) {
+            throw new IllegalArgumentException("This match doesn't belong to you.");
+        }
+        if (!"in_progress".equals(match.getString("status"))) {
+            throw new IllegalArgumentException("This match has already been resolved.");
+        }
+
+        String problemId = match.getString("problemId");
+        DocumentReference problemRef = db.collection("problems").document(problemId);
+        if (!problemRef.get().get().exists()) {
+            throw new IllegalArgumentException("Problem not found: " + problemId);
+        }
+
+        long startedAtMs = match.getTimestamp("startedAt") != null
+            ? match.getTimestamp("startedAt").toDate().getTime() : System.currentTimeMillis();
+        long timeLimitSeconds = match.contains("timeLimitSeconds") ? match.getLong("timeLimitSeconds") : 0;
+        long elapsedSeconds = (System.currentTimeMillis() - startedAtMs) / 1000;
+
+        Map<String, Object> result = new HashMap<>();
+        // Decided server-side from the session's own server-stamped startedAt, not a
+        // client-reported "time remaining" - a paused tab or clock skew can't buy extra time.
+        if (timeLimitSeconds > 0 && elapsedSeconds > timeLimitSeconds) {
+            result.put("verdict", "Expired");
+            result.put("testsPassed", 0);
+            result.put("testsTotal", 0);
+            result.put("xpEarned", 0);
+            result.put("runtimeMs", 0);
+            return result;
+        }
+
+        ProblemGradeResult grade = runProblemTests(problemRef, language, code);
+        if (!grade.accepted) {
+            result.put("verdict", grade.verdict);
+            result.put("testsPassed", grade.passed);
+            result.put("testsTotal", grade.totalTests);
+            result.put("xpEarned", 0);
+            result.put("runtimeMs", grade.maxTimeMs);
+            return result;
+        }
+
+        long xpBase = match.contains("xpBase") ? match.getLong("xpBase") : 0;
+        long xpEarned = xpBase + speedBonus(xpBase, elapsedSeconds, timeLimitSeconds);
+        DocumentReference userRef = db.collection("users").document(uid);
+
+        // Transaction re-reads the match's status fresh, so two near-simultaneous
+        // submits for the same match can't both credit XP - the loser of the race
+        // sees status is no longer "in_progress" and earns nothing.
+        return db.runTransaction(transaction -> {
+            DocumentSnapshot freshMatch = transaction.get(matchRef).get();
+            if (!"in_progress".equals(freshMatch.getString("status"))) {
+                Map<String, Object> alreadyResolved = new HashMap<>();
+                alreadyResolved.put("verdict", grade.verdict);
+                alreadyResolved.put("testsPassed", grade.passed);
+                alreadyResolved.put("testsTotal", grade.totalTests);
+                alreadyResolved.put("xpEarned", 0);
+                alreadyResolved.put("runtimeMs", grade.maxTimeMs);
+                return alreadyResolved;
+            }
+
+            Map<String, Object> matchUpdate = new HashMap<>();
+            matchUpdate.put("status", "won");
+            matchUpdate.put("finishedAt", FieldValue.serverTimestamp());
+            matchUpdate.put("testsPassed", grade.passed);
+            matchUpdate.put("testsTotal", grade.totalTests);
+            matchUpdate.put("xpEarned", xpEarned);
+            transaction.set(matchRef, matchUpdate, SetOptions.merge());
+
+            Map<String, Object> userUpdate = new HashMap<>();
+            userUpdate.put("xp", FieldValue.increment(xpEarned));
+            userUpdate.put("arenaWins", FieldValue.increment(1));
+            transaction.set(userRef, userUpdate, SetOptions.merge());
+
+            Map<String, Object> out = new HashMap<>();
+            out.put("verdict", "Accepted");
+            out.put("testsPassed", grade.passed);
+            out.put("testsTotal", grade.totalTests);
+            out.put("xpEarned", xpEarned);
+            out.put("runtimeMs", grade.maxTimeMs);
+            return out;
+        }).get();
+    }
+
+    // Up to +30% of the challenge's base XP, scaled linearly by how much of the time
+    // limit was left unused - transparent and simple rather than a curve, since this is
+    // shown back to the player as part of their result.
+    private long speedBonus(long xpBase, long elapsedSeconds, long timeLimitSeconds) {
+        if (timeLimitSeconds <= 0) return 0;
+        double remainingFraction = Math.max(0, (double) (timeLimitSeconds - elapsedSeconds) / timeLimitSeconds);
+        return Math.round(xpBase * 0.3 * remainingFraction);
+    }
+
+    // Shared grading core: runs every sample + hidden test for a problem and
+    // aggregates pass/fail - used by both CodeLab's gradeSubmission and Arena's
+    // gradeArenaSubmission, which differ only in what happens after (reward shape,
+    // which collection gets resolved), not in how a submission is judged.
+    private ProblemGradeResult runProblemTests(DocumentReference problemRef, String language, String code) throws Exception {
+        String compilerId = codeExecutionService.compilerId(language);
+        if (compilerId == null) {
+            throw new IllegalArgumentException("Unsupported language: " + language);
         }
 
         List<QueryDocumentSnapshot> sampleTests = problemRef.collection("sampleTests").get().get().getDocuments();
@@ -53,14 +258,14 @@ public class GradingService {
         long maxMemoryKb = 0;
 
         for (QueryDocumentSnapshot test : sampleTests) {
-            TestOutcome outcome = runTest(languageId, code, test);
+            TestOutcome outcome = runTest(compilerId, code, test);
             passed += outcome.passed ? 1 : 0;
             maxTimeMs = Math.max(maxTimeMs, outcome.timeMs);
             maxMemoryKb = Math.max(maxMemoryKb, outcome.memoryKb);
             if (!outcome.passed && "Accepted".equals(verdict)) verdict = outcome.verdict;
         }
         for (QueryDocumentSnapshot test : hiddenTests) {
-            TestOutcome outcome = runTest(languageId, code, test);
+            TestOutcome outcome = runTest(compilerId, code, test);
             passed += outcome.passed ? 1 : 0;
             maxTimeMs = Math.max(maxTimeMs, outcome.timeMs);
             maxMemoryKb = Math.max(maxMemoryKb, outcome.memoryKb);
@@ -68,100 +273,66 @@ public class GradingService {
         }
         if (totalTests == 0) verdict = "No Test Cases";
 
-        boolean accepted = "Accepted".equals(verdict) && passed == totalTests && totalTests > 0;
-
-        DocumentReference progressRef = db.collection("user_codelab_progress").document(uid);
-        DocumentSnapshot progress = progressRef.get().get();
-        boolean alreadySolved = progress.exists()
-            && progress.contains("solvedProblems." + problemId)
-            && Boolean.TRUE.equals(progress.get("solvedProblems." + problemId));
-
-        long xpReward = problem.contains("xpReward") ? problem.getLong("xpReward") : 0;
-        long coinReward = problem.contains("coinReward") ? problem.getLong("coinReward") : 0;
-        long xpEarned = (accepted && !alreadySolved) ? xpReward : 0;
-        long coinsEarned = (accepted && !alreadySolved) ? coinReward : 0;
-
-        Map<String, Object> submission = new HashMap<>();
-        submission.put("uid", uid);
-        submission.put("problemId", problemId);
-        submission.put("language", language);
-        submission.put("code", code);
-        submission.put("verdict", verdict);
-        submission.put("testsPassed", passed);
-        submission.put("testsTotal", totalTests);
-        submission.put("runtimeMs", maxTimeMs);
-        submission.put("memoryKb", maxMemoryKb);
-        submission.put("xpEarned", xpEarned);
-        submission.put("coinsEarned", coinsEarned);
-        submission.put("createdAt", FieldValue.serverTimestamp());
-        db.collection("codelab_submissions").add(submission).get();
-
-        Map<String, Object> progressUpdate = new HashMap<>();
-        progressUpdate.put("totalSubmissions", FieldValue.increment(1));
-        progressUpdate.put("languageUsage." + language, FieldValue.increment(1));
-        if (accepted && !alreadySolved) {
-            progressUpdate.put("solvedProblems." + problemId, true);
-            progressUpdate.put("problemsSolvedCount", FieldValue.increment(1));
-        }
-        progressRef.set(progressUpdate, com.google.cloud.firestore.SetOptions.merge()).get();
-
-        Map<String, Object> problemUpdate = new HashMap<>();
-        problemUpdate.put("totalSubmissions", FieldValue.increment(1));
-        if (accepted) problemUpdate.put("acceptedSubmissions", FieldValue.increment(1));
-        problemRef.set(problemUpdate, com.google.cloud.firestore.SetOptions.merge()).get();
-
-        if (xpEarned > 0 || coinsEarned > 0 || (accepted && !alreadySolved)) {
-            Map<String, Object> userUpdate = new HashMap<>();
-            if (xpEarned > 0) userUpdate.put("xp", FieldValue.increment(xpEarned));
-            if (coinsEarned > 0) userUpdate.put("credits", FieldValue.increment(coinsEarned));
-            // Denormalized onto the public users doc (like arenaWins/contestXp) so a
-            // "Top Solvers" leaderboard can query it directly - user_codelab_progress
-            // itself stays owner-only readable, same privacy default as Aptitude.
-            if (accepted && !alreadySolved) userUpdate.put("problemsSolvedCount", FieldValue.increment(1));
-            db.collection("users").document(uid).set(userUpdate, com.google.cloud.firestore.SetOptions.merge()).get();
-        }
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("verdict", verdict);
-        result.put("testsPassed", passed);
-        result.put("testsTotal", totalTests);
-        result.put("xpEarned", xpEarned);
-        result.put("coinsEarned", coinsEarned);
-        result.put("runtimeMs", maxTimeMs);
-        result.put("alreadySolved", alreadySolved);
+        ProblemGradeResult result = new ProblemGradeResult();
+        result.verdict = verdict;
+        result.passed = passed;
+        result.totalTests = totalTests;
+        result.maxTimeMs = maxTimeMs;
+        result.maxMemoryKb = maxMemoryKb;
+        result.accepted = "Accepted".equals(verdict) && passed == totalTests && totalTests > 0;
         return result;
     }
 
-    private TestOutcome runTest(int languageId, String code, QueryDocumentSnapshot test) {
+    // OnlineCompiler.io doesn't compare output against an expected answer itself (Judge0
+    // did) - so the pass/fail call is made here, by trimmed string equality, same as
+    // Judge0's own whitespace-trimmed comparison rule.
+    private TestOutcome runTest(String compilerId, String code, QueryDocumentSnapshot test) {
         String input = test.contains("input") ? test.getString("input") : "";
         String expected = test.contains("expectedOutput") ? test.getString("expectedOutput") : "";
-        Judge0Service.Judge0Result result = judge0.run(languageId, code, input, expected);
+        CodeExecutionService.ExecutionResult result = codeExecutionService.run(compilerId, code, input);
 
         TestOutcome outcome = new TestOutcome();
-        outcome.timeMs = result != null && result.time != null ? (long) (Double.parseDouble(result.time) * 1000) : 0;
-        outcome.memoryKb = result != null && result.memory != null ? result.memory : 0;
+        outcome.timeMs = parseSecondsToMs(result != null ? result.time : null);
+        outcome.memoryKb = parseMemoryKb(result != null ? result.memory : null);
 
-        int statusId = result != null && result.status != null ? result.status.id : -1;
-        if (statusId == 3) {
-            outcome.passed = true;
-            outcome.verdict = "Accepted";
-        } else if (statusId == 4) {
-            outcome.passed = false;
-            outcome.verdict = "Wrong Answer";
-        } else if (statusId == 5) {
-            outcome.passed = false;
-            outcome.verdict = "Time Limit Exceeded";
-        } else if (statusId == 6) {
-            outcome.passed = false;
-            outcome.verdict = "Compilation Error";
-        } else if (statusId >= 7 && statusId <= 12) {
-            outcome.passed = false;
-            outcome.verdict = "Runtime Error";
-        } else {
+        if (result == null) {
             outcome.passed = false;
             outcome.verdict = "Judge Error";
+            return outcome;
+        }
+        if (!"success".equals(result.status)) {
+            // See CodeExecutionService's class comment: this provider can't distinguish
+            // Compilation Error / Runtime Error / Time Limit Exceeded for most languages,
+            // so "Error" is the most honest single verdict across all 5 languages.
+            outcome.passed = false;
+            outcome.verdict = "Error";
+            return outcome;
+        }
+        String actual = result.output == null ? "" : result.output.trim();
+        if (actual.equals(expected.trim())) {
+            outcome.passed = true;
+            outcome.verdict = "Accepted";
+        } else {
+            outcome.passed = false;
+            outcome.verdict = "Wrong Answer";
         }
         return outcome;
+    }
+
+    private static long parseSecondsToMs(String seconds) {
+        try {
+            return (long) (Double.parseDouble(seconds) * 1000);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private static long parseMemoryKb(String memory) {
+        try {
+            return (long) Double.parseDouble(memory);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private static class TestOutcome {
@@ -169,5 +340,14 @@ public class GradingService {
         String verdict;
         long timeMs;
         long memoryKb;
+    }
+
+    private static class ProblemGradeResult {
+        String verdict;
+        int passed;
+        int totalTests;
+        long maxTimeMs;
+        long maxMemoryKb;
+        boolean accepted;
     }
 }
