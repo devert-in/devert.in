@@ -43,14 +43,11 @@ public class CodeExecutionController {
     @Autowired(required = false)
     private FirebaseAuth firebaseAuth;
 
-    // Playground's "run" is intentionally usable signed-out (no ID token to key on),
-    // so this is IP-keyed: a tight per-second spacing plus a wider 5-minute window cap
-    // so a scripted loop can't just wait out the short cooldown. Submissions ARE signed
-    // in, so they're keyed by the verified uid instead of IP. Both limiters are
-    // in-process - see RateLimiter's javadoc for why that's an accepted tradeoff here.
-    private static final long RUN_COOLDOWN_MS = 2000;
-    private static final int RUN_WINDOW_LIMIT = 20;
-    private static final long RUN_WINDOW_MS = 5 * 60 * 1000;
+    // "Run" has no rate limit at all - removed per explicit request (it was
+    // getting in the way of normal testing/demo use more than it was
+    // stopping abuse). Submissions still are: they're signed in, so they're
+    // keyed by the verified uid rather than IP. See RateLimiter's javadoc
+    // for why an in-process limiter is an accepted tradeoff here.
     private static final long SUBMIT_COOLDOWN_MS = 5000;
     private static final int SUBMIT_WINDOW_LIMIT = 15;
     private static final long SUBMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -60,12 +57,7 @@ public class CodeExecutionController {
     private static final int MAX_CODE_LENGTH = 20_000;
 
     @PostMapping("/run")
-    public ResponseEntity<?> run(@RequestBody CodeRunRequest request, HttpServletRequest httpRequest) {
-        String ip = httpRequest.getRemoteAddr();
-        if (!rateLimiter.allow("run:" + ip, 1, RUN_COOLDOWN_MS)
-            || !rateLimiter.allow("run-window:" + ip, RUN_WINDOW_LIMIT, RUN_WINDOW_MS)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(err("Slow down - try again in a few seconds."));
-        }
+    public ResponseEntity<?> run(@RequestBody CodeRunRequest request) {
         if (request.getCode() != null && request.getCode().length() > MAX_CODE_LENGTH) {
             return ResponseEntity.badRequest().body(err("Code is too long."));
         }
