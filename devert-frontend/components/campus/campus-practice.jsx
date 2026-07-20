@@ -6,8 +6,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Send, RotateCcw, Copy, Lightbulb, CheckCircle2, CircleDot, XCircle, Monitor, Code2,
   Search, Eye, EyeOff, ChevronUp, ChevronDown, GripHorizontal, Terminal, History, PartyPopper,
-  Coins, Flame, ArrowRight, RefreshCw, Clock, MemoryStick, ListChecks,
+  Coins, Flame, ArrowRight, RefreshCw, Clock, MemoryStick, ListChecks, Check, Youtube,
 } from "lucide-react";
+
+// Fallback labels only - a problem's own solutions.brute/better/optimal.title
+// (set by whoever authors it) always wins when present.
+const SOLUTION_APPROACHES = ["brute", "better", "optimal"];
+const SOLUTION_LABELS = { brute: "Brute Force", better: "Better", optimal: "Optimal" };
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchPublishedProblems, fetchProblem, fetchSampleTests, subscribeToCodelabProgress,
@@ -171,8 +176,14 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
               const hidden = adminMode && hiddenIds?.has(p.id);
               return (
                 <div key={p.id} className="relative">
+                  {!hidden && solved && (
+                    <div className="absolute -top-2 -left-2 z-10 w-6 h-6 rounded-full flex items-center justify-center"
+                      style={{ background: CAMPUS.good, boxShadow: CAMPUS.shadow }} title="Solved">
+                      <Check size={13} color="#fff" strokeWidth={3} />
+                    </div>
+                  )}
                   <button onClick={() => onSelect(p.id)} className="text-left w-full">
-                    <CampusCard hover className="p-4 h-full" style={hidden ? { opacity: 0.5 } : undefined}>
+                    <CampusCard hover className="p-4 h-full" style={hidden ? { opacity: 0.5 } : (solved ? { borderColor: `${CAMPUS.good}50` } : undefined)}>
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <CampusChip color={CAMPUS.inkFaint}>{p.category}</CampusChip>
                         <CampusChip color={DIFF_COLOR[p.difficulty] || CAMPUS.good}>{p.difficulty}</CampusChip>
@@ -582,6 +593,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
   const [submitStageIndex, setSubmitStageIndex] = useState(0);
   const [error, setError] = useState("");
   const [revealedHints, setRevealedHints] = useState(0);
+  const [activeSolution, setActiveSolution] = useState(null);
 
   // resultsView: null, or { kind: "run"|"submit", verdict?, items: [...] } -
   // one shape covers both Run's sample-test cards (with a real diff) and
@@ -638,7 +650,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
   // should never show the previous problem's stale run/submit state.
   useEffect(() => {
     setResultsView(null); setConsoleText(""); setPanelOpen(false); setError("");
-    setActiveSubmissionId(null); setHistoryItems(null); setRevealedHints(0);
+    setActiveSubmissionId(null); setHistoryItems(null); setRevealedHints(0); setActiveSolution(null);
   }, [problemId]);
 
   // Fetched once, used only to compute "Next Problem" - not shown as a list
@@ -754,21 +766,64 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
     <div>
       <CampusBackButton onClick={onBack} />
 
-      <div ref={splitContainerRef} className="flex flex-col lg:flex-row items-start gap-5 lg:gap-0">
+      <div ref={splitContainerRef} className="flex flex-col lg:flex-row items-start lg:items-stretch gap-5 lg:gap-0">
         {/* Statement */}
-        <div className="w-full min-w-0" style={isDesktop ? { flex: `0 0 calc(${statementPct}% - 5px)` } : undefined}>
-        <CampusCard>
+        <div className="w-full min-w-0 flex" style={isDesktop ? { flex: `0 0 calc(${statementPct}% - 5px)` } : undefined}>
+        <CampusCard className="w-full h-full flex flex-col">
+          {SOLUTION_APPROACHES.filter(k => problem.solutions?.[k]?.explanation).length > 0 && (
+            <div className="p-3" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
+              <div className="no-scrollbar flex items-center gap-1.5 flex-nowrap overflow-x-auto">
+                {SOLUTION_APPROACHES.filter(k => problem.solutions?.[k]?.explanation).map(k => {
+                  const active = activeSolution === k;
+                  return (
+                    <button key={k} onClick={() => setActiveSolution(active ? null : k)}
+                      className="flex-shrink-0 whitespace-nowrap text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-all"
+                      style={{
+                        background: active ? CAMPUS.purpleTint : CAMPUS.paper,
+                        color: active ? CAMPUS.purple : CAMPUS.inkSoft,
+                        border: `1.5px solid ${active ? CAMPUS.purple : CAMPUS.line}`,
+                        boxShadow: active ? CAMPUS.shadow : "none",
+                      }}>
+                      {problem.solutions[k].title || SOLUTION_LABELS[k]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="p-5">
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <CampusChip color={CAMPUS.inkFaint}>{problem.category}</CampusChip>
               <CampusChip color={DIFF_COLOR[problem.difficulty] || CAMPUS.good}>{problem.difficulty}</CampusChip>
               {rate !== null && <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{rate}% acceptance</span>}
-              {solved && <CampusChip color={CAMPUS.good} icon={CheckCircle2} className="ml-auto">SOLVED</CampusChip>}
+              <div className="ml-auto flex items-center gap-2">
+                {problem.videoUrl && (
+                  <a href={problem.videoUrl} target="_blank" rel="noreferrer" title="Watch video explanation"
+                    className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
+                    style={{ color: "#E02424", border: "1px solid #E0242440", background: "#E0242410" }}>
+                    <Youtube size={13} /> Watch
+                  </a>
+                )}
+                {solved && <CampusChip color={CAMPUS.good} icon={CheckCircle2}>SOLVED</CampusChip>}
+              </div>
             </div>
             <h1 className="text-xl font-bold mb-4" style={{ color: CAMPUS.ink }}>
               {problem.number != null && <span style={{ color: CAMPUS.inkFaint }}>{problem.number}. </span>}
               {problem.title}
             </h1>
+
+            {activeSolution && problem.solutions?.[activeSolution]?.explanation && (
+              <div className="rounded-lg p-3.5 mb-4" style={{ background: CAMPUS.purpleTint, border: `1px solid ${CAMPUS.purple}30` }}>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{problem.solutions[activeSolution].explanation}</p>
+                {(problem.solutions[activeSolution].timeComplexity || problem.solutions[activeSolution].spaceComplexity) && (
+                  <div className="flex items-center gap-4 text-[11px] font-mono mt-2.5 pt-2.5" style={{ color: CAMPUS.purple, borderTop: `1px solid ${CAMPUS.purple}25` }}>
+                    {problem.solutions[activeSolution].timeComplexity && <span>Time: {problem.solutions[activeSolution].timeComplexity}</span>}
+                    {problem.solutions[activeSolution].spaceComplexity && <span>Space: {problem.solutions[activeSolution].spaceComplexity}</span>}
+                  </div>
+                )}
+              </div>
+            )}
+
             <p className="text-xs leading-relaxed whitespace-pre-wrap mb-4" style={{ color: CAMPUS.inkSoft }}>{problem.statement}</p>
 
             {problem.constraints && (
@@ -810,9 +865,9 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
         </div>
 
         {/* Editor */}
-        <div className="w-full min-w-0" style={isDesktop ? { flex: `1 1 calc(${100 - statementPct}% - 5px)` } : undefined}>
-        <CampusCard>
-          <div className="flex items-center gap-2 p-3 flex-wrap" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
+        <div className="w-full min-w-0 flex" style={isDesktop ? { flex: `1 1 calc(${100 - statementPct}% - 5px)` } : undefined}>
+        <CampusCard className="w-full h-full flex flex-col">
+          <div className="flex items-center gap-2 p-3 flex-wrap flex-shrink-0" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
             <div className="flex items-center gap-1.5 flex-wrap">
               {CODELAB_LANGUAGES.map(l => {
                 const color = LANGUAGE_COLOR[l.id] || CAMPUS.teal;
@@ -839,9 +894,9 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
 
           {/* Monaco is desktop/tablet only - same graceful degradation as the
               main app's CodeLab (mobile isn't meant for writing full programs) */}
-          <div className="hidden lg:block" style={{ height: 420 }}>
+          <div className="hidden lg:block flex-1 min-h-0" style={{ minHeight: 420 }}>
             <MonacoEditor
-              height="420px"
+              height="100%"
               language={CODELAB_LANGUAGES.find(l => l.id === language)?.monacoId || "plaintext"}
               theme="light"
               value={code}
@@ -854,7 +909,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
             <p className="text-xs" style={{ color: CAMPUS.inkSoft }}>Switch to a larger screen to use the code editor.</p>
           </div>
 
-          <div className="p-4 space-y-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+          <div className="p-4 space-y-3 flex-shrink-0" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
             {!user ? (
               <SignInPrompt message="You'll need a DeVert account to submit for grading." />
             ) : (

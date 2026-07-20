@@ -3967,6 +3967,21 @@ function blankProblemForm() {
 
 function blankTestForm() { return { input: "", expectedOutput: "", explanation: "", points: "1" }; }
 
+const SOLUTION_APPROACHES = ["brute", "better", "optimal"];
+const SOLUTION_DEFAULT_TITLES = { brute: "Brute Force", better: "Better", optimal: "Optimal" };
+
+// Seeds from the problem's own already-saved videoUrl/solutions (so opening
+// an existing problem for edit shows what's actually there), not a blank
+// slate every time - blank only for a problem that's never had these set.
+function extrasFormFromProblem(problem) {
+  const form = { videoUrl: problem?.videoUrl || "" };
+  SOLUTION_APPROACHES.forEach(k => {
+    const s = problem?.solutions?.[k];
+    form[k] = { title: s?.title || "", explanation: s?.explanation || "", timeComplexity: s?.timeComplexity || "", spaceComplexity: s?.spaceComplexity || "" };
+  });
+  return form;
+}
+
 const CODELAB_CSV_HEADER = "type,input,expectedoutput,explanation,points";
 const CODELAB_CSV_EXAMPLE_ROWS = [
   ['sample', '5\n3', '8', 'Add the two numbers: 5 + 3 = 8.', ''],
@@ -4029,6 +4044,9 @@ function CodingProblemsPanel() {
   const [hiddenForm, setHiddenForm] = useState(blankTestForm());
   const [savingTest, setSavingTest] = useState(false);
 
+  const [extrasForm, setExtrasForm] = useState(null);
+  const [savingExtras, setSavingExtras] = useState(false);
+
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -4056,7 +4074,30 @@ function CodingProblemsPanel() {
     if (expanded === problemId) { setExpanded(null); return; }
     setExpanded(problemId);
     setCsvText(""); setCsvResult(null); setSampleForm(blankTestForm()); setHiddenForm(blankTestForm());
+    setExtrasForm(extrasFormFromProblem(problems.find(p => p.id === problemId)));
     if (!sampleTests[problemId]) loadTests(problemId);
+  };
+
+  const handleSaveExtras = async (problemId) => {
+    setSavingExtras(true);
+    try {
+      const solutions = {};
+      SOLUTION_APPROACHES.forEach(k => {
+        const s = extrasForm[k];
+        if (s.explanation.trim()) {
+          solutions[k] = {
+            title: s.title.trim() || SOLUTION_DEFAULT_TITLES[k],
+            explanation: s.explanation.trim(),
+            timeComplexity: s.timeComplexity.trim(),
+            spaceComplexity: s.spaceComplexity.trim(),
+          };
+        }
+      });
+      await updateDoc(doc(db, "problems", problemId), { videoUrl: extrasForm.videoUrl.trim(), solutions });
+      logAdminActivity("updated problem video/solutions", problems.find(p => p.id === problemId)?.title || "");
+      load();
+    } catch (e) { console.error(e); }
+    finally { setSavingExtras(false); }
   };
 
   const handleCreate = async () => {
@@ -4248,6 +4289,39 @@ function CodingProblemsPanel() {
                       {importing ? "importing..." : "import CSV"}
                     </button>
                   </div>
+
+                  {/* Video explanation + Brute/Better/Optimal solution write-ups - shown
+                      on the student-facing problem view as buttons above the statement
+                      (only for whichever approaches actually have an explanation) and a
+                      video icon (only if videoUrl is set). All optional, all editable
+                      here for a problem already created - not just at creation time. */}
+                  {extrasForm && (
+                    <div className="border border-dashed border-neon-cyan/25 rounded-lg p-3 space-y-3">
+                      <p className="font-mono text-[9px] text-neon-cyan tracking-widest">VIDEO &amp; SOLUTIONS (shown on the student problem view)</p>
+                      <Input label="VIDEO URL (YouTube etc., optional)" value={extrasForm.videoUrl}
+                        onChange={v => setExtrasForm(p => ({ ...p, videoUrl: v }))} placeholder="https://youtube.com/watch?v=..." />
+                      {SOLUTION_APPROACHES.map(k => (
+                        <div key={k} className="border border-white/6 rounded p-2.5 space-y-2">
+                          <p className="font-mono text-[9px] text-white/40 tracking-widest">{SOLUTION_DEFAULT_TITLES[k].toUpperCase()} APPROACH (optional)</p>
+                          <Input label="LABEL (optional override)" value={extrasForm[k].title}
+                            onChange={v => setExtrasForm(p => ({ ...p, [k]: { ...p[k], title: v } }))} placeholder={SOLUTION_DEFAULT_TITLES[k]} />
+                          <Textarea label="EXPLANATION" value={extrasForm[k].explanation} rows={3}
+                            onChange={v => setExtrasForm(p => ({ ...p, [k]: { ...p[k], explanation: v } }))}
+                            placeholder="Describe the approach - leave empty to hide this button on the problem view." />
+                          <div className="grid sm:grid-cols-2 gap-2">
+                            <Input label="TIME COMPLEXITY" value={extrasForm[k].timeComplexity}
+                              onChange={v => setExtrasForm(p => ({ ...p, [k]: { ...p[k], timeComplexity: v } }))} placeholder="O(n^2)" />
+                            <Input label="SPACE COMPLEXITY" value={extrasForm[k].spaceComplexity}
+                              onChange={v => setExtrasForm(p => ({ ...p, [k]: { ...p[k], spaceComplexity: v } }))} placeholder="O(1)" />
+                          </div>
+                        </div>
+                      ))}
+                      <button onClick={() => handleSaveExtras(problem.id)} disabled={savingExtras}
+                        className="w-full font-mono text-xs py-2 text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/8 transition-colors disabled:opacity-50">
+                        {savingExtras ? "saving..." : "save video & solutions"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -34,7 +34,7 @@ import { CampusPracticeList, CampusProblemView, SidebarFilterGroup } from "@/com
 import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
 import { CampusDailyLearningTab, CampusDailyAssessmentsTab, CampusDayLeaderboard } from "@/components/campus/campus-daily-learning";
-import { mondayOf, DOW_LABELS, todayISO, fetchWeekItems } from "@/lib/dailyLearning";
+import { mondayOf, DOW_LABELS, todayISO, fetchWeekItems, fetchModuleConfig, fetchUserWeekLogs } from "@/lib/dailyLearning";
 import { fetchContentVisibility } from "@/lib/contentVisibility";
 import { CampusManage } from "@/components/campus/campus-manage";
 
@@ -200,6 +200,39 @@ function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }
 // per question instead, shown inline as you practice) - only ever rendered
 // next to DSA. Skeleton while the two fetches settle, a sign-in prompt if
 // there's no uid to key progress on at all.
+// Top-of-page DSA progress summary for the Workspace's own DSA tab (distinct
+// from PracticeProgressCard below, which is CodeLab's own sidebar widget for
+// the pre-auth global Practice section) - solved count across ALL published
+// problems, not scoped to whatever category/difficulty filter is currently
+// active, so switching filters never makes this number jump around.
+function DsaProgressSummary({ user }) {
+  const [state, setState] = useState({ loading: true, solved: 0, total: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([fetchPublishedProblems(), user ? fetchUserCodelabProgress(user.uid) : Promise.resolve(null)])
+      .then(([problems, progress]) => {
+        if (cancelled) return;
+        setState({ loading: false, total: problems.length, solved: Object.keys(progress?.solvedProblems || {}).length });
+      })
+      .catch(() => { if (!cancelled) setState({ loading: false, solved: 0, total: 0 }); });
+    return () => { cancelled = true; };
+  }, [user]);
+
+  if (state.loading || state.total === 0) return null;
+  const pct = Math.round((state.solved / state.total) * 100);
+
+  return (
+    <div className="mb-5">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11.5px] font-semibold" style={{ color: CAMPUS.ink }}>DSA Progress</span>
+        <span className="text-[11.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>{state.solved}/{state.total} solved</span>
+      </div>
+      <CampusProgressBar pct={pct} color={CAMPUS.teal} />
+    </div>
+  );
+}
+
 function PracticeProgressCard({ user, stats }) {
   return (
     <div className="rounded-xl p-4" style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}` }}>
@@ -405,6 +438,90 @@ function LearningJourneyCard({ onContinue, sharp }) {
       )}
     </button>
   );
+}
+
+// The institution-scoped counterpart to LearningJourneyCard above - shows
+// THIS week's actual Daily Learning progress (day completions logged in
+// dailyLearningLog) instead of the unrelated global `user_learning` enrolled
+// course, whose "Next: Day N" content becomes unreachable the moment an
+// institution has a real weekly program (see CampusDailyLearningTab - it
+// shows the weekly program instead of the generic catalog, never both).
+function DailyLearningJourneyCard({ slug, onContinue }) {
+  const { user } = useAuth();
+  const [state, setState] = useState({ loading: true, items: [], logs: {} });
+  const weekId = mondayOf();
+
+  useEffect(() => {
+    if (!user) { setState({ loading: false, items: [], logs: {} }); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [items, logs] = await Promise.all([fetchWeekItems(slug, weekId), fetchUserWeekLogs(slug, user.uid, weekId)]);
+        if (!cancelled) setState({ loading: false, items, logs });
+      } catch {
+        if (!cancelled) setState({ loading: false, items: [], logs: {} });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, slug, weekId]);
+
+  if (!user) return null;
+  if (state.loading) return <CampusCard className="p-5 h-full"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
+
+  const today = todayISO();
+  const openItems = state.items.filter(it => it.date <= today);
+
+  if (openItems.length === 0) {
+    return (
+      <CampusCard className="p-5 flex items-center justify-between gap-4 h-full">
+        <div>
+          <b className="block text-[13.5px] mb-0.5" style={{ color: CAMPUS.ink }}>This week&apos;s learning hasn&apos;t opened yet</b>
+          <span className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>Check back once the first day unlocks.</span>
+        </div>
+      </CampusCard>
+    );
+  }
+
+  const completedCount = openItems.filter(it => state.logs[it.date]).length;
+  const pct = Math.round((completedCount / openItems.length) * 100);
+  const current = openItems.find(it => !state.logs[it.date]) || openItems[openItems.length - 1];
+  const allDone = !!state.logs[current.date];
+
+  return (
+    <button onClick={onContinue} className="block w-full h-full text-left">
+      <CampusCard hover className="p-5 h-full flex flex-col justify-center">
+        <div className="flex items-center justify-between mb-2">
+          <b className="text-[13.5px]" style={{ color: CAMPUS.ink }}>This Week&apos;s Learning</b>
+          <span className="font-mono text-xs font-bold" style={{ color: CAMPUS.teal }}>{pct}%</span>
+        </div>
+        <CampusProgressBar pct={pct} color={CAMPUS.teal} />
+        <p className="text-[12px] mt-2.5" style={{ color: CAMPUS.inkFaint }}>
+          {allDone ? "All caught up - " : "Next: "}{current.title}
+        </p>
+      </CampusCard>
+    </button>
+  );
+}
+
+// Picks between the two cards above so Overview never promises a "Next"
+// that the Learning tab can't actually deliver - CampusDailyLearningTab
+// itself decides generic-catalog vs weekly-program per institution on this
+// exact same enabled+items check, so this mirrors it rather than guessing.
+function ContinueLearningCard({ slug, onContinue }) {
+  const [dailyLearningActive, setDailyLearningActive] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([fetchModuleConfig(slug), fetchWeekItems(slug, mondayOf())])
+      .then(([cfg, items]) => { if (!cancelled) setDailyLearningActive(cfg.enabled !== false && items.length > 0); })
+      .catch(() => { if (!cancelled) setDailyLearningActive(false); });
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  if (dailyLearningActive === null) return <CampusCard className="p-5 h-full"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
+  return dailyLearningActive
+    ? <DailyLearningJourneyCard slug={slug} onContinue={onContinue} />
+    : <LearningJourneyCard onContinue={onContinue} />;
 }
 
 // Sharp-cornered, hairline-bordered landing nav + slide-in profile flyout -
@@ -1120,10 +1237,13 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
           {tab === "dsa" && (
             <>
               {practiceScreen.view === "list" && (
-                <div className="flex gap-5 flex-wrap mb-6">
-                  <SidebarFilterGroup horizontal label="CATEGORY" options={["All", ...CODELAB_CATEGORIES]} value={practiceCategory} onChange={setPracticeCategory} />
-                  <SidebarFilterGroup horizontal label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={practiceDifficulty} onChange={setPracticeDifficulty} />
-                </div>
+                <>
+                  <DsaProgressSummary user={user} />
+                  <div className="flex gap-5 flex-wrap mb-6">
+                    <SidebarFilterGroup horizontal label="CATEGORY" options={["All", ...CODELAB_CATEGORIES]} value={practiceCategory} onChange={setPracticeCategory} />
+                    <SidebarFilterGroup horizontal label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={practiceDifficulty} onChange={setPracticeDifficulty} />
+                  </div>
+                </>
               )}
               {practiceScreen.view === "problem"
                 ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} />
@@ -1577,7 +1697,7 @@ function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, o
         <div className="flex flex-col h-full">
           <SectionHeading icon={Rocket} title="Continue Learning" />
           <div className="flex-1 flex flex-col">
-            <LearningJourneyCard onContinue={onContinueLearning} />
+            <ContinueLearningCard slug={slug} onContinue={onContinueLearning} />
           </div>
         </div>
         <div className="flex flex-col h-full">
