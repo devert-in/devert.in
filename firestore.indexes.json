@@ -42,11 +42,78 @@
       ]
     },
     {
+      "collectionGroup": "submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "graded",           "order": "ASCENDING" },
+        { "fieldPath": "score",            "order": "ASCENDING" },
+        { "fieldPath": "timeTakenSeconds", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "codelab_submissions",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "uid",       "order": "ASCENDING"  },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pulse_comments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "postId",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "projects",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId",   "order": "ASCENDING"  },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pulse_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid",       "order": "ASCENDING"  },
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId", "order": "ASCENDING"  },
+        { "fieldPath": "xp",            "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId", "order": "ASCENDING"  },
+        { "fieldPath": "department",    "order": "ASCENDING"  },
+        { "fieldPath": "xp",            "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId", "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dailyLearningLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid",    "order": "ASCENDING" },
+        { "fieldPath": "weekId", "order": "ASCENDING" }
       ]
     }
   ],

@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
   doc, getDoc, collection, query, where,
-  orderBy, getDocs, addDoc, serverTimestamp, writeBatch, increment,
+  orderBy, getDocs, addDoc, serverTimestamp, writeBatch, increment, runTransaction,
 } from "firebase/firestore";
 import { ECONOMY as COINS, loadEconomy, logCoinTransaction } from "@/lib/economy";
 
@@ -98,7 +98,7 @@ export default function WalletPage() {
   const handleConvertXP = async () => {
     if (!user || !userData) return;
     const xp       = userData.xp || 0;
-    const gainable = Math.floor(xp / COINS.XP_PER_COIN);
+    const gainable = Math.min(Math.floor(xp / COINS.XP_PER_COIN), 5000);
     if (gainable < 1) return;
 
     setConverting(true);
@@ -109,7 +109,7 @@ export default function WalletPage() {
         totalCoins: increment(gainable),
       }, { merge: true });
       batch.update(doc(db, "users", user.uid), {
-        xp: xp - gainable * COINS.XP_PER_COIN,
+        xp: increment(-(gainable * COINS.XP_PER_COIN)),
       });
       await batch.commit();
       logCoinTransaction(user.uid, "xp_convert", gainable);
@@ -139,21 +139,28 @@ export default function WalletPage() {
 
     setPSaving(true);
     try {
-      await addDoc(collection(db, "payout_requests"), {
-        uid:           user.uid,
-        handle:        userData?.handle || "",
-        email:         user.email,
-        coins:         coinAmt,
-        inrAmount:     coinAmt / COINS.COINS_PER_INR,
-        method,
-        upiId:         method === "upi"  ? upiId.trim()   : "",
-        bankName:      method === "bank" ? bankName.trim() : "",
-        accountNumber: method === "bank" ? accNum.trim()   : "",
-        ifscCode:      method === "bank" ? ifsc.trim()     : "",
-        status:        "pending",
-        createdAt:     serverTimestamp(),
+      await runTransaction(db, async (tx) => {
+        const earnRef = doc(db, "user_earnings", user.uid);
+        const earnSnap = await tx.get(earnRef);
+        const current = earnSnap.exists() ? (earnSnap.data().pulseCoins || 0) : 0;
+        if (current < coinAmt) throw new Error("Not enough coins.");
+        tx.update(earnRef, { pulseCoins: increment(-coinAmt) });
+        tx.set(doc(collection(db, "payout_requests")), {
+          uid:           user.uid,
+          handle:        userData?.handle || "",
+          email:         user.email,
+          coins:         coinAmt,
+          inrAmount:     coinAmt / COINS.COINS_PER_INR,
+          method,
+          upiId:         method === "upi"  ? upiId.trim()   : "",
+          bankName:      method === "bank" ? bankName.trim() : "",
+          accountNumber: method === "bank" ? accNum.trim()   : "",
+          ifscCode:      method === "bank" ? ifsc.trim()     : "",
+          status:        "pending",
+          createdAt:     serverTimestamp(),
+        });
       });
-      // Deduct coins from earnings (optimistic)
+      // Deduct coins from earnings (reflects the real transactional deduction)
       setEarnings(p => ({
         pulseCoins: (p?.pulseCoins || 0) - coinAmt,
         totalCoins:  p?.totalCoins || 0,
@@ -180,7 +187,7 @@ export default function WalletPage() {
 
   const pulseCoins   = earnings?.pulseCoins || 0;
   const xp           = userData?.xp         || 0;
-  const convertable  = Math.floor(xp / COINS.XP_PER_COIN);
+  const convertable  = Math.min(Math.floor(xp / COINS.XP_PER_COIN), 5000);
   const inrAvailable = pulseCoins / COINS.COINS_PER_INR;
   const canPayout    = pulseCoins >= COINS.MIN_PAYOUT;
 

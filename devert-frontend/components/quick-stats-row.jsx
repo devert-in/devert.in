@@ -1,18 +1,28 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Zap, Anchor, Swords, Coins, Trophy, Code2 } from "lucide-react";
+import { Zap, Anchor, Swords, Coins, Trophy, Code2, Users, UserPlus, Radio, Heart, MessageCircle, Flame, Eye } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
+// The DevCard is now a public portfolio, not a stats dashboard - every
+// platform/engagement counter that used to live there lives here instead.
+// This is the user's operational control center.
 export function QuickStatsRow() {
   const { userData } = useAuth();
   if (!userData) return null;
 
   const stats = [
     { label: "XP",         val: (userData.xp || 0).toLocaleString(),     icon: Zap,    color: "#00FFFF" },
+    { label: "CREDITS",    val: (userData.credits || 0).toLocaleString(), icon: Coins,  color: "#FFD700" },
+    { label: "STREAK",     val: `${userData.streak || 0}d`,               icon: Flame,  color: "#FF6430" },
     { label: "SHIPS",      val: userData.ships || 0,                     icon: Anchor, color: "#00FF41" },
     { label: "ARENA WINS", val: userData.arenaWins || 0,                 icon: Swords, color: "#FF9500" },
-    { label: "COINS",      val: (userData.coins || 0).toLocaleString(),  icon: Coins,  color: "#FFD700" },
+    { label: "FOLLOWERS",  val: userData.followersCount || 0,            icon: Users,     color: "#C77DFF" },
+    { label: "FOLLOWING",  val: userData.followingCount || 0,            icon: UserPlus,  color: "#C77DFF" },
+    { label: "PROFILE VIEWS", val: (userData.profileViews || 0).toLocaleString(), icon: Eye, color: "#00FFFF" },
+    { label: "PULSE POSTS",   val: userData.pulsePostsCount || 0,        icon: Radio,  color: "#00FF41" },
+    { label: "LIKES RECEIVED",    val: (userData.totalLikesReceived || 0).toLocaleString(),    icon: Heart,         color: "#FF5050" },
+    { label: "COMMENTS RECEIVED", val: (userData.totalCommentsReceived || 0).toLocaleString(), icon: MessageCircle, color: "#00FFFF" },
     ...(userData.contestsParticipated ? [
       { label: "CONTEST XP",    val: (userData.contestXp || 0).toLocaleString(),    icon: Trophy, color: "#C77DFF" },
       { label: "CONTEST COINS", val: (userData.contestCoins || 0).toLocaleString(), icon: Trophy, color: "#FFD700" },

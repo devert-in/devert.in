@@ -24,7 +24,8 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
 
-  const next = searchParams.get("next") || "/";
+  const rawNext = searchParams.get("next");
+  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   // Already logged in → go straight to destination
   useEffect(() => {

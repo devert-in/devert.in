@@ -41,7 +41,7 @@ function DockModal({ onClose, onSubmit, submitting }) {
     >
       <motion.div
         initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 12 }}
-        className="terminal-window w-full max-w-md"
+        className="terminal-window w-full max-w-md max-h-[90vh] overflow-y-auto"
       >
         <div className="terminal-header">
           <div className="terminal-dot bg-red-500/70" />
@@ -286,8 +286,9 @@ export default function ShipyardPage() {
               return (
                 <motion.div key={p.id} layout
                   initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  whileHover={{ y: -4, borderColor: "rgba(0,255,255,0.2)" }}
-                  className="terminal-window group cursor-pointer transition-colors"
+                  whileHover={p.url ? { y: -4, borderColor: "rgba(0,255,255,0.2)" } : {}}
+                  onClick={() => p.url && window.open(p.url.startsWith("http") ? p.url : `https://${p.url}`, "_blank", "noopener,noreferrer")}
+                  className={`terminal-window transition-colors ${p.url ? "group cursor-pointer" : ""}`}
                 >
                   <div className="terminal-header">
                     <div className="terminal-dot bg-red-500/70" />

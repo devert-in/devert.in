@@ -42,6 +42,107 @@ select option {
   color: #e5e5e5;
 }
 
+/* DeVert Campus - its own light/dark pair, independent of Builder's OS's
+   permanent dark theme above. Scoped under .campus-theme (see
+   components/campus/campus-app.jsx) so it never leaks into the rest of the
+   app; lib/campus-theme.js's CAMPUS object references these vars directly,
+   so every component using it repaints automatically on toggle - no
+   per-component theme prop needed. */
+.campus-theme {
+  --campus-paper: #F6F7F9;
+  --campus-surface: #FFFFFF;
+  --campus-line: #E1E4EA;
+  --campus-ink: #17202B;
+  --campus-ink-soft: #5B6472;
+  --campus-ink-faint: #8B93A0;
+  --campus-teal: #0E7C86;
+  --campus-teal-tint: #E3F2F1;
+  --campus-gold: #A9720B;
+  --campus-gold-tint: #F7EDDA;
+  --campus-good: #1F8A4C;
+  --campus-good-tint: #E5F4EA;
+  --campus-warn: #B7791F;
+  --campus-warn-tint: #FAF1E0;
+  --campus-bad: #C1382B;
+  --campus-bad-tint: #FBE9E7;
+  --campus-blue: #2563EB;
+  --campus-blue-tint: #E7EEFD;
+  --campus-purple: #7C3AED;
+  --campus-purple-tint: #F0E9FE;
+  --campus-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 4px 12px rgba(16,24,40,0.05);
+  --campus-shadow-hover: 0 2px 4px rgba(16,24,40,0.06), 0 8px 20px rgba(16,24,40,0.08);
+  --campus-shadow-lg: 0 4px 8px rgba(16,24,40,0.06), 0 16px 40px rgba(16,24,40,0.12);
+
+  /* Makes components/dropdown.jsx (built for Builder's OS's dark palette,
+     with hardcoded fallbacks) repaint correctly inside Campus too - no
+     redefinition needed under [data-theme="dark"] below since these just
+     alias --campus-* vars, which already respond to that attribute themselves. */
+  --dropdown-surface: var(--campus-surface);
+  --dropdown-border: var(--campus-line);
+  --dropdown-text: var(--campus-ink-soft);
+  --dropdown-hover: var(--campus-paper);
+  --dropdown-hover-text: var(--campus-ink);
+  --dropdown-chevron: var(--campus-ink-faint);
+  --dropdown-accent: var(--campus-teal);
+  --dropdown-accent-tint: var(--campus-teal-tint);
+}
+.campus-theme[data-theme="dark"] {
+  --campus-paper: #12151A;
+  --campus-surface: #1A1E25;
+  --campus-line: #2A2F38;
+  --campus-ink: #E8EAED;
+  --campus-ink-soft: #9AA1AC;
+  --campus-ink-faint: #6B7280;
+  --campus-teal: #2DD4C7;
+  --campus-teal-tint: rgba(45, 212, 199, 0.14);
+  --campus-gold: #D9A93B;
+  --campus-gold-tint: rgba(217, 169, 59, 0.14);
+  --campus-good: #34C77A;
+  --campus-good-tint: rgba(52, 199, 122, 0.14);
+  --campus-warn: #E0A83D;
+  --campus-warn-tint: rgba(224, 168, 61, 0.14);
+  --campus-bad: #F0655A;
+  --campus-bad-tint: rgba(240, 101, 90, 0.14);
+  --campus-blue: #5B8DEF;
+  --campus-blue-tint: rgba(91, 141, 239, 0.14);
+  --campus-purple: #A78BFA;
+  --campus-purple-tint: rgba(167, 139, 250, 0.14);
+  --campus-shadow: 0 1px 2px rgba(0,0,0,0.24), 0 4px 14px rgba(0,0,0,0.28);
+  --campus-shadow-hover: 0 2px 4px rgba(0,0,0,0.3), 0 10px 24px rgba(0,0,0,0.36);
+  --campus-shadow-lg: 0 6px 16px rgba(0,0,0,0.34), 0 24px 56px rgba(0,0,0,0.42);
+}
+.campus-theme select option {
+  background-color: var(--campus-surface);
+  color: var(--campus-ink);
+}
+
+/* Opt-in flat/hairline variant of the same CampusCard/button vocabulary,
+   used only by the pre-auth landing page and its Contests/Learning/Practice
+   sub-views (see CampusGlobalSection in campus-app.jsx) - the authenticated
+   Workspace keeps the rounded, shadowed CampusCard untouched. Scoped by
+   ancestry, not by touching the shared ported components themselves, so the
+   exact same CampusContestFlow/CampusLearningSection/CampusPracticeList
+   render sharp here and rounded inside a college's Workspace tabs.
+   rounded-full is deliberately excluded - it's also how CampusChip's pill
+   shape and quiz/attempt radio-select dots are drawn, and squaring those
+   would break their meaning, not just their theme. */
+.campus-sharp .rounded-2xl,
+.campus-sharp .rounded-xl,
+.campus-sharp .rounded-lg,
+.campus-sharp .rounded-md {
+  border-radius: 0 !important;
+}
+.campus-sharp [style*="box-shadow"] {
+  box-shadow: none !important;
+}
+
+/* CampusSkeleton's shimmer sweep - token-driven (line/surface), so it
+   repaints correctly across Campus's light/dark toggle with no JS. */
+@keyframes campus-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 body {
   background: #050505;
   color: var(--foreground);
@@ -84,6 +185,32 @@ body {
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+/* Window manager chrome - floating app windows built on .terminal-window */
+.window-frame {
+  position: fixed;
+  border-radius: 10px;
+  transition: box-shadow 0.18s ease;
+}
+
+.window-frame--full {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  border-radius: 0;
+}
+
+/* Windows never float on small viewports - always full-screen "apps". */
+@media (max-width: 767px) {
+  .window-frame--floating {
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    transform: none !important;
+    border-radius: 0 !important;
+  }
 }
 
 /* Scanlines overlay */

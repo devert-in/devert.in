@@ -4,6 +4,9 @@ import { useEffect, useState, useMemo } from "react";
 import { Rss, Radio, CalendarClock, History, User, LayoutGrid, Megaphone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { ContestCard } from "@/components/contests/contest-card";
+import { ContestDetailsView } from "@/components/contests/contest-details-view";
+import { ContestAttemptView } from "@/components/contests/contest-attempt-view";
+import { ContestResultsView } from "@/components/contests/contest-results-view";
 import {
   fetchPublishedContests, bucketContests, registerForContest, fetchMyRegistration,
   fetchRecentAnnouncements, CONTEST_CATEGORIES,
@@ -27,6 +30,15 @@ export function ContestHub() {
   const [registering, setRegistering] = useState(null);
   const [subtab, setSubtab] = useState("featured");
   const [announcements, setAnnouncements] = useState(null);
+  // A selected contest's details/attempt/results render in place of the hub -
+  // never as a real route change, so this never leaves the Arena window tab
+  // (or, standalone, the /arena route) out from under itself.
+  const [view, setView] = useState(null); // { mode: "details"|"attempt"|"results", contestId }
+
+  const openDetails = (contestId) => setView({ mode: "details", contestId });
+  const openAttempt = (contestId) => setView({ mode: "attempt", contestId });
+  const openResults = (contestId) => setView({ mode: "results", contestId });
+  const backToHub = () => setView(null);
 
   useEffect(() => {
     fetchPublishedContests().then(setContests).catch(console.error).finally(() => setLoading(false));
@@ -65,12 +77,43 @@ export function ContestHub() {
 
   if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse py-10 text-center">loading contests...</p>;
 
+  if (view?.mode === "details") {
+    return (
+      <ContestDetailsView
+        contestId={view.contestId}
+        onBack={backToHub}
+        onEnterAttempt={openAttempt}
+        onViewResults={openResults}
+        onLogin={() => { window.location.href = "/login?next=/arena"; }}
+      />
+    );
+  }
+  if (view?.mode === "attempt") {
+    return (
+      <ContestAttemptView
+        contestId={view.contestId}
+        onBack={openDetails}
+        onViewResults={openResults}
+      />
+    );
+  }
+  if (view?.mode === "results") {
+    return (
+      <ContestResultsView
+        contestId={view.contestId}
+        onBack={openDetails}
+        onLogin={() => { window.location.href = "/login?next=/arena"; }}
+      />
+    );
+  }
+
   const grid = (list) => list.length === 0 ? (
     <p className="font-mono text-xs text-white/20 text-center py-10">nothing here yet</p>
   ) : (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {list.map(c => (
-        <ContestCard key={c.id} contest={c} registered={!!myRegs[c.id]} registering={registering === c.id} onRegister={handleRegister} />
+        <ContestCard key={c.id} contest={c} registered={!!myRegs[c.id]} registering={registering === c.id}
+          onRegister={handleRegister} onViewDetails={openDetails} onViewResults={openResults} />
       ))}
     </div>
   );
@@ -98,7 +141,8 @@ export function ContestHub() {
       {subtab === "featured" && (
         featured ? (
           <div className="max-w-md">
-            <ContestCard contest={featured} registered={!!myRegs[featured.id]} registering={registering === featured.id} onRegister={handleRegister} />
+            <ContestCard contest={featured} registered={!!myRegs[featured.id]} registering={registering === featured.id}
+              onRegister={handleRegister} onViewDetails={openDetails} onViewResults={openResults} />
           </div>
         ) : <p className="font-mono text-xs text-white/20 text-center py-10">no featured contest right now</p>
       )}
@@ -133,7 +177,7 @@ export function ContestHub() {
           {(announcements || []).map(a => (
             <div key={a.id} className="border border-white/6 rounded-lg px-4 py-3">
               <p className="font-mono text-xs text-white/60">{a.text}</p>
-              <a href={`/arena/contests/details?id=${a.contestId}`} className="font-mono text-[10px] text-neon-cyan hover:underline mt-1 inline-block">view contest →</a>
+              <button onClick={() => openDetails(a.contestId)} className="font-mono text-[10px] text-neon-cyan hover:underline mt-1 inline-block">view contest →</button>
             </div>
           ))}
         </div>

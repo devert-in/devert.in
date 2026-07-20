@@ -12,6 +12,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.Firestore;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.cloud.FirestoreClient;
 
 // Re-added deliberately for CodeLab: this is the only way to read hidden test cases
@@ -54,6 +55,20 @@ public class FirebaseConfig {
             System.err.println("Failed to initialize Firebase - CodeLab endpoints will report unavailable: " + e.getMessage());
             return null;
         }
+    }
+
+    // Used to verify the caller's Firebase ID token on /api/coding/submit, so the
+    // grading endpoint credits XP/coins to whoever actually holds the session, not
+    // whatever uid the request body claims. Takes the Firestore bean as a parameter
+    // purely to force Spring to construct firestore() first - that's the bean that
+    // actually calls FirebaseApp.initializeApp(), and bean methods in the same
+    // @Configuration class have no guaranteed ordering otherwise. Same fail-soft
+    // rule as firestore(): null (never throws) whenever FIREBASE_SERVICE_ACCOUNT_JSON
+    // isn't configured, so a missing secret degrades CodeLab only.
+    @Bean
+    public FirebaseAuth firebaseAuth(Firestore firestore) {
+        if (FirebaseApp.getApps().isEmpty()) return null;
+        return FirebaseAuth.getInstance();
     }
 
     private String decodeIfBase64(String value) {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowLeft, Play, RotateCcw, Copy, Monitor } from "lucide-react";
 import { runCode, CODELAB_LANGUAGES } from "@/lib/codelab";
+import Dropdown from "@/components/dropdown";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -53,11 +54,11 @@ export default function PlaygroundPage() {
         <div className="terminal-window">
           <div className="terminal-header flex-wrap gap-2">
             <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
-            <select value={language} onChange={e => handleLanguageChange(e.target.value)}
-              className="ml-2 font-mono text-[10px] text-white/70 px-2 py-1 rounded outline-none"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {CODELAB_LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
-            </select>
+            <Dropdown value={language} onChange={handleLanguageChange}
+              options={CODELAB_LANGUAGES.map(l => ({ value: l.id, label: l.label }))}
+              className="ml-2 w-28"
+              buttonClassName="font-mono text-[10px] text-white/70 px-2 py-1 rounded bg-white/[0.05] border border-white/[0.08]"
+              />
             <div className="ml-auto flex items-center gap-2">
               <button onClick={() => navigator.clipboard?.writeText(code)} title="Copy" className="text-white/25 hover:text-white/60 transition-colors"><Copy size={12} /></button>
               <button onClick={() => setCode(STARTER_CODE[language] || "")} title="Reset" className="text-white/25 hover:text-white/60 transition-colors"><RotateCcw size={12} /></button>
@@ -87,7 +88,7 @@ export default function PlaygroundPage() {
                 style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
             </div>
             <button onClick={handleRun} disabled={running}
-              className="w-full font-mono text-xs py-2.5 rounded-lg border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              className="w-full font-mono text-xs py-2.5 rounded-lg border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors disabled:opacity-50 hidden lg:flex items-center justify-center gap-2">
               <Play size={12} /> {running ? "running..." : "run"}
             </button>
             {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}

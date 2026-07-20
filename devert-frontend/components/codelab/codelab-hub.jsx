@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Compass, User, Trophy, Terminal, Swords, Medal } from "lucide-react";
+import { Compass, User, Trophy, Terminal, Swords, Medal, Search } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { ProblemCard } from "@/components/codelab/problem-card";
 import {
-  fetchPublishedProblems, fetchUserCodelabProgress, fetchMySubmissions, fetchTopSolvers,
+  fetchPublishedProblems, fetchUserCodelabProgress, fetchAttemptedProblemIds, fetchMySubmissions, fetchTopSolvers,
   CODELAB_CATEGORIES, CODELAB_DIFFICULTIES,
 } from "@/lib/codelab";
+import Dropdown from "@/components/dropdown";
 
 const SUBTABS = [
   { key: "explore",     label: "Explore",      icon: Compass },
@@ -16,15 +17,17 @@ const SUBTABS = [
   { key: "leaderboard", label: "Leaderboards", icon: Trophy },
 ];
 
-export function CodeLabHub() {
+export function CodeLabHub({ onSolve }) {
   const { user } = useAuth();
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [subtab, setSubtab] = useState("explore");
   const [category, setCategory] = useState("All");
   const [difficulty, setDifficulty] = useState("All");
+  const [search, setSearch] = useState("");
 
   const [progress, setProgress] = useState(null);
+  const [attemptedIds, setAttemptedIds] = useState(new Set());
   const [submissions, setSubmissions] = useState(null);
   const [topSolvers, setTopSolvers] = useState(null);
 
@@ -33,8 +36,9 @@ export function CodeLabHub() {
   }, []);
 
   useEffect(() => {
-    if (!user) { setProgress(null); return; }
+    if (!user) { setProgress(null); setAttemptedIds(new Set()); return; }
     fetchUserCodelabProgress(user.uid).then(setProgress).catch(console.error);
+    fetchAttemptedProblemIds(user.uid).then(setAttemptedIds).catch(() => {});
   }, [user]);
 
   useEffect(() => {
@@ -46,9 +50,14 @@ export function CodeLabHub() {
     }
   }, [subtab, user, submissions, topSolvers]);
 
-  const filtered = useMemo(() => problems.filter(p =>
-    (category === "All" || p.category === category) && (difficulty === "All" || p.difficulty === difficulty)
-  ), [problems, category, difficulty]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return problems.filter(p =>
+      (category === "All" || p.category === category) &&
+      (difficulty === "All" || p.difficulty === difficulty) &&
+      (!q || p.title?.toLowerCase().includes(q) || String(p.number ?? "").includes(q))
+    );
+  }, [problems, category, difficulty, search]);
 
   if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse py-10 text-center">loading problems...</p>;
 
@@ -86,26 +95,33 @@ export function CodeLabHub() {
 
       {subtab === "explore" && (
         <div>
+          <div className="relative mb-4">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/25" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search problems by title or number..."
+              className="w-full font-mono text-[12px] text-white/80 pl-9 pr-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] outline-none placeholder:text-white/25"
+            />
+          </div>
           <div className="flex gap-2 flex-wrap mb-5">
-            <select value={category} onChange={e => setCategory(e.target.value)}
-              className="font-mono text-[11px] text-white/70 px-3 py-1.5 rounded-lg outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <option value="All">All Categories</option>
-              {CODELAB_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select value={difficulty} onChange={e => setDifficulty(e.target.value)}
-              className="font-mono text-[11px] text-white/70 px-3 py-1.5 rounded-lg outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <option value="All">All Difficulties</option>
-              {CODELAB_DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <Dropdown value={category} onChange={setCategory}
+              options={[{ value: "All", label: "All Categories" }, ...CODELAB_CATEGORIES.map(c => ({ value: c, label: c }))]}
+              className="w-44"
+              buttonClassName="font-mono text-[11px] text-white/70 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08]"
+              />
+            <Dropdown value={difficulty} onChange={setDifficulty}
+              options={[{ value: "All", label: "All Difficulties" }, ...CODELAB_DIFFICULTIES.map(d => ({ value: d, label: d }))]}
+              className="w-40"
+              buttonClassName="font-mono text-[11px] text-white/70 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08]"
+              />
           </div>
           {filtered.length === 0 ? (
             <p className="font-mono text-xs text-white/20 text-center py-10">no problems match these filters yet</p>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filtered.map(p => (
-                <ProblemCard key={p.id} problem={p} solved={!!progress?.solvedProblems?.[p.id]} />
+                <ProblemCard key={p.id} problem={p} solved={!!progress?.solvedProblems?.[p.id]} attempted={attemptedIds.has(p.id)} onSolve={onSolve} />
               ))}
             </div>
           )}

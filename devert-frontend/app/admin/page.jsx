@@ -10,16 +10,28 @@ import {
   Tv2, GitCommit, Radio, Activity, BookOpen, Wallet, ShieldCheck,
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
-  GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff,
+  GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
+  Briefcase,
 } from "lucide-react";
 import {
-  db
+  db, auth
 } from "@/lib/firebase";
 import { writeNotification } from "@/components/notification-bell";
+import PortfoliosPanel from "@/components/admin/portfolios-panel";
+import Dropdown from "@/components/dropdown";
 import { DEFAULT_TIERS } from "@/lib/ranks";
 import { DEFAULT_ECONOMY } from "@/lib/economy";
-import { CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES, contestPhase } from "@/lib/contests";
-import { CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, CODELAB_LANGUAGES } from "@/lib/codelab";
+import {
+  CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES, contestPhase,
+  CONTEST_STATUSES, blankContestForm, blankContestQuestionForm, CONTEST_CSV_HELP,
+  downloadContestCsvTemplate, csvRowsToContestQuestions, parseCSV,
+} from "@/lib/contests";
+import { CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, CODELAB_LANGUAGES, fetchPublishedProblems } from "@/lib/codelab";
+import {
+  COMPANY_QUESTION_DIFFICULTIES, COMPANY_QUESTION_CSV_HELP,
+  downloadCompanyQuestionCsvTemplate, csvRowsToCompanyQuestions,
+} from "@/lib/companyPrep";
+import { ACCESS_MODES, createInstitution, updateInstitution, addInstitutionAdmin } from "@/lib/institutions";
 import {
   collection, query, orderBy, where, getDocs, addDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch
@@ -38,7 +50,7 @@ function todayIST() {
 // itself if the write fails.
 function logAdminActivity(action, detail) {
   addDoc(collection(db, "admin_activity_log"), {
-    action, detail, actor: ADMIN_EMAIL, createdAt: serverTimestamp(),
+    action, detail, actor: auth.currentUser?.email || ADMIN_EMAIL, createdAt: serverTimestamp(),
   }).catch(() => {});
 }
 
@@ -288,6 +300,7 @@ const BLANK_CHALLENGE = {
   title: "", description: "",
   difficulty: "MEDIUM", diffColor: "#FF9500", diffBg: "rgba(255,149,0,0.08)",
   time: "30 min", tags: "", xp: "150",
+  problemId: "",
 };
 
 const TYPE_OPTS = [
@@ -302,7 +315,7 @@ const DIFF_OPTS2 = [
   { v: "OPEN",   c: "#00FF41", bg: "rgba(0,255,65,0.06)"  },
 ];
 
-function ChallengeForm({ ch, onChange, onRemove, index }) {
+function ChallengeForm({ ch, onChange, onRemove, index, problems }) {
   const f = (k) => (v) => onChange(index, k, v);
   return (
     <div className="border border-white/8 rounded-lg p-4 space-y-3 relative">
@@ -343,6 +356,18 @@ function ChallengeForm({ ch, onChange, onRemove, index }) {
       </div>
       <Input label="TITLE" value={ch.title} onChange={f("title")} placeholder="Binary Tree Maximum Path Sum" />
       <Textarea label="DESCRIPTION" value={ch.description} onChange={f("description")} placeholder="Brief problem description..." rows={2} />
+      {problems && (
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">
+            LINKED CODELAB PROBLEM {!ch.problemId && <span className="text-orange-400/70">(unplayable until linked)</span>}
+          </p>
+          <Dropdown value={ch.problemId || ""} onChange={v => onChange(index, "problemId", v)}
+            options={[{ value: "", label: "— not linked —" }, ...problems.map(p => ({ value: p.id, label: p.title }))]}
+            className="w-full"
+            buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+            />
+        </div>
+      )}
       <div className="grid sm:grid-cols-3 gap-3">
         <Input label="TIME" value={ch.time} onChange={f("time")} placeholder="30 min" />
         <Input label="XP REWARD" value={ch.xp} onChange={f("xp")} placeholder="150" />
@@ -433,6 +458,7 @@ function GrindPanel() {
 
 function ArenaPanel() {
   const [challenges, setChallenges] = useState([{ ...BLANK_CHALLENGE }]);
+  const [problems,   setProblems]   = useState([]);
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
 
@@ -442,6 +468,10 @@ function ArenaPanel() {
         if (snap.exists()) setChallenges(snap.data().challenges.map(c => ({ ...c, tags: (c.tags || []).join(", ") })));
       })
       .catch(console.error);
+    // Solo challenges are only playable once linked to a real, published CodeLab
+    // problem - see GradingService.gradeArenaSubmission, which grades against
+    // exactly this collection.
+    fetchPublishedProblems().then(setProblems).catch(console.error);
   }, []);
 
   const updateCh = (i, k, v) => setChallenges(prev => prev.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
@@ -466,7 +496,7 @@ function ArenaPanel() {
     <div className="space-y-4">
       <div className="space-y-3">
         {challenges.map((ch, i) => (
-          <ChallengeForm key={i} ch={ch} onChange={updateCh} onRemove={removeCh} index={i} />
+          <ChallengeForm key={i} ch={ch} onChange={updateCh} onRemove={removeCh} index={i} problems={problems} />
         ))}
       </div>
       <button onClick={() => setChallenges(prev => [...prev, { ...BLANK_CHALLENGE }])}
@@ -489,6 +519,158 @@ function ArenaPanel() {
 }
 
 // ── Users panel ───────────────────────────────────────────────────────────────
+
+// DeVert Campus - platform staff provision each institution and designate its
+// first admin here; day-to-day running (approving students, publishing content)
+// happens inside the Campus workspace itself (components/campus/campus-app.jsx),
+// gated on institutions/{id}/admins/{uid} rather than this admin console's
+// isAdmin() claim - a different persona, so it deliberately isn't managed here.
+function InstitutionsPanel() {
+  const [institutions, setInstitutions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ slug: "", name: "", location: "", website: "", accessMode: "public" });
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const [adminHandle, setAdminHandle] = useState({});
+  const [working, setWorking] = useState({});
+  const [adminFeedback, setAdminFeedback] = useState({});
+
+  const load = () => {
+    setLoading(true);
+    getDocs(query(collection(db, "institutions"), orderBy("createdAt", "desc")))
+      .then(snap => setInstitutions(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    setError("");
+    const slug = form.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
+    if (!slug || !form.name.trim()) { setError("Slug and name are required."); return; }
+    setCreating(true);
+    try {
+      await createInstitution(slug, {
+        name: form.name.trim(), location: form.location.trim(), website: form.website.trim(),
+        accessMode: form.accessMode,
+      });
+      setForm({ slug: "", name: "", location: "", website: "", accessMode: "public" });
+      load();
+    } catch (e) {
+      setError(e.message || "Failed to create institution.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleAddAdmin = async (institutionId) => {
+    const handle = (adminHandle[institutionId] || "").trim().toLowerCase();
+    if (!handle) return;
+    setWorking(p => ({ ...p, [institutionId]: true }));
+    setAdminFeedback(p => ({ ...p, [institutionId]: null }));
+    try {
+      const snap = await getDocs(query(collection(db, "users"), where("handle", "==", handle), limit(1)));
+      if (snap.empty) {
+        setAdminFeedback(p => ({ ...p, [institutionId]: { type: "error", text: `No DeVert account found with handle "${handle}".` } }));
+        return;
+      }
+      const uid = snap.docs[0].id;
+      await addInstitutionAdmin(institutionId, uid, "faculty");
+      setAdminHandle(p => ({ ...p, [institutionId]: "" }));
+      setAdminFeedback(p => ({ ...p, [institutionId]: { type: "success", text: `@${handle} added as an admin.` } }));
+    } catch (e) {
+      setAdminFeedback(p => ({ ...p, [institutionId]: { type: "error", text: e.message || "Failed to add admin." } }));
+    } finally {
+      setWorking(p => ({ ...p, [institutionId]: false }));
+    }
+  };
+
+  const toggleStatus = async (inst) => {
+    const next = inst.status === "active" ? "suspended" : "active";
+    await updateDoc(doc(db, "institutions", inst.id), { status: next });
+    load();
+  };
+
+  const handleChangeAccessMode = async (inst, accessMode) => {
+    setAdminFeedback(p => ({ ...p, [inst.id]: null }));
+    try {
+      await updateInstitution(inst.id, { accessMode });
+      setAdminFeedback(p => ({ ...p, [inst.id]: { type: "success", text: `Access mode set to "${accessMode}".` } }));
+      load();
+    } catch (e) {
+      setAdminFeedback(p => ({ ...p, [inst.id]: { type: "error", text: e.message || "Failed to update access mode." } }));
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Input label="SLUG (used as /campus/<slug>)" value={form.slug} onChange={v => setForm(p => ({ ...p, slug: v }))} placeholder="mrcet" />
+        <Input label="COLLEGE NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Malla Reddy College of Engineering & Technology" />
+        <Input label="LOCATION" value={form.location} onChange={v => setForm(p => ({ ...p, location: v }))} placeholder="Hyderabad, Telangana" />
+        <Input label="WEBSITE" value={form.website} onChange={v => setForm(p => ({ ...p, website: v }))} placeholder="https://mrcet.ac.in" />
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">ACCESS MODE</p>
+          <Dropdown value={form.accessMode} onChange={v => setForm(p => ({ ...p, accessMode: v }))}
+            options={ACCESS_MODES}
+            className="w-full"
+            buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.1]"
+            />
+        </div>
+      </div>
+      {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
+      <button onClick={handleCreate} disabled={creating}
+        className="font-mono text-xs px-4 py-2 rounded-lg border border-neon-green/30 text-neon-green hover:bg-neon-green/8 transition-colors disabled:opacity-50">
+        {creating ? "creating..." : "+ create institution"}
+      </button>
+
+      <div className="border-t border-white/6 pt-4 space-y-2">
+        {loading ? (
+          <p className="font-mono text-xs text-white/25">loading...</p>
+        ) : institutions.length === 0 ? (
+          <p className="font-mono text-xs text-white/25">No institutions yet.</p>
+        ) : institutions.map(inst => (
+          <div key={inst.id} className="rounded-lg border border-white/6 p-3 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-xs text-white/80">{inst.name}</span>
+              <span className="font-mono text-[10px] text-white/25">/campus/{inst.id}</span>
+              <span className="font-mono text-[9px] px-2 py-0.5 rounded"
+                style={{ color: inst.status === "active" ? "#00FF41" : "#FF5050", background: inst.status === "active" ? "rgba(0,255,65,0.08)" : "rgba(255,80,80,0.08)" }}>
+                {inst.status?.toUpperCase()}
+              </span>
+              <Dropdown value={inst.accessMode || "public"} onChange={v => handleChangeAccessMode(inst, v)}
+                options={ACCESS_MODES} className="w-32"
+                buttonClassName="font-mono text-[10px] px-2 py-1 rounded bg-white/[0.04] border border-white/[0.1] text-white/70" />
+              <span className="font-mono text-[10px] text-white/25 ml-auto">{inst.studentCount || 0} students</span>
+              <button onClick={() => toggleStatus(inst)}
+                className="font-mono text-[10px] px-2 py-1 rounded border border-white/10 text-white/50 hover:text-white/80 transition-colors">
+                {inst.status === "active" ? "suspend" : "activate"}
+              </button>
+            </div>
+            <p className="font-mono text-[9px] text-white/18">
+              public = anyone can request to join, you approve each one. invite_only = self-serve requests are blocked, only you can add students (bulk roster import or direct approval). private = hidden from the /campus directory entirely - only admins and already-approved students can reach it.
+            </p>
+            <div className="flex items-center gap-2">
+              <input value={adminHandle[inst.id] || ""} onChange={e => setAdminHandle(p => ({ ...p, [inst.id]: e.target.value }))}
+                placeholder="handle of first admin (faculty/placement officer)"
+                className="flex-1 font-mono text-[11px] text-white/70 px-2.5 py-1.5 rounded outline-none"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
+              <button onClick={() => handleAddAdmin(inst.id)} disabled={working[inst.id]}
+                className="font-mono text-[10px] px-2.5 py-1.5 rounded border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors disabled:opacity-50 flex-shrink-0">
+                + add admin
+              </button>
+            </div>
+            {adminFeedback[inst.id] && (
+              <p className="font-mono text-[10px]" style={{ color: adminFeedback[inst.id].type === "success" ? "#00FF41" : "#FF5050" }}>
+                {adminFeedback[inst.id].text}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function UsersPanel() {
   const [users,    setUsers]    = useState([]);
@@ -1434,7 +1616,7 @@ function ResourcesPanel() {
               const res     = resources[mod.id];
               const isAvail = res?.status === "available" && res?.url;
               return (
-                <div key={mod.id} className="flex items-center gap-2 border border-white/6 rounded-lg px-3 py-2">
+                <div key={mod.id} className="flex flex-wrap items-center gap-2 border border-white/6 rounded-lg px-3 py-2">
                   <span className="font-mono text-[9px] text-white/18 w-4 flex-shrink-0 text-right">{i + 1}</span>
                   <span className="font-mono text-xs text-white/55 flex-1 min-w-0 truncate">{mod.title}</span>
                   <span className="font-mono text-[9px] text-white/22 flex-shrink-0">{mod.type}</span>
@@ -1447,8 +1629,8 @@ function ResourcesPanel() {
                     value={urls[mod.id] || ""}
                     onChange={e => setUrls(p => ({ ...p, [mod.id]: e.target.value }))}
                     placeholder="https://drive.google.com/..."
-                    className="font-mono text-[10px] text-white/70 px-2 py-1 rounded outline-none flex-shrink-0"
-                    style={{ width: 220, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                    className="font-mono text-[10px] text-white/70 px-2 py-1 rounded outline-none w-full sm:w-[220px] flex-shrink-0"
+                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                     onFocus={e => (e.target.style.borderColor = `${bundle.color}50`)}
                     onBlur={e  => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
                   />
@@ -1516,6 +1698,7 @@ function PayoutsPanel() {
     if (reason === null) return;
     setWorking(p => ({ ...p, [req.id]: true }));
     try {
+      await updateDoc(doc(db, "user_earnings", req.uid), { pulseCoins: increment(req.coins) });
       await updateDoc(doc(db, "payout_requests", req.id), { status: "rejected", note: reason || "", processedAt: serverTimestamp() });
       writeNotification(req.uid, {
         type: "rejection",
@@ -2275,15 +2458,22 @@ function LearningPanel() {
 // ── Aptitude & Reasoning panel ────────────────────────────────────────────────
 
 const APTITUDE_CATEGORIES = ["Quantitative", "Logical", "Verbal"];
-const CSV_HELP = `Columns (first row = header, exact names): question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty
+// Fixed vocabulary for exam relevance badges - shared by the manual form and
+// the CSV importer (which drops anything outside this list, with a warning,
+// rather than failing the whole row).
+const APTITUDE_EXAM_TAGS = ["GATE", "CAT", "Campus Placement", "Product Companies", "Banking", "SSC", "UPSC", "GRE"];
+
+const CSV_HELP = `Columns (first row = header, exact names): question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty,subtopic,estimatedTimeSec,companies,examTags,shortcut,formula,commonMistake,alternativeApproach,interviewTip,marks,negativeMarks
 - correctOption is 1-4 (which option is right)
-- videoUrl and difficulty (easy/medium/hard) are optional - difficulty defaults to "medium" if blank
+- videoUrl, difficulty (easy/medium/hard, default "medium"), subtopic, estimatedTimeSec (seconds), shortcut, formula, commonMistake, alternativeApproach, interviewTip, marks (default 1) and negativeMarks (default 0) are all optional
+- companies and examTags can hold MULTIPLE values - separate them with a semicolon inside the cell, e.g. "Amazon;Google;TCS" (commas already separate columns, so a comma-separated list would silently spill into the next column instead of erroring)
+- examTags must be from: ${APTITUDE_EXAM_TAGS.join(", ")} - anything else is dropped with a warning, not a row failure
 - Wrap any field containing a comma in double quotes (only needed for actual .csv files - pasting straight from Excel/Sheets works as-is)`;
 
-const CSV_TEMPLATE_HEADER = "question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty";
+const CSV_TEMPLATE_HEADER = "question,option1,option2,option3,option4,correctOption,explanation,videoUrl,difficulty,subtopic,estimatedTimeSec,companies,examTags,shortcut,formula,commonMistake,alternativeApproach,interviewTip,marks,negativeMarks";
 const CSV_TEMPLATE_EXAMPLE_ROWS = [
-  ['What is 20% of 150?', '20', '30', '35', '40', '2', '20% = 1/5, so 150 / 5 = 30.', '', 'easy'],
-  ['A number increased by 25% gives 100. What is the original number?', '70', '75', '80', '85', '3', 'Let the number be N. N + 25% of N = 100, so 1.25N = 100, N = 80.', 'https://youtu.be/example', 'medium'],
+  ['What is 20% of 150?', '20', '30', '35', '40', '2', '20% = 1/5, so 150 / 5 = 30.', '', 'easy', 'Basic Percentages', '45', 'Amazon;TCS', 'Campus Placement;SSC', 'Convert 20% to 1/5 and divide directly - avoids the multiplication step entirely.', 'Percentage = (Value / Total) x 100', 'Multiplying by 20 instead of converting to 0.2 first.', '', 'Interviewers love quick mental math here - drill the 10/20/25/50% fraction shortcuts.', '1', '0'],
+  ['A number increased by 25% gives 100. What is the original number?', '70', '75', '80', '85', '3', 'Let the number be N. N + 25% of N = 100, so 1.25N = 100, N = 80.', 'https://youtu.be/example', 'medium', 'Successive Percentage Change', '90', 'Google;Microsoft;Infosys', 'GATE;Product Companies', 'Divide 100 by 1.25 directly instead of solving the algebra.', 'Final = Original x (1 + percent/100)', 'Students subtract 25 from 100 instead of dividing.', 'Work backwards from the answer choices by testing each against the 25% increase.', '', '1', '0.25'],
 ];
 const CSV_TEMPLATE = [CSV_TEMPLATE_HEADER, ...CSV_TEMPLATE_EXAMPLE_ROWS.map(r =>
   r.map(f => (f.includes(",") || f.includes('"') ? `"${f.replace(/"/g, '""')}"` : f)).join(",")
@@ -2300,35 +2490,30 @@ function downloadCsvTemplate() {
 }
 
 function blankTopicForm() { return { category: "Quantitative", name: "", description: "" }; }
-function blankQuestionForm() { return { question: "", options: ["", "", "", ""], correctIndex: 0, explanation: "", videoUrl: "", difficulty: "medium" }; }
+function blankQuestionForm() {
+  return {
+    question: "", options: ["", "", "", ""], correctIndex: 0, explanation: "", videoUrl: "", difficulty: "medium",
+    subtopic: "", estimatedTimeSec: "", companies: "", examTags: "",
+    shortcut: "", formula: "", commonMistake: "", alternativeApproach: "", interviewTip: "",
+    marks: "", negativeMarks: "",
+  };
+}
 
-// Small hand-rolled delimited-text parser - handles quoted fields with
-// embedded commas/tabs and escaped ("") quotes, which a naive .split() gets
-// wrong. Auto-detects comma vs tab so pasting directly out of Excel/Google
-// Sheets (which copies as tab-separated) works without an explicit "export
-// as CSV" step - only a real .csv file needs actual comma-quoting.
-function parseCSV(text) {
-  const firstLine = text.split(/\r?\n/, 1)[0] || "";
-  const delimiter = (firstLine.split("\t").length > firstLine.split(",").length) ? "\t" : ",";
-  const rows = [];
-  let row = [], field = "", inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i], next = text[i + 1];
-    if (inQuotes) {
-      if (c === '"' && next === '"') { field += '"'; i++; }
-      else if (c === '"') { inQuotes = false; }
-      else field += c;
-    } else if (c === '"') { inQuotes = true; }
-    else if (c === delimiter) { row.push(field); field = ""; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && next === '\n') i++;
-      row.push(field); field = "";
-      if (row.length > 1 || row[0] !== "") rows.push(row);
-      row = [];
-    } else field += c;
+// companies/examTags hold multiple values per cell - semicolon-separated
+// (commas are already the column delimiter, so a comma list would silently
+// spill into the next column instead of raising a row error).
+function splitMultiValue(raw) {
+  return (raw || "").split(";").map(t => t.trim()).filter(Boolean);
+}
+
+function normalizeExamTags(raw, errors, lineNo) {
+  const out = [];
+  for (const v of splitMultiValue(raw)) {
+    const match = APTITUDE_EXAM_TAGS.find(t => t.toLowerCase() === v.toLowerCase());
+    if (match) out.push(match);
+    else errors.push(`Row ${lineNo}: unrecognized exam tag "${v}" - dropped (not a row failure).`);
   }
-  if (field || row.length) { row.push(field); rows.push(row); }
-  return rows;
+  return out;
 }
 
 function csvRowsToQuestions(rows) {
@@ -2351,11 +2536,26 @@ function csvRowsToQuestions(rows) {
       errors.push(`Row ${lineNo}: skipped - missing question/option or correctOption isn't 1-4.`);
       return;
     }
+    const getCol = (name) => (col(name) !== -1 ? (r[col(name)] || "").trim() : "");
+    const estimatedTimeSec = parseInt(getCol("estimatedtimesec"), 10);
+    const marksRaw = getCol("marks");
+    const negMarksRaw = getCol("negativemarks");
     questions.push({
       question, options, correctIndex,
-      explanation: col("explanation") !== -1 ? (r[col("explanation")] || "").trim() : "",
-      videoUrl:    col("videourl")    !== -1 ? (r[col("videourl")]    || "").trim() : "",
-      difficulty:  (col("difficulty") !== -1 && (r[col("difficulty")] || "").trim()) || "medium",
+      explanation: getCol("explanation"),
+      videoUrl:    getCol("videourl"),
+      difficulty:  getCol("difficulty") || "medium",
+      subtopic:    getCol("subtopic"),
+      estimatedTimeSec: Number.isFinite(estimatedTimeSec) ? estimatedTimeSec : 0,
+      companies: splitMultiValue(getCol("companies")),
+      examTags: normalizeExamTags(getCol("examtags"), errors, lineNo),
+      shortcut: getCol("shortcut"),
+      formula: getCol("formula"),
+      commonMistake: getCol("commonmistake"),
+      alternativeApproach: getCol("alternativeapproach"),
+      interviewTip: getCol("interviewtip"),
+      marks: marksRaw ? parseFloat(marksRaw) : 1,
+      negativeMarks: negMarksRaw ? parseFloat(negMarksRaw) : 0,
     });
   });
   return { questions, errors };
@@ -2432,8 +2632,23 @@ function AptitudePanel() {
     setSavingQ(true);
     try {
       const count = (questions[topicId] || []).length;
+      const examTags = qForm.examTags.split(",").map(t => t.trim()).filter(Boolean)
+        .map(t => APTITUDE_EXAM_TAGS.find(v => v.toLowerCase() === t.toLowerCase())).filter(Boolean);
       await addDoc(collection(db, "aptitude_topics", topicId, "questions"), {
-        ...qForm, question: qForm.question.trim(), options: qForm.options.map(o => o.trim()),
+        ...qForm,
+        question: qForm.question.trim(),
+        options: qForm.options.map(o => o.trim()),
+        subtopic: qForm.subtopic.trim(),
+        estimatedTimeSec: parseInt(qForm.estimatedTimeSec, 10) || 0,
+        companies: qForm.companies.split(",").map(t => t.trim()).filter(Boolean),
+        examTags,
+        shortcut: qForm.shortcut.trim(),
+        formula: qForm.formula.trim(),
+        commonMistake: qForm.commonMistake.trim(),
+        alternativeApproach: qForm.alternativeApproach.trim(),
+        interviewTip: qForm.interviewTip.trim(),
+        marks: qForm.marks.trim() ? parseFloat(qForm.marks) : 1,
+        negativeMarks: qForm.negativeMarks.trim() ? parseFloat(qForm.negativeMarks) : 0,
         order: count, createdAt: serverTimestamp(),
       });
       setQForm(blankQuestionForm());
@@ -2526,20 +2741,45 @@ function AptitudePanel() {
                               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
                           </div>
                         ))}
-                        <Textarea label="EXPLANATION" value={qForm.explanation} onChange={v => setQForm(p => ({ ...p, explanation: v }))} rows={3} placeholder="Step-by-step worked solution..." />
+                        <Textarea label="EXPLANATION (Method 1 - step-by-step)" value={qForm.explanation} onChange={v => setQForm(p => ({ ...p, explanation: v }))} rows={3} placeholder="Step-by-step worked solution..." />
                         <div className="grid grid-cols-2 gap-2">
                           <Input label="VIDEO URL (optional)" value={qForm.videoUrl} onChange={v => setQForm(p => ({ ...p, videoUrl: v }))} placeholder="https://youtu.be/..." />
                           <div>
                             <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
-                            <select value={qForm.difficulty} onChange={e => setQForm(p => ({ ...p, difficulty: e.target.value }))}
-                              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
-                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                              <option value="easy">easy</option>
-                              <option value="medium">medium</option>
-                              <option value="hard">hard</option>
-                            </select>
+                            <Dropdown value={qForm.difficulty} onChange={v => setQForm(p => ({ ...p, difficulty: v }))}
+                              options={["easy", "medium", "hard"]}
+                              className="w-full"
+                              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+                              />
                           </div>
                         </div>
+
+                        <p className="font-mono text-[9px] text-white/25 tracking-widest pt-1">SOLUTION DEPTH (optional)</p>
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          <Input label="SHORTCUT (Method 2)" value={qForm.shortcut} onChange={v => setQForm(p => ({ ...p, shortcut: v }))} placeholder="Faster approach..." />
+                          <Input label="FORMULA" value={qForm.formula} onChange={v => setQForm(p => ({ ...p, formula: v }))} placeholder="Percentage = (Value/Total) x 100" />
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          <Input label="COMMON MISTAKE" value={qForm.commonMistake} onChange={v => setQForm(p => ({ ...p, commonMistake: v }))} placeholder="Students subtract instead of multiplying..." />
+                          <Input label="ALTERNATIVE APPROACH" value={qForm.alternativeApproach} onChange={v => setQForm(p => ({ ...p, alternativeApproach: v }))} placeholder="Work backwards from the options..." />
+                        </div>
+                        <Input label="REAL INTERVIEW TIP" value={qForm.interviewTip} onChange={v => setQForm(p => ({ ...p, interviewTip: v }))} placeholder="Interviewers often follow up by asking..." />
+
+                        <p className="font-mono text-[9px] text-white/25 tracking-widest pt-1">COMPANIES &amp; EXAMS (optional)</p>
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          <Input label="SUBTOPIC" value={qForm.subtopic} onChange={v => setQForm(p => ({ ...p, subtopic: v }))} placeholder="Successive Percentage Change" />
+                          <Input label="COMPANIES (comma separated)" value={qForm.companies} onChange={v => setQForm(p => ({ ...p, companies: v }))} placeholder="Amazon, Google, TCS" />
+                        </div>
+                        <Input label="EXAM TAGS (comma separated)" value={qForm.examTags} onChange={v => setQForm(p => ({ ...p, examTags: v }))}
+                          placeholder="GATE, Campus Placement" hint={`Recognized: ${APTITUDE_EXAM_TAGS.join(", ")}`} />
+
+                        <p className="font-mono text-[9px] text-white/25 tracking-widest pt-1">TIMING &amp; MARKS (optional)</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input label="EST. TIME (sec)" type="number" value={qForm.estimatedTimeSec} onChange={v => setQForm(p => ({ ...p, estimatedTimeSec: v }))} placeholder="90" />
+                          <Input label="MARKS" type="number" value={qForm.marks} onChange={v => setQForm(p => ({ ...p, marks: v }))} placeholder="1" />
+                          <Input label="NEGATIVE MARKS" type="number" value={qForm.negativeMarks} onChange={v => setQForm(p => ({ ...p, negativeMarks: v }))} placeholder="0" />
+                        </div>
+
                         <button onClick={() => handleAddQuestion(topic.id)} disabled={savingQ}
                           className="w-full font-mono text-xs py-2 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
                           {savingQ ? "saving..." : "add question"}
@@ -2588,11 +2828,11 @@ function AptitudePanel() {
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
             <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
-            <select value={topicForm.category} onChange={e => setTopicForm(p => ({ ...p, category: e.target.value }))}
-              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {APTITUDE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <Dropdown value={topicForm.category} onChange={v => setTopicForm(p => ({ ...p, category: v }))}
+              options={APTITUDE_CATEGORIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
           </div>
           <Input label="TOPIC NAME" value={topicForm.name} onChange={v => setTopicForm(p => ({ ...p, name: v }))} placeholder="Percentages" />
         </div>
@@ -2606,108 +2846,567 @@ function AptitudePanel() {
   );
 }
 
-// ── Contest Platform panel ────────────────────────────────────────────────────
+// ── Company Prep panel ────────────────────────────────────────────────────────
+// Company -> Round -> Category -> Question, global DeVert-authored content
+// (lib/companyPrep.js has the shared fetchers/CSV helpers the student side
+// also reads from; this panel owns every write, same convention as Aptitude/
+// Contests above). A draft company - and everything nested under it - is
+// admin-only until published, same status gate a contest's own questions/
+// answerKeys already use. Firestore doesn't cascade-delete subcollections,
+// so removing a company/round/category walks its own children first.
 
-const CONTEST_STATUSES = [
-  { v: "draft",     c: "rgba(255,255,255,0.4)" },
-  { v: "published", c: "#00FF41" },
-  { v: "archived",  c: "rgba(255,255,255,0.25)" },
-];
+function blankCompanyPrepForm() {
+  return { name: "", logo: "", description: "", website: "", eligibility: "", ctc: "", hiringOverview: "", difficulty: "Medium", resources: "" };
+}
+function blankRoundForm() {
+  return { name: "", description: "", duration: "", passingMarks: "", instructions: "" };
+}
+function blankCategoryForm() { return { name: "" }; }
+function blankCompanyQuestionForm() {
+  return { question: "", options: ["", "", "", ""], correctIndex: 0, difficulty: "Medium", marks: "", explanation: "", tags: "" };
+}
 
-function blankContestForm() {
-  return {
-    title: "", category: CONTEST_CATEGORIES[0], difficulty: "Easy", bannerUrl: "",
-    description: "", rules: "", eligibility: "", organizer: "", tags: "",
-    registrationStart: "", registrationEnd: "", contestStart: "", contestEnd: "",
-    durationMinutes: "60", prizeXp: "100", prizeCoins: "50", prizeText: "", status: "draft",
+async function deleteCompanyCategoryCascade(companyId, roundId, categoryId) {
+  const qSnap = await getDocs(collection(db, "companies", companyId, "rounds", roundId, "categories", categoryId, "questions"));
+  await Promise.all(qSnap.docs.map(q => deleteDoc(q.ref)));
+  await deleteDoc(doc(db, "companies", companyId, "rounds", roundId, "categories", categoryId));
+}
+async function deleteCompanyRoundCascade(companyId, roundId) {
+  const catSnap = await getDocs(collection(db, "companies", companyId, "rounds", roundId, "categories"));
+  await Promise.all(catSnap.docs.map(c => deleteCompanyCategoryCascade(companyId, roundId, c.id)));
+  await deleteDoc(doc(db, "companies", companyId, "rounds", roundId));
+}
+async function deleteCompanyCascade(companyId) {
+  const roundSnap = await getDocs(collection(db, "companies", companyId, "rounds"));
+  await Promise.all(roundSnap.docs.map(r => deleteCompanyRoundCascade(companyId, r.id)));
+  await deleteDoc(doc(db, "companies", companyId));
+}
+
+function CompanyPrepPanel() {
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedCompany, setExpandedCompany] = useState(null);
+  const [form, setForm] = useState(blankCompanyPrepForm());
+  const [saving, setSaving] = useState(false);
+  const [formFeedback, setFormFeedback] = useState(null);
+  const [rowFeedback, setRowFeedback] = useState({});
+
+  const load = () => {
+    setLoading(true);
+    getDocs(query(collection(db, "companies"), orderBy("order", "asc")))
+      .then(snap => setCompanies(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
-}
+  useEffect(() => { load(); }, []);
 
-function blankContestQuestionForm(type = "mcq") {
-  return {
-    type, question: "", options: ["", "", "", ""], correctIndices: [0], correctText: "",
-    marks: "1", negativeMarks: "0", explanation: "", topic: "", difficulty: "medium",
-  };
-}
-
-const CONTEST_CSV_HEADER = "question,optiona,optionb,optionc,optiond,correctanswer,type,difficulty,marks,negativemarks,explanation,topic";
-const CONTEST_CSV_EXAMPLE_ROWS = [
-  ['What is the time complexity of binary search?', 'O(n)', 'O(log n)', 'O(n^2)', 'O(1)', 'B', 'mcq', 'medium', '2', '0', 'Binary search halves the search space every step.', 'Algorithms'],
-  ['Java is platform independent.', 'True', 'False', '', '', 'True', 'truefalse', 'easy', '1', '0', 'Java compiles to bytecode run by the JVM on any platform.', 'Java Basics'],
-  ['Which of these are valid SQL joins? (select all that apply)', 'INNER', 'OUTER', 'CARTESIAN', 'RECURSIVE', 'A,B,C', 'multiselect', 'hard', '3', '1', 'INNER, OUTER (LEFT/RIGHT/FULL) and CARTESIAN (CROSS) are all valid SQL join types.', 'SQL'],
-  ['The ___ keyword is used to inherit a class in Java.', '', '', '', '', 'extends', 'fillblank', 'easy', '1', '0', 'A subclass uses `extends` to inherit from a superclass.', 'Java Basics'],
-];
-const CONTEST_CSV_TEMPLATE = [CONTEST_CSV_HEADER, ...CONTEST_CSV_EXAMPLE_ROWS.map(r =>
-  r.map(f => (f.includes(",") || f.includes('"') ? `"${f.replace(/"/g, '""')}"` : f)).join(",")
-)].join("\n");
-const CONTEST_CSV_HELP = `Columns (first row = header, exact names): question,optionA,optionB,optionC,optionD,correctAnswer,type,difficulty,marks,negativeMarks,explanation,topic
-type: mcq | multiselect | truefalse | fillblank
-correctAnswer: letter(s) A-D for mcq/multiselect (e.g. "B" or "A,C"), True/False for truefalse, the accepted text for fillblank (use | for alternatives, e.g. "extends|inherits")`;
-
-function downloadContestCsvTemplate() {
-  const blob = new Blob([CONTEST_CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "contest-questions-template.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Parses bulk-imported contest questions into a {questions, answerKey} pair per row -
-// questions hold no correct-answer data (mirrors the Firestore split), answerKey data
-// is written to a sibling subcollection so it can be read-gated separately.
-function csvRowsToContestQuestions(rows) {
-  if (rows.length < 2) return { questions: [], errors: ["No data rows found (need a header row + at least one question row)."] };
-  const header = rows[0].map(h => h.trim().toLowerCase());
-  const col = name => header.indexOf(name);
-  const missing = ["question", "correctanswer"].filter(n => col(n) === -1);
-  if (missing.length) return { questions: [], errors: [`Missing required column(s): ${missing.join(", ")}`] };
-
-  const letters = ["a", "b", "c", "d"];
-  const questions = [];
-  const errors = [];
-
-  rows.slice(1).forEach((r, i) => {
-    const lineNo = i + 2;
-    const get = name => (col(name) !== -1 ? (r[col(name)] || "").trim() : "");
-    const question = get("question");
-    const type = (get("type").toLowerCase() || "mcq");
-    const correctRaw = get("correctanswer");
-    const marks = parseFloat(get("marks")) || 1;
-    const negativeMarks = parseFloat(get("negativemarks")) || 0;
-    const explanation = get("explanation");
-    const topic = get("topic");
-    const difficulty = get("difficulty") || "medium";
-
-    if (!question || !correctRaw) { errors.push(`Row ${lineNo}: skipped - missing question or correctAnswer.`); return; }
-    if (!QUESTION_TYPES.includes(type)) { errors.push(`Row ${lineNo}: skipped - unknown type "${type}".`); return; }
-
-    if (type === "fillblank") {
-      questions.push({ question, type, options: [], marks, negativeMarks, explanation, topic, difficulty, correctOptionIds: [], correctText: correctRaw });
-      return;
-    }
-    if (type === "truefalse") {
-      const norm = correctRaw.toLowerCase();
-      const correctId = (norm === "true" || norm === "t") ? "true" : "false";
-      questions.push({
-        question, type, options: [{ id: "true", text: "True" }, { id: "false", text: "False" }],
-        marks, negativeMarks, explanation, topic, difficulty, correctOptionIds: [correctId], correctText: "",
+  const handleAddCompany = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    setFormFeedback(null);
+    try {
+      await addDoc(collection(db, "companies"), {
+        name: form.name.trim(),
+        logo: form.logo.trim(),
+        description: form.description.trim(),
+        website: form.website.trim(),
+        eligibility: form.eligibility.trim(),
+        ctc: form.ctc.trim(),
+        hiringOverview: form.hiringOverview.trim(),
+        difficulty: form.difficulty,
+        resources: form.resources.split("\n").map(s => s.trim()).filter(Boolean),
+        status: "draft",
+        order: companies.length,
+        createdAt: serverTimestamp(),
       });
+      const name = form.name.trim();
+      setForm(blankCompanyPrepForm());
+      setFormFeedback({ type: "success", text: `"${name}" added as a draft - publish it from the row below once its rounds/questions are ready.` });
+      logAdminActivity("added company prep entry", name);
+      load();
+    } catch (e) {
+      console.error(e);
+      setFormFeedback({ type: "error", text: e.message || "Failed to add company - check console." });
+    } finally { setSaving(false); }
+  };
+
+  const handleDeleteCompany = async (companyId, name) => {
+    if (!confirm(`Delete "${name}" and every round/category/question under it? This can't be undone.`)) return;
+    setRowFeedback(p => ({ ...p, [companyId]: null }));
+    try {
+      await deleteCompanyCascade(companyId);
+      if (expandedCompany === companyId) setExpandedCompany(null);
+      load();
+    } catch (e) {
+      console.error(e);
+      setRowFeedback(p => ({ ...p, [companyId]: { type: "error", text: e.message || "Failed to delete - check console." } }));
+    }
+  };
+
+  const handleTogglePublish = async (company) => {
+    const next = company.status === "published" ? "draft" : "published";
+    setRowFeedback(p => ({ ...p, [company.id]: null }));
+    try {
+      await updateDoc(doc(db, "companies", company.id), { status: next });
+      logAdminActivity(next === "published" ? "published company prep entry" : "unpublished company prep entry", company.name);
+      setRowFeedback(p => ({ ...p, [company.id]: { type: "success", text: next === "published" ? "Published - visible to students now." : "Unpublished - hidden from students." } }));
+      load();
+    } catch (e) {
+      console.error(e);
+      setRowFeedback(p => ({ ...p, [company.id]: { type: "error", text: e.message || "Failed to update status - check console." } }));
+    }
+  };
+
+  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  return (
+    <div className="space-y-4">
+      <p className="font-mono text-[10px] text-white/18">
+        Company -&gt; Round -&gt; Category -&gt; Question. Drafts (and everything nested under them) stay admin-only until published.
+      </p>
+
+      {companies.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no companies yet</p>}
+
+      <div className="space-y-2">
+        {companies.map(company => (
+          <CompanyPrepRow key={company.id} company={company}
+            expanded={expandedCompany === company.id}
+            onToggle={() => setExpandedCompany(p => (p === company.id ? null : company.id))}
+            onDelete={() => handleDeleteCompany(company.id, company.name)}
+            onTogglePublish={() => handleTogglePublish(company)}
+            feedback={rowFeedback[company.id]} />
+        ))}
+      </div>
+
+      <div className="border border-white/6 rounded-lg p-4 space-y-3">
+        <p className="font-mono text-[10px] text-neon-green tracking-wider">// add company</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="COMPANY NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Cognizant" />
+          <Input label="LOGO URL (optional)" value={form.logo} onChange={v => setForm(p => ({ ...p, logo: v }))} placeholder="https://..." />
+        </div>
+        <Textarea label="DESCRIPTION" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} rows={2} placeholder="Fortune 500 IT services company, founded 1994..." />
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Input label="WEBSITE" value={form.website} onChange={v => setForm(p => ({ ...p, website: v }))} placeholder="https://cognizant.com" />
+          <Input label="TYPICAL CTC" value={form.ctc} onChange={v => setForm(p => ({ ...p, ctc: v }))} placeholder="4.0 - 6.75 LPA" />
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+            <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
+              options={COMPANY_QUESTION_DIFFICULTIES} className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]" />
+          </div>
+        </div>
+        <Textarea label="ELIGIBILITY" value={form.eligibility} onChange={v => setForm(p => ({ ...p, eligibility: v }))} rows={2} placeholder="60% or 6 CGPA across all stages, no standing backlogs, max 2-year gap..." />
+        <Textarea label="HIRING PROCESS OVERVIEW" value={form.hiringOverview} onChange={v => setForm(p => ({ ...p, hiringOverview: v }))} rows={3} placeholder="Communication Assessment -> Aptitude -> Technical -> HR Interview..." />
+        <Textarea label="RESOURCES (one link per line, optional)" value={form.resources} onChange={v => setForm(p => ({ ...p, resources: v }))} rows={2} placeholder="https://youtu.be/..." />
+        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleAddCompany} disabled={saving}
+          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
+          <Plus size={12} className="inline mr-1" /> {saving ? "adding..." : "add company"}
+        </motion.button>
+        {formFeedback && (
+          <p className="font-mono text-[10px]" style={{ color: formFeedback.type === "success" ? "#00FF41" : "#FF5050" }}>
+            {formFeedback.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CompanyPrepRow({ company, expanded, onToggle, onDelete, onTogglePublish, feedback }) {
+  const [rounds, setRounds] = useState(null);
+  const [expandedRound, setExpandedRound] = useState(null);
+  const [roundForm, setRoundForm] = useState(blankRoundForm());
+  const [savingRound, setSavingRound] = useState(false);
+  const [roundFeedback, setRoundFeedback] = useState(null);
+
+  const loadRounds = () => {
+    getDocs(query(collection(db, "companies", company.id, "rounds"), orderBy("order", "asc")))
+      .then(snap => setRounds(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error);
+  };
+  useEffect(() => { if (expanded && rounds === null) loadRounds(); }, [expanded]);
+
+  const handleAddRound = async () => {
+    if (!roundForm.name.trim()) return;
+    setSavingRound(true);
+    setRoundFeedback(null);
+    try {
+      await addDoc(collection(db, "companies", company.id, "rounds"), {
+        name: roundForm.name.trim(),
+        description: roundForm.description.trim(),
+        duration: roundForm.duration.trim(),
+        passingMarks: roundForm.passingMarks.trim(),
+        instructions: roundForm.instructions.trim(),
+        order: (rounds || []).length,
+        createdAt: serverTimestamp(),
+      });
+      const name = roundForm.name.trim();
+      setRoundForm(blankRoundForm());
+      setRoundFeedback({ type: "success", text: `"${name}" round added.` });
+      loadRounds();
+    } catch (e) {
+      console.error(e);
+      setRoundFeedback({ type: "error", text: e.message || "Failed to add round - check console." });
+    } finally { setSavingRound(false); }
+  };
+
+  const handleDeleteRound = async (roundId, name) => {
+    if (!confirm(`Delete round "${name}" and every category/question under it?`)) return;
+    setRoundFeedback(null);
+    try {
+      await deleteCompanyRoundCascade(company.id, roundId);
+      if (expandedRound === roundId) setExpandedRound(null);
+      loadRounds();
+    } catch (e) {
+      console.error(e);
+      setRoundFeedback({ type: "error", text: e.message || "Failed to delete round - check console." });
+    }
+  };
+
+  return (
+    <div className="border border-white/8 rounded-lg overflow-hidden">
+      <button onClick={onToggle} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/2 transition-colors text-left">
+        <Briefcase size={13} className="text-neon-cyan/60 flex-shrink-0" />
+        <span className="font-sans text-sm text-white/80 flex-1 truncate">{company.name}</span>
+        <span className="font-mono text-[9px] px-1.5 py-0.5 rounded border flex-shrink-0" style={{
+          color: company.status === "published" ? "#00FF41" : "#FF9500",
+          borderColor: company.status === "published" ? "rgba(0,255,65,0.3)" : "rgba(255,149,0,0.3)",
+        }}>{(company.status || "draft").toUpperCase()}</span>
+        <button onClick={(e) => { e.stopPropagation(); onTogglePublish(); }}
+          className="font-mono text-[9px] text-white/30 hover:text-neon-cyan transition-colors flex-shrink-0">
+          {company.status === "published" ? "unpublish" : "publish"}
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={12} /></button>
+        {expanded ? <ChevronUp size={12} className="text-white/30 flex-shrink-0" /> : <ChevronDown size={12} className="text-white/30 flex-shrink-0" />}
+      </button>
+
+      {feedback && (
+        <p className="font-mono text-[10px] px-4 pb-2" style={{ color: feedback.type === "success" ? "#00FF41" : "#FF5050" }}>
+          {feedback.text}
+        </p>
+      )}
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-white/6 pt-3">
+          {rounds === null ? (
+            <p className="font-mono text-[10px] text-white/20">loading rounds...</p>
+          ) : (
+            <>
+              {rounds.length === 0 && <p className="font-mono text-[10px] text-white/20">no rounds yet</p>}
+              {rounds.map(round => (
+                <CompanyPrepRoundRow key={round.id} companyId={company.id} round={round}
+                  expanded={expandedRound === round.id}
+                  onToggle={() => setExpandedRound(p => (p === round.id ? null : round.id))}
+                  onDelete={() => handleDeleteRound(round.id, round.name)} />
+              ))}
+
+              <div className="border border-dashed border-white/10 rounded-lg p-3 space-y-2">
+                <p className="font-mono text-[9px] text-neon-green tracking-wider">+ add round</p>
+                <Input label="ROUND NAME" value={roundForm.name} onChange={v => setRoundForm(p => ({ ...p, name: v }))} placeholder="Technical Assessment" />
+                <Textarea label="DESCRIPTION" value={roundForm.description} onChange={v => setRoundForm(p => ({ ...p, description: v }))} rows={2} placeholder="Cluster-based test on CS fundamentals..." />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input label="DURATION" value={roundForm.duration} onChange={v => setRoundForm(p => ({ ...p, duration: v }))} placeholder="60 minutes" />
+                  <Input label="PASSING MARKS (optional)" value={roundForm.passingMarks} onChange={v => setRoundForm(p => ({ ...p, passingMarks: v }))} placeholder="60%" />
+                </div>
+                <Textarea label="INSTRUCTIONS (optional)" value={roundForm.instructions} onChange={v => setRoundForm(p => ({ ...p, instructions: v }))} rows={2} placeholder="No negative marking..." />
+                <button onClick={handleAddRound} disabled={savingRound}
+                  className="w-full font-mono text-xs py-2 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
+                  {savingRound ? "saving..." : "add round"}
+                </button>
+                {roundFeedback && (
+                  <p className="font-mono text-[10px]" style={{ color: roundFeedback.type === "success" ? "#00FF41" : "#FF5050" }}>
+                    {roundFeedback.text}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompanyPrepRoundRow({ companyId, round, expanded, onToggle, onDelete }) {
+  const [categories, setCategories] = useState(null);
+  const [expandedCategory, setExpandedCategory] = useState(null);
+  const [categoryForm, setCategoryForm] = useState(blankCategoryForm());
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [categoryFeedback, setCategoryFeedback] = useState(null);
+
+  const loadCategories = () => {
+    getDocs(query(collection(db, "companies", companyId, "rounds", round.id, "categories"), orderBy("order", "asc")))
+      .then(snap => setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error);
+  };
+  useEffect(() => { if (expanded && categories === null) loadCategories(); }, [expanded]);
+
+  const handleAddCategory = async () => {
+    if (!categoryForm.name.trim()) return;
+    setSavingCategory(true);
+    setCategoryFeedback(null);
+    try {
+      await addDoc(collection(db, "companies", companyId, "rounds", round.id, "categories"), {
+        name: categoryForm.name.trim(), order: (categories || []).length, createdAt: serverTimestamp(),
+      });
+      const name = categoryForm.name.trim();
+      setCategoryForm(blankCategoryForm());
+      setCategoryFeedback({ type: "success", text: `"${name}" category added.` });
+      loadCategories();
+    } catch (e) {
+      console.error(e);
+      setCategoryFeedback({ type: "error", text: e.message || "Failed to add category - check console." });
+    } finally { setSavingCategory(false); }
+  };
+
+  const handleDeleteCategory = async (categoryId, name) => {
+    if (!confirm(`Delete category "${name}" and all its questions?`)) return;
+    setCategoryFeedback(null);
+    try {
+      await deleteCompanyCategoryCascade(companyId, round.id, categoryId);
+      if (expandedCategory === categoryId) setExpandedCategory(null);
+      loadCategories();
+    } catch (e) {
+      console.error(e);
+      setCategoryFeedback({ type: "error", text: e.message || "Failed to delete category - check console." });
+    }
+  };
+
+  return (
+    <div className="border border-white/6 rounded overflow-hidden ml-2">
+      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/2 transition-colors text-left">
+        <ClipboardList size={12} className="text-neon-purple/60 flex-shrink-0" />
+        <span className="font-mono text-xs text-white/70 flex-1 truncate">{round.name}</span>
+        {round.duration && <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{round.duration}</span>}
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={11} /></button>
+        {expanded ? <ChevronUp size={11} className="text-white/30 flex-shrink-0" /> : <ChevronDown size={11} className="text-white/30 flex-shrink-0" />}
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-3 space-y-2 border-t border-white/6 pt-2">
+          {categories === null ? (
+            <p className="font-mono text-[10px] text-white/20">loading categories...</p>
+          ) : (
+            <>
+              {categories.length === 0 && <p className="font-mono text-[10px] text-white/20">no categories yet</p>}
+              {categories.map(category => (
+                <CompanyPrepCategoryRow key={category.id} companyId={companyId} roundId={round.id} category={category}
+                  expanded={expandedCategory === category.id}
+                  onToggle={() => setExpandedCategory(p => (p === category.id ? null : category.id))}
+                  onDelete={() => handleDeleteCategory(category.id, category.name)} />
+              ))}
+
+              <div className="flex items-center gap-2">
+                <input value={categoryForm.name} onChange={e => setCategoryForm({ name: e.target.value })}
+                  placeholder="+ new category name (e.g. OOP)"
+                  className="flex-1 font-mono text-[11px] text-white/70 px-2 py-1.5 rounded outline-none"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
+                <button onClick={handleAddCategory} disabled={savingCategory}
+                  className="font-mono text-[10px] text-neon-green border border-neon-green/30 px-3 py-1.5 rounded hover:bg-neon-green/8 transition-colors disabled:opacity-50 flex-shrink-0">
+                  {savingCategory ? "..." : "add"}
+                </button>
+              </div>
+              {categoryFeedback && (
+                <p className="font-mono text-[10px]" style={{ color: categoryFeedback.type === "success" ? "#00FF41" : "#FF5050" }}>
+                  {categoryFeedback.text}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompanyPrepCategoryRow({ companyId, roundId, category, expanded, onToggle, onDelete }) {
+  const [questions, setQuestions] = useState(null);
+  const [qForm, setQForm] = useState(blankCompanyQuestionForm());
+  const [savingQ, setSavingQ] = useState(false);
+  const [qFeedback, setQFeedback] = useState(null);
+  const [csvText, setCsvText] = useState("");
+  const [csvResult, setCsvResult] = useState(null);
+  const [importing, setImporting] = useState(false);
+
+  const questionsRef = collection(db, "companies", companyId, "rounds", roundId, "categories", category.id, "questions");
+
+  const loadQuestions = () => {
+    getDocs(query(questionsRef, orderBy("order", "asc")))
+      .then(snap => setQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error);
+  };
+  useEffect(() => { if (expanded && questions === null) loadQuestions(); }, [expanded]);
+
+  const handleAddQuestion = async () => {
+    // correctIndex must land on the FILTERED (non-blank) options array, not
+    // the raw 4-slot form - a blank middle option would otherwise desync
+    // which option "correct" actually points at.
+    const trimmedOptions = qForm.options.map(o => o.trim());
+    const filledCount = trimmedOptions.filter(Boolean).length;
+    if (!qForm.question.trim() || filledCount < 2 || !trimmedOptions[qForm.correctIndex]) {
+      setQFeedback({ type: "error", text: "Need a question, at least 2 filled options, and the correct-answer dot on a filled option." });
       return;
     }
-    // mcq / multiselect
-    const optionTexts = letters.map(l => get(`option${l}`));
-    const options = letters.map((id, idx) => ({ id, text: optionTexts[idx] })).filter(o => o.text);
-    if (options.length < 2) { errors.push(`Row ${lineNo}: skipped - needs at least 2 non-empty options.`); return; }
-    const correctOptionIds = correctRaw.split(",").map(s => s.trim().toLowerCase()).filter(l => options.some(o => o.id === l));
-    if (correctOptionIds.length === 0) { errors.push(`Row ${lineNo}: skipped - correctAnswer must reference option letters A-D.`); return; }
-    if (type === "mcq" && correctOptionIds.length !== 1) { errors.push(`Row ${lineNo}: skipped - mcq needs exactly one correct option.`); return; }
-    questions.push({ question, type, options, marks, negativeMarks, explanation, topic, difficulty, correctOptionIds, correctText: "" });
-  });
+    setSavingQ(true);
+    setQFeedback(null);
+    try {
+      const options = trimmedOptions.filter(Boolean);
+      const correctIndex = trimmedOptions.slice(0, qForm.correctIndex).filter(Boolean).length;
+      await addDoc(questionsRef, {
+        question: qForm.question.trim(),
+        options,
+        correctIndex,
+        difficulty: qForm.difficulty,
+        marks: qForm.marks.trim() ? parseFloat(qForm.marks) : 1,
+        explanation: qForm.explanation.trim(),
+        tags: qForm.tags.split(",").map(t => t.trim()).filter(Boolean),
+        attemptCount: 0, correctCount: 0, totalTimeSec: 0,
+        order: (questions || []).length, createdAt: serverTimestamp(),
+      });
+      setQForm(blankCompanyQuestionForm());
+      setQFeedback({ type: "success", text: "Question added." });
+      loadQuestions();
+    } catch (e) {
+      console.error(e);
+      setQFeedback({ type: "error", text: e.message || "Failed to add question - check console." });
+    } finally { setSavingQ(false); }
+  };
 
-  return { questions, errors };
+  const handleDeleteQuestion = async (questionId) => {
+    if (!confirm("Delete this question?")) return;
+    setQFeedback(null);
+    try {
+      await deleteDoc(doc(questionsRef, questionId));
+      loadQuestions();
+    } catch (e) {
+      console.error(e);
+      setQFeedback({ type: "error", text: e.message || "Failed to delete question - check console." });
+    }
+  };
+
+  const handleImportCsv = async () => {
+    const { questions: parsed, errors } = csvRowsToCompanyQuestions(parseCSV(csvText));
+    if (parsed.length === 0) { setCsvResult({ imported: 0, errors }); return; }
+    setImporting(true);
+    try {
+      const startOrder = (questions || []).length;
+      for (let i = 0; i < parsed.length; i += 400) {
+        const chunk = parsed.slice(i, i + 400);
+        const batch = writeBatch(db);
+        chunk.forEach((q, idx) => {
+          const ref = doc(questionsRef);
+          batch.set(ref, { ...q, order: startOrder + i + idx, createdAt: serverTimestamp() });
+        });
+        await batch.commit();
+      }
+      logAdminActivity("bulk imported company prep questions", `${parsed.length} question(s) into ${category.name}`);
+      setCsvResult({ imported: parsed.length, errors });
+      setCsvText("");
+      loadQuestions();
+    } catch (e) { console.error(e); setCsvResult({ imported: 0, errors: [...errors, "Import failed - check console."] }); }
+    finally { setImporting(false); }
+  };
+
+  return (
+    <div className="border border-white/6 rounded overflow-hidden">
+      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/2 transition-colors text-left">
+        <ListChecks size={11} className="text-neon-cyan/50 flex-shrink-0" />
+        <span className="font-mono text-[11px] text-white/65 flex-1 truncate">{category.name}</span>
+        <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{(questions || []).length || ""}</span>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={10} /></button>
+        {expanded ? <ChevronUp size={10} className="text-white/30 flex-shrink-0" /> : <ChevronDown size={10} className="text-white/30 flex-shrink-0" />}
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-3 space-y-2 border-t border-white/6 pt-2">
+          {questions === null ? (
+            <p className="font-mono text-[10px] text-white/20">loading questions...</p>
+          ) : (
+            <>
+              {questions.map((q, i) => (
+                <div key={q.id} className="flex items-center gap-2 border border-white/6 rounded px-2 py-1.5">
+                  <span className="font-mono text-[9px] text-white/25 w-5 flex-shrink-0">{i + 1}</span>
+                  <span className="font-mono text-[11px] text-white/60 flex-1 truncate">{q.question}</span>
+                  <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded flex-shrink-0">{q.difficulty}</span>
+                  <button onClick={() => handleDeleteQuestion(q.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={10} /></button>
+                </div>
+              ))}
+
+              {/* Manual add */}
+              <div className="border border-dashed border-white/10 rounded-lg p-3 space-y-2">
+                <p className="font-mono text-[9px] text-neon-green tracking-wider">+ add question manually</p>
+                <Textarea label="QUESTION" value={qForm.question} onChange={v => setQForm(p => ({ ...p, question: v }))} rows={2} placeholder="What is encapsulation?" />
+                {qForm.options.map((opt, oi) => (
+                  <div key={oi} className="flex items-center gap-2">
+                    <button onClick={() => setQForm(p => ({ ...p, correctIndex: oi }))}
+                      className="w-4 h-4 rounded-full border flex-shrink-0 transition-colors"
+                      style={{ borderColor: qForm.correctIndex === oi ? "#00FF41" : "rgba(255,255,255,0.2)", background: qForm.correctIndex === oi ? "#00FF41" : "transparent" }} />
+                    <input value={opt} onChange={e => setQForm(p => ({ ...p, options: p.options.map((o, idx) => (idx === oi ? e.target.value : o)) }))}
+                      placeholder={`Option ${String.fromCharCode(65 + oi)}`}
+                      className="flex-1 font-mono text-[11px] text-white/70 px-2 py-1 rounded outline-none"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
+                  </div>
+                ))}
+                <Textarea label="EXPLANATION (optional)" value={qForm.explanation} onChange={v => setQForm(p => ({ ...p, explanation: v }))} rows={2} placeholder="Why the correct answer is right..." />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+                    <Dropdown value={qForm.difficulty} onChange={v => setQForm(p => ({ ...p, difficulty: v }))}
+                      options={COMPANY_QUESTION_DIFFICULTIES} className="w-full"
+                      buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]" />
+                  </div>
+                  <Input label="MARKS" type="number" value={qForm.marks} onChange={v => setQForm(p => ({ ...p, marks: v }))} placeholder="1" />
+                  <Input label="TAGS (comma sep.)" value={qForm.tags} onChange={v => setQForm(p => ({ ...p, tags: v }))} placeholder="Idioms, Vocabulary" />
+                </div>
+                <button onClick={handleAddQuestion} disabled={savingQ}
+                  className="w-full font-mono text-xs py-2 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
+                  {savingQ ? "saving..." : "add question"}
+                </button>
+                {qFeedback && (
+                  <p className="font-mono text-[10px]" style={{ color: qFeedback.type === "success" ? "#00FF41" : "#FF5050" }}>
+                    {qFeedback.text}
+                  </p>
+                )}
+              </div>
+
+              {/* CSV bulk import */}
+              <div className="border border-dashed border-neon-purple/25 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-mono text-[9px] text-neon-purple tracking-wider">+ bulk import from CSV</p>
+                  <button onClick={downloadCompanyQuestionCsvTemplate}
+                    className="flex items-center gap-1 font-mono text-[9px] text-white/40 hover:text-neon-purple transition-colors">
+                    <Download size={10} /> download template
+                  </button>
+                </div>
+                <pre className="font-mono text-[9px] text-white/25 whitespace-pre-wrap leading-relaxed">{COMPANY_QUESTION_CSV_HELP}</pre>
+                <textarea value={csvText} onChange={e => setCsvText(e.target.value)} rows={5}
+                  placeholder="question,optionA,optionB,optionC,optionD,correctAnswer,difficulty,marks,explanation,tags"
+                  className="w-full font-mono text-[11px] text-white/70 px-3 py-2 rounded outline-none"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(199,125,255,0.2)" }} />
+                {csvResult && (
+                  <p className="font-mono text-[10px]" style={{ color: csvResult.imported > 0 ? "#00FF41" : "#FF5050" }}>
+                    {csvResult.imported > 0 && `imported ${csvResult.imported} question(s). `}
+                    {csvResult.errors.length > 0 && `${csvResult.errors.length} row(s) skipped: ${csvResult.errors.slice(0, 3).join(" ")}`}
+                  </p>
+                )}
+                <button onClick={handleImportCsv} disabled={importing || !csvText.trim()}
+                  className="w-full font-mono text-xs py-2 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/8 transition-colors disabled:opacity-50">
+                  {importing ? "importing..." : "import CSV"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
+
+// ── Contest Platform panel ────────────────────────────────────────────────────
+// CONTEST_STATUSES/blankContestForm/blankContestQuestionForm/CONTEST_CSV_*/
+// downloadContestCsvTemplate/csvRowsToContestQuestions all live in
+// lib/contests.js now, shared with Campus's own Contest Studio
+// (components/campus/campus-contest-studio.jsx).
 
 function ContestsPanel() {
   const [contests, setContests] = useState([]);
@@ -2795,6 +3494,9 @@ function ContestsPanel() {
     if (!form.title.trim() || !form.contestStart || !form.contestEnd) {
       return setError("Title, contest start, and contest end are required.");
     }
+    if ((parseInt(form.prizeXp) || 0) > 2000 || (parseInt(form.prizeCoins) || 0) > 2000) {
+      return setError("Prize XP and prize coins cannot exceed 2000.");
+    }
     setSaving(true); setError("");
     try {
       const contestStart = new Date(form.contestStart);
@@ -2811,7 +3513,7 @@ function ContestsPanel() {
         prizeXp: parseInt(form.prizeXp) || 0, prizeCoins: parseInt(form.prizeCoins) || 0,
         prizeText: form.prizeText.trim(), status: form.status,
         participantCount: 0, questionCount: 0,
-        createdAt: serverTimestamp(), createdBy: ADMIN_EMAIL,
+        createdAt: serverTimestamp(), createdBy: auth.currentUser?.email || ADMIN_EMAIL,
       });
       setForm(blankContestForm());
       logAdminActivity("created contest", form.title.trim());
@@ -2835,7 +3537,7 @@ function ContestsPanel() {
       const { id, participantCount, createdAt, ...rest } = contest;
       const newRef = await addDoc(collection(db, "contests"), {
         ...rest, title: `${contest.title} (Copy)`, status: "draft", participantCount: 0,
-        createdAt: serverTimestamp(), createdBy: ADMIN_EMAIL,
+        createdAt: serverTimestamp(), createdBy: auth.currentUser?.email || ADMIN_EMAIL,
       });
       await Promise.all([
         ...qSnap.docs.map(d => setDoc(doc(db, "contests", newRef.id, "questions", d.id), d.data())),
@@ -3087,11 +3789,11 @@ function ContestsPanel() {
                         <Input label="TOPIC" value={qForm.topic} onChange={v => setQForm(p => ({ ...p, topic: v }))} placeholder="Arrays" />
                         <div>
                           <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
-                          <select value={qForm.difficulty} onChange={e => setQForm(p => ({ ...p, difficulty: e.target.value }))}
-                            className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
-                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                            <option value="easy">easy</option><option value="medium">medium</option><option value="hard">hard</option>
-                          </select>
+                          <Dropdown value={qForm.difficulty} onChange={v => setQForm(p => ({ ...p, difficulty: v }))}
+                            options={["easy", "medium", "hard"]}
+                            className="w-full"
+                            buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+                            />
                         </div>
                       </div>
                       <button onClick={() => handleAddQuestion(contest.id)} disabled={savingQ}
@@ -3186,11 +3888,11 @@ function ContestsPanel() {
           <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Java Fundamentals Contest #1" />
           <div>
             <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
-            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {CONTEST_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <Dropdown value={form.category} onChange={v => setForm(p => ({ ...p, category: v }))}
+              options={CONTEST_CATEGORIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
           </div>
         </div>
         <Textarea label="DESCRIPTION" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} rows={2} placeholder="What this contest covers..." />
@@ -3198,11 +3900,11 @@ function ContestsPanel() {
         <div className="grid sm:grid-cols-3 gap-3">
           <div>
             <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
-            <select value={form.difficulty} onChange={e => setForm(p => ({ ...p, difficulty: e.target.value }))}
-              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {CONTEST_DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
+              options={CONTEST_DIFFICULTIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
           </div>
           <Input label="ELIGIBILITY" value={form.eligibility} onChange={v => setForm(p => ({ ...p, eligibility: v }))} placeholder="Open to all" />
           <Input label="ORGANIZER" value={form.organizer} onChange={v => setForm(p => ({ ...p, organizer: v }))} placeholder="DeVert" />
@@ -3370,7 +4072,7 @@ function CodingProblemsPanel() {
         estimatedTime: parseInt(form.estimatedTime) || 15,
         xpReward: parseInt(form.xpReward) || 0, coinReward: parseInt(form.coinReward) || 0,
         status: form.status, totalSubmissions: 0, acceptedSubmissions: 0,
-        createdAt: serverTimestamp(), createdBy: ADMIN_EMAIL,
+        createdAt: serverTimestamp(), createdBy: auth.currentUser?.email || ADMIN_EMAIL,
       });
       setForm(blankProblemForm());
       logAdminActivity("created coding problem", form.title.trim());
@@ -3415,6 +4117,7 @@ function CodingProblemsPanel() {
   };
 
   const handleDeleteTest = async (problemId, testId, isHidden) => {
+    if (!confirm("Delete this test case?")) return;
     await deleteDoc(doc(db, "problems", problemId, isHidden ? "hiddenTests" : "sampleTests", testId));
     loadTests(problemId);
   };
@@ -3559,11 +4262,11 @@ function CodingProblemsPanel() {
           <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Two Sum" />
           <div>
             <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
-            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {CODELAB_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <Dropdown value={form.category} onChange={v => setForm(p => ({ ...p, category: v }))}
+              options={CODELAB_CATEGORIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
           </div>
         </div>
         <Textarea label="PROBLEM STATEMENT" value={form.statement} onChange={v => setForm(p => ({ ...p, statement: v }))} rows={4} placeholder="Given an array of integers..." />
@@ -3573,11 +4276,11 @@ function CodingProblemsPanel() {
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
             <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
-            <select value={form.difficulty} onChange={e => setForm(p => ({ ...p, difficulty: e.target.value }))}
-              className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {CODELAB_DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
+              options={CODELAB_DIFFICULTIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
           </div>
           <Input label="TAGS (comma separated)" value={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="Array, Hash Map" />
         </div>
@@ -3672,6 +4375,13 @@ function HackathonsPanel() {
     load();
   };
 
+  const handleSetStatus = async (id, status) => {
+    await updateDoc(doc(db, "hackathons", id), {
+      status, statusColor: HACKATHON_STATUSES.find(s => s.v === status)?.c,
+    });
+    load();
+  };
+
   return (
     <div className="space-y-5">
       {loading ? (
@@ -3682,14 +4392,28 @@ function HackathonsPanel() {
           {hackathons.map(h => {
             const sc = HACKATHON_STATUSES.find(s => s.v === h.status) || HACKATHON_STATUSES[0];
             return (
-              <div key={h.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-3">
-                <span className="font-mono text-[10px] text-white/35 flex-shrink-0">{h.id}</span>
-                <span className="font-mono text-xs text-white/75 flex-1 truncate">{h.title}</span>
-                <span className="font-mono text-[10px] flex-shrink-0" style={{ color: sc.c }}>{h.status.toUpperCase()}</span>
-                <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">{h.prize}</span>
-                <button onClick={() => handleDelete(h.id)} className="text-white/20 hover:text-red-400 transition-colors ml-1 flex-shrink-0">
-                  <Trash2 size={13} />
-                </button>
+              <div key={h.id} className="border border-white/6 rounded-lg px-4 py-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] text-white/35 flex-shrink-0">{h.id}</span>
+                  <span className="font-mono text-xs text-white/75 flex-1 truncate">{h.title}</span>
+                  <span className="font-mono text-[10px] flex-shrink-0" style={{ color: sc.c }}>{h.status.toUpperCase()}</span>
+                  <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">{h.prize}</span>
+                  <button onClick={() => handleDelete(h.id)} className="text-white/20 hover:text-red-400 transition-colors ml-1 flex-shrink-0">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {HACKATHON_STATUSES.map(s => (
+                    <button key={s.v} onClick={() => handleSetStatus(h.id, s.v)}
+                      className="font-mono text-[9px] px-2 py-1 rounded transition-colors"
+                      style={{
+                        color:      h.status === s.v ? s.c : "rgba(255,255,255,0.3)",
+                        background: h.status === s.v ? `${s.c}12` : "rgba(255,255,255,0.03)",
+                        border:     h.status === s.v ? `1px solid ${s.c}35` : "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >{s.v.toUpperCase()}</button>
+                  ))}
+                </div>
               </div>
             );
           })}
@@ -4544,8 +5268,14 @@ export default function AdminPage() {
                 <Section title="USERS" icon={Users} color="#C77DFF" defaultOpen={true}>
                   <UsersPanel />
                 </Section>
+                <Section title="CAMPUS INSTITUTIONS" icon={Building2} color="#0E7C86">
+                  <InstitutionsPanel />
+                </Section>
                 <Section title="SHIPYARD MODERATION" icon={Anchor} color="#00FFFF">
                   <ShipyardPanel />
+                </Section>
+                <Section title="PORTFOLIOS" icon={Star} color="#FFD700">
+                  <PortfoliosPanel />
                 </Section>
                 <Section title="PULSE FEED" icon={Activity} color="#00FF41">
                   <PulsePanel />
@@ -4563,6 +5293,9 @@ export default function AdminPage() {
                 </Section>
                 <Section title="APTITUDE & REASONING" icon={ListChecks} color="#00FFFF">
                   <AptitudePanel />
+                </Section>
+                <Section title="COMPANY PREP" icon={Briefcase} color="#FF9500">
+                  <CompanyPrepPanel />
                 </Section>
                 <Section title="INTEL FEED" icon={Radio} color="#C77DFF">
                   <IntelPanel />

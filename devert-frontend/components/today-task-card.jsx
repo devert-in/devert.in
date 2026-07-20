@@ -56,7 +56,16 @@ export function TodayTaskCard() {
     finally { setEnrolling(false); }
   };
 
-  if (!user || loading) return null;
+  if (!user) return null;
+
+  if (loading) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}
+        className="terminal-window p-5 mb-5">
+        <p className="font-mono text-[10px] text-white/20 animate-pulse text-center py-3">loading...</p>
+      </motion.div>
+    );
+  }
 
   // Not enrolled yet - offer the available course.
   if (!progress?.enrolledCourseId) {

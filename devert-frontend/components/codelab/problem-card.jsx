@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
-import { Code2, Clock, Zap, Coins, CheckCircle2 } from "lucide-react";
+import { Code2, Clock, Zap, Coins, CheckCircle2, CircleDot } from "lucide-react";
 import { acceptanceRate } from "@/lib/codelab";
 
 const DIFF_COLOR = { Easy: "#00FF41", Medium: "#FF9500", Hard: "#FF5050" };
 
-export function ProblemCard({ problem, solved }) {
+export function ProblemCard({ problem, solved, attempted, onSolve }) {
   const rate = acceptanceRate(problem);
 
   return (
@@ -20,6 +19,11 @@ export function ProblemCard({ problem, solved }) {
             <CheckCircle2 size={9} /> SOLVED
           </span>
         )}
+        {!solved && attempted && (
+          <span className="ml-auto flex items-center gap-1 font-mono text-[9px] px-1.5 py-0.5 rounded" style={{ color: "#FF9500", background: "rgba(255,149,0,0.1)" }}>
+            <CircleDot size={9} /> ATTEMPTED
+          </span>
+        )}
       </div>
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -29,7 +33,10 @@ export function ProblemCard({ problem, solved }) {
             {problem.difficulty}
           </span>
         </div>
-        <h3 className="font-sans text-base font-semibold text-white mb-2 leading-snug">{problem.title}</h3>
+        <h3 className="font-sans text-base font-semibold text-white mb-2 leading-snug">
+          {problem.number != null && <span className="text-white/35">{problem.number}. </span>}
+          {problem.title}
+        </h3>
         <div className="flex items-center gap-3 flex-wrap font-mono text-[10px] text-white/35 mb-3">
           <span className="flex items-center gap-1"><Clock size={10} /> ~{problem.estimatedTime || 15} min</span>
           {rate !== null && <span>{rate}% acceptance</span>}
@@ -38,10 +45,10 @@ export function ProblemCard({ problem, solved }) {
           {problem.xpReward > 0 && <span className="flex items-center gap-1" style={{ color: "#00FF41" }}><Zap size={10} /> {problem.xpReward} XP</span>}
           {problem.coinReward > 0 && <span className="flex items-center gap-1" style={{ color: "#FFD700" }}><Coins size={10} /> {problem.coinReward}</span>}
         </div>
-        <Link href={`/codelab/problem?id=${problem.id}`}
-          className="block text-center font-mono text-xs py-2 rounded-lg border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors">
+        <button onClick={() => onSolve(problem.id)}
+          className="block w-full text-center font-mono text-xs py-2 rounded-lg border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors">
           solve
-        </Link>
+        </button>
       </div>
     </motion.div>
   );

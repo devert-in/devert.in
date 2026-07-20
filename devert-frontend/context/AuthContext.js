@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, deleteField } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -35,7 +35,9 @@ export function AuthProvider({ children }) {
   const [adminChecked, setAdminChecked] = useState(false);
 
   useEffect(() => {
+    console.log("[Auth Debug] AuthContext mounted, setting up onAuthStateChanged listener...");
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      console.log("[Auth Debug] onAuthStateChanged fired. User:", currentUser ? currentUser.uid : "null");
       setUser(currentUser);
       if (!currentUser) {
         setUserData(null);
@@ -46,14 +48,26 @@ export function AuthProvider({ children }) {
       }
       try {
         const token = await currentUser.getIdTokenResult();
+        console.log("[Auth Debug] Token fetched successfully for", currentUser.uid);
         setIsAdmin(token.claims.admin === true);
-      } catch {
+      } catch (err) {
+        console.error("[Auth Debug] Token fetch failed:", err);
         setIsAdmin(false);
       } finally {
         setAdminChecked(true);
       }
     });
-    return () => unsubscribeAuth();
+    // onAuthStateChanged can hang indefinitely in some private/incognito
+    // sessions where third-party storage for the authDomain iframe is
+    // restricted - without this, `loading` never resolves and every gated
+    // page (e.g. Campus) is stuck on "Loading..." forever. Treat a stuck
+    // check as logged-out; if auth does resolve later, `user` still updates.
+    const fallback = setTimeout(() => {
+      console.log("[Auth Debug] onAuthStateChanged fallback timeout (6s) triggered");
+      setAdminChecked(true);
+      setLoading(false);
+    }, 6000);
+    return () => { unsubscribeAuth(); clearTimeout(fallback); };
   }, []);
 
   // Live subscription to the user's own profile doc, so likes/comments/follows/
@@ -79,12 +93,23 @@ export function AuthProvider({ children }) {
           if (data.totalCommentsReceived  === undefined) patch.totalCommentsReceived  = 0;
           if (data.totalSavesReceived     === undefined) patch.totalSavesReceived     = 0;
           if (data.totalSharesReceived    === undefined) patch.totalSharesReceived    = 0;
+          if (data.profileViews           === undefined) patch.profileViews           = 0;
+          // Migrate email off the publicly-readable profile doc onto a
+          // owner/admin-only doc - older accounts had it written here
+          // directly, exposing it to every visitor of a public Dev Card.
+          if (data.email) {
+            patch.email = deleteField();
+            setDoc(doc(db, "users_private", user.uid), { email: data.email }, { merge: true }).catch(() => {});
+          }
           if (Object.keys(patch).length > 0) updateDoc(docRef, patch).catch(() => {});
         } else {
-          // First login - create profile
+          // First login - create profile. `email` is intentionally NOT
+          // written here - users/{uid} is publicly readable ("profiles are
+          // sharable"), so email lives in users_private/{uid} instead
+          // (owner/admin read-only, see firestore.rules).
+          setDoc(doc(db, "users_private", user.uid), { email: user.email }, { merge: true }).catch(() => {});
           const newProfile = {
             uid:               user.uid,
-            email:             user.email,
             displayName:       user.displayName || "",
             displayNameLower:  (user.displayName || "").toLowerCase(),
             photoURL:          user.photoURL    || "",
@@ -109,6 +134,22 @@ export function AuthProvider({ children }) {
             totalCommentsReceived: 0,
             totalSavesReceived:    0,
             totalSharesReceived:   0,
+            // Portfolio - see lib/portfolio-sections.js for the section keys
+            // sectionOrder/hiddenSections reference.
+            headline:       "",
+            currentRole:    "",
+            availability:   "",
+            contactEmail:   "",
+            resumeUrl:      "",
+            coverImage:     "",
+            profileViews:   0,
+            experience:     [],
+            education:      [],
+            certifications: [],
+            achievements:   [],
+            theme:          { accent: "#00FF41" },
+            sectionOrder:   [],
+            hiddenSections: [],
             joinedAt:       serverTimestamp(),
             lastActiveAt:   serverTimestamp(),
           };

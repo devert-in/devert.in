@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy,
   ScrollText, LogIn, X, User, Activity, Flame, Users,
@@ -84,6 +84,10 @@ export function CommandPalette() {
   const [uLoading, setULoading] = useState(false);
   const debounceRef = useRef(null);
   const router = useRouter();
+  const pathname = usePathname();
+  // Public portfolios and Campus are standalone surfaces with no DeVert chrome -
+  // Cmd+K has no place opening over either one.
+  const isIsolatedSurface = pathname.startsWith("/u/") || pathname.startsWith("/campus");
 
   const isUserSearch = query.trimStart().startsWith("@");
   const rawTerm = isUserSearch ? query.trimStart().slice(1).trim() : query.trim();
@@ -154,12 +158,13 @@ export function CommandPalette() {
   /* ── global keyboard shortcut ── */
   useEffect(() => {
     const h = (e) => {
+      if (isIsolatedSurface) return;
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setOpen(p => !p); }
       if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, []);
+  }, [isIsolatedSurface]);
 
   /* ── dock button event ── */
   useEffect(() => {
@@ -187,6 +192,8 @@ export function CommandPalette() {
   useEffect(() => { setSelected(0); }, [query]);
 
   const placeholder = isUserSearch ? "search deverts by @handle..." : "navigate or search deverts...";
+
+  if (isIsolatedSurface) return null;
 
   return (
     <AnimatePresence>

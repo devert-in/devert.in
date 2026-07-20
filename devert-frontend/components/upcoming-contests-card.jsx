@@ -25,7 +25,26 @@ export function UpcomingContestsCard() {
     })();
   }, [user]);
 
-  if (!user || loading || contests.length === 0) return null;
+  if (!user) return null;
+
+  if (loading) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-5">
+        <div className="terminal-window">
+          <div className="terminal-header">
+            <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
+            <Trophy size={10} className="ml-2 text-white/25" />
+            <span className="font-mono text-[10px] text-white/25 ml-1">your_contests.upcoming</span>
+          </div>
+          <div className="p-4">
+            <p className="font-mono text-[10px] text-white/20 animate-pulse text-center py-3">loading...</p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (contests.length === 0) return null;
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-5">

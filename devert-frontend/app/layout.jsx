@@ -2,9 +2,11 @@
 import "./globals.css";
 import { IntroProvider } from "@/context/IntroContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { WindowManagerProvider } from "@/context/WindowManagerContext";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
+import { WindowLayer } from "@/components/window/window-layer";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -126,10 +128,13 @@ export default function RootLayout({ children }) {
       >
         <AuthProvider>
           <IntroProvider>
-            <CommandPalette />
-            <Navbar />
-            {children}
-            <Footer />
+            <WindowManagerProvider>
+              <CommandPalette />
+              <Navbar />
+              {children}
+              <WindowLayer />
+              <Footer />
+            </WindowManagerProvider>
           </IntroProvider>
         </AuthProvider>
       </body>

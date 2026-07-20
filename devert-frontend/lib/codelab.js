@@ -1,14 +1,25 @@
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { collection, doc, getDocs, getDoc, query, orderBy, where, limit } from "firebase/firestore";
 
 export const CODELAB_CATEGORIES = [
   "Arrays", "Strings", "Linked List", "Stack", "Queue", "Trees", "Graphs",
   "Recursion", "Dynamic Programming", "Greedy", "Math", "Bit Manipulation",
   "Binary Search", "Sliding Window", "Two Pointer", "Hashing", "Sorting",
-  "Searching", "Backtracking", "SQL",
+  "Searching", "Backtracking", "SQL", "Heap", "Trie",
 ];
 
 export const CODELAB_DIFFICULTIES = ["Easy", "Medium", "Hard"];
+
+// Shared with Arena's solo-challenge editor (arena-app.jsx) - a challenge is
+// graded through this exact same starter-code/language set, just with a
+// timer wrapper, so both surfaces reuse this one map instead of drifting.
+export const STARTER_CODE = {
+  java: "public class Main {\n    public static void main(String[] args) {\n        \n    }\n}\n",
+  python: "def solve():\n    pass\n\nsolve()\n",
+  cpp: "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    \n    return 0;\n}\n",
+  javascript: "function solve() {\n  \n}\n\nsolve();\n",
+  c: "#include <stdio.h>\n\nint main() {\n    \n    return 0;\n}\n",
+};
 
 // Phase 1: five languages, kept in sync with Judge0Service's LANGUAGE_IDS map on
 // devert-backend - adding a language means updating both places.
@@ -50,6 +61,16 @@ export async function fetchUserCodelabProgress(uid) {
   return snap.exists() ? snap.data() : { solvedProblems: {}, languageUsage: {}, totalSubmissions: 0, problemsSolvedCount: 0 };
 }
 
+// Distinct problem ids a user has ever submitted for, regardless of verdict -
+// lets a problem list show "attempted, not yet solved" instead of only ever
+// "solved" or blank. A plain where("uid","==") needs no composite index
+// (unlike fetchMySubmissions' uid+createdAt ordering), so this stays a
+// single simple query even as submission history grows.
+export async function fetchAttemptedProblemIds(uid) {
+  const snap = await getDocs(query(collection(db, "codelab_submissions"), where("uid", "==", uid)));
+  return new Set(snap.docs.map(d => d.data().problemId));
+}
+
 export async function fetchMySubmissions(uid, topN = 10) {
   const snap = await getDocs(query(
     collection(db, "codelab_submissions"),
@@ -86,14 +107,38 @@ export async function runCode({ language, code, stdin }) {
 }
 
 // Full grading against hidden tests - only devert-backend ever reads them. Awards
-// XP/coins server-side and returns the verdict for display.
-export async function submitCode({ uid, problemId, language, code }) {
+// XP/coins server-side and returns the verdict for display. The backend verifies
+// the Firebase ID token itself and grades against THAT uid - it never trusts a
+// uid from the request body, so there's nothing to pass here besides the token.
+export async function submitCode({ problemId, language, code }) {
   const base = apiUrl();
   if (!base) throw new Error("Submissions aren't configured yet (NEXT_PUBLIC_API_URL is unset).");
+  if (!auth.currentUser) throw new Error("Sign in to submit.");
+  const idToken = await auth.currentUser.getIdToken();
   const res = await fetch(`${base}/api/coding/submit`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ uid, problemId, language, code }),
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+    body: JSON.stringify({ problemId, language, code }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Submission failed.");
+  return data;
+}
+
+// Arena's solo-challenge counterpart to submitCode() - same shape (verified ID
+// token, backend never trusts a client uid), but grades against an
+// arena_matches session instead of a bare problemId, since Arena also needs
+// the match's own server-stamped start time to compute a speed bonus and to
+// reject a submit after the session has already been resolved.
+export async function submitArenaCode({ matchId, language, code }) {
+  const base = apiUrl();
+  if (!base) throw new Error("Arena submissions aren't configured yet (NEXT_PUBLIC_API_URL is unset).");
+  if (!auth.currentUser) throw new Error("Sign in to submit.");
+  const idToken = await auth.currentUser.getIdToken();
+  const res = await fetch(`${base}/api/coding/arena/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+    body: JSON.stringify({ matchId, language, code }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Submission failed.");

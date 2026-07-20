@@ -30,13 +30,52 @@ service cloud.firestore {
         : fallback;
     }
 
-    // A single write may never move a user's own XP by more than this in one
-    // shot - blocks "set xp to 999999999" from devtools. Doesn't stop a
-    // scripted loop of small increments; closing that fully needs the reward
-    // logic moved server-side (blocked on Cloud Functions billing for now).
-    function xpDeltaSane() {
-      return !('xp' in request.resource.data.diff(resource.data).affectedKeys())
-        || (request.resource.data.get('xp', 0) - resource.data.get('xp', 0)) <= 500;
+    // DeVert Campus - institution-scoped roles, checked the same way as isAdmin()
+    // but against a Firestore membership doc instead of a custom claim (claims are
+    // a single global flag on this project - not tenant-scoped, so institution
+    // admins can't reuse that mechanism). See institutions/{institutionId} below.
+    function isInstitutionAdmin(institutionId) {
+      return isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/admins/$(request.auth.uid));
+    }
+    function isApprovedStudent(institutionId) {
+      return isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid))
+        && get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    // Institution-scoped contests (see contests/{contestId} below) are plain
+    // contest docs with an institutionId field - these read that field via a
+    // fresh get() (can't use `resource` from inside a nested subcollection
+    // match, e.g. questions/answerKeys) to find which institution, if any,
+    // owns a given contest, then defer to isInstitutionAdmin() above.
+    function contestInstitutionId(contestId) {
+      return get(/databases/$(database)/documents/contests/$(contestId)).data.get('institutionId', '');
+    }
+    function isContestInstitutionAdmin(contestId) {
+      return contestInstitutionId(contestId) != '' && isInstitutionAdmin(contestInstitutionId(contestId));
+    }
+    // True for every global (no institutionId) contest, unconditionally -
+    // matches today's open behavior for the public Arena. For an
+    // institution-scoped contest, true only for that institution's own
+    // approved students - the read/write branches below that gate on "any
+    // signed-in user" (answerKeys/submissions post-contestEnd, registering)
+    // must all pass through this, or a private college contest's questions,
+    // answer keys, and other students' scores end up readable by anyone
+    // with a DeVert account, not just that college's own approved roster.
+    function isApprovedForContest(contestId) {
+      return contestInstitutionId(contestId) == '' || isApprovedStudent(contestInstitutionId(contestId));
+    }
+
+    // A single write may never move a user's own XP or credits by more than
+    // this in one shot - blocks "set xp/credits to 999999999" from devtools.
+    // Doesn't stop a scripted loop of small increments; closing that fully
+    // needs the reward logic moved server-side (blocked on Cloud Functions
+    // billing for now). Raised from 500 to 2000 so a single large contest
+    // prize (see contests/{id}/submissions grading below) can still be
+    // credited in one write - keep ContestsPanel's prizeXp/prizeCoins inputs
+    // clamped to this same cap in the admin UI.
+    function selfWriteDeltaSane(field) {
+      return !(field in request.resource.data.diff(resource.data).affectedKeys())
+        || (request.resource.data.get(field, 0) - resource.data.get(field, 0)) <= 2000;
     }
 
     // Users - public read (profiles are sharable); only owner/admin can write
@@ -46,13 +85,37 @@ service cloud.firestore {
     match /users/{uid} {
       allow read:   if true;
       allow create: if isOwner(uid);
-      allow update: if (isOwner(uid) && xpDeltaSane()) || isAdmin()
+      // Campus membership fields (institutionId/institutionSlug/department/year/
+      // section/rollNumber/campusFullName) are deliberately excluded from the
+      // owner's normal profile-edit branch below - a student forging their own
+      // institutionId would bypass the whole approval workflow in
+      // institutions/{id}/students/{uid}, and rollNumber/campusFullName are the
+      // Roll Number Lock's denormalized copies (see approveStudent /
+      // updateStudentIdentity in lib/institutions.js) - only platform isAdmin()
+      // or that specific institution's own admin (approving/reassigning this
+      // student, or correcting their identity) may ever touch these seven
+      // fields, and only all at once (never mixed with any other field).
+      allow update: if (isOwner(uid) && selfWriteDeltaSane('xp') && selfWriteDeltaSane('credits')
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
+            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName']
+          )) || isAdmin()
         || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'followersCount', 'pulsePostsCount',
           'totalLikesReceived', 'totalCommentsReceived', 'totalSavesReceived', 'totalSharesReceived',
-          'totalViewsReceived', 'totalRepostsReceived', 'totalRepostsMade',
-        ]));
+          'totalViewsReceived', 'totalRepostsReceived', 'totalRepostsMade', 'profileViews',
+        ]))
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName']
+        ) && isInstitutionAdmin(request.resource.data.institutionId));
       allow delete: if isAdmin();
+    }
+
+    // Private user fields (currently just email) - split out of the publicly
+    // readable users/{uid} doc, which grants `allow read: if true` for
+    // sharable-profile reasons and was otherwise exposing email to every
+    // visitor of a public Dev Card. Owner/admin only, both directions.
+    match /users_private/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
     // Follows - anyone can read; only follower can create/delete their own follow
@@ -69,10 +132,15 @@ service cloud.firestore {
       allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
-    // Missions - admin creates, public reads
+    // Missions - admin creates, public reads. Any signed-in user may bump
+    // filled by exactly +1 when accepting a mission (no unaccept flow exists
+    // in missions/page.jsx, so only the +1 direction is allowed) - same
+    // bounded shared-counter pattern as contests/{contestId}.participantCount.
     match /missions/{missionId} {
       allow read:  if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || (isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['filled'])
+        && (request.resource.data.get('filled', 0) - resource.data.get('filled', 0)) == 1);
     }
 
     // User missions - owner + admin
@@ -83,11 +151,23 @@ service cloud.firestore {
       }
     }
 
-    // Arena matches
+    // Arena matches - a match session is created the moment a challenge is
+    // picked (status "in_progress", server-stamped startedAt), then resolved
+    // either by devert-backend's firebase-admin SDK after real grading
+    // (status "won", bypasses these rules entirely - see codelab_submissions
+    // below for the same pattern) or by the owner self-reporting a harmless
+    // loss (0 XP either way, so forging your own forfeit/timeout buys
+    // nothing). The client has NO legal path to status "won" or to touch
+    // xp/testsPassed/etc - only the backend can write those.
     match /arena_matches/{matchId} {
       allow read:   if isAuth();
-      allow create: if isAuth();
-      allow update: if isAdmin();
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'in_progress';
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.uid == request.auth.uid
+            && resource.data.status == 'in_progress'
+            && request.resource.data.status in ['forfeit', 'timeout']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'finishedAt']));
     }
 
     // Grind log (daily problems per user)
@@ -158,11 +238,25 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.uid == request.auth.uid;
     }
 
-    // Hackathon submissions - public read, owner creates/updates pre-deadline, admin scores
+    // Hackathon submissions - public read (winners.json / leaderboard). Owner
+    // creates/edits their own submission CONTENT only, and only score/rank/
+    // winner start null/false/null - once admin scores it (setting any of
+    // those), the doc is locked from further owner edits. score/rank/winner
+    // can only ever be admin-written, never forged by the owner themselves.
     match /hackathon_submissions/{docId} {
       allow read:   if true;
-      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
-      allow update: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.score == null
+        && request.resource.data.winner == false
+        && request.resource.data.rank == null;
+      allow update: if isAdmin() || (
+        isAuth() && resource.data.uid == request.auth.uid
+        && resource.data.score == null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.score == null
+        && request.resource.data.winner == false
+        && request.resource.data.rank == null
+      );
       allow delete: if isAdmin();
     }
 
@@ -174,7 +268,17 @@ service cloud.firestore {
     // an arbitrary jump - so a single write can't fake a pile of engagement.
     match /pulse_posts/{postId} {
       allow read:   if true;
-      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      // A new post must start with every engagement counter absent or zero -
+      // otherwise a poster could forge a starting likeCount/commentCount/etc.
+      // directly at creation, before the bounded ±1-per-write update rule
+      // below ever gets a chance to apply.
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.get('likeCount', 0)    == 0
+        && request.resource.data.get('commentCount', 0) == 0
+        && request.resource.data.get('saveCount', 0)    == 0
+        && request.resource.data.get('shareCount', 0)   == 0
+        && request.resource.data.get('viewCount', 0)    == 0
+        && request.resource.data.get('repostCount', 0)  == 0;
       allow update: if isAuth() && (
         resource.data.uid == request.auth.uid || isAdmin()
         || (
@@ -196,7 +300,7 @@ service cloud.firestore {
     // Pulse likes - public read, auth user manages their own like
     match /pulse_likes/{likeId} {
       allow read:   if true;
-      allow create: if isAuth();
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
       allow delete: if isAuth() && resource.data.uid == request.auth.uid;
     }
 
@@ -219,28 +323,58 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
-    // User earnings - owner/admin reads and writes freely (self-serve
-    // conversion/spend). A non-owner may ONLY credit pulseCoins+totalCoins
-    // together, by the same amount, and that amount must equal a live,
-    // admin-configured per-like/comment/save rate - this is what lets a
-    // liker/commenter/saver's client credit the POST AUTHOR's balance
-    // without being able to set anyone's balance to an arbitrary number.
+    // Reads either resource (an existing doc) or 0 - shared by user_earnings'
+    // owner and non-owner branches below so both can express deltas the same way.
+    function priorEarnings(field) {
+      return resource == null ? 0 : resource.data.get(field, 0);
+    }
+
+    // User earnings - admin reads/writes freely. The owner is NOT a free-write
+    // branch (a prior version let the owner set an arbitrary balance directly
+    // from devtools, defeating the whole point of this bound) - they're held
+    // to exactly two legitimate shapes:
+    //   (a) XP -> coin conversion: pulseCoins and totalCoins increase together
+    //       by the same amount, capped per write (coarse bound, not tied to
+    //       the actual XP spent - rules can't see the sibling users/{uid}
+    //       write in the same batch; a real fix needs the conversion moved
+    //       server-side, blocked on Cloud Functions billing, same trade-off
+    //       as selfWriteDeltaSane() above).
+    //   (b) Payout withdrawal: pulseCoins may only DECREASE (reserved/spent
+    //       at request time - see payout_requests below), never below 0;
+    //       totalCoins (lifetime-earned) never moves.
+    // A non-owner may ONLY credit pulseCoins+totalCoins together, by the same
+    // amount, and that amount must equal a live, admin-configured
+    // per-like/comment/save rate - this is what lets a liker/commenter/saver's
+    // client credit the POST AUTHOR's balance without being able to set
+    // anyone's balance to an arbitrary number.
     match /user_earnings/{uid} {
       allow read:  if isOwner(uid) || isAdmin();
-      allow create, update: if isOwner(uid) || isAdmin() || (
-        isAuth()
-        // `resource` is null on a first-ever create (no doc existed before) -
-        // every real write here is a merge of just these two fields, so this
-        // holds for create and update alike without needing resource.diff().
+      allow create, update: if isAdmin() || (
+        isOwner(uid)
         && request.resource.data.keys().hasOnly(['pulseCoins', 'totalCoins'])
         && request.resource.data.keys().size() == 2
-        && (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0)))
-           == (request.resource.data.totalCoins - (resource == null ? 0 : resource.data.get('totalCoins', 0)))
+        && request.resource.data.pulseCoins >= 0
         && (
-          (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0))) == economyVal('PER_LIKE', 10)
-          || (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0))) == -economyVal('PER_LIKE', 10)
-          || (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0))) == economyVal('PER_COMMENT', 25)
-          || (request.resource.data.pulseCoins - (resource == null ? 0 : resource.data.get('pulseCoins', 0))) == economyVal('PER_SAVE', 15)
+          (
+            (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == (request.resource.data.totalCoins - priorEarnings('totalCoins'))
+            && (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) > 0
+            && (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) <= 5000
+          )
+          || (
+            request.resource.data.totalCoins == priorEarnings('totalCoins')
+            && request.resource.data.pulseCoins <= priorEarnings('pulseCoins')
+          )
+        )
+      ) || (
+        isAuth()
+        && request.resource.data.keys().hasOnly(['pulseCoins', 'totalCoins'])
+        && request.resource.data.keys().size() == 2
+        && (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == (request.resource.data.totalCoins - priorEarnings('totalCoins'))
+        && (
+          (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == economyVal('PER_LIKE', 10)
+          || (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == -economyVal('PER_LIKE', 10)
+          || (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == economyVal('PER_COMMENT', 25)
+          || (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == economyVal('PER_SAVE', 15)
         )
       );
     }
@@ -258,9 +392,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Notifications - public read; any auth user can create (for platform events); admin manages
+    // Notifications - per-user targeted (targetUid), so reads are scoped to
+    // the recipient or admin, not public - these can carry real INR payout
+    // amounts and rejection reasons. 'all' is the one broadcast value meant
+    // for every signed-in user (platform announcements). Any auth user can
+    // create (for platform events - likes/comments/follows/etc. notifying
+    // someone else); admin manages the rest.
     match /notifications/{notifId} {
-      allow read:           if true;
+      allow read: if isAuth() && (
+        resource.data.targetUid == request.auth.uid
+        || resource.data.targetUid == 'all'
+        || isAdmin()
+      );
       allow create:         if isAuth();
       allow update, delete: if isAdmin();
     }
@@ -319,8 +462,62 @@ service cloud.firestore {
       allow read:  if true;
       allow write: if isAdmin();
       match /questions/{questionId} {
-        allow read:  if true;
+        allow read: if true;
+        // Admins can write any field. A signed-in student's client may ALSO
+        // bump the three global stat counters (solved-by / accuracy / avg
+        // time), one attempt's worth per write, same bounded-delta shape as
+        // the missions `filled` counter below - not cheat-proof (a scripted
+        // loop of legal small writes could still inflate these; closing that
+        // needs a Cloud Function, which this project doesn't have yet), but
+        // it keeps every content field (question/options/correctIndex/etc.)
+        // admin-only.
+        allow write: if isAdmin() || (isAuth()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['attemptCount', 'correctCount', 'totalTimeSec'])
+          && (request.resource.data.get('attemptCount', 0) - resource.data.get('attemptCount', 0)) == 1
+          && (request.resource.data.get('correctCount', 0) - resource.data.get('correctCount', 0)) in [0, 1]
+          && (request.resource.data.get('totalTimeSec', 0) - resource.data.get('totalTimeSec', 0)) >= 0
+          && (request.resource.data.get('totalTimeSec', 0) - resource.data.get('totalTimeSec', 0)) <= 3600);
+      }
+    }
+
+    // Company Prep - Company -> Round -> Category -> Question, global
+    // DeVert-authored content (same idea as aptitude_topics above, one level
+    // deeper on each side: a company groups its own hiring rounds, each round
+    // groups its own categories, since no two companies structure their
+    // process the same way). A company doc gates every question underneath it
+    // through a single 'status' field - draft companies (and everything
+    // nested under them) are admin-only, published ones are public, exactly
+    // like a contest's status gates its own questions/answerKeys.
+    function isCompanyPublished(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data.get('status', '') == 'published';
+    }
+    match /companies/{companyId} {
+      allow read:  if isAdmin() || (resource != null && resource.data.status == 'published');
+      allow write: if isAdmin();
+
+      match /rounds/{roundId} {
+        allow read:  if isAdmin() || isCompanyPublished(companyId);
         allow write: if isAdmin();
+
+        match /categories/{categoryId} {
+          allow read:  if isAdmin() || isCompanyPublished(companyId);
+          allow write: if isAdmin();
+
+          match /questions/{questionId} {
+            allow read: if isAdmin() || isCompanyPublished(companyId);
+            // Same bounded-counter carve-out as aptitude_topics questions above -
+            // admins write any field, a signed-in student's client may only ever
+            // bump one attempt's worth onto the three global stat counters.
+            allow write: if isAdmin() || (isAuth()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['attemptCount', 'correctCount', 'totalTimeSec'])
+              && (request.resource.data.get('attemptCount', 0) - resource.data.get('attemptCount', 0)) == 1
+              && (request.resource.data.get('correctCount', 0) - resource.data.get('correctCount', 0)) in [0, 1]
+              && (request.resource.data.get('totalTimeSec', 0) - resource.data.get('totalTimeSec', 0)) >= 0
+              && (request.resource.data.get('totalTimeSec', 0) - resource.data.get('totalTimeSec', 0)) <= 3600);
+          }
+        }
       }
     }
 
@@ -338,40 +535,59 @@ service cloud.firestore {
     // answerKeys unlock - client-computed and only coarsely bounded (can't exceed the
     // contest's own announced prize caps), not re-verified server-side, since rules
     // can't loop over question docs. Same accepted trust-boundary trade-off as the coin
-    // economy (see economyVal()/xpDeltaSane() above) - a real Cloud Function is the
+    // economy (see economyVal()/selfWriteDeltaSane() above) - a real Cloud Function is the
     // future hardening step, not something solved here.
+    //
+    // DeVert Campus extension: a contest may optionally carry an institutionId. Absent
+    // = today's global DeVert Arena contest, unaffected by anything below. Present =
+    // visible only to that institution's own approved students/admins (never the
+    // public), and that institution's own admin gets the exact same create/manage
+    // rights isAdmin() has today, scoped to contests actually tagged with their
+    // institution - see isContestInstitutionAdmin() above.
     match /contests/{contestId} {
-      allow read:   if (resource != null && resource.data.status == 'published') || isAdmin();
-      allow create, delete: if isAdmin();
-      // Any signed-in user may bump participantCount by exactly +-1 (registering /
-      // unregistering) - same bounded shared-counter pattern as pulse_posts counters.
-      allow update: if isAdmin() || (isAuth()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantCount'])
-        && (request.resource.data.get('participantCount', 0) - resource.data.get('participantCount', 0)) in [-1, 1]);
+      allow read: if isAdmin()
+        || isContestInstitutionAdmin(contestId)
+        || (resource != null && resource.data.status == 'published'
+          && (!('institutionId' in resource.data) || isApprovedStudent(resource.data.institutionId)));
+      allow create: if isAdmin()
+        || (isAuth() && request.resource.data.get('institutionId', '') != ''
+          && isInstitutionAdmin(request.resource.data.institutionId));
+      allow delete: if isAdmin() || isContestInstitutionAdmin(contestId);
+      // Institution admin may update their own institution's contest freely, but can't
+      // reassign it to a different (or no) institution. Any signed-in user may still
+      // bump participantCount by exactly +-1 (registering/unregistering) on ANY contest -
+      // same bounded shared-counter pattern as pulse_posts counters.
+      allow update: if isAdmin()
+        || (isContestInstitutionAdmin(contestId)
+          && request.resource.data.get('institutionId', '') == resource.data.get('institutionId', ''))
+        || (isAuth() && isApprovedForContest(contestId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantCount'])
+          && (request.resource.data.get('participantCount', 0) - resource.data.get('participantCount', 0)) in [-1, 1]);
 
       match /questions/{questionId} {
-        allow read:  if true;
-        allow write: if isAdmin();
+        allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isApprovedForContest(contestId);
+        allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
       }
 
       match /answerKeys/{questionId} {
-        allow read: if isAdmin() || (isAuth() &&
-          request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
-        allow write: if isAdmin();
+        allow read: if isAdmin() || isContestInstitutionAdmin(contestId) || (isApprovedForContest(contestId) &&
+          isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
+        allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
       }
 
       match /announcements/{announcementId} {
-        allow read:  if true;
-        allow write: if isAdmin();
+        allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isApprovedForContest(contestId);
+        allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
       }
 
       // Owner reads/creates their own registration within the registration window;
-      // admin can read all (registrations viewer). Non-owner may bump the parent
-      // contest's participantCount by exactly +1 as part of registering - same bounded
-      // shared-counter pattern used for pulse_posts engagement counts.
+      // admin (platform or that institution's own) can read all (registrations
+      // viewer). Non-owner may bump the parent contest's participantCount by exactly
+      // +1 as part of registering - same bounded shared-counter pattern used for
+      // pulse_posts engagement counts.
       match /registrations/{uid} {
-        allow read:   if isOwner(uid) || isAdmin();
-        allow create: if isOwner(uid) && request.resource.data.registeredAt != null
+        allow read:   if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId);
+        allow create: if isOwner(uid) && isApprovedForContest(contestId) && request.resource.data.registeredAt != null
           && request.time <= get(/databases/$(database)/documents/contests/$(contestId)).data.registrationEnd;
         allow delete: if isOwner(uid) || isAdmin();
       }
@@ -380,23 +596,48 @@ service cloud.firestore {
       // fields yet). The one legal follow-up is the owner flipping graded false->true
       // after contestEnd, with xpEarned/coinsEarned bounded to the contest's own prize
       // caps. Anyone signed in can read submissions once the contest has ended - that's
-      // what powers the per-contest leaderboard.
+      // what powers the per-contest leaderboard; that institution's own admin can read
+      // earlier too (for a live registrations/submissions view while it's running).
       match /submissions/{uid} {
-        allow read: if isOwner(uid) || isAdmin() || (isAuth() &&
-          request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
-        allow create: if isOwner(uid)
+        allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId) || (isApprovedForContest(contestId) &&
+          isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
+        // maxScore must be written honestly (client-computed from the real,
+        // public question set) at create time and is then locked - the
+        // grading update below bounds score/correctCount against it, so a
+        // forged score can't blow past what the contest could ever award.
+        // (maxScore itself is only a coarse sanity cap, not independently
+        // re-verified - rules can't loop over question docs to sum marks;
+        // real verification needs a Cloud Function, same trade-off as the
+        // xpEarned/coinsEarned prize caps below.)
+        allow create: if isOwner(uid) && isApprovedForContest(contestId)
           && request.resource.data.graded == false
           && !('score' in request.resource.data)
           && !('xpEarned' in request.resource.data)
-          && !('coinsEarned' in request.resource.data);
+          && !('coinsEarned' in request.resource.data)
+          && request.resource.data.maxScore is number
+          && request.resource.data.maxScore > 0
+          && request.resource.data.maxScore <= 1000;
         allow update: if isOwner(uid)
           && resource.data.graded == false
           && request.resource.data.graded == true
           && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['graded', 'score', 'accuracy', 'correctCount', 'xpEarned', 'coinsEarned']
+          )
+          && request.resource.data.score >= 0
+          && request.resource.data.score <= resource.data.maxScore
+          && request.resource.data.accuracy >= 0
+          && request.resource.data.accuracy <= 100
+          && request.resource.data.correctCount >= 0
+          && request.resource.data.correctCount <= resource.data.maxScore
           && request.resource.data.xpEarned >= 0
           && request.resource.data.xpEarned <= get(/databases/$(database)/documents/contests/$(contestId)).data.get('prizeXp', 0)
           && request.resource.data.coinsEarned >= 0
           && request.resource.data.coinsEarned <= get(/databases/$(database)/documents/contests/$(contestId)).data.get('prizeCoins', 0);
+        // "Reset attempt" (Student Management) - deleting the submission doc
+        // lets the student attempt the contest again; only that institution's
+        // own admin (or platform isAdmin()) can do this.
+        allow delete: if isContestInstitutionAdmin(contestId) || isAdmin();
       }
     }
 
@@ -434,6 +675,138 @@ service cloud.firestore {
     // future client-side preference writes (if any) have somewhere sane to land.
     match /user_codelab_progress/{uid} {
       allow read, write: if isOwner(uid) || isAdmin();
+    }
+
+    // Per-user Company Prep progress (solved/bookmarked question ids, flat
+    // maps keyed by questionId - same shape as user_codelab_progress's
+    // solvedProblems) - owner or admin only.
+    match /user_companyPrep/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
+    }
+
+    // DeVert Campus - each institution (college) is its own tenant, isolated from
+    // every other one, on the same project/database. Directory listing is public
+    // (browsing colleges on DeVert Campus doesn't require membership); only
+    // platform isAdmin() provisions an institution or grants its first admin today
+    // - self-service institution signup/admin invites are a later enhancement.
+    match /institutions/{institutionId} {
+      // "private" institutions are invisible to everyone except their own
+      // approved students/admins (and platform isAdmin()) - both a direct
+      // get() and a collection-level list() are covered by this same rule,
+      // since Firestore evaluates `list` per-candidate-document too (same
+      // pattern as isCompanyPublished() above): a query like fetchInstitutions()
+      // silently omits private ones for a non-member instead of erroring.
+      // "public"/"invite_only" institutions stay listed either way - both
+      // now accept a self-serve students/{uid} submission (see below);
+      // invite_only's distinction is the simplified Campus Identity
+      // Verification form the client shows, not a rules-level block.
+      allow read: if resource.data.get('accessMode', 'public') != 'private'
+        || isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+      allow create, update, delete: if isAdmin();
+
+      // Institution-admin membership (placement officer / faculty / dept admin /
+      // TPC). Grantable only by platform isAdmin() for now.
+      match /admins/{uid} {
+        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        allow write: if isAdmin();
+      }
+
+      // One doc per student = BOTH the join request and the roster record, so
+      // there's no separate request-then-promote step. The student creates their
+      // own doc, but only ever at status 'pending' - no student may set their own
+      // status, department, year, or section (that's the whole point of requiring
+      // approval). Only that institution's own admin (or platform isAdmin()) can
+      // transition status or assign academic fields - mirrors pulse_posts'
+      // owner-creates/admin-transitions shape.
+      match /students/{uid} {
+        allow read:   if isOwner(uid) || isInstitutionAdmin(institutionId) || isAdmin();
+        // Self-serve submission (student creates their own pending doc) is
+        // accepted for every access mode now - "invite_only" no longer blocks
+        // this at the rules level. The distinction lives entirely in the
+        // client: "public" shows the full JoinForm, "invite_only" shows the
+        // simplified 2-field Campus Identity Verification form (name +
+        // rollNumber only - see CampusIdentityForm). Either way this is
+        // still just a pending request; that institution's own admin (or
+        // platform isAdmin()) reviews and approves it exactly as before.
+        // "private" doesn't need its own check here - the
+        // institutions/{institutionId} read rule above already makes a
+        // private institution invisible before a student could even reach a
+        // join button.
+        allow create: if (isOwner(uid)
+            && request.resource.data.uid == uid
+            && request.resource.data.status == 'pending')
+          || isInstitutionAdmin(institutionId) || isAdmin();
+        // Update stays admin-only (institution admin or platform admin) -
+        // this is also what enforces the Roll Number Lock: a student can
+        // CREATE their identity submission once, but can never update it
+        // themselves afterward. Admin edits after approval go through
+        // updateStudentIdentity() (lib/institutions.js), which appends to
+        // identityAuditLog in the same write.
+        allow update, delete: if isInstitutionAdmin(institutionId) || isAdmin();
+      }
+
+      // Duplicate-roll-number guard for requestToJoin/updateStudentIdentity
+      // (lib/institutions.js) - a targeted get() by a known normalized roll
+      // number reveals only "taken or not" (the doc's only fields are
+      // uid/rollNumber/claimedAt), never a way to browse the roster, so this
+      // stays safely readable by any signed-in user even before they've
+      // joined anything. list is admin-only since that WOULD enumerate
+      // every claimed roll number; normal usage never needs it.
+      match /rollNumberRegistry/{key} {
+        allow get: if isAuth();
+        allow list: if isInstitutionAdmin(institutionId) || isAdmin();
+        allow create, update: if isAuth() &&
+          (request.resource.data.uid == request.auth.uid || isInstitutionAdmin(institutionId) || isAdmin());
+        allow delete: if isAuth() &&
+          ((resource.data != null && resource.data.uid == request.auth.uid) || isInstitutionAdmin(institutionId) || isAdmin());
+      }
+
+      // Admin-authored content, visible only to that institution's own approved
+      // students and admins - unlike courses/aptitude_topics (public read), Campus
+      // content is the whole reason institutions get isolated workspaces.
+      match /dailyLearning/{itemId} {
+        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        allow write: if isInstitutionAdmin(institutionId) || isAdmin();
+      }
+
+      // A student's own per-day completion record (mcq answers/score,
+      // problems solved, xp/coin earned) - readable by any approved peer
+      // (that's what makes a day-filtered leaderboard possible) but only
+      // the owning student (or an admin) can ever write their own row, and
+      // only while genuinely enrolled - same isOwner+isApprovedStudent
+      // shape as the rest of this Daily Learning feature.
+      match /dailyLearningLog/{logId} {
+        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        allow write: if isInstitutionAdmin(institutionId) || isAdmin() ||
+          (isApprovedStudent(institutionId) && isOwner(request.resource.data.uid));
+      }
+
+      // Institution-local hide list for global, platform-owned content
+      // (companies/problems) - lets a campus admin curate what THEIR
+      // students see without ever writing to those global collections
+      // (which stay isAdmin()-only and shared across every institution).
+      match /contentVisibility/{docId} {
+        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        allow write: if isInstitutionAdmin(institutionId) || isAdmin();
+      }
+
+      // Student Management's "send announcements to selected students" -
+      // an admin-authored announcement optionally carries a targetUids list;
+      // omitted/empty means institution-wide broadcast (existing behavior),
+      // present means only those students (plus admins) may read it.
+      match /announcements/{announcementId} {
+        allow read: if isInstitutionAdmin(institutionId) || isAdmin() || (isApprovedStudent(institutionId) &&
+          (!('targetUids' in resource.data) || resource.data.targetUids.size() == 0 || request.auth.uid in resource.data.targetUids));
+        allow write: if isInstitutionAdmin(institutionId) || isAdmin();
+      }
+
+      // Contest Studio's per-institution question bank - reusable questions an
+      // admin can drop into any of their own contests. Never read by students
+      // (unlike dailyLearning/announcements above) - it's an authoring tool,
+      // not published content.
+      match /questionBank/{questionId} {
+        allow read, write: if isInstitutionAdmin(institutionId) || isAdmin();
+      }
     }
   }
 }

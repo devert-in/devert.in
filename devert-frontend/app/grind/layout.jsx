@@ -9,6 +9,25 @@ export const metadata = {
   },
 };
 
+// Describes the aptitude/DSA practice bank as a learning resource - static
+// and generic (the actual topic list is client-fetched from Firestore, not
+// known at build time), same additive-only JSON-LD pattern as the root layout.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  "name": "DeVert Grind",
+  "description": "Daily aptitude and DSA practice challenges covering quantitative, logical, and verbal reasoning topics.",
+  "provider": { "@type": "Organization", "name": "DeVert", "url": "https://devert.in" },
+  "learningResourceType": "Practice problems",
+  "educationalLevel": "Beginner to Advanced",
+  "url": "https://devert.in/grind",
+};
+
 export default function GrindLayout({ children }) {
-  return children;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {children}
+    </>
+  );
 }

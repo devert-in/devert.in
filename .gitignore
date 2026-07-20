@@ -51,6 +51,11 @@ out/
 # =====================
 .env
 .env.local
+# functions/.env holds only DEVERT_BACKEND_URL - a public Cloud Run URL, not a
+# secret (it's already plaintext in the CI workflow files) - Firebase's own
+# functions deploy tooling reads this file to set the live env var, so it has
+# to actually ship in the repo/CI checkout, unlike every other .env above.
+!functions/.env
 
 # =====================
 # Secrets / service accounts

@@ -1,27 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ListChecks, ChevronRight, ArrowLeft, CheckCircle2, XCircle,
-  ExternalLink, Lock, Zap,
-} from "lucide-react";
+import { ListChecks, ChevronRight, ArrowLeft, Lock, Zap } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, increment, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, increment, Timestamp, arrayUnion, arrayRemove } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import {
   APTITUDE_CATEGORIES, fetchAptitudeTopics, fetchTopicQuestions,
-  groupTopicsByCategory, topicAccuracy,
+  groupTopicsByCategory, topicAccuracy, normalizeAttemptEntry, appendAttempt,
+  detectWeakTopics,
 } from "@/lib/aptitude";
+import { QuestionWorkspace } from "@/components/aptitude/question-workspace";
 
 const DAILY_XP_CAP = 60;
 const XP_PER_CORRECT = 3;
 
-function todayIST() {
-  return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+// Named wrapper so the (legitimate, event-driven) impure Date.now() reads
+// below don't trip the "impure call during render" lint rule, which can't
+// tell a ref set from an onClick handler apart from one read during render.
+function nowMs() { return Date.now(); }
 
-const DIFF_COLOR = { easy: "#00FF41", medium: "#FF9500", hard: "#FF5050" };
+function todayIST() {
+  return new Date(nowMs() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 
 export function AptitudeSection() {
   const { user } = useAuth();
@@ -35,6 +37,8 @@ export function AptitudeSection() {
   const [selected, setSelected] = useState(null);
   const [answered, setAnswered] = useState(false);
   const [xpToast, setXpToast] = useState(null);
+  const [lastAttemptTimeSec, setLastAttemptTimeSec] = useState(null);
+  const questionShownAt = useRef(null);
 
   useEffect(() => {
     fetchAptitudeTopics().then(setTopics).catch(console.error).finally(() => setLoading(false));
@@ -43,13 +47,14 @@ export function AptitudeSection() {
   useEffect(() => {
     if (!user) { setProgress(null); return; }
     getDoc(doc(db, "user_aptitude_progress", user.uid))
-      .then(snap => setProgress(snap.exists() ? snap.data() : { attempted: {}, topicStats: {}, dailyXp: {} }))
+      .then(snap => setProgress(snap.exists() ? snap.data() : { attempted: {}, topicStats: {}, dailyXp: {}, bookmarks: [] }))
       .catch(console.error);
   }, [user]);
 
   const openTopic = async (topic) => {
     setActiveTopic(topic);
-    setQIndex(0); setSelected(null); setAnswered(false);
+    setQIndex(0); setSelected(null); setAnswered(false); setLastAttemptTimeSec(null);
+    questionShownAt.current = nowMs();
     const qs = await fetchTopicQuestions(topic.id).catch(() => []);
     setQuestions(qs);
   };
@@ -62,16 +67,19 @@ export function AptitudeSection() {
     if (selected === null || !currentQ) return;
     setAnswered(true);
     const correct = selected === currentQ.correctIndex;
+    const timeSec = Math.round((nowMs() - questionShownAt.current) / 1000);
+    setLastAttemptTimeSec(timeSec);
     if (!user) return;
 
     const already = progress?.attempted?.[currentQ.id];
     const today = todayIST();
     const todaysXp = progress?.dailyXp?.[today] || 0;
     const awardXp = correct && !already && todaysXp < DAILY_XP_CAP ? XP_PER_CORRECT : 0;
+    const nextEntry = appendAttempt(already, { selectedIndex: selected, correct, timeSec, attemptedAt: Timestamp.now() });
 
     try {
       await setDoc(doc(db, "user_aptitude_progress", user.uid), {
-        attempted: { [currentQ.id]: { selectedIndex: selected, correct, attemptedAt: serverTimestamp() } },
+        attempted: { [currentQ.id]: nextEntry },
         topicStats: {
           [activeTopic.id]: {
             attempted: increment(already ? 0 : 1),
@@ -81,15 +89,27 @@ export function AptitudeSection() {
         ...(awardXp > 0 ? { dailyXp: { [today]: increment(awardXp) } } : {}),
       }, { merge: true });
 
+      // Global stat counters (solved-by / accuracy / avg-time), bounded by
+      // firestore.rules to exactly one attempt's worth per write - only on
+      // this user's FIRST-ever attempt at the question, so the counters
+      // approximate unique solvers rather than counting every retry.
+      if (!already) {
+        updateDoc(doc(db, "aptitude_topics", activeTopic.id, "questions", currentQ.id), {
+          attemptCount: increment(1),
+          correctCount: increment(correct ? 1 : 0),
+          totalTimeSec: increment(timeSec),
+        }).catch(() => {});
+      }
+
       if (awardXp > 0) {
         // Aptitude practice is now Grind's main daily activity (the self-reported
-        // DSA/SystemDesign/Build challenge that used to drive `streak` was removed as
-        // redundant with Arena Solo Challenges/CodeLab) - so a first correct answer of
+        // DSA/SystemDesign/Build daily challenge that used to drive `streak` was removed
+        // as redundant with Arena Solo Challenges/CodeLab) - so a first correct answer of
         // the day is what keeps the streak alive now, same day/yesterday/reset logic.
         const userSnap = await getDoc(doc(db, "users", user.uid));
         const u = userSnap.exists() ? userSnap.data() : {};
         const lastPracticed = u.lastSolvedDate || "";
-        const yesterday = new Date(Date.now() + 5.5 * 60 * 60 * 1000 - 86400000).toISOString().slice(0, 10);
+        const yesterday = new Date(nowMs() + 5.5 * 60 * 60 * 1000 - 86400000).toISOString().slice(0, 10);
         let newStreak = u.streak || 0;
         if (lastPracticed !== today) {
           newStreak = lastPracticed === yesterday ? newStreak + 1 : 1;
@@ -103,9 +123,10 @@ export function AptitudeSection() {
 
       setProgress(prev => {
         const next = {
-          attempted: { ...(prev?.attempted || {}), [currentQ.id]: { selectedIndex: selected, correct } },
+          attempted: { ...(prev?.attempted || {}), [currentQ.id]: nextEntry },
           topicStats: { ...(prev?.topicStats || {}) },
           dailyXp: { ...(prev?.dailyXp || {}) },
+          bookmarks: prev?.bookmarks || [],
         };
         if (!already) {
           const s = next.topicStats[activeTopic.id] || { attempted: 0, correct: 0 };
@@ -117,15 +138,37 @@ export function AptitudeSection() {
     } catch (e) { console.error(e); }
   };
 
-  const handleNext = () => {
-    setSelected(null); setAnswered(false);
-    setQIndex(i => Math.min(i + 1, questions.length - 1));
+  const goToIndex = (i) => {
+    setSelected(null); setAnswered(false); setLastAttemptTimeSec(null);
+    questionShownAt.current = nowMs();
+    setQIndex(i);
+  };
+
+  const handleNext = () => goToIndex(Math.min(qIndex + 1, questions.length - 1));
+  const handleJumpToQuestion = (questionId) => {
+    const i = questions.findIndex(q => q.id === questionId);
+    if (i !== -1) goToIndex(i);
+  };
+
+  const handleToggleBookmark = async () => {
+    if (!user || !currentQ) return;
+    const isBookmarked = (progress?.bookmarks || []).includes(currentQ.id);
+    setProgress(prev => ({
+      ...prev,
+      bookmarks: isBookmarked ? (prev.bookmarks || []).filter(id => id !== currentQ.id) : [...(prev?.bookmarks || []), currentQ.id],
+    }));
+    try {
+      await setDoc(doc(db, "user_aptitude_progress", user.uid), {
+        bookmarks: isBookmarked ? arrayRemove(currentQ.id) : arrayUnion(currentQ.id),
+      }, { merge: true });
+    } catch (e) { console.error(e); }
   };
 
   if (loading) return null;
   if (topics.length === 0) return null;
 
   const grouped = groupTopicsByCategory(topics);
+  const weakTopics = user ? detectWeakTopics(topics, progress?.topicStats) : [];
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} className="mb-10">
@@ -157,6 +200,11 @@ export function AptitudeSection() {
 
         {!activeTopic ? (
           <div className="p-4 space-y-4">
+            {weakTopics.length > 0 && (
+              <p className="font-mono text-[10px] text-orange-400/80 leading-relaxed border border-orange-400/20 rounded-lg px-3 py-2" style={{ background: "rgba(255,149,0,0.05)" }}>
+                You frequently struggle with: {weakTopics.map(t => t.topic.name).join(", ")}. Practice these next.
+              </p>
+            )}
             {APTITUDE_CATEGORIES.map(cat => (grouped[cat]?.length ? (
               <div key={cat}>
                 <p className="font-mono text-[9px] text-white/25 tracking-widest mb-2">{cat.toUpperCase()}</p>
@@ -194,72 +242,26 @@ export function AptitudeSection() {
           </div>
         ) : (
           <div className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="font-mono text-[10px] text-white/25 tracking-wider">QUESTION {qIndex + 1} / {questions.length}</p>
-              {currentQ.difficulty && (
-                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded" style={{ color: DIFF_COLOR[currentQ.difficulty] || "#00FFFF", background: "rgba(255,255,255,0.04)" }}>
-                  {currentQ.difficulty}
-                </span>
-              )}
-            </div>
-
-            <p className="font-mono text-[13px] text-white/80 leading-relaxed mb-4 whitespace-pre-wrap">{currentQ.question}</p>
-
-            <div className="space-y-1.5 mb-4">
-              {currentQ.options.map((opt, oi) => {
-                const isCorrect = answered && oi === currentQ.correctIndex;
-                const isWrongPick = answered && oi === selected && oi !== currentQ.correctIndex;
-                return (
-                  <button key={oi} disabled={answered} onClick={() => setSelected(oi)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors disabled:cursor-default"
-                    style={{
-                      background: isCorrect ? "rgba(0,255,65,0.08)" : isWrongPick ? "rgba(255,80,80,0.08)" : selected === oi ? "rgba(0,255,255,0.06)" : "rgba(255,255,255,0.03)",
-                      border: isCorrect ? "1px solid rgba(0,255,65,0.35)" : isWrongPick ? "1px solid rgba(255,80,80,0.35)" : selected === oi ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                    }}>
-                    <span className="w-3.5 h-3.5 rounded-full border flex-shrink-0"
-                      style={{ borderColor: selected === oi ? "#00FFFF" : "rgba(255,255,255,0.2)", background: selected === oi && !answered ? "#00FFFF" : "transparent" }} />
-                    <span className="font-mono text-[12px] text-white/75 flex-1">{opt}</span>
-                    {isCorrect && <CheckCircle2 size={13} style={{ color: "#00FF41" }} />}
-                    {isWrongPick && <XCircle size={13} style={{ color: "#FF5050" }} />}
-                  </button>
-                );
-              })}
-            </div>
-
-            {!answered ? (
-              <motion.button whileHover={selected !== null ? { scale: 1.01 } : {}} whileTap={selected !== null ? { scale: 0.98 } : {}}
-                onClick={handleSubmit} disabled={selected === null}
-                className="w-full font-mono text-sm py-2.5 rounded-xl transition-all disabled:opacity-40"
-                style={{ background: "#00FFFF", color: "#050505" }}>
-                submit
-              </motion.button>
-            ) : (
-              <>
-                {currentQ.explanation && (
-                  <div className="border border-white/8 rounded-lg p-3 mb-3">
-                    <p className="font-mono text-[9px] text-white/25 tracking-wider mb-1.5">EXPLANATION</p>
-                    <p className="font-mono text-[11px] text-white/55 leading-relaxed whitespace-pre-wrap">{currentQ.explanation}</p>
-                    {currentQ.videoUrl && (
-                      <a href={currentQ.videoUrl} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 mt-2 font-mono text-[10px] text-neon-purple hover:underline">
-                        <ExternalLink size={9} /> watch video explanation
-                      </a>
-                    )}
-                  </div>
-                )}
-                {qIndex < questions.length - 1 ? (
-                  <button onClick={handleNext}
-                    className="w-full font-mono text-sm py-2.5 rounded-xl text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/8 transition-colors">
-                    next question →
-                  </button>
-                ) : (
-                  <button onClick={closeTopic}
-                    className="w-full font-mono text-sm py-2.5 rounded-xl text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors">
-                    topic complete — back to topics
-                  </button>
-                )}
-              </>
-            )}
+            <QuestionWorkspace
+              topic={activeTopic}
+              question={currentQ}
+              questionIndex={qIndex}
+              totalQuestions={questions.length}
+              topicQuestions={questions}
+              selected={selected}
+              onSelect={setSelected}
+              answered={answered}
+              onSubmit={handleSubmit}
+              onNext={handleNext}
+              onClose={closeTopic}
+              onJumpToQuestion={handleJumpToQuestion}
+              attemptEntry={normalizeAttemptEntry(progress?.attempted?.[currentQ.id])}
+              topicStats={progress?.topicStats}
+              weakTopics={weakTopics}
+              bookmarked={(progress?.bookmarks || []).includes(currentQ.id)}
+              onToggleBookmark={handleToggleBookmark}
+              lastAttemptTimeSec={answered ? lastAttemptTimeSec : null}
+            />
           </div>
         )}
       </div>

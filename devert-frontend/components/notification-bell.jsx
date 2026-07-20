@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, ExternalLink, RefreshCw, UserPlus, Repeat2, Heart, MessageCircle, CheckCircle2, XCircle, Coins, Settings, Info, AlertTriangle, Gift } from "lucide-react";
@@ -8,7 +8,7 @@ import Link from "next/link";
 import { db } from "@/lib/firebase";
 import {
   collection, query, where, orderBy, limit,
-  getDocs, addDoc, serverTimestamp,
+  onSnapshot, addDoc, serverTimestamp,
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 
@@ -23,7 +23,7 @@ function getReadIds() {
 
 function persistRead(ids) {
   try {
-    const merged = [...getReadIds(), ...ids].slice(-300);
+    const merged = [...getReadIds(), ...ids].slice(-2000);
     localStorage.setItem(STORAGE_KEY, JSON.stringify([...new Set(merged)]));
   } catch {}
 }
@@ -89,31 +89,48 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
   // document.body with viewport-fixed coordinates sidesteps that entirely.
   useEffect(() => { setMounted(true); }, []);
 
-  const fetchNotifs = useCallback(async () => {
-    if (!user) return;
+  // Real-time - two live listeners (broadcast + personal) merged into one
+  // sorted, capped list, instead of a one-time fetch that never sees new
+  // notifications until the component remounts.
+  useEffect(() => {
+    if (!user) { setNotifs([]); setUnread(0); return; }
+
     setLoading(true);
-    try {
-      const [broadSnap, personalSnap] = await Promise.all([
-        getDocs(query(collection(db, "notifications"),
-          where("targetUid", "==", "all"),
-          orderBy("createdAt", "desc"), limit(20))),
-        getDocs(query(collection(db, "notifications"),
-          where("targetUid", "==", user.uid),
-          orderBy("createdAt", "desc"), limit(30))),
-      ]);
-      const all = [
-        ...broadSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-        ...personalSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-      ].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+    let broadDocs = [];
+    let personalDocs = [];
+    const merge = () => {
+      const all = [...broadDocs, ...personalDocs]
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
         .slice(0, 40);
       setNotifs(all);
       const read = getReadIds();
       setUnread(all.filter(n => !read.has(n.id)).length);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      setLoading(false);
+    };
+
+    const unsubBroad = onSnapshot(query(collection(db, "notifications"),
+      where("targetUid", "==", "all"),
+      orderBy("createdAt", "desc"), limit(20)), (snap) => {
+      broadDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      merge();
+    }, (err) => console.error(err));
+
+    const unsubPersonal = onSnapshot(query(collection(db, "notifications"),
+      where("targetUid", "==", user.uid),
+      orderBy("createdAt", "desc"), limit(30)), (snap) => {
+      personalDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      merge();
+    }, (err) => console.error(err));
+
+    return () => { unsubBroad(); unsubPersonal(); };
   }, [user]);
 
-  useEffect(() => { fetchNotifs(); }, [fetchNotifs]);
+  // onSnapshot already keeps notifs fresh - this is just a spinner nicety for
+  // users who click it expecting a manual refresh to do something.
+  const handleRefresh = () => {
+    setLoading(true);
+    setTimeout(() => setLoading(false), 500);
+  };
 
   const handleOpen = () => {
     const next = !open;
@@ -205,7 +222,7 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={fetchNotifs} disabled={loading}
+                <button onClick={handleRefresh} disabled={loading}
                   className="text-white/20 hover:text-white/50 transition-colors disabled:opacity-40">
                   <RefreshCw size={10} className={loading ? "animate-spin" : ""} />
                 </button>

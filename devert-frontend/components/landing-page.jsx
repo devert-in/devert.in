@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { Hero } from "@/components/hero";
+import { CampusPreview } from "@/components/campus-preview";
 import { MissionVision } from "@/components/mission-vision";
 import { PlatformPromises } from "@/components/platform-promises";
 import { ShipyardPreview } from "@/components/shipyard-preview";
@@ -28,55 +29,59 @@ export function LandingPage() {
       <Hero />
       <Divider />
 
-      {/* Section 2 - Mission & Vision */}
+      {/* Section 2 - DeVert Campus */}
+      <CampusPreview />
+      <Divider />
+
+      {/* Section 3 - Mission & Vision */}
       <MissionVision />
       <Divider />
 
-      {/* Section 3 - Platform Promises */}
+      {/* Section 4 - Platform Promises */}
       <PlatformPromises />
       <Divider />
 
-      {/* Section 4 - This Week in the Shipyard */}
+      {/* Section 5 - This Week in the Shipyard */}
       <ShipyardPreview />
       <Divider />
 
-      {/* Section 5 - Core Features */}
+      {/* Section 6 - Core Features */}
       <CoreFeatures />
       <Divider />
 
-      {/* Section 6 - Mission Board */}
+      {/* Section 7 - Mission Board */}
       <MissionBoard />
       <Divider />
 
-      {/* Section 7 - How It Works */}
+      {/* Section 8 - How It Works */}
       <HowItWorks />
       <Divider />
 
-      {/* Section 8 - Today's Grind */}
+      {/* Section 9 - Today's Grind */}
       <GrindPreview />
       <Divider />
 
-      {/* Section 9 - Platform Stats */}
+      {/* Section 10 - Platform Stats */}
       <PlatformStats />
       <Divider />
 
-      {/* Section 10 - Benefits by Audience */}
+      {/* Section 11 - Benefits by Audience */}
       <BenefitsByAudience />
       <Divider />
 
-      {/* Section 11 - Duo Terminal */}
+      {/* Section 12 - Duo Terminal */}
       <DuoTerminal />
       <Divider />
 
-      {/* Section 12 - Rank Ladder */}
+      {/* Section 13 - Rank Ladder */}
       <RankLadder />
       <Divider />
 
-      {/* Section 13 - FAQ */}
+      {/* Section 14 - FAQ */}
       <FaqSection />
       <Divider />
 
-      {/* Section 14 - Signal CTA */}
+      {/* Section 15 - Signal CTA */}
       <SignalCta />
     </div>
   );

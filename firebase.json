@@ -3,6 +3,9 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "functions": [
+    { "source": "functions", "codebase": "default" }
+  ],
   "hosting": {
     "public": "devert-frontend/out",
     "ignore": [
@@ -12,9 +15,20 @@
     ],
     "cleanUrls": true,
     "trailingSlash": false,
+    "headers": [
+      {
+        "source": "/_next/static/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
+    ],
     "rewrites": [
-      { "source": "/u/**", "destination": "/u.html" },
-      { "source": "/h/**", "destination": "/h.html" }
+      { "source": "/u/**", "function": "uHandleRouter" },
+      { "source": "/h/**", "destination": "/h.html" },
+      { "source": "/campus/**", "function": "campusPreviewRouter" },
+      { "source": "/contest/**", "function": "contestPreviewRouter" },
+      { "source": "/pulse/**", "function": "pulsePreviewRouter" }
     ]
   },
   "storage": {

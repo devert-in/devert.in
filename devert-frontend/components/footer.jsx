@@ -27,7 +27,12 @@ export function Footer() {
   // "/" redirects logged-in visitors to /pulse before the marketing page
   // ever renders, and the Pulse feed itself is a focused, continuously-
   // scrolling content stream - a marketing footer breaks both experiences.
-  if ((pathname === "/" && (!hasShownIntro || user)) || pathname.startsWith("/admin") || pathname === "/pulse") return null;
+  // Public portfolios carry their own minimal credit line instead (see app/u/page.jsx) -
+  // the marketing footer's socials/manifest/CTA are DeVert chrome, not part of the portfolio.
+  // Campus is a deliberately separate institutional surface with its own chrome
+  // entirely (see components/campus/campus-app.jsx) - none of DeVert's own
+  // chrome belongs there, same reasoning as /u/.
+  if ((pathname === "/" && (!hasShownIntro || user)) || pathname.startsWith("/admin") || pathname === "/pulse" || pathname.startsWith("/u/") || pathname.startsWith("/campus")) return null;
 
   return (
     <footer className="relative border-t border-white/5 pb-28 mt-20 overflow-hidden">

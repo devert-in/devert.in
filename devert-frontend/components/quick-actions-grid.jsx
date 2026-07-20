@@ -22,7 +22,7 @@ export function QuickActionsGrid() {
       className="mb-5"
     >
       <p className="font-mono text-[10px] text-white/25 tracking-wider mb-2.5">// quick_actions</p>
-      <div className="grid grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
         {ACTIONS.map(a => (
           <Link key={a.href} href={a.href}>
             <motion.div whileHover={{ y: -2, borderColor: `${a.color}40` }} whileTap={{ scale: 0.96 }}

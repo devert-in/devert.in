@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Users, Trophy, Coins, Zap, Clock, CheckCircle2, MoreVertical } from "lucide-react";
@@ -16,7 +15,7 @@ function formatDate(v) {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function ContestCard({ contest, registered, registering, onRegister }) {
+export function ContestCard({ contest, registered, registering, onRegister, onViewDetails, onViewResults }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const phase = contestPhase(contest);
 
@@ -36,12 +35,12 @@ export function ContestCard({ contest, registered, registering, onRegister }) {
             <div className="absolute right-0 top-full mt-1 z-20 rounded-lg overflow-hidden"
               style={{ background: "rgba(5,5,5,0.97)", border: "1px solid rgba(255,255,255,0.08)", minWidth: 140 }}
               onMouseLeave={() => setMenuOpen(false)}>
-              <Link href={`/arena/contests/details?id=${contest.id}`} className="block px-3 py-2 font-mono text-[10px] text-white/55 hover:text-neon-cyan hover:bg-white/3 transition-colors">
+              <button onClick={() => { setMenuOpen(false); onViewDetails(contest.id); }} className="block w-full text-left px-3 py-2 font-mono text-[10px] text-white/55 hover:text-neon-cyan hover:bg-white/3 transition-colors">
                 view rules
-              </Link>
-              <Link href={`/arena/contests/results?id=${contest.id}`} className="block px-3 py-2 font-mono text-[10px] text-white/55 hover:text-neon-cyan hover:bg-white/3 transition-colors">
+              </button>
+              <button onClick={() => { setMenuOpen(false); onViewResults(contest.id); }} className="block w-full text-left px-3 py-2 font-mono text-[10px] text-white/55 hover:text-neon-cyan hover:bg-white/3 transition-colors">
                 leaderboard
-              </Link>
+              </button>
               <button onClick={() => {
                 if (typeof window !== "undefined") navigator.clipboard?.writeText(`${window.location.origin}/arena/contests/details?id=${contest.id}`);
                 setMenuOpen(false);
@@ -74,10 +73,10 @@ export function ContestCard({ contest, registered, registering, onRegister }) {
           {contest.prizeCoins > 0 && <span className="flex items-center gap-1" style={{ color: "#FFD700" }}><Coins size={10} /> {contest.prizeCoins}</span>}
         </div>
         <div className="flex gap-2">
-          <Link href={`/arena/contests/details?id=${contest.id}`}
+          <button onClick={() => onViewDetails(contest.id)}
             className="flex-1 text-center font-mono text-xs py-2 rounded-lg border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors">
             view details
-          </Link>
+          </button>
           {phase !== "past" && (
             registered ? (
               <span className="flex items-center gap-1 font-mono text-xs px-3 py-2 rounded-lg text-neon-green border border-neon-green/30">
