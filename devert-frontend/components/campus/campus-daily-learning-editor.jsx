@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Search, X as CloseIcon } from "lucide-react";
-import { fetchPublishedProblems } from "@/lib/codelab";
+import { fetchPublishedProblems, CODELAB_LANGUAGES } from "@/lib/codelab";
 import { saveItem, dowOfDate, DOW_LABELS } from "@/lib/dailyLearning";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusBackButton } from "@/components/campus/campus-ui";
@@ -20,8 +20,44 @@ function blankMcq() {
 function blankItem(date) {
   return {
     date, dow: dowOfDate(date), type: "lesson", title: "", concept: "",
+    difficulty: "", estimatedMinutes: "",
+    learningObjectives: [], prerequisites: [], keyPoints: [], importantNotes: [],
+    commonMistakes: [], interviewTips: [], realWorldApplications: [],
+    codeExample: { language: "", code: "" },
     mcqs: [], problemIds: [], xpReward: 50, coinReward: 20, status: "draft",
   };
+}
+
+// One reusable shape for every repeatable-string field below (Learning
+// Objectives, Prerequisites, Key Points, Important Notes, Common Mistakes,
+// Interview Tips, Real-world Applications) - all optional, all the exact
+// same add/edit/remove interaction, so one component instead of seven
+// near-identical blocks.
+function StringListField({ label, items, onChange, placeholder }) {
+  const list = items || [];
+  const patch = (i, value) => onChange(list.map((v, idx) => (idx === i ? value : v)));
+  const remove = (i) => onChange(list.filter((_, idx) => idx !== i));
+  const add = () => onChange([...list, ""]);
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{label} ({list.length})</label>
+        <button onClick={add} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+          <Plus size={10} /> add
+        </button>
+      </div>
+      <div className="space-y-1.5">
+        {list.map((v, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input value={v} onChange={e => patch(i, e.target.value)} placeholder={placeholder}
+              className="flex-1 text-[12.5px] px-3 py-1.5 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+            <button onClick={() => remove(i)} style={{ color: CAMPUS.bad }}><Trash2 size={13} /></button>
+          </div>
+        ))}
+        {list.length === 0 && <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>None yet - optional, leave empty to skip this section on the lesson page.</p>}
+      </div>
+    </div>
+  );
 }
 
 export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSaved }) {
@@ -117,11 +153,55 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
               className="w-full text-[14px] font-semibold px-3 py-2 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
           </div>
 
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>DIFFICULTY (OPTIONAL)</label>
+              <select value={form.difficulty || ""} onChange={e => set({ difficulty: e.target.value })}
+                className="w-full text-[13px] px-3 py-2 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+                <option value="">Not set</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>ESTIMATED READING TIME (MINUTES, OPTIONAL)</label>
+              <input type="number" value={form.estimatedMinutes || ""} onChange={e => set({ estimatedMinutes: e.target.value ? parseInt(e.target.value) : "" })} placeholder="e.g. 12"
+                className="w-full text-[13px] px-3 py-2 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+            </div>
+          </div>
+
+          <StringListField label="LEARNING OBJECTIVES" items={form.learningObjectives} onChange={v => set({ learningObjectives: v })} placeholder="e.g. Understand array traversal" />
+          <StringListField label="PREREQUISITES" items={form.prerequisites} onChange={v => set({ prerequisites: v })} placeholder="e.g. Variables and loops" />
+
           <div>
             <label className="block text-[10px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>CONCEPT / LESSON BODY</label>
             <textarea value={form.concept} onChange={e => set({ concept: e.target.value })} rows={8} placeholder="The reading material students see before the quiz..."
               className="w-full text-[13px] px-3 py-2.5 rounded-lg outline-none leading-relaxed" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+            <p className="text-[10.5px] mt-1" style={{ color: CAMPUS.inkFaint }}>
+              Indent a block by 2+ spaces to render it as pseudocode, and start a line with "- " for a real bullet list - the lesson page detects both automatically.
+            </p>
           </div>
+
+          <div>
+            <label className="block text-[10px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>CODE EXAMPLE (OPTIONAL)</label>
+            <div className="grid sm:grid-cols-[140px_1fr] gap-2">
+              <select value={form.codeExample?.language || ""} onChange={e => set({ codeExample: { ...form.codeExample, language: e.target.value } })}
+                className="text-[13px] px-3 py-2 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+                <option value="">No language</option>
+                {CODELAB_LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+              </select>
+              <textarea value={form.codeExample?.code || ""} onChange={e => set({ codeExample: { ...form.codeExample, code: e.target.value } })}
+                rows={5} placeholder="A short, focused, real code snippet illustrating the concept..."
+                className="w-full text-[12.5px] font-mono px-3 py-2 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+            </div>
+          </div>
+
+          <StringListField label="KEY POINTS" items={form.keyPoints} onChange={v => set({ keyPoints: v })} placeholder="e.g. Arrays use contiguous memory" />
+          <StringListField label="IMPORTANT NOTES" items={form.importantNotes} onChange={v => set({ importantNotes: v })} placeholder="e.g. Arrays have a fixed size in Java" />
+          <StringListField label="COMMON MISTAKES" items={form.commonMistakes} onChange={v => set({ commonMistakes: v })} placeholder="e.g. Using index n instead of n-1" />
+          <StringListField label="INTERVIEW TIPS" items={form.interviewTips} onChange={v => set({ interviewTips: v })} placeholder="e.g. Interviewers often ask to reverse an array" />
+          <StringListField label="REAL-WORLD APPLICATIONS" items={form.realWorldApplications} onChange={v => set({ realWorldApplications: v })} placeholder="e.g. Image processing" />
 
           <div className="grid sm:grid-cols-2 gap-3">
             <div>

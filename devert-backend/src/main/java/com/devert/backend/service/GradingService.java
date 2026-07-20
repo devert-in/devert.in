@@ -1,5 +1,8 @@
 package com.devert.backend.service;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +66,7 @@ public class GradingService {
         int totalTests = grade.totalTests;
         long finalMaxTimeMs = grade.maxTimeMs;
         long finalMaxMemoryKb = grade.maxMemoryKb;
+        List<Map<String, Object>> finalTestSummaries = grade.testSummaries;
 
         // Wrapped in a transaction so two near-simultaneous submissions for the same
         // problem can't both read solvedProblems=false and both get awarded XP/coins:
@@ -70,12 +74,36 @@ public class GradingService {
         // so the loser of the race re-reads an already-solved doc and earns nothing.
         return db.runTransaction(transaction -> {
             DocumentSnapshot progressSnap = transaction.get(progressRef).get();
+            // Only read on an accepted submission - a wrong answer never touches streak,
+            // so there's nothing worth an extra read for otherwise. Firestore requires
+            // every transaction read before any write, so this has to happen up here.
+            DocumentSnapshot userSnap = accepted ? transaction.get(userRef).get() : null;
+
             boolean alreadySolved = progressSnap.exists()
                 && progressSnap.contains("solvedProblems." + problemId)
                 && Boolean.TRUE.equals(progressSnap.get("solvedProblems." + problemId));
 
             long xpEarned = (accepted && !alreadySolved) ? xpReward : 0;
             long coinsEarned = (accepted && !alreadySolved) ? coinReward : 0;
+
+            // Streak: mirrors Aptitude/Grind's own day/yesterday/reset rule (see
+            // aptitude-section.jsx) - a correct submission is what keeps the streak
+            // alive, same as Aptitude's "first correct answer of the day," on ANY
+            // accepted submission (including re-solving an already-solved problem),
+            // not just a brand-new solve. IST (UTC+5:30) to match Aptitude's own clock.
+            Long newStreak = null;
+            String today = null;
+            Long currentStreak = null;
+            if (accepted) {
+                ZoneOffset ist = ZoneOffset.ofHoursMinutes(5, 30);
+                today = LocalDate.now(ist).toString();
+                String lastSolvedDate = userSnap != null && userSnap.contains("lastSolvedDate") ? userSnap.getString("lastSolvedDate") : "";
+                currentStreak = userSnap != null && userSnap.contains("streak") ? userSnap.getLong("streak") : 0;
+                if (!today.equals(lastSolvedDate)) {
+                    String yesterday = LocalDate.now(ist).minusDays(1).toString();
+                    newStreak = yesterday.equals(lastSolvedDate) ? currentStreak + 1 : 1;
+                }
+            }
 
             Map<String, Object> submission = new HashMap<>();
             submission.put("uid", uid);
@@ -89,6 +117,7 @@ public class GradingService {
             submission.put("memoryKb", finalMaxMemoryKb);
             submission.put("xpEarned", xpEarned);
             submission.put("coinsEarned", coinsEarned);
+            submission.put("testSummaries", finalTestSummaries);
             submission.put("createdAt", FieldValue.serverTimestamp());
             transaction.set(submissionRef, submission);
 
@@ -106,7 +135,7 @@ public class GradingService {
             if (accepted) problemUpdate.put("acceptedSubmissions", FieldValue.increment(1));
             transaction.set(problemRef, problemUpdate, SetOptions.merge());
 
-            if (xpEarned > 0 || coinsEarned > 0 || (accepted && !alreadySolved)) {
+            if (xpEarned > 0 || coinsEarned > 0 || (accepted && !alreadySolved) || newStreak != null) {
                 Map<String, Object> userUpdate = new HashMap<>();
                 if (xpEarned > 0) userUpdate.put("xp", FieldValue.increment(xpEarned));
                 if (coinsEarned > 0) userUpdate.put("credits", FieldValue.increment(coinsEarned));
@@ -114,6 +143,7 @@ public class GradingService {
                 // "Top Solvers" leaderboard can query it directly - user_codelab_progress
                 // itself stays owner-only readable, same privacy default as Aptitude.
                 if (accepted && !alreadySolved) userUpdate.put("problemsSolvedCount", FieldValue.increment(1));
+                if (newStreak != null) { userUpdate.put("streak", newStreak); userUpdate.put("lastSolvedDate", today); }
                 transaction.set(userRef, userUpdate, SetOptions.merge());
             }
 
@@ -124,7 +154,10 @@ public class GradingService {
             result.put("xpEarned", xpEarned);
             result.put("coinsEarned", coinsEarned);
             result.put("runtimeMs", finalMaxTimeMs);
+            result.put("memoryKb", finalMaxMemoryKb);
             result.put("alreadySolved", alreadySolved);
+            result.put("testSummaries", finalTestSummaries);
+            if (accepted) result.put("streak", newStreak != null ? newStreak : currentStreak);
             return result;
         }).get();
     }
@@ -256,20 +289,31 @@ public class GradingService {
         String verdict = "Accepted";
         long maxTimeMs = 0;
         long maxMemoryKb = 0;
+        // Pass/fail (+ which verdict) per test, never the input/expected/actual values -
+        // hidden test content must never reach the client (see this class's own header
+        // comment), and sample test replay already happens client-side via /run, so the
+        // submit response stays uniform rather than special-casing samples here too.
+        List<Map<String, Object>> testSummaries = new ArrayList<>();
 
+        int sampleIndex = 0;
         for (QueryDocumentSnapshot test : sampleTests) {
+            sampleIndex++;
             TestOutcome outcome = runTest(compilerId, code, test);
             passed += outcome.passed ? 1 : 0;
             maxTimeMs = Math.max(maxTimeMs, outcome.timeMs);
             maxMemoryKb = Math.max(maxMemoryKb, outcome.memoryKb);
             if (!outcome.passed && "Accepted".equals(verdict)) verdict = outcome.verdict;
+            testSummaries.add(testSummary("Sample Test " + sampleIndex, outcome));
         }
+        int hiddenIndex = 0;
         for (QueryDocumentSnapshot test : hiddenTests) {
+            hiddenIndex++;
             TestOutcome outcome = runTest(compilerId, code, test);
             passed += outcome.passed ? 1 : 0;
             maxTimeMs = Math.max(maxTimeMs, outcome.timeMs);
             maxMemoryKb = Math.max(maxMemoryKb, outcome.memoryKb);
             if (!outcome.passed && "Accepted".equals(verdict)) verdict = outcome.verdict;
+            testSummaries.add(testSummary("Hidden Test " + hiddenIndex, outcome));
         }
         if (totalTests == 0) verdict = "No Test Cases";
 
@@ -279,6 +323,7 @@ public class GradingService {
         result.totalTests = totalTests;
         result.maxTimeMs = maxTimeMs;
         result.maxMemoryKb = maxMemoryKb;
+        result.testSummaries = testSummaries;
         result.accepted = "Accepted".equals(verdict) && passed == totalTests && totalTests > 0;
         return result;
     }
@@ -319,6 +364,14 @@ public class GradingService {
         return outcome;
     }
 
+    private static Map<String, Object> testSummary(String label, TestOutcome outcome) {
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("label", label);
+        summary.put("passed", outcome.passed);
+        summary.put("verdict", outcome.verdict);
+        return summary;
+    }
+
     private static long parseSecondsToMs(String seconds) {
         try {
             return (long) (Double.parseDouble(seconds) * 1000);
@@ -348,6 +401,7 @@ public class GradingService {
         int totalTests;
         long maxTimeMs;
         long maxMemoryKb;
+        List<Map<String, Object>> testSummaries;
         boolean accepted;
     }
 }

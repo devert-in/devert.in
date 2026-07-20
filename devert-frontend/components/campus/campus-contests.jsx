@@ -168,7 +168,7 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
 
   return (
     <div className="max-w-2xl">
-      <CampusBackButton onClick={onBack} />
+      <CampusBackButton onClick={onBack} label="Back to contests" />
 
       {contest.bannerUrl && (
         <div className="w-full h-40 rounded-xl mb-5 bg-cover bg-center" style={{ backgroundImage: `url(${contest.bannerUrl})`, border: `1px solid ${CAMPUS.line}` }} />
@@ -383,7 +383,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
     return (
       <CampusCard className="p-7 text-center max-w-sm mx-auto">
         <p className="text-sm mb-4" style={{ color: CAMPUS.inkSoft }}>{blocked}</p>
-        <CampusBackButton onClick={() => onBack(contestId)} className="justify-center" />
+        <CampusBackButton onClick={() => onBack(contestId)} label="Back to contest details" className="justify-center" />
       </CampusCard>
     );
   }
@@ -764,7 +764,7 @@ export function CampusContestResults({ contestId, onBack }) {
 
   return (
     <div className="max-w-2xl">
-      <CampusBackButton onClick={() => onBack(contestId)} />
+      <CampusBackButton onClick={() => onBack(contestId)} label="Back to contest details" />
 
       <p className="text-xs mb-1.5" style={{ color: CAMPUS.teal }}>{contest.title}</p>
       <h1 className="text-xl font-bold mb-6" style={{ color: CAMPUS.ink }}>Leaderboard &amp; Results</h1>

@@ -34,7 +34,7 @@ const MANAGE_TABS = [
   { key: "contests",  label: "Contests" },
   { key: "dailyLearning", label: "Daily Learning" },
   { key: "practice", label: "Practice & DSA" },
-  { key: "companyPrep", label: "Company Prep" },
+  { key: "companyPrep", label: "Company Vault" },
 ];
 
 export function CampusManage({ institutionId, institution }) {
@@ -299,12 +299,10 @@ function ManagePracticePreview({ institutionId }) {
     );
   }
   if (view !== "analytics") {
-    return (
-      <div>
-        <CampusBackButton onClick={() => setView("preview")} label="Back to problem list" />
-        <CampusProblemView problemId={view} onBack={() => setView("preview")} />
-      </div>
-    );
+    // No extra CampusBackButton here - CampusProblemView already renders its
+    // own (wired to the same setView("preview") destination), and stacking
+    // a second one on top of it just duplicates the same control twice.
+    return <CampusProblemView problemId={view} onBack={() => setView("preview")} />;
   }
 
   if (problems === undefined || cohortProgress === undefined) {
@@ -440,7 +438,7 @@ function TopicAnalytics({ category, problems, cohortProgress, onBack }) {
   );
 }
 
-// ---------------- Company Prep preview ----------------
+// ---------------- Company Vault preview ----------------
 
 function ManageCompanyPrepPreview({ institutionId }) {
   const [screen, setScreen] = useState({ view: "list" });

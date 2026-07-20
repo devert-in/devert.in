@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Circle, Lock, BookOpen, Code2, Zap, Coins, ClipboardCheck,
-  ChevronRight, X as CloseIcon, Trophy, Medal,
+  ChevronRight, X as CloseIcon, Trophy, Medal, Target, AlertTriangle, Info,
+  Briefcase, ArrowRight, Lightbulb, Copy, ListChecks, Clock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProblem, fetchUserCodelabProgress } from "@/lib/codelab";
+import { fetchProblem, fetchUserCodelabProgress, CODELAB_LANGUAGES } from "@/lib/codelab";
 import {
   DOW_LABELS, DOW_ORDER, mondayOf, todayISO, fetchWeekItems, fetchLog,
   fetchUserWeekLogs, submitDayCompletion, fetchDayLeaderboard, fetchWeekTests,
@@ -28,10 +30,158 @@ import { CampusLearningSection } from "@/components/campus/campus-learning";
 // while one that has real weekly content (MRCET) never shows the generic
 // catalog at all.
 
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+const DIFF_COLOR = { Easy: CAMPUS.good, Medium: CAMPUS.warn, Hard: CAMPUS.bad };
+
 function dayStatus(item, log) {
   if (item.date > todayISO()) return "locked";
   if (log) return "done";
   return "open";
+}
+
+// The lesson body (`item.concept`) is one freeform string, authored as
+// plain text in the editor's textarea - no markdown, no structured fields.
+// Splitting it back into prose/bullet-list/pseudocode blocks by indentation
+// and leading "- " turns it back into something readable without requiring
+// every existing lesson to be re-authored into a new schema first. Any
+// block that doesn't match cleanly just falls through to prose, exactly
+// like today - this never hides or loses content, only reformats it.
+function parseConceptBlocks(text) {
+  if (!text) return [];
+  const lines = text.split("\n");
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim() === "") { i++; continue; }
+    if (/^\s{2,}\S/.test(line)) {
+      const codeLines = [];
+      while (i < lines.length && /^\s{2,}\S/.test(lines[i])) {
+        codeLines.push(lines[i].replace(/^ {2}/, ""));
+        i++;
+      }
+      blocks.push({ type: "code", text: codeLines.join("\n") });
+      continue;
+    }
+    if (/^\s*[-*]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
+        i++;
+      }
+      blocks.push({ type: "list", items });
+      continue;
+    }
+    const proseLines = [];
+    while (i < lines.length && lines[i].trim() !== "" && !/^\s{2,}\S/.test(lines[i]) && !/^\s*[-*]\s+/.test(lines[i])) {
+      proseLines.push(lines[i]);
+      i++;
+    }
+    blocks.push({ type: "prose", text: proseLines.join("\n") });
+  }
+  return blocks;
+}
+
+function ConceptRenderer({ text }) {
+  const blocks = useMemo(() => parseConceptBlocks(text), [text]);
+  return (
+    <div className="space-y-3">
+      {blocks.map((b, i) => {
+        if (b.type === "code") {
+          return (
+            <div key={i} className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
+              <div className="flex items-center justify-between px-3 py-1.5" style={{ background: CAMPUS.paper, borderBottom: `1px solid ${CAMPUS.line}` }}>
+                <span className="text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>PSEUDOCODE</span>
+                <button onClick={() => navigator.clipboard?.writeText(b.text)} style={{ color: CAMPUS.inkFaint }} title="Copy"><Copy size={11} /></button>
+              </div>
+              <pre className="text-[12px] font-mono p-3 overflow-x-auto" style={{ color: CAMPUS.inkSoft, background: CAMPUS.surface }}>{b.text}</pre>
+            </div>
+          );
+        }
+        if (b.type === "list") {
+          return (
+            <ul key={i} className="space-y-1.5 pl-1">
+              {b.items.map((it, j) => (
+                <li key={j} className="flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
+                  <span className="mt-[7px] w-1 h-1 rounded-full flex-shrink-0" style={{ background: CAMPUS.teal }} />
+                  {it}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={i} className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{b.text}</p>;
+      })}
+    </div>
+  );
+}
+
+// One shape for every optional callout list (Learning Objectives,
+// Prerequisites, Key Points, Important Notes, Common Mistakes, Interview
+// Tips, Real-world Applications) - renders nothing at all when the admin
+// hasn't authored that section for this lesson, rather than an empty card.
+function InfoListCard({ icon: Icon, title, items, color, tint, checkItems = false }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <CampusCard className="p-4" style={{ border: `1px solid ${color}40`, background: tint }}>
+      <div className="flex items-center gap-2 mb-2.5">
+        <Icon size={14} style={{ color }} />
+        <span className="text-[12.5px] font-bold" style={{ color: CAMPUS.ink }}>{title}</span>
+      </div>
+      <ul className="space-y-1.5">
+        {items.map((it, i) => (
+          <li key={i} className="flex items-start gap-2 text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
+            {checkItems
+              ? <CheckCircle2 size={13} className="flex-shrink-0 mt-0.5" style={{ color }} />
+              : <span className="mt-[7px] w-1 h-1 rounded-full flex-shrink-0" style={{ background: color }} />}
+            {it}
+          </li>
+        ))}
+      </ul>
+    </CampusCard>
+  );
+}
+
+function CodeExampleBlock({ codeExample }) {
+  if (!codeExample?.code) return null;
+  const lang = CODELAB_LANGUAGES.find(l => l.id === codeExample.language);
+  const lineCount = codeExample.code.split("\n").length;
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
+      <div className="flex items-center justify-between px-3 py-1.5" style={{ background: CAMPUS.paper, borderBottom: `1px solid ${CAMPUS.line}` }}>
+        <span className="text-[10px] font-mono font-semibold tracking-wide" style={{ color: CAMPUS.teal }}>{lang?.label || "CODE"}</span>
+        <button onClick={() => navigator.clipboard?.writeText(codeExample.code)} className="flex items-center gap-1 text-[10px]" style={{ color: CAMPUS.inkFaint }} title="Copy">
+          <Copy size={11} /> copy
+        </button>
+      </div>
+      <div style={{ height: Math.max(80, Math.min(320, 40 + lineCount * 19)) }}>
+        <MonacoEditor
+          language={lang?.monacoId || "plaintext"}
+          theme="light"
+          value={codeExample.code}
+          options={{ readOnly: true, domReadOnly: true, fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function NextLessonCard({ dayCompleted, nextItem, onGoToNext }) {
+  if (!nextItem) return null;
+  return (
+    <button onClick={onGoToNext} className="w-full text-left mt-2">
+      <CampusCard hover className="p-4 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
+          {nextItem.type === "test" ? <ClipboardCheck size={16} /> : <BookOpen size={16} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[9.5px] font-mono tracking-widest mb-0.5" style={{ color: CAMPUS.inkFaint }}>{dayCompleted ? "COMPLETED · UP NEXT" : "UP NEXT"}</p>
+          <b className="block text-[13.5px] truncate" style={{ color: CAMPUS.ink }}>{nextItem.title}</b>
+        </div>
+        <span className="flex items-center gap-1 text-[12px] font-semibold flex-shrink-0" style={{ color: CAMPUS.teal }}>Continue <ArrowRight size={13} /></span>
+      </CampusCard>
+    </button>
+  );
 }
 
 // ---------------- Tab entry point (Daily Learning) ----------------
@@ -99,6 +249,9 @@ export function CampusDailyLearningAdminPreview({ slug, weekId: weekIdProp }) {
           );
         })}
       </div>
+      {/* No Next Lesson nav here - the day-picker tabs above already cover
+          jumping between days in admin preview, unlike the student flow
+          where future days are locked and not directly clickable. */}
       <CampusDailyLearningItemView slug={slug} item={item} readOnly onOpenProblem={setOpenProblemId} />
     </div>
   );
@@ -156,7 +309,15 @@ function CampusDailyLearningWeek({ slug, items }) {
       ) : (
         <CampusDailyLearningItemView slug={slug} item={item} log={logs[item.date]}
           onLogged={(log) => setLogs(prev => ({ ...prev, [item.date]: log }))}
-          onOpenProblem={setOpenProblemId} />
+          onOpenProblem={setOpenProblemId}
+          nextItem={(() => {
+            const next = items[items.findIndex(it => it.date === item.date) + 1];
+            return next && next.date <= today ? next : null;
+          })()}
+          onGoToNext={() => {
+            const next = items[items.findIndex(it => it.date === item.date) + 1];
+            if (next) setSelected(next.date);
+          }} />
       )}
     </div>
   );
@@ -231,7 +392,7 @@ export function CampusDailyAssessmentsTab({ slug }) {
 
 // ---------------- Shared day/test content viewer ----------------
 
-function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem, readOnly = false }) {
+function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem, readOnly = false, nextItem, onGoToNext }) {
   const { user, userData } = useAuth();
   const [markedRead, setMarkedRead] = useState(!!log);
   const [answers, setAnswers] = useState(log?.mcqAnswers || {});
@@ -257,7 +418,19 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
 
   const mcqs = item.mcqs || [];
   const allAnswered = mcqs.every(q => answers[q.id] !== undefined);
+  const answeredCount = mcqs.filter(q => answers[q.id] !== undefined).length;
   const solvedCount = problems.filter(p => solvedIds.has(p.id)).length;
+
+  // A real, non-fabricated completion percentage - built only from state that
+  // already exists (read/answered/solved), weighted equally across whichever
+  // of the three actually apply to this day (a lesson with no problems
+  // attached isn't penalized for having nothing to solve).
+  const progressPct = useMemo(() => {
+    const steps = [markedRead || !!result ? 1 : 0];
+    if (mcqs.length > 0) steps.push(answeredCount / mcqs.length);
+    if (problems.length > 0) steps.push(problems.length ? solvedCount / problems.length : 0);
+    return Math.round((steps.reduce((a, b) => a + b, 0) / steps.length) * 100);
+  }, [markedRead, result, mcqs.length, answeredCount, problems.length, solvedCount]);
 
   const handleSave = async () => {
     if (!user || saving) return;
@@ -274,41 +447,79 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
   };
 
   const canSave = markedRead && allAnswered;
+  const reveal = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } };
 
   return (
-    <div className="max-w-2xl">
-      <div className="flex items-center gap-2 mb-1">
+    <motion.div className="max-w-2xl" initial="hidden" animate="visible"
+      variants={{ visible: { transition: { staggerChildren: 0.05 } } }}>
+      {/* ---------------- Header ---------------- */}
+      <motion.div variants={reveal} initial="hidden" animate="visible" className="flex items-center gap-2 mb-1">
         {item.type === "test" ? <ClipboardCheck size={13} style={{ color: CAMPUS.purple }} /> : <BookOpen size={13} style={{ color: CAMPUS.teal }} />}
         <p className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{DOW_LABELS[item.dow]} · {item.date}</p>
-      </div>
-      <h1 className="text-xl font-bold mb-4" style={{ color: CAMPUS.ink }}>{item.title}</h1>
+      </motion.div>
+      <motion.h1 variants={reveal} initial="hidden" animate="visible" className="text-xl font-bold mb-3" style={{ color: CAMPUS.ink }}>{item.title}</motion.h1>
+
+      <motion.div variants={reveal} initial="hidden" animate="visible" className="flex items-center gap-2 mb-4 flex-wrap">
+        {item.difficulty && <CampusChip color={DIFF_COLOR[item.difficulty] || CAMPUS.good}>{item.difficulty}</CampusChip>}
+        {item.estimatedMinutes > 0 && (
+          <span className="flex items-center gap-1 text-[11px]" style={{ color: CAMPUS.inkFaint }}><Clock size={11} /> {item.estimatedMinutes} min</span>
+        )}
+        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: CAMPUS.teal }}><Zap size={11} /> +{item.xpReward} XP</span>
+        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: CAMPUS.good }}><Coins size={11} /> +{item.coinReward} coins</span>
+        {!readOnly && (
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: CAMPUS.line }}>
+              <motion.div className="h-full rounded-full" style={{ background: CAMPUS.teal }}
+                initial={{ width: 0 }} animate={{ width: `${progressPct}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
+            </div>
+            <span className="text-[10.5px] font-mono font-semibold" style={{ color: CAMPUS.inkFaint }}>{progressPct}%</span>
+          </div>
+        )}
+      </motion.div>
 
       {readOnly && (
-        <div className="mb-4 px-3.5 py-2.5 rounded-lg text-[11.5px] font-medium" style={{ color: CAMPUS.purple, background: CAMPUS.purpleTint, border: `1px solid ${CAMPUS.purple}40` }}>
+        <motion.div variants={reveal} initial="hidden" animate="visible" className="mb-4 px-3.5 py-2.5 rounded-lg text-[11.5px] font-medium" style={{ color: CAMPUS.purple, background: CAMPUS.purpleTint, border: `1px solid ${CAMPUS.purple}40` }}>
           Admin preview - this is exactly what students see. Correct MCQ answers are highlighted below; nothing here is saved.
-        </div>
+        </motion.div>
       )}
 
-      <CampusCard className="p-5">
-        <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{item.concept}</p>
-        <div className="flex items-center justify-between gap-4 mt-5 pt-4 flex-wrap" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5 text-[10px]" style={{ color: CAMPUS.teal }}><Zap size={11} /> +{item.xpReward} XP</span>
-            <span className="flex items-center gap-1.5 text-[10px]" style={{ color: CAMPUS.good }}><Coins size={11} /> +{item.coinReward} coins</span>
+      {/* ---------------- What you'll learn / Prerequisites ---------------- */}
+      <motion.div variants={reveal} initial="hidden" animate="visible" className="space-y-3 mb-3">
+        <InfoListCard icon={Target} title="WHAT YOU'LL LEARN" items={item.learningObjectives} color={CAMPUS.teal} tint={CAMPUS.tealTint} checkItems />
+        <InfoListCard icon={BookOpen} title="PREREQUISITES" items={item.prerequisites} color={CAMPUS.blue} tint={CAMPUS.blueTint} checkItems />
+      </motion.div>
+
+      {/* ---------------- Concept ---------------- */}
+      <motion.div variants={reveal} initial="hidden" animate="visible">
+        <CampusCard className="p-5">
+          <p className="text-[9px] font-mono tracking-widest mb-3" style={{ color: CAMPUS.inkFaint }}>CONCEPT</p>
+          <ConceptRenderer text={item.concept} />
+          {item.codeExample?.code && <div className="mt-4"><CodeExampleBlock codeExample={item.codeExample} /></div>}
+          <div className="flex items-center justify-between gap-4 mt-5 pt-4 flex-wrap" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+            <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>Read through the concept above before continuing.</span>
+            {readOnly ? null : !markedRead ? (
+              <button onClick={() => setMarkedRead(true)} className="text-[11px] font-semibold px-3.5 py-1.5 rounded-lg transition-colors flex-shrink-0"
+                style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+                mark as read
+              </button>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[11px] font-medium flex-shrink-0" style={{ color: CAMPUS.good }}><CheckCircle2 size={12} /> read</span>
+            )}
           </div>
-          {readOnly ? null : !markedRead ? (
-            <button onClick={() => setMarkedRead(true)} className="text-[11px] font-semibold px-3.5 py-1.5 rounded-lg transition-colors"
-              style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
-              mark as read
-            </button>
-          ) : (
-            <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: CAMPUS.good }}><CheckCircle2 size={12} /> read</span>
-          )}
-        </div>
-      </CampusCard>
+        </CampusCard>
+      </motion.div>
+
+      {/* ---------------- Key points / notes / mistakes / tips / applications ---------------- */}
+      <motion.div variants={reveal} initial="hidden" animate="visible" className="space-y-3 mt-3">
+        <InfoListCard icon={ListChecks} title="KEY TAKEAWAYS" items={item.keyPoints} color={CAMPUS.good} tint={CAMPUS.goodTint} checkItems />
+        <InfoListCard icon={Info} title="IMPORTANT" items={item.importantNotes} color={CAMPUS.warn} tint={CAMPUS.warnTint} />
+        <InfoListCard icon={AlertTriangle} title="COMMON MISTAKES TO AVOID" items={item.commonMistakes} color={CAMPUS.bad} tint={CAMPUS.badTint} />
+        <InfoListCard icon={Lightbulb} title="INTERVIEW TIP" items={item.interviewTips} color={CAMPUS.blue} tint={CAMPUS.blueTint} />
+        <InfoListCard icon={Briefcase} title="REAL-WORLD APPLICATIONS" items={item.realWorldApplications} color={CAMPUS.purple} tint={CAMPUS.purpleTint} />
+      </motion.div>
 
       {problems.length > 0 && (
-        <div className="mt-5">
+        <motion.div variants={reveal} initial="hidden" animate="visible" className="mt-5">
           <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>
             PRACTICE PROBLEMS {readOnly ? `(${problems.length})` : `(${solvedCount}/${problems.length} solved)`}
           </p>
@@ -330,13 +541,13 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
               );
             })}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {mcqs.length > 0 && (
-        <div className="mt-5">
+        <motion.div variants={reveal} initial="hidden" animate="visible" className="mt-5">
           <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>
-            {item.type === "test" ? "TEST MCQs" : "TODAY'S MCQs"} ({mcqs.length})
+            {item.type === "test" ? "TEST MCQs" : "KNOWLEDGE CHECK"} ({mcqs.length})
           </p>
           <CampusCard className="p-5 space-y-5">
             {mcqs.map((q, qi) => {
@@ -368,10 +579,10 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
               );
             })}
           </CampusCard>
-        </div>
+        </motion.div>
       )}
 
-      <div className="mt-5">
+      <motion.div variants={reveal} initial="hidden" animate="visible" className="mt-5">
         {readOnly ? null : !user ? (
           <p className="text-xs" style={{ color: CAMPUS.inkFaint }}>Sign in to save your progress.</p>
         ) : (
@@ -382,13 +593,21 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
             {saving ? "saving..." : log ? "update today's progress" : "mark today's learning as done"}
           </motion.button>
         )}
-        {result && !readOnly && (
-          <p className="text-center text-[12px] mt-3" style={{ color: CAMPUS.inkSoft }}>
-            MCQs: {result.score}/{result.total} correct · Problems: {solvedCount}/{problems.length} solved
-          </p>
-        )}
-      </div>
-    </div>
+        <AnimatePresence>
+          {result && !readOnly && (
+            <motion.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="text-center text-[12px] mt-3" style={{ color: CAMPUS.inkSoft }}>
+              MCQs: {result.score}/{result.total} correct · Problems: {solvedCount}/{problems.length} solved
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {!readOnly && onGoToNext && (
+        <motion.div variants={reveal} initial="hidden" animate="visible">
+          <NextLessonCard dayCompleted={!!log} nextItem={nextItem} onGoToNext={onGoToNext} />
+        </motion.div>
+      )}
+    </motion.div>
   );
 }
 

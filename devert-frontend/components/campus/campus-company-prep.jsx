@@ -13,7 +13,7 @@ import {
   COMPANY_QUESTION_DIFFICULTIES,
 } from "@/lib/companyPrep";
 import { CAMPUS } from "@/lib/campus-theme";
-import { CampusCard, CampusChip, CampusBreadcrumb, CampusEmptyState, CampusSkeleton } from "@/components/campus/campus-ui";
+import { CampusCard, CampusChip, CampusBreadcrumb, CampusBackButton, CampusEmptyState, CampusSkeleton } from "@/components/campus/campus-ui";
 import Dropdown from "@/components/dropdown";
 
 // Native port of the "Company Learning Tree" - Company -> Round -> Category
@@ -32,7 +32,7 @@ const DIFF_COLOR = { Easy: CAMPUS.good, Medium: CAMPUS.warn, Hard: CAMPUS.bad };
 // ---------------- List ----------------
 
 // `adminMode`/`hiddenIds`/`onToggleHidden`: same pattern as
-// CampusPracticeList - Manage's Company Prep screen reuses this exact list
+// CampusPracticeList - Manage's Company Vault screen reuses this exact list
 // so a campus admin can hide a company from THEIR institution's students
 // without touching the global `companies` collection at all.
 export function CampusCompanyList({ onSelect, adminMode = false, hiddenIds, onToggleHidden }) {
@@ -108,6 +108,59 @@ export function CampusCompanyList({ onSelect, adminMode = false, hiddenIds, onTo
 
 // ---------------- Company overview -> round -> category picker ----------------
 
+// Every company's `eligibility` doc field is one freeform prose string (no
+// structured schema behind it - see lib/companyPrep.js), but every one of
+// them is still just a run of complete sentences ("B.E./B.Tech... Minimum
+// 60%... No standing backlogs... Maximum 2-year gap..."). Splitting on a
+// period immediately followed by whitespace and a capital letter turns that
+// back into its natural clauses without ever tripping on the abbreviations
+// inside it (e.g. "B.E./B.Tech/M.Sc" has no space after those periods, so
+// nothing there gets cut) - checked against all four companies' real text.
+function splitIntoClauses(text) {
+  if (!text) return [];
+  return text.split(/(?<=\.)\s+(?=[A-Z])/).map(s => s.trim()).filter(Boolean);
+}
+
+// The "Hiring Process" doc field used to just be dumped as one long
+// whitespace-pre-wrap paragraph - unreadable, and worse, a duplicate of
+// data this component already fetches: `rounds` (name/duration/description)
+// is real structured content, authored once per round, not prose to
+// re-parse. This renders that data as a connected step flow instead, so
+// every company gets the same clear "here's the process" visual for free,
+// with no per-company text-parsing hacks.
+function HiringProcessFlow({ rounds }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-3 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+        <ListChecks size={12} />
+        Rounds run in order below - clearing each is required to advance to the next.
+      </div>
+      {rounds.map((r, i) => (
+        <div key={r.id} className="flex gap-3">
+          <div className="flex flex-col items-center flex-shrink-0">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11.5px] font-semibold"
+              style={{ background: CAMPUS.surface, border: `1.5px solid ${CAMPUS.teal}`, color: CAMPUS.teal }}>
+              {i + 1}
+            </div>
+            {i < rounds.length - 1 && <div className="w-[1.5px] flex-1 my-0.5" style={{ background: CAMPUS.line }} />}
+          </div>
+          <div className={i < rounds.length - 1 ? "pb-4 min-w-0 flex-1" : "min-w-0 flex-1"}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <b className="text-[13.5px]" style={{ color: CAMPUS.ink }}>{r.name}</b>
+              {r.duration && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-mono px-2 py-0.5 rounded" style={{ background: CAMPUS.paper, color: CAMPUS.inkFaint }}>
+                  <Clock size={9} /> {r.duration}
+                </span>
+              )}
+            </div>
+            {r.description && <p className="text-[12px] leading-relaxed mt-1" style={{ color: CAMPUS.inkSoft }}>{r.description}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
   const [company, setCompany] = useState(null);
   const [rounds, setRounds] = useState([]);
@@ -137,7 +190,7 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
 
   return (
     <div className="max-w-3xl">
-      <CampusBreadcrumb items={[{ label: "Company Prep", onClick: onBack }, { label: company.name }]} />
+      <CampusBreadcrumb items={[{ label: "Company Vault", onClick: onBack }, { label: company.name }]} />
 
       <div className="flex items-center gap-3 mb-4">
         <div className="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-[16px] flex-shrink-0" style={{ background: CAMPUS.teal, color: "#fff" }}>
@@ -154,18 +207,25 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
 
       {company.description && <p className="text-[13px] mb-5 leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{company.description}</p>}
 
-      {(company.eligibility || company.hiringOverview) && (
-        <CampusCard className="p-5 mb-5 space-y-4">
+      {(company.eligibility || rounds.length > 0) && (
+        <CampusCard className="p-5 mb-5 space-y-5">
           {company.eligibility && (
             <div>
-              <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>ELIGIBILITY</p>
-              <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{company.eligibility}</p>
+              <p className="text-[9px] font-mono tracking-widest mb-2.5" style={{ color: CAMPUS.inkFaint }}>ELIGIBILITY</p>
+              <div className="space-y-2">
+                {splitIntoClauses(company.eligibility).map((clause, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <CheckCircle2 size={14} className="flex-shrink-0 mt-0.5" style={{ color: CAMPUS.good }} />
+                    <p className="text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{clause}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          {company.hiringOverview && (
+          {rounds.length > 0 && (
             <div>
-              <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>HIRING PROCESS</p>
-              <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{company.hiringOverview}</p>
+              <p className="text-[9px] font-mono tracking-widest mb-2.5" style={{ color: CAMPUS.inkFaint }}>HIRING PROCESS</p>
+              <HiringProcessFlow rounds={rounds} />
             </div>
           )}
         </CampusCard>
@@ -306,7 +366,7 @@ function CompanyQuestionCard({ q, selected, submitted, solved, bookmarked, onSel
   );
 }
 
-export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, companyName, roundName, categoryName, onBack, onBackToList }) {
+export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, roundName, categoryName, onBack }) {
   const { user } = useAuth();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -367,12 +427,7 @@ export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, co
 
   return (
     <div className="max-w-2xl">
-      <CampusBreadcrumb items={[
-        { label: "Company Prep", onClick: onBackToList },
-        { label: companyName, onClick: onBack },
-        { label: roundName, onClick: onBack },
-        { label: categoryName },
-      ]} />
+      <CampusBackButton onClick={onBack} label={`Back to ${roundName}`} />
 
       {/* The "brief" for this topic - no hand-written blurb to keep in sync,
           just what's actually true about what you're about to practice. */}
@@ -450,9 +505,8 @@ export function CampusCompanyPrepFlow({ screen, setScreen, adminMode = false, hi
   if (screen.view === "practice") {
     return (
       <CampusCompanyQuestionRunner companyId={screen.companyId} roundId={screen.roundId} categoryId={screen.categoryId}
-        companyName={screen.companyName} roundName={screen.roundName} categoryName={screen.categoryName}
-        onBack={() => setScreen({ view: "company", companyId: screen.companyId })}
-        onBackToList={() => setScreen({ view: "list" })} />
+        roundName={screen.roundName} categoryName={screen.categoryName}
+        onBack={() => setScreen({ view: "company", companyId: screen.companyId })} />
     );
   }
   return <CampusCompanyList onSelect={(companyId) => setScreen({ view: "company", companyId })}

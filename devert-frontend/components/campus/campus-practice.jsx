@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Play, Send, RotateCcw, Copy, Lightbulb, CheckCircle2, CircleDot, XCircle, Monitor, Code2, Search, Eye, EyeOff } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Play, Send, RotateCcw, Copy, Lightbulb, CheckCircle2, CircleDot, XCircle, Monitor, Code2,
+  Search, Eye, EyeOff, ChevronUp, ChevronDown, GripHorizontal, Terminal, History, PartyPopper,
+  Coins, Flame, ArrowRight, RefreshCw, Clock, MemoryStick, ListChecks,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
-  fetchPublishedProblems, fetchProblem, fetchSampleTests, fetchUserCodelabProgress,
-  fetchAttemptedProblemIds, runCode, submitCode, acceptanceRate, CODELAB_CATEGORIES,
-  CODELAB_DIFFICULTIES, CODELAB_LANGUAGES, STARTER_CODE,
+  fetchPublishedProblems, fetchProblem, fetchSampleTests, subscribeToCodelabProgress,
+  fetchAttemptedProblemIds, fetchProblemSubmissions, runCode, submitCode,
+  acceptanceRate, CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, CODELAB_LANGUAGES, STARTER_CODE,
 } from "@/lib/codelab";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusSkeleton, CampusEmptyState } from "@/components/campus/campus-ui";
@@ -108,8 +113,12 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
 
   useEffect(() => {
     if (!user) { setSolvedIds(new Set()); setAttemptedIds(new Set()); return; }
-    fetchUserCodelabProgress(user.uid).then(p => setSolvedIds(new Set(Object.keys(p.solvedProblems || {})))).catch(() => {});
+    // Live, not a one-time fetch - a problem solved in another tab (or just
+    // now, in the problem view this list returns to) shows SOLVED here
+    // immediately, with no remount/refresh needed to see it.
+    const unsubscribe = subscribeToCodelabProgress(user.uid, p => setSolvedIds(new Set(Object.keys(p.solvedProblems || {}))));
     fetchAttemptedProblemIds(user.uid).then(setAttemptedIds).catch(() => {});
+    return unsubscribe;
   }, [user]);
 
   const q = search.trim().toLowerCase();
@@ -200,22 +209,416 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
 
 // ---------------- Problem view ----------------
 
-export function CampusProblemView({ problemId, onBack }) {
+// Defaults to true (desktop) rather than false - this view's primary layout
+// IS the desktop split-pane one, so assuming desktop until proven otherwise
+// avoids a flash of the mobile-stacked layout on every first render.
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isDesktop;
+}
+
+function formatRelativeTime(ts) {
+  if (!ts) return "";
+  const date = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
+  const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (diffSec < 60) return "just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return `${Math.floor(diffSec / 86400)}d ago`;
+}
+
+// One test's own card. `showDiff` is only ever true for Run's sample tests -
+// their input/expected/output are already public and known client-side, so
+// showing them is harmless. Submit's per-test summaries (sample AND hidden)
+// never carry a diff at all - the backend deliberately never returns
+// expected/actual for a submission, since hidden test answers must never
+// reach the browser (see GradingService's own header comment) - showing a
+// diff for a sample test at submit-time would be inconsistent for no real
+// benefit, so submit results stay pass/fail-only across the board.
+function TestCaseCard({ label, passed, verdict, input, expected, actual, showDiff }) {
+  const stateColor = passed ? CAMPUS.good : verdict === "Error" ? CAMPUS.warn : CAMPUS.bad;
+  const stateTint = passed ? CAMPUS.goodTint : verdict === "Error" ? CAMPUS.warnTint : CAMPUS.badTint;
+  return (
+    <div className="rounded-lg p-3 mb-2" style={{ border: `1px solid ${stateColor}40`, background: stateTint }}>
+      <div className="flex items-center gap-2">
+        {passed ? <CheckCircle2 size={13} style={{ color: stateColor }} /> : <XCircle size={13} style={{ color: stateColor }} />}
+        <span className="text-[12px] font-semibold" style={{ color: CAMPUS.ink }}>{label}</span>
+        <span className="ml-auto text-[10.5px] font-mono font-semibold" style={{ color: stateColor }}>{passed ? "Passed" : verdict}</span>
+      </div>
+      {showDiff && (
+        <div className="mt-2.5 space-y-2">
+          <div>
+            <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>INPUT</p>
+            <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: CAMPUS.inkSoft }}>{input || "—"}</pre>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>EXPECTED</p>
+              <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: CAMPUS.inkSoft }}>{expected || "—"}</pre>
+            </div>
+            <div>
+              <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: passed ? CAMPUS.inkFaint : CAMPUS.bad }}>YOUR OUTPUT</p>
+              <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: passed ? CAMPUS.inkSoft : CAMPUS.bad }}>{actual || "—"}</pre>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCell({ icon: Icon, label, value, color }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Icon size={12} style={{ color: color || CAMPUS.inkFaint }} className="flex-shrink-0" />
+      <div className="min-w-0">
+        <p className="text-[9px] font-mono tracking-wide" style={{ color: CAMPUS.inkFaint }}>{label}</p>
+        <p className="text-[11.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// The professional result summary - real fields only: runtimeMs/memoryKb are
+// always present (submit and Run both report them via the backend); XP/coin
+// cells only render when actually earned (a re-solve or a failed run earns
+// neither, and shouldn't show a hollow "+0").
+function ResultSummaryStrip({ verdict }) {
+  const accepted = verdict.verdict === "Accepted";
+  return (
+    <div className="rounded-lg p-3 mb-3" style={{ border: `1px solid ${accepted ? CAMPUS.good : CAMPUS.bad}50`, background: accepted ? CAMPUS.goodTint : CAMPUS.badTint }}>
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-2.5">
+        <span className="text-[14px] font-bold" style={{ color: accepted ? CAMPUS.good : CAMPUS.bad }}>{verdict.verdict}</span>
+        <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>{verdict.testsPassed}/{verdict.testsTotal} tests</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <StatCell icon={Clock} label="RUNTIME" value={`${verdict.runtimeMs ?? 0} ms`} />
+        <StatCell icon={MemoryStick} label="MEMORY" value={verdict.memoryKb ? `${(verdict.memoryKb / 1024).toFixed(1)} MB` : "—"} />
+        {verdict.xpEarned > 0 && <StatCell icon={PartyPopper} label="XP EARNED" value={`+${verdict.xpEarned}`} color={CAMPUS.gold} />}
+        {verdict.coinsEarned > 0 && <StatCell icon={Coins} label="COINS" value={`+${verdict.coinsEarned}`} color={CAMPUS.gold} />}
+      </div>
+      {verdict.alreadySolved && accepted && (
+        <p className="text-[10.5px] mt-2.5" style={{ color: CAMPUS.inkFaint }}>Already solved earlier - no additional XP this time.</p>
+      )}
+    </div>
+  );
+}
+
+const RESULTS_PANEL_MIN = 160;
+const RESULTS_PANEL_MAX = 560;
+
+// VS Code Terminal-style bottom panel, living inside the editor card (not a
+// viewport-fixed bar - this is one problem's own console, not a global one).
+// Drag the grip to resize, click a tab (or the chevron) to expand/collapse -
+// Run/Submit force it open from outside via `open`/`onToggleOpen`, everything
+// else is this component's own state.
+function CampusResultsPanel({
+  open, onToggleOpen, height, onHeightChange, tab, onTabChange,
+  resultsView, consoleText, historyItems, historyLoading, onLoadHistory,
+  onReopenSubmission, activeSubmissionId,
+}) {
+  const dragState = useRef(null);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!dragState.current) return;
+      const delta = dragState.current.startY - e.clientY;
+      onHeightChange(Math.min(RESULTS_PANEL_MAX, Math.max(RESULTS_PANEL_MIN, dragState.current.startHeight + delta)));
+    };
+    const onUp = () => { dragState.current = null; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [onHeightChange]);
+
+  const TABS = [
+    { key: "tests", label: "Test Cases", icon: ListChecks },
+    { key: "console", label: "Console", icon: Terminal },
+    { key: "history", label: "Submission History", icon: History },
+  ];
+
+  return (
+    <div>
+      {open && (
+        <div onMouseDown={(e) => { dragState.current = { startY: e.clientY, startHeight: height }; }}
+          className="h-2 cursor-row-resize flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.paper }}>
+          <GripHorizontal size={12} style={{ color: CAMPUS.inkFaint }} />
+        </div>
+      )}
+      <div className="flex items-center gap-0.5 px-1" style={{ background: CAMPUS.paper }}>
+        {TABS.map(t => {
+          const Icon = t.icon;
+          const active = open && tab === t.key;
+          return (
+            <button key={t.key}
+              onClick={() => { onTabChange(t.key); if (!open) onToggleOpen(true); if (t.key === "history") onLoadHistory(); }}
+              className="flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-2 transition-colors"
+              style={{ color: active ? CAMPUS.teal : CAMPUS.inkFaint, borderBottom: `2px solid ${active ? CAMPUS.teal : "transparent"}` }}>
+              <Icon size={12} /> {t.label}
+            </button>
+          );
+        })}
+        <button onClick={() => onToggleOpen(!open)} className="ml-auto p-2" style={{ color: CAMPUS.inkFaint }} title={open ? "Collapse" : "Expand"}>
+          {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </button>
+      </div>
+
+      <motion.div animate={{ height: open ? height : 0 }} initial={false} transition={{ type: "spring", stiffness: 340, damping: 34 }}
+        className="overflow-y-auto" style={{ background: CAMPUS.surface }}>
+        <div className="p-3">
+          {tab === "tests" && (
+            resultsView ? (
+              <>
+                {resultsView.verdict && <ResultSummaryStrip verdict={resultsView.verdict} />}
+                {resultsView.items.map((it, i) => <TestCaseCard key={i} {...it} showDiff={resultsView.kind === "run"} />)}
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-[12px] mb-3" style={{ color: CAMPUS.inkFaint }}>Run your code to view:</p>
+                <ul className="inline-flex flex-col gap-1 text-left text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+                  <li>• Test case results</li>
+                  <li>• Console output</li>
+                  <li>• Runtime &amp; memory usage</li>
+                  <li>• Submission history</li>
+                </ul>
+              </div>
+            )
+          )}
+          {tab === "console" && (
+            consoleText ? (
+              <pre className="text-[11.5px] whitespace-pre-wrap font-mono" style={{ color: CAMPUS.inkSoft }}>{consoleText}</pre>
+            ) : (
+              <p className="text-[12px] text-center py-8" style={{ color: CAMPUS.inkFaint }}>Nothing run yet.</p>
+            )
+          )}
+          {tab === "history" && (
+            historyLoading ? (
+              <div className="space-y-2">{[0, 1, 2].map(i => <CampusSkeleton key={i} variant="rect" height={40} />)}</div>
+            ) : !historyItems || historyItems.length === 0 ? (
+              <p className="text-[12px] text-center py-8" style={{ color: CAMPUS.inkFaint }}>No submissions yet for this problem.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {historyItems.map(s => (
+                  <button key={s.id} onClick={() => onReopenSubmission(s)}
+                    className="w-full text-left flex items-center gap-3 rounded-lg p-2.5 transition-colors flex-wrap"
+                    style={{ border: `1px solid ${s.id === activeSubmissionId ? CAMPUS.teal : CAMPUS.line}`, background: s.id === activeSubmissionId ? CAMPUS.tealTint : "transparent" }}>
+                    {s.verdict === "Accepted" ? <CheckCircle2 size={13} style={{ color: CAMPUS.good }} /> : <XCircle size={13} style={{ color: CAMPUS.bad }} />}
+                    <span className="text-[11.5px] font-mono font-semibold" style={{ color: CAMPUS.ink }}>{s.language}</span>
+                    <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{s.testsPassed}/{s.testsTotal}</span>
+                    <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{s.runtimeMs ?? 0} ms</span>
+                    <span className="ml-auto text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>{formatRelativeTime(s.createdAt)}</span>
+                  </button>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// A real, generic loading sequence tied to the actual pending request below
+// (not a fake simulation of separate server round-trips - it's one request,
+// grading everything at once) - purely a "here's what's happening" pacing
+// aid while that one call is in flight.
+const SUBMIT_STAGES = ["Submitting...", "Checking test cases...", "Running hidden test cases...", "Evaluating solution...", "Updating XP..."];
+
+function SubmitProgressLine({ stageIndex }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg p-3" style={{ border: `1px solid ${CAMPUS.line}`, background: CAMPUS.paper }}>
+      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
+        className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ border: `2px solid ${CAMPUS.teal}40`, borderTopColor: CAMPUS.teal }} />
+      <AnimatePresence mode="wait">
+        <motion.span key={stageIndex} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+          className="text-[12px] font-medium" style={{ color: CAMPUS.inkSoft }}>
+          {SUBMIT_STAGES[stageIndex] ?? "Working..."}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Subtle, not excessive - a handful of small pieces, one burst, no repeat.
+function ConfettiBurst() {
+  const pieces = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
+    id: i,
+    x: (Math.random() - 0.5) * 240,
+    rotate: Math.random() * 360,
+    color: [CAMPUS.teal, CAMPUS.gold, CAMPUS.purple, CAMPUS.good][i % 4],
+    delay: Math.random() * 0.15,
+  })), []);
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {pieces.map(p => (
+        <motion.span key={p.id}
+          initial={{ opacity: 1, x: "50%", y: "35%", rotate: 0, scale: 0 }}
+          animate={{ opacity: 0, x: `calc(50% + ${p.x}px)`, y: "115%", rotate: p.rotate, scale: 1 }}
+          transition={{ duration: 1.1, delay: p.delay, ease: "easeOut" }}
+          className="absolute w-1.5 h-3 rounded-sm" style={{ background: p.color }} />
+      ))}
+    </div>
+  );
+}
+
+function RewardChip({ icon: Icon, label, value, color }) {
+  return (
+    <div className="rounded-lg p-2.5" style={{ background: CAMPUS.paper }}>
+      <Icon size={14} className="mx-auto mb-1" style={{ color }} />
+      <p className="text-[13px] font-bold" style={{ color: CAMPUS.ink }}>{value}</p>
+      <p className="text-[9px] font-mono tracking-wide" style={{ color: CAMPUS.inkFaint }}>{label}</p>
+    </div>
+  );
+}
+
+// "Next Problem" only appears when a real next problem was actually
+// computed (see CampusProblemView's `nextProblem`) - never a dead-end
+// button. There's no "View Solution" here: no problem doc in this schema
+// carries reference-solution content, so a button promising one would just
+// be decoration - see this file's own scope note further down.
+function CodeLabSuccessDialog({ verdict, problemTitle, hasNext, onNext, onBackToList, onClose }) {
+  return (
+    <AnimatePresence>
+      {verdict && (
+        <>
+          <motion.div key="backdrop" onClick={onClose} className="fixed inset-0 z-[80]"
+            style={{ background: "rgba(10,16,20,0.55)", backdropFilter: "blur(4px)" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+          <motion.div key="dialog" role="dialog" aria-modal="true" className="fixed z-[81] left-1/2 top-1/2 w-[92vw] max-w-[440px] p-6 overflow-hidden"
+            style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, borderRadius: 16, boxShadow: CAMPUS.shadowLg }}
+            initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }} animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }} exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 28 }}>
+            <ConfettiBurst />
+            <div className="relative text-center">
+              <div className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>
+                <PartyPopper size={26} />
+              </div>
+              <h3 className="text-[18px] font-bold mb-1" style={{ color: CAMPUS.ink }}>Problem Solved!</h3>
+              <p className="text-[13px] mb-4" style={{ color: CAMPUS.inkSoft }}>{problemTitle}</p>
+              <div className="flex items-center justify-center gap-1.5 text-[13px] font-semibold mb-4" style={{ color: CAMPUS.good }}>
+                <CheckCircle2 size={14} /> All {verdict.testsTotal} test case{verdict.testsTotal === 1 ? "" : "s"} passed
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-5">
+                <RewardChip icon={PartyPopper} label="XP" value={`+${verdict.xpEarned ?? 0}`} color={CAMPUS.gold} />
+                <RewardChip icon={Coins} label="COINS" value={`+${verdict.coinsEarned ?? 0}`} color={CAMPUS.gold} />
+                {verdict.streak != null
+                  ? <RewardChip icon={Flame} label="STREAK" value={`${verdict.streak}d`} color={CAMPUS.warn} />
+                  : <RewardChip icon={Clock} label="RUNTIME" value={`${verdict.runtimeMs ?? 0}ms`} color={CAMPUS.blue} />}
+              </div>
+              <div className="flex flex-col gap-2">
+                {hasNext && (
+                  <button onClick={onNext} className="text-[13px] font-semibold py-2.5 rounded-lg flex items-center justify-center gap-1.5" style={{ background: CAMPUS.teal, color: "#fff" }}>
+                    Next Problem <ArrowRight size={13} />
+                  </button>
+                )}
+                <button onClick={onBackToList} className="text-[12.5px] font-medium py-2.5 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+                  Back to Problems
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function CodeLabFailDialog({ verdict, onViewFailed, onRetry }) {
+  return (
+    <AnimatePresence>
+      {verdict && (
+        <>
+          <motion.div key="backdrop" onClick={onRetry} className="fixed inset-0 z-[80]"
+            style={{ background: "rgba(10,16,20,0.55)", backdropFilter: "blur(4px)" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+          <motion.div key="dialog" role="dialog" aria-modal="true" className="fixed z-[81] left-1/2 top-1/2 w-[92vw] max-w-[400px] p-6"
+            style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, borderRadius: 16, boxShadow: CAMPUS.shadowLg }}
+            initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }} animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }} exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 28 }}>
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>
+                <XCircle size={26} />
+              </div>
+              <h3 className="text-[17px] font-bold mb-1" style={{ color: CAMPUS.ink }}>Almost there</h3>
+              <p className="text-[13px] mb-5" style={{ color: CAMPUS.inkSoft }}>
+                <b style={{ color: CAMPUS.ink }}>{verdict.testsPassed} / {verdict.testsTotal}</b> test cases passed. Review the failed cases and try again.
+              </p>
+              <div className="flex gap-2">
+                <button onClick={onViewFailed} className="flex-1 text-[12.5px] font-semibold py-2.5 rounded-lg" style={{ background: CAMPUS.teal, color: "#fff" }}>
+                  View Failed Cases
+                </button>
+                <button onClick={onRetry} className="flex-1 text-[12.5px] font-medium py-2.5 rounded-lg flex items-center justify-center gap-1.5" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+                  <RefreshCw size={12} /> Retry
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
   const { user } = useAuth();
 
   const [problem, setProblem] = useState(null);
   const [sampleTests, setSampleTests] = useState([]);
   const [solved, setSolved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [allProblems, setAllProblems] = useState([]);
 
   const [language, setLanguage] = useState("java");
   const [code, setCode] = useState(STARTER_CODE.java);
   const [running, setRunning] = useState(false);
-  const [runResults, setRunResults] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [verdict, setVerdict] = useState(null);
+  const [submitStageIndex, setSubmitStageIndex] = useState(0);
   const [error, setError] = useState("");
   const [revealedHints, setRevealedHints] = useState(0);
+
+  // resultsView: null, or { kind: "run"|"submit", verdict?, items: [...] } -
+  // one shape covers both Run's sample-test cards (with a real diff) and
+  // Submit's pass/fail summaries (sample+hidden, never a diff - see
+  // TestCaseCard's own comment on why).
+  const [resultsView, setResultsView] = useState(null);
+  const [consoleText, setConsoleText] = useState("");
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(260);
+  const [panelTab, setPanelTab] = useState("tests");
+
+  const [historyItems, setHistoryItems] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [activeSubmissionId, setActiveSubmissionId] = useState(null);
+
+  const [successVerdict, setSuccessVerdict] = useState(null);
+  const [failVerdict, setFailVerdict] = useState(null);
+
+  // Horizontal split between Statement and Editor - desktop only, same
+  // drag-a-handle pattern as the results panel's own vertical resize below.
+  const [statementPct, setStatementPct] = useState(50);
+  const isDesktop = useIsDesktop();
+  const splitContainerRef = useRef(null);
+  const draggingH = useRef(false);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!draggingH.current || !splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const pct = ((e.clientX - rect.left) / rect.width) * 100;
+      setStatementPct(Math.min(70, Math.max(30, pct)));
+    };
+    const onUp = () => { draggingH.current = false; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
 
   useEffect(() => {
     if (!problemId) { setLoading(false); return; }
@@ -227,36 +630,105 @@ export function CampusProblemView({ problemId, onBack }) {
 
   useEffect(() => {
     if (!user || !problemId) return;
-    fetchUserCodelabProgress(user.uid).then(p => setSolved(!!p.solvedProblems?.[problemId])).catch(() => {});
+    const unsubscribe = subscribeToCodelabProgress(user.uid, p => setSolved(!!p.solvedProblems?.[problemId]));
+    return unsubscribe;
   }, [user, problemId]);
+
+  // A fresh problem (via Next Problem or picking a new one from the list)
+  // should never show the previous problem's stale run/submit state.
+  useEffect(() => {
+    setResultsView(null); setConsoleText(""); setPanelOpen(false); setError("");
+    setActiveSubmissionId(null); setHistoryItems(null); setRevealedHints(0);
+  }, [problemId]);
+
+  // Fetched once, used only to compute "Next Problem" - not shown as a list
+  // here, so one fetch for the lifetime of this view is enough.
+  useEffect(() => {
+    fetchPublishedProblems().then(setAllProblems).catch(() => {});
+  }, []);
+
+  const nextProblem = useMemo(() => {
+    if (!problem || allProblems.length === 0) return null;
+    const sorted = [...allProblems].sort((a, b) =>
+      (a.category || "").localeCompare(b.category || "") ||
+      (a.number ?? 0) - (b.number ?? 0) ||
+      (a.title || "").localeCompare(b.title || ""));
+    const idx = sorted.findIndex(p => p.id === problemId);
+    return idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
+  }, [problem, allProblems, problemId]);
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
     setCode(STARTER_CODE[lang] || "");
-    setRunResults(null);
+    setResultsView(null);
+    setActiveSubmissionId(null);
   };
 
   const handleRun = async () => {
-    setRunning(true); setError(""); setRunResults(null);
+    setRunning(true); setError(""); setPanelOpen(true); setPanelTab("tests");
     try {
-      const results = await Promise.all(sampleTests.map(async (t) => {
+      const results = await Promise.all(sampleTests.map(async (t, i) => {
         const res = await runCode({ language, code, stdin: t.input });
         const pass = (res.stdout || "").trim() === (t.expectedOutput || "").trim();
-        return { test: t, pass, stdout: res.stdout, stderr: res.stderr, status: res.status };
+        return {
+          label: `Sample Test ${i + 1}`, passed: pass,
+          verdict: pass ? "Accepted" : (res.status === "success" ? "Wrong Answer" : "Error"),
+          input: t.input, expected: t.expectedOutput, actual: res.stdout, stderr: res.stderr,
+        };
       }));
-      setRunResults(results);
+      setResultsView({ kind: "run", items: results });
+      setConsoleText(results.map(r => `$ ${r.label}\n${r.actual || ""}${r.stderr ? "\n" + r.stderr : ""}`).join("\n\n"));
     } catch (e) { setError(e.message); }
     finally { setRunning(false); }
   };
 
   const handleSubmit = async () => {
-    setSubmitting(true); setError(""); setVerdict(null);
+    setSubmitting(true); setError(""); setSubmitStageIndex(0); setPanelOpen(true); setPanelTab("tests");
+    const stageTimer = setInterval(() => setSubmitStageIndex(i => Math.min(i + 1, SUBMIT_STAGES.length - 1)), 550);
+    // Real request and a minimum display time for the staged text run
+    // together - the dialog only opens once BOTH are done, so a fast
+    // response doesn't skip straight past "Submitting..." to "Done!".
+    const minDelay = new Promise(resolve => setTimeout(resolve, 550 * (SUBMIT_STAGES.length - 1)));
     try {
-      const result = await submitCode({ problemId, language, code });
-      setVerdict(result);
-      if (result.verdict === "Accepted") setSolved(true);
-    } catch (e) { setError(e.message); }
-    finally { setSubmitting(false); }
+      const [result] = await Promise.all([submitCode({ problemId, language, code }), minDelay]);
+      const items = (result.testSummaries || []).map(t => ({ label: t.label, passed: t.passed, verdict: t.verdict }));
+      setResultsView({ kind: "submit", verdict: result, items });
+      setActiveSubmissionId(null);
+      if (result.verdict === "Accepted") {
+        setSolved(true);
+        setSuccessVerdict(result);
+      } else {
+        setFailVerdict(result);
+      }
+      if (user) fetchProblemSubmissions(user.uid, problemId).then(setHistoryItems).catch(() => {});
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      clearInterval(stageTimer);
+      setSubmitting(false);
+    }
+  };
+
+  const loadHistory = () => {
+    if (!user || historyItems !== null || historyLoading) return;
+    setHistoryLoading(true);
+    fetchProblemSubmissions(user.uid, problemId).then(setHistoryItems).catch(() => setHistoryItems([])).finally(() => setHistoryLoading(false));
+  };
+
+  const handleReopenSubmission = (submission) => {
+    setLanguage(submission.language);
+    setCode(submission.code || "");
+    setActiveSubmissionId(submission.id);
+    const items = (submission.testSummaries || []).map(t => ({ label: t.label, passed: t.passed, verdict: t.verdict }));
+    setResultsView({ kind: "submit", verdict: submission, items });
+    setPanelTab("tests");
+    setPanelOpen(true);
+  };
+
+  const goToNextProblem = () => {
+    setSuccessVerdict(null);
+    if (nextProblem && onSelectProblem) onSelectProblem(nextProblem.id);
+    else onBack();
   };
 
   if (loading) {
@@ -282,8 +754,9 @@ export function CampusProblemView({ problemId, onBack }) {
     <div>
       <CampusBackButton onClick={onBack} />
 
-      <div className="grid lg:grid-cols-2 gap-5 items-start">
+      <div ref={splitContainerRef} className="flex flex-col lg:flex-row items-start gap-5 lg:gap-0">
         {/* Statement */}
+        <div className="w-full min-w-0" style={isDesktop ? { flex: `0 0 calc(${statementPct}% - 5px)` } : undefined}>
         <CampusCard>
           <div className="p-5">
             <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -327,8 +800,17 @@ export function CampusProblemView({ problemId, onBack }) {
             )}
           </div>
         </CampusCard>
+        </div>
+
+        {/* Drag handle - desktop only; below lg the two panels stack and
+            there's nothing horizontal left to resize. */}
+        <div onMouseDown={() => { draggingH.current = true; }}
+          className="hidden lg:flex w-2.5 flex-shrink-0 self-stretch cursor-col-resize items-center justify-center">
+          <div className="w-[3px] h-10 rounded-full" style={{ background: CAMPUS.line }} />
+        </div>
 
         {/* Editor */}
+        <div className="w-full min-w-0" style={isDesktop ? { flex: `1 1 calc(${100 - statementPct}% - 5px)` } : undefined}>
         <CampusCard>
           <div className="flex items-center gap-2 p-3 flex-wrap" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -391,31 +873,36 @@ export function CampusProblemView({ problemId, onBack }) {
             )}
 
             {error && <p className="text-[10px]" style={{ color: CAMPUS.bad }}>{error}</p>}
-
-            {runResults && (
-              <div className="space-y-1.5">
-                {runResults.map((r, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ border: `1px solid ${CAMPUS.line}` }}>
-                    {r.pass ? <CheckCircle2 size={12} style={{ color: CAMPUS.good }} /> : <XCircle size={12} style={{ color: CAMPUS.bad }} />}
-                    <span className="text-[10px]" style={{ color: CAMPUS.inkSoft }}>sample {i + 1}: {r.pass ? "passed" : `got "${(r.stdout || "").trim()}"`}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {verdict && (
-              <div className="rounded-lg p-3" style={{ border: `1px solid ${verdict.verdict === "Accepted" ? CAMPUS.good + "50" : CAMPUS.bad + "50"}` }}>
-                <p className="text-sm font-bold mb-1" style={{ color: verdict.verdict === "Accepted" ? CAMPUS.good : CAMPUS.bad }}>{verdict.verdict}</p>
-                <p className="text-[10px]" style={{ color: CAMPUS.inkFaint }}>
-                  {verdict.testsPassed}/{verdict.testsTotal} tests passed
-                  {verdict.xpEarned > 0 && ` · +${verdict.xpEarned} XP · +${verdict.coinsEarned} coins`}
-                  {verdict.alreadySolved && verdict.verdict === "Accepted" && " (already solved - no additional XP)"}
-                </p>
-              </div>
-            )}
+            {submitting && <SubmitProgressLine stageIndex={submitStageIndex} />}
           </div>
         </CampusCard>
+        </div>
       </div>
+
+      {/* Results panel - full width, a shared workspace below BOTH the
+          statement and the editor, not tucked under just one side of them. */}
+      {user && (
+        <CampusCard className="mt-5 overflow-hidden">
+          <CampusResultsPanel
+            open={panelOpen} onToggleOpen={setPanelOpen}
+            height={panelHeight} onHeightChange={setPanelHeight}
+            tab={panelTab} onTabChange={setPanelTab}
+            resultsView={resultsView} consoleText={consoleText}
+            historyItems={historyItems} historyLoading={historyLoading} onLoadHistory={loadHistory}
+            onReopenSubmission={handleReopenSubmission} activeSubmissionId={activeSubmissionId}
+          />
+        </CampusCard>
+      )}
+
+      <CodeLabSuccessDialog
+        verdict={successVerdict} problemTitle={problem.title} hasNext={!!nextProblem}
+        onNext={goToNextProblem} onBackToList={onBack} onClose={() => setSuccessVerdict(null)}
+      />
+      <CodeLabFailDialog
+        verdict={failVerdict}
+        onViewFailed={() => setFailVerdict(null)}
+        onRetry={() => setFailVerdict(null)}
+      />
     </div>
   );
 }

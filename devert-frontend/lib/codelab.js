@@ -1,5 +1,5 @@
 import { auth, db } from "@/lib/firebase";
-import { collection, doc, getDocs, getDoc, query, orderBy, where, limit } from "firebase/firestore";
+import { collection, doc, getDocs, getDoc, onSnapshot, query, orderBy, where, limit } from "firebase/firestore";
 
 export const CODELAB_CATEGORIES = [
   "Arrays", "Strings", "Linked List", "Stack", "Queue", "Trees", "Graphs",
@@ -61,6 +61,16 @@ export async function fetchUserCodelabProgress(uid) {
   return snap.exists() ? snap.data() : { solvedProblems: {}, languageUsage: {}, totalSubmissions: 0, problemsSolvedCount: 0 };
 }
 
+// Live counterpart to fetchUserCodelabProgress - a solved-map update from a
+// submission made anywhere (another tab, Arena, a re-solve) reaches every
+// mounted problem list immediately, no navigation/remount required to see
+// it. Cheap to keep live: one small document, not a growing query.
+export function subscribeToCodelabProgress(uid, callback) {
+  return onSnapshot(doc(db, "user_codelab_progress", uid), snap => {
+    callback(snap.exists() ? snap.data() : { solvedProblems: {}, languageUsage: {}, totalSubmissions: 0, problemsSolvedCount: 0 });
+  });
+}
+
 // Distinct problem ids a user has ever submitted for, regardless of verdict -
 // lets a problem list show "attempted, not yet solved" instead of only ever
 // "solved" or blank. A plain where("uid","==") needs no composite index
@@ -69,6 +79,23 @@ export async function fetchUserCodelabProgress(uid) {
 export async function fetchAttemptedProblemIds(uid) {
   const snap = await getDocs(query(collection(db, "codelab_submissions"), where("uid", "==", uid)));
   return new Set(snap.docs.map(d => d.data().problemId));
+}
+
+// Scoped to one problem, for that problem's own Submission History tab.
+// Deliberately no orderBy alongside the two equality filters - that combo
+// would need a new composite Firestore index deployed before it could ever
+// run; sorting the (small, per-problem) result client-side instead needs
+// nothing beyond what's already indexed.
+export async function fetchProblemSubmissions(uid, problemId, topN = 20) {
+  const snap = await getDocs(query(
+    collection(db, "codelab_submissions"),
+    where("uid", "==", uid),
+    where("problemId", "==", problemId),
+  ));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    .slice(0, topN);
 }
 
 export async function fetchMySubmissions(uid, topN = 10) {

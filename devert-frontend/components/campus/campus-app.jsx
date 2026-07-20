@@ -7,12 +7,12 @@ import {
   MapPin, Search, LayoutDashboard, BookOpen, ClipboardCheck, Trophy, BarChart3,
   ShieldCheck, Clock, XCircle, Ban, LogOut, Sun, Moon, IdCard, ArrowLeft,
   Mail, Phone, GraduationCap, Building2, Hash, Flame, Rocket, Target,
-  ChevronRight, Users, ArrowUpRight, Medal, Code2, ChevronDown,
+  ChevronRight, Users, ArrowUpRight, Medal, Code2, Briefcase, ChevronDown,
   UserCircle2, TrendingUp, X as CloseIcon, PanelLeftClose, PanelLeftOpen,
   Activity, Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
-  AlertTriangle,
+  AlertTriangle, DoorOpen,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
 import { collection, query, where, orderBy, limit, getDocs, getCountFromServer } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
@@ -39,20 +39,23 @@ import { fetchContentVisibility } from "@/lib/contentVisibility";
 import { CampusManage } from "@/components/campus/campus-manage";
 
 const TABS = [
-  { key: "dashboard",   label: "Overview",          icon: LayoutDashboard },
-  { key: "profile",     label: "Profile",           icon: IdCard },
-  { key: "learning",    label: "Daily Learning",    icon: BookOpen },
-  { key: "practice",    label: "Practice",          icon: Code2 },
-  { key: "assessments", label: "Assessments",       icon: ClipboardCheck },
-  { key: "contests",    label: "Contests",          icon: Trophy },
-  { key: "leaderboard", label: "Leaderboard",       icon: BarChart3 },
+  { key: "dashboard",     label: "Overview",          icon: LayoutDashboard },
+  { key: "profile",       label: "Profile",           icon: IdCard },
+  { key: "learning",      label: "Daily Learning",    icon: BookOpen },
+  { key: "dsa",           label: "DSA",               icon: Code2 },
+  { key: "companyVault",  label: "Company Vault",     icon: Briefcase },
+  { key: "assessments",   label: "Assessments",       icon: ClipboardCheck },
+  { key: "contests",      label: "Contests",          icon: Trophy },
+  { key: "leaderboard",   label: "Leaderboard",       icon: BarChart3 },
 ];
 
 // Bottom-nav on mobile only fits a handful of targets before it gets
 // cramped - the busiest tabs, matching what a student actually reaches for
-// daily. Profile/Assessments/Leaderboard/Manage stay reachable via the top
-// bar avatar or the desktop rail.
-const MOBILE_TABS = TABS.filter(t => ["dashboard", "learning", "practice", "contests"].includes(t.key));
+// daily. DSA keeps the slot the combined "Practice" tab used to hold;
+// Company Vault (like Profile/Assessments/Leaderboard/Manage) stays
+// reachable via the Overview quick-actions grid, the top bar avatar, or the
+// desktop rail instead of crowding the bottom nav further.
+const MOBILE_TABS = TABS.filter(t => ["dashboard", "learning", "dsa", "contests"].includes(t.key));
 
 // DeVert Campus is a deliberately separate "academic" surface - see the design
 // proposal shared with the team for why (Builder's OS's dark terminal theme is
@@ -144,41 +147,16 @@ function Centered({ children }) {
   return <p className="text-sm" style={{ color: CAMPUS.inkFaint }}>{children}</p>;
 }
 
-// Practice now covers two genuinely different content types - CodeLab's
-// coding problems (Monaco + run/submit) and Company Prep's MCQ question
-// bank - shown one at a time, not merged into a single list, since they
-// need entirely different runners. Only rendered at each mode's own list
-// level, same reasoning as the back-button's `atTop` gate elsewhere - once
-// inside a specific problem or company, switching modes out from under it
-// would be disorienting.
-function PracticeModeSwitch({ mode, setMode }) {
-  return (
-    <div className="flex gap-2 mb-5">
-      {[["coding", "Coding Practice"], ["companyPrep", "Company Prep"]].map(([key, label]) => (
-        <button key={key} onClick={() => setMode(key)}
-          className="text-[12.5px] font-medium px-3.5 py-2 rounded-lg transition-colors"
-          style={{
-            background: mode === key ? CAMPUS.teal : CAMPUS.surface,
-            color: mode === key ? "#fff" : CAMPUS.inkSoft,
-            border: `1px solid ${mode === key ? CAMPUS.teal : CAMPUS.line}`,
-          }}>
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // A persistent left nav rail for the pre-auth global Campus sections
 // (Practice/Learning/Contests), purpose-built for CampusGlobalSection (see
-// below) - PracticeModeSwitch stays untouched since the authenticated
-// Workspace's Practice tab already has its own real sidebar (CampusNavRail)
-// and renders this inline above its content instead. Grouped nav items
-// (not just the two Practice buttons) so jumping between Coding Practice,
-// Company Prep, Daily Learning and Contests doesn't require leaving the
-// rail and re-finding your way back through a "Back" link each time -
-// every item here is a real destination, active-highlighted by whichever
-// section/mode you're actually in.
+// below) - the authenticated Workspace's own sidebar (CampusNavRail) lists
+// DSA and Company Vault as fully separate tabs, and this rail mirrors that
+// same split rather than a mode toggle. Grouped nav items (not just the two
+// Practice buttons) so jumping between DSA, Company Vault, Daily Learning
+// and Contests doesn't require leaving the rail and re-finding your way
+// back through a "Back" link each time - every item here is a real
+// destination, active-highlighted by whichever section/mode you're
+// actually in.
 function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }) {
   const NavItem = ({ label, active, onClick }) => (
     <button onClick={onClick}
@@ -203,8 +181,8 @@ function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }
       <div>
         <GroupLabel icon={Code2}>PRACTICE</GroupLabel>
         <div className="space-y-1">
-          <NavItem label="Coding Practice" active={section === "practice" && practiceMode === "coding"} onClick={() => onGoPractice("coding")} />
-          <NavItem label="Company Preparation" active={section === "practice" && practiceMode === "companyPrep"} onClick={() => onGoPractice("companyPrep")} />
+          <NavItem label="DSA" active={section === "practice" && practiceMode === "coding"} onClick={() => onGoPractice("coding")} />
+          <NavItem label="Company Vault" active={section === "practice" && practiceMode === "companyPrep"} onClick={() => onGoPractice("companyPrep")} />
         </div>
       </div>
       <div>
@@ -218,10 +196,10 @@ function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }
   );
 }
 
-// CodeLab-specific (Company Prep tracks its own solved/bookmarked counts
+// CodeLab-specific (Company Vault tracks its own solved/bookmarked counts
 // per question instead, shown inline as you practice) - only ever rendered
-// next to Coding Practice. Skeleton while the two fetches settle, a sign-in
-// prompt if there's no uid to key progress on at all.
+// next to DSA. Skeleton while the two fetches settle, a sign-in prompt if
+// there's no uid to key progress on at all.
 function PracticeProgressCard({ user, stats }) {
   return (
     <div className="rounded-xl p-4" style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}` }}>
@@ -861,9 +839,9 @@ function CampusGlobalSection({ section }) {
   const showPracticeFilters = practiceMode === "coding" && practiceScreen.view === "list";
 
   // The rail always jumps to that destination's own top level - clicking
-  // "Coding Practice" while already deep in a problem returns to the list,
-  // the same way clicking a site's logo always returns home rather than
-  // doing nothing if you're already somewhere under it.
+  // "DSA" while already deep in a problem returns to the list, the same
+  // way clicking a site's logo always returns home rather than doing
+  // nothing if you're already somewhere under it.
   const goPractice = (mode) => {
     if (section !== "practice") { router.push(mode === "companyPrep" ? "/campus/practice?mode=companyPrep" : "/campus/practice"); return; }
     setPracticeMode(mode);
@@ -912,7 +890,8 @@ function CampusGlobalSection({ section }) {
                 )}
                 {practiceMode === "coding" ? (
                   practiceScreen.view === "problem"
-                    ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} />
+                    ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })}
+                        onSelectProblem={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
                     : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty}
                         onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
                 ) : (
@@ -954,12 +933,15 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
     initialContestId ? { view: "details", contestId: initialContestId } : { view: "list" },
   );
   const [practiceScreen, setPracticeScreen] = useState({ view: "list" });
-  const [practiceMode, setPracticeMode] = useState("coding");
   const [companyPrepScreen, setCompanyPrepScreen] = useState({ view: "list" });
   const [practiceCategory, setPracticeCategory] = useState("All");
   const [practiceDifficulty, setPracticeDifficulty] = useState("All");
   const [contentVisibility, setContentVisibility] = useState({ hiddenProblemIds: [], hiddenCompanyIds: [] });
   const isInstAdmin = phase === CAMPUS_PHASE.ADMIN;
+  // Only guards a real, rendered workspace - not the checking/pending/
+  // signed-out screens above, which have nothing worth protecting against
+  // an accidental Back press.
+  const exitGuard = useCampusExitGuard(phase === CAMPUS_PHASE.APPROVED || phase === CAMPUS_PHASE.ADMIN);
 
   // The ONLY check. Runs once per (slug, signed-in identity). Institution
   // existence, then membership/admin status, read in that order, exactly
@@ -1001,7 +983,10 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
   // guess. Setting the phase directly to what we know we just wrote is not
   // an "optimistic" update racing a slower read; it IS the current state
   // of the database, because this call is what just changed it.
-  const handleJoinSubmitted = () => setPhase(CAMPUS_PHASE.PENDING);
+  const handleJoinSubmitted = (formData) => {
+    setMembership({ status: "pending", rollNumber: formData.rollNumber });
+    setPhase(CAMPUS_PHASE.PENDING);
+  };
 
   useEffect(() => {
     if (phase !== CAMPUS_PHASE.APPROVED && !isInstAdmin) return;
@@ -1115,45 +1100,43 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
   // Only CAMPUS_PHASE.APPROVED or CAMPUS_PHASE.ADMIN reach here.
   return (
     <div data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp flex flex-col lg:flex-row">
-      <CampusNavRail institution={institution} tab={tab} setTab={goTab} isInstAdmin={isInstAdmin} />
+      <CampusExitConfirmDialog open={exitGuard.exitDialogOpen} institutionName={institution.name}
+        onStay={exitGuard.stay} onLeave={exitGuard.leave} />
+      <CampusNavRail institution={institution} tab={tab} setTab={goTab} isInstAdmin={isInstAdmin}
+        onRequestExit={exitGuard.requestExit} />
       <div className="flex-1 min-w-0 flex flex-col">
         <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user.uid} />
         <div className="flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-6 min-w-0">
           {tab === "dashboard" && (
             <OverviewTab slug={slug} userData={userData} membership={membership} isInstAdmin={isInstAdmin}
               onOpenContest={openContest} onContinueLearning={() => goTab("learning")}
-              onBrowsePractice={() => goTab("practice")} onBrowseLeaderboard={() => goTab("leaderboard")}
-              onManage={() => goTab("manage")} />
+              onBrowseDsa={() => goTab("dsa")} onBrowseCompanyVault={() => goTab("companyVault")}
+              onBrowseLeaderboard={() => goTab("leaderboard")} onManage={() => goTab("manage")} />
           )}
           {tab === "profile" && (
             <ProfileTab userData={userData} membership={membership} institution={institution} isInstAdmin={isInstAdmin} />
           )}
           {tab === "learning" && <CampusDailyLearningTab slug={slug} />}
-          {tab === "practice" && (() => {
-            const practiceAtTop = practiceMode === "coding" ? practiceScreen.view === "list" : companyPrepScreen.view === "list";
-            const showFilters = practiceMode === "coding" && practiceScreen.view === "list";
-            return (
-              <>
-                {practiceAtTop && <PracticeModeSwitch mode={practiceMode} setMode={setPracticeMode} />}
-                {showFilters && (
-                  <div className="flex gap-5 flex-wrap mb-6">
-                    <SidebarFilterGroup horizontal label="CATEGORY" options={["All", ...CODELAB_CATEGORIES]} value={practiceCategory} onChange={setPracticeCategory} />
-                    <SidebarFilterGroup horizontal label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={practiceDifficulty} onChange={setPracticeDifficulty} />
-                  </div>
-                )}
-                {practiceMode === "coding" ? (
-                  practiceScreen.view === "problem"
-                    ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} />
-                    : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty}
-                        hiddenIds={new Set(contentVisibility.hiddenProblemIds)}
-                        onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
-                ) : (
-                  <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen}
-                    hiddenIds={new Set(contentVisibility.hiddenCompanyIds)} />
-                )}
-              </>
-            );
-          })()}
+          {tab === "dsa" && (
+            <>
+              {practiceScreen.view === "list" && (
+                <div className="flex gap-5 flex-wrap mb-6">
+                  <SidebarFilterGroup horizontal label="CATEGORY" options={["All", ...CODELAB_CATEGORIES]} value={practiceCategory} onChange={setPracticeCategory} />
+                  <SidebarFilterGroup horizontal label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={practiceDifficulty} onChange={setPracticeDifficulty} />
+                </div>
+              )}
+              {practiceScreen.view === "problem"
+                ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} />
+                : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty}
+                    hiddenIds={new Set(contentVisibility.hiddenProblemIds)}
+                    onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
+              }
+            </>
+          )}
+          {tab === "companyVault" && (
+            <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen}
+              hiddenIds={new Set(contentVisibility.hiddenCompanyIds)} />
+          )}
           {tab === "assessments" && <CampusDailyAssessmentsTab slug={slug} />}
           {tab === "contests" && (
             <CampusContestsTabContent institutionId={slug} screen={contestScreen} setScreen={setContestScreen} />
@@ -1167,12 +1150,116 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
   );
 }
 
+// Makes a real institution workspace behave like a dedicated app rather than
+// a normal page - the browser Back button (and the "Return to DeVert" link,
+// wired up separately by whoever calls requestExit) asks for confirmation
+// instead of silently dropping the user back on the Campus directory.
+//
+// The Back-button half works by keeping one extra, same-URL history entry
+// "in reserve" ahead of wherever the user actually is: pushState on mount
+// adds it, and every popstate (a real Back press) immediately pushes another
+// one right back - since the URL never changes, nothing here ever actually
+// unmounts the workspace or loses tab/scroll state, it just re-arms the
+// guard and opens the dialog. Switching tabs never touches history at all
+// (see the tab-sync effect above, which uses replaceState), so this never
+// fires for in-workspace navigation - only for a real attempt to leave.
+function useCampusExitGuard(active) {
+  const router = useRouter();
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  const pendingDestination = useRef("/campus");
+
+  useEffect(() => {
+    if (!active) return;
+    window.history.pushState({ campusExitGuard: true }, "");
+    const onPopState = () => {
+      window.history.pushState({ campusExitGuard: true }, "");
+      pendingDestination.current = "/campus";
+      setExitDialogOpen(true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [active]);
+
+  const requestExit = (destination) => {
+    pendingDestination.current = destination;
+    setExitDialogOpen(true);
+  };
+  const stay = () => setExitDialogOpen(false);
+  const leave = () => {
+    setExitDialogOpen(false);
+    router.push(pendingDestination.current);
+  };
+
+  return { exitDialogOpen, requestExit, stay, leave };
+}
+
+// Esc-to-cancel, backdrop blur, focus lands on "Stay" (the safe default) so
+// an accidental Enter never leaves the workspace. institutionName is always
+// passed in live from the current institution doc - never hardcoded.
+function CampusExitConfirmDialog({ open, institutionName, onStay, onLeave }) {
+  const stayRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    stayRef.current?.focus();
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => { if (e.key === "Escape") onStay(); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="backdrop" onClick={onStay}
+            className="fixed inset-0 z-[70]" style={{ background: "rgba(10,16,20,0.55)", backdropFilter: "blur(4px)" }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />
+          <motion.div key="dialog" role="dialog" aria-modal="true" aria-labelledby="campus-exit-title" aria-describedby="campus-exit-desc"
+            className="fixed z-[71] left-1/2 top-1/2 w-[92vw] max-w-[420px] p-6"
+            style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, borderRadius: 16, boxShadow: CAMPUS.shadowLg }}
+            initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+            exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 28 }}>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
+              <DoorOpen size={20} />
+            </div>
+            <h3 id="campus-exit-title" className="text-[17px] font-semibold mb-2" style={{ color: CAMPUS.ink }}>
+              Leave {institutionName} Campus?
+            </h3>
+            <p id="campus-exit-desc" className="text-[13.5px] leading-relaxed mb-6" style={{ color: CAMPUS.inkSoft }}>
+              You're currently inside the <b style={{ color: CAMPUS.ink }}>{institutionName} Campus Workspace</b>. Are you sure you want to leave? You can always re-enter this campus later from the Campus section.
+            </p>
+            <div className="flex gap-2.5">
+              <button ref={stayRef} onClick={onStay}
+                className="flex-1 text-[13px] font-semibold py-2.5 rounded-lg transition-opacity hover:opacity-90"
+                style={{ background: CAMPUS.teal, color: "#fff" }}>
+                Stay in Campus
+              </button>
+              <button onClick={onLeave}
+                className="flex-1 text-[13px] font-medium py-2.5 rounded-lg transition-colors"
+                style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+                Leave Campus
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // Groups TABS under unlabeled section breaks so the rail reads like a real
 // product's nav (not a flat list) - Overview/Profile stay ungrouped at top,
 // Manage is a separate admin-only group at the bottom (see render below).
 const NAV_GROUPS = [
   { label: null,      keys: ["dashboard", "profile"] },
-  { label: "Learn",   keys: ["learning", "practice", "assessments"] },
+  { label: "Learn",   keys: ["learning", "dsa", "companyVault", "assessments"] },
   { label: "Compete", keys: ["contests", "leaderboard"] },
 ];
 
@@ -1195,7 +1282,7 @@ function NavItem({ item, tab, setTab, collapsed }) {
 // Desktop-only icon+label rail - hidden below lg, replaced by CampusBottomNav.
 // Collapsible (persisted like the theme toggle) so it can shrink to an
 // icon-only rail without losing the current tab.
-function CampusNavRail({ institution, tab, setTab, isInstAdmin }) {
+function CampusNavRail({ institution, tab, setTab, isInstAdmin, onRequestExit }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -1245,7 +1332,8 @@ function CampusNavRail({ institution, tab, setTab, isInstAdmin }) {
         style={{ color: CAMPUS.inkFaint, borderTop: `1px solid ${CAMPUS.line}` }}>
         {collapsed ? <PanelLeftOpen size={14} /> : <><PanelLeftClose size={13} /> Collapse</>}
       </button>
-      <Link href="/" title="Return to DeVert" className={`flex items-center gap-1.5 text-[11px] font-medium pt-2 ${collapsed ? "justify-center" : ""}`} style={{ color: CAMPUS.inkFaint }}>
+      <Link href="/" title="Return to DeVert" onClick={(e) => { e.preventDefault(); onRequestExit("/"); }}
+        className={`flex items-center gap-1.5 text-[11px] font-medium pt-2 ${collapsed ? "justify-center" : ""}`} style={{ color: CAMPUS.inkFaint }}>
         <ArrowLeft size={12} /> {!collapsed && "Return to DeVert"}
       </Link>
     </aside>
@@ -1416,9 +1504,10 @@ function useMyInstitutionRank(slug, myUid) {
 
 // Real navigation shortcuts only - every entry routes to a tab that already
 // exists and already works, never a placeholder feature.
-function QuickActionsRow({ onPractice, onLeaderboard, onLearning, onManage, isInstAdmin }) {
+function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onManage, isInstAdmin }) {
   const actions = [
-    { label: "Practice", icon: Code2, onClick: onPractice },
+    { label: "DSA", icon: Code2, onClick: onDsa },
+    { label: "Company Vault", icon: Briefcase, onClick: onCompanyVault },
     { label: "Leaderboard", icon: BarChart3, onClick: onLeaderboard },
     { label: "Daily Learning", icon: BookOpen, onClick: onLearning },
     ...(isInstAdmin ? [{ label: "Manage", icon: ShieldCheck, onClick: onManage }] : []),
@@ -1435,7 +1524,7 @@ function QuickActionsRow({ onPractice, onLeaderboard, onLearning, onManage, isIn
   );
 }
 
-function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowsePractice, onBrowseLeaderboard, onManage }) {
+function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowseDsa, onBrowseCompanyVault, onBrowseLeaderboard, onManage }) {
   const rank = useMyInstitutionRank(slug, userData?.uid);
   const [contests, setContests] = useState([]);
   const [contestsLoading, setContestsLoading] = useState(true);
@@ -1481,7 +1570,7 @@ function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, o
       </motion.div>
 
       <motion.div variants={slideUp}>
-        <QuickActionsRow onPractice={onBrowsePractice} onLeaderboard={onBrowseLeaderboard} onLearning={onContinueLearning} onManage={onManage} isInstAdmin={isInstAdmin} />
+        <QuickActionsRow onDsa={onBrowseDsa} onCompanyVault={onBrowseCompanyVault} onLeaderboard={onBrowseLeaderboard} onLearning={onContinueLearning} onManage={onManage} isInstAdmin={isInstAdmin} />
       </motion.div>
 
       <motion.div variants={slideUp} className="grid md:grid-cols-2 gap-5 mb-6 items-stretch">
@@ -1745,8 +1834,9 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
   const handleConfirm = async () => {
     setError(""); setSubmitting(true);
     try {
-      await requestToJoin(slug, uid, { name: name.trim(), rollNumber: rollNumber.trim() });
-      onSubmitted();
+      const payload = { name: name.trim(), rollNumber: rollNumber.trim() };
+      await requestToJoin(slug, uid, payload);
+      onSubmitted(payload);
     } catch (e) {
       setError(e.message || "Failed to submit.");
     } finally {
@@ -1825,7 +1915,7 @@ function JoinForm({ slug, institution, uid, userData, onSubmitted }) {
     setError(""); setSubmitting(true);
     try {
       await requestToJoin(slug, uid, form);
-      onSubmitted();
+      onSubmitted(form);
     } catch (e) {
       setError(e.message || "Failed to submit request.");
     } finally {
