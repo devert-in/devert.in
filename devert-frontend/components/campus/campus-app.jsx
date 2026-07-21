@@ -1037,6 +1037,15 @@ const CAMPUS_PHASE = {
   SUSPENDED: "suspended", ADMIN: "admin", APPROVED: "approved",
 };
 
+// Maps a workspace tab key to its real, statically-generated SEO route
+// segment (app/campus/[slug]/<segment>/page.jsx). Tabs with no entry here
+// (profile, manage) have no dedicated static page - they keep working
+// exactly as before, purely as a ?tab= client-state URL.
+const TAB_URL_SEGMENT = {
+  dashboard: "", learning: "daily-learning", dsa: "dsa", companyVault: "company-vault",
+  assessments: "assessments", contests: "contests", leaderboard: "leaderboard",
+};
+
 function CampusWorkspace({ slug, initialTab, initialContestId }) {
   const { theme } = useCampusTheme();
   const { user, userData, adminChecked } = useAuth();
@@ -1117,9 +1126,12 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
   // otherwise. replace, not push - these are sub-states of one tab, not
   // separate history entries worth stepping back through one at a time.
   useEffect(() => {
+    const segment = TAB_URL_SEGMENT[tab];
     const url = tab === "contests" && contestScreen.view !== "list"
       ? `/campus/${slug}/contest/${contestScreen.contestId}`
-      : `/campus/${slug}?tab=${tab}`;
+      : segment !== undefined
+        ? `/campus/${slug}${segment ? `/${segment}` : ""}`
+        : `/campus/${slug}?tab=${tab}`;
     
     if (typeof window !== "undefined") {
       console.log(`[Auth Debug] Updating URL to ${url} via replaceState (bypassing Next.js router to prevent hard reload)`);

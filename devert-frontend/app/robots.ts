@@ -7,7 +7,12 @@ export default function robots() {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/admin", "/wallet", "/api/"],
+      disallow: [
+        "/admin", "/wallet", "/api/",
+        // Real workspace sub-routes with no dedicated static page/metadata -
+        // always a signed-in member's own data, never public content.
+        "/campus/*/profile", "/campus/*/manage",
+      ],
     },
     sitemap: "https://devert.in/sitemap.xml",
   };

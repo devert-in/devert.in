@@ -1,6 +1,7 @@
 import { fetchInstitutions } from "@/lib/institutions";
 import { fetchPublishedContests } from "@/lib/contests";
 import { fetchPublishedProblems } from "@/lib/codelab";
+import { CAMPUS_SECTIONS } from "@/lib/campus-seo";
 
 // Required for output: 'export' - without this Next.js can't tell that this
 // route has no per-request dynamic behavior to statically pre-render.
@@ -41,12 +42,27 @@ export default async function sitemap() {
   // lib/contests.js and lib/institutions.js are plain JS (no declared return
   // shape) - `any` here is the pragmatic match for a codebase that isn't
   // otherwise typed, not a real type-safety gap.
-  const institutionUrls = (institutions.status === "fulfilled" ? institutions.value : []).map((inst: any) => ({
-    url: `https://devert.in/campus/${inst.id}`,
-    lastModified: new Date(),
-    changeFrequency: "weekly",
-    priority: 0.6,
-  }));
+  // One entry for the institution root plus one for each of its statically-
+  // generated section pages (app/campus/[slug]/**/page.jsx) - same section
+  // list and URL shape generateStaticParams/generateMetadata build from, so
+  // this can never drift out of sync with what actually got built.
+  const institutionList = institutions.status === "fulfilled" ? institutions.value : [];
+  const institutionUrls = institutionList.flatMap((inst: any) => [
+    {
+      url: `https://devert.in/campus/${inst.id}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.6,
+    },
+    ...Object.values(CAMPUS_SECTIONS)
+      .filter((s: any) => s.urlSegment)
+      .map((s: any) => ({
+        url: `https://devert.in/campus/${inst.id}/${s.urlSegment}`,
+        lastModified: new Date(),
+        changeFrequency: "weekly",
+        priority: 0.5,
+      })),
+  ]);
 
   // Global (non-institution-scoped) contests only - institution-scoped ones
   // are gated to that college's own members, never meant to be public/indexed.
