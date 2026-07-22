@@ -548,6 +548,38 @@ test("Campus Entry rejects a department/year not in the canonical lists, a multi
   }));
 });
 
+// Regression test for a real production bug: approveStudent() (lib/institutions.js)
+// writes classroomId onto BOTH institutions/{id}/students/{uid} AND the
+// denormalized users/{uid} copy in one batch - the users/{uid} update rule's
+// institution-admin branch originally allow-listed only the pre-classroom
+// seven fields via affectedKeys().hasOnly([...]), so adding the eighth field
+// (classroomId) without also adding it to that allow-list made hasOnly()
+// false and silently rejected the ENTIRE batch (both writes), breaking every
+// real approval in production ("Missing or insufficient permissions").
+// Exercises the exact multi-doc write shape approveStudent() performs.
+test("approving a student with a classroom assignment writes classroomId to both the roster doc and the denormalized users/{uid} copy in one batch", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+    await ctx.firestore().doc("institutions/mrcet/students/student-uid").set({
+      uid: "student-uid", name: "A Student", rollNumber: "21A1", status: "pending",
+      department: "CSE(AI&ML)", year: "III Year", section: "A",
+    });
+    await ctx.firestore().doc("users/student-uid").set({ displayName: "A Student" });
+  });
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+
+  const batch = mrcetAdmin.firestore().batch();
+  batch.update(mrcetAdmin.firestore().doc("institutions/mrcet/students/student-uid"), {
+    status: "approved", department: "CSE(AI&ML)", year: "III Year", section: "A", classroomId: "iii-year-cse-ai-ml-a",
+  });
+  batch.update(mrcetAdmin.firestore().doc("users/student-uid"), {
+    institutionId: "mrcet", institutionSlug: "mrcet", department: "CSE(AI&ML)", year: "III Year", section: "A",
+    rollNumber: "21A1", campusFullName: "A Student", classroomId: "iii-year-cse-ai-ml-a",
+  });
+  await assertSucceeds(batch.commit());
+});
+
 test("only that institution's own admin (or platform admin) can approve/reject a student - not a random user, not another college's admin", async () => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await seedInstitution(ctx, "mrcet");

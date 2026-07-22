@@ -163,7 +163,7 @@ service cloud.firestore {
       // fields, and only all at once (never mixed with any other field).
       allow update: if (isOwner(uid) && selfWriteDeltaSane('xp') && selfWriteDeltaSane('credits')
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName']
+            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId']
           )) || isAdmin()
         || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'followersCount', 'pulsePostsCount',
@@ -180,7 +180,7 @@ service cloud.firestore {
         // the removing administers the institution the student is LEAVING,
         // not any institution the (now blank) new value could name.
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-          ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName']
+          ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId']
         ) && (isInstitutionAdmin(request.resource.data.institutionId) || isInstitutionAdmin(resource.data.get('institutionId', ''))));
       allow delete: if isAdmin();
     }
