@@ -68,6 +68,19 @@ balance.
   for prose/headings. `lucide-react` is the only icon library — **no
   emoji anywhere in the UI**, use a Lucide icon instead, even for things like
   medal rankings or status indicators.
+  - **Exception — programming language / brand logos:** where a specific
+    language or brand needs to be instantly recognizable (Programming
+    module's language cards/roadmap header, `CodeExampleBlock`'s editor
+    header, the admin language list), use the official mark via `simple-icons`
+    (self-hosted SVG path data + brand hex color, no CDN, tree-shaken per-icon
+    — see `package.json`'s `sideEffects: false`), through the single shared
+    `LanguageLogo` component (`components/campus/language-logo.jsx`). Never
+    import `simple-icons` ad hoc elsewhere — that component is the one place
+    the language→logo map lives. Not every language has a licensable brand
+    asset (Java/C#/PowerShell/MATLAB aren't in Simple Icons); those fall back
+    to a plain Lucide glyph from the same file, per its own comments. This is
+    the only sanctioned emoji-adjacent exception — everything else in the UI
+    stays Lucide-only.
 - **Chrome:** the `.terminal-window` / `.terminal-header` / `.terminal-dot`
   classes (globals.css) are the standard card/panel treatment across the
   entire app — three colored dots, a mono label, content below. Reach for

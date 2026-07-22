@@ -454,6 +454,41 @@ test("a user can only read/write their own codelab progress, not someone else's"
   await assertFails(other.firestore().doc("user_codelab_progress/owner-uid").get());
 });
 
+// Regression test for the isAdminOfStudent security fix: an institution
+// admin must NOT be able to read a stranger's global progress docs (for the
+// Student Analytics Dashboard) just because that stranger's own users/{uid}
+// doc happens to claim the admin's institutionId - the field alone is not
+// trustworthy (any institution admin can write it - see the users/{uid}
+// rule's institution-admin branch). Only a REAL approved roster entry
+// (institutions/{id}/students/{uid}.status == 'approved') should unlock it.
+test("an institution admin can only read a student's global progress docs if a real approved roster entry backs it - a forged users.institutionId alone is not enough", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+    await ctx.firestore().doc("user_codelab_progress/victim-uid").set({ solvedProblems: {} });
+    // Pre-existing users/{uid} doc, with no institutionId yet - the admin's
+    // write below must be an update (merge onto an existing doc), matching
+    // real usage (every real user doc is created at signup, long before any
+    // campus membership exists).
+    await ctx.firestore().doc("users/victim-uid").set({ displayName: "Victim" });
+  });
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+
+  // The admin forges the victim's own users/{uid}.institutionId (a write the
+  // users/{uid} rule's institution-admin branch already permits) - without a
+  // matching real, approved institutions/mrcet/students/victim-uid doc, that
+  // alone must NOT unlock read access to the victim's progress.
+  await assertSucceeds(mrcetAdmin.firestore().doc("users/victim-uid").set({ institutionId: "mrcet" }, { merge: true }));
+  await assertFails(mrcetAdmin.firestore().doc("user_codelab_progress/victim-uid").get());
+
+  // Once a real approved roster entry exists for that exact uid under this
+  // admin's own institution, read access is correctly granted.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/students/victim-uid").set({ uid: "victim-uid", status: "approved" });
+  });
+  await assertSucceeds(mrcetAdmin.firestore().doc("user_codelab_progress/victim-uid").get());
+});
+
 // --- DeVert Campus ---
 
 async function seedInstitution(ctx, institutionId, overrides = {}) {
@@ -478,12 +513,38 @@ test("a student can request to join (create their own pending doc), but cannot s
   const student = testEnv.authenticatedContext("student-uid");
   await assertSucceeds(student.firestore().doc("institutions/mrcet/students/student-uid").set({
     uid: "student-uid", name: "A Student", rollNumber: "21A1", status: "pending",
+    department: "CSE", year: "I Year", section: "A",
   }));
   await assertFails(student.firestore().doc("institutions/mrcet/students/other-uid").set({
     uid: "other-uid", status: "pending",
   }));
   await assertFails(student.firestore().doc("institutions/mrcet/students/student-uid2").set({
     uid: "student-uid2", status: "approved",
+  }));
+});
+
+test("Campus Entry rejects a department/year not in the canonical lists, a multi-char section, and a missing department entirely - but never throws, always a clean permission-denied", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await seedInstitution(ctx, "mrcet"); });
+  const student = testEnv.authenticatedContext("student-uid");
+  await assertFails(student.firestore().doc("institutions/mrcet/students/student-uid").set({
+    uid: "student-uid", status: "pending", department: "Not A Real Dept", year: "I Year", section: "A",
+  }));
+  await assertFails(student.firestore().doc("institutions/mrcet/students/student-uid").set({
+    uid: "student-uid", status: "pending", department: "CSE", year: "5th Year", section: "A",
+  }));
+  await assertFails(student.firestore().doc("institutions/mrcet/students/student-uid").set({
+    uid: "student-uid", status: "pending", department: "CSE", year: "I Year", section: "AB",
+  }));
+  // No department/year/section field at all (e.g. a stale client) must be a
+  // graceful deny, not a rules evaluation error - regression test for the
+  // isValidDepartment/isValidYear .get(field, '') fix (direct property
+  // access on a genuinely-missing field throws in rules, denying the whole
+  // OR'd expression rather than just this branch).
+  await assertFails(student.firestore().doc("institutions/mrcet/students/student-uid").set({
+    uid: "student-uid", status: "pending", name: "No academic fields",
+  }));
+  await assertSucceeds(student.firestore().doc("institutions/mrcet/students/student-uid").set({
+    uid: "student-uid", status: "pending", department: "CSE(AI&ML)", year: "III Year", section: "A",
   }));
 });
 
@@ -738,6 +799,7 @@ test("invite_only institutions accept a self-serve pending submission (Campus Id
   const student = testEnv.authenticatedContext("student-uid");
   await assertSucceeds(student.firestore().doc("institutions/vip-college/students/student-uid").set({
     uid: "student-uid", status: "pending", name: "Test Student", rollNumber: "21A91A0512",
+    department: "CSE", year: "I Year", section: "A",
   }));
   // A student can never set themselves straight to "approved," invite_only or not.
   await assertFails(student.firestore().doc("institutions/vip-college/students/student-uid").set({ uid: "student-uid", status: "approved" }));

@@ -33,7 +33,7 @@ function blankItem(date) {
 // Interview Tips, Real-world Applications) - all optional, all the exact
 // same add/edit/remove interaction, so one component instead of seven
 // near-identical blocks.
-function StringListField({ label, items, onChange, placeholder }) {
+export function StringListField({ label, items, onChange, placeholder }) {
   const list = items || [];
   const patch = (i, value) => onChange(list.map((v, idx) => (idx === i ? value : v)));
   const remove = (i) => onChange(list.filter((_, idx) => idx !== i));
@@ -195,6 +195,9 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
                 rows={5} placeholder="A short, focused, real code snippet illustrating the concept..."
                 className="w-full text-[12.5px] font-mono px-3 py-2 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
             </div>
+            <textarea value={form.codeExample?.expectedOutput || ""} onChange={e => set({ codeExample: { ...form.codeExample, expectedOutput: e.target.value } })}
+              rows={2} placeholder="Expected output (shown if live Run is ever unavailable - optional but recommended)"
+              className="w-full text-[12.5px] font-mono px-3 py-2 rounded-lg outline-none mt-2" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
           </div>
 
           <StringListField label="KEY POINTS" items={form.keyPoints} onChange={v => set({ keyPoints: v })} placeholder="e.g. Arrays use contiguous memory" />

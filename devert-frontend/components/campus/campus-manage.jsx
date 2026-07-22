@@ -4,10 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check, X, Upload, Plus, Trophy, BookOpen, Search, Pencil, Download,
   UserX, UserCheck, History, Megaphone, Eye, Power, ChevronRight, ClipboardCheck, Copy, Trash2,
+  MoreVertical, UserMinus, CalendarClock, Mail, Ban,
 } from "lucide-react";
 import {
-  fetchPendingStudents, fetchApprovedStudents, approveStudent, rejectStudent,
+  fetchPendingStudents, fetchApprovedStudents, fetchRosterStudents, approveStudent, rejectStudent,
   bulkAssignByRollNumber, updateStudentIdentity, suspendStudent, sendAnnouncement,
+  fetchAnnouncements, deleteAnnouncement, isAnnouncementActive, announcementStatus,
+  removeStudentFromInstitution, setContestRestriction, DEPARTMENTS, YEARS,
 } from "@/lib/institutions";
 import { fetchInstitutionContests, contestPhase } from "@/lib/contests";
 import { fetchPublishedProblems } from "@/lib/codelab";
@@ -28,6 +31,9 @@ import { CampusQuestionBank } from "@/components/campus/campus-question-bank";
 import { CampusDailyLearningAdminPreview } from "@/components/campus/campus-daily-learning";
 import { CampusPracticeList, CampusProblemView } from "@/components/campus/campus-practice";
 import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
+import { CampusBrandingForm } from "@/components/campus/campus-branding";
+import { StudentAnalyticsDashboard } from "@/components/campus/campus-student-dashboard";
+import { CampusClassrooms } from "@/components/campus/campus-classrooms";
 
 const MANAGE_TABS = [
   { key: "students", label: "Students" },
@@ -35,6 +41,7 @@ const MANAGE_TABS = [
   { key: "dailyLearning", label: "Daily Learning" },
   { key: "practice", label: "Practice & DSA" },
   { key: "companyPrep", label: "Company Vault" },
+  { key: "branding", label: "Branding" },
 ];
 
 export function CampusManage({ institutionId, institution }) {
@@ -58,6 +65,28 @@ export function CampusManage({ institutionId, institution }) {
       {tab === "dailyLearning" && <ManageDailyLearning institutionId={institutionId} />}
       {tab === "practice" && <ManagePracticePreview institutionId={institutionId} />}
       {tab === "companyPrep" && <ManageCompanyPrepPreview institutionId={institutionId} />}
+      {tab === "branding" && <ManageBranding institutionId={institutionId} institution={institution} />}
+    </div>
+  );
+}
+
+function ManageBranding({ institutionId, institution }) {
+  const [saved, setSaved] = useState(false);
+  return (
+    <div className="max-w-lg">
+      <h2 className="text-lg font-semibold mb-1" style={{ color: CAMPUS.ink }}>Campus Branding</h2>
+      <p className="text-[12.5px] mb-4" style={{ color: CAMPUS.inkFaint }}>
+        Customize how {institution?.name || "your campus"} appears in search results and social sharing previews -
+        banner, logo, tagline, and accent color. The logo also shows in place of initials in the sidebar and Campus
+        directory. There's no on-page banner display right now - this only affects search/share metadata and the logo.
+      </p>
+      {saved && (
+        <p className="text-[12.5px] mb-4 px-3 py-2 rounded-lg" style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>
+          Branding saved. Refresh to see it live.
+        </p>
+      )}
+      <CampusBrandingForm institutionId={institutionId} institution={institution}
+        onSaved={() => { setSaved(true); setTimeout(() => setSaved(false), 4000); }} />
     </div>
   );
 }
@@ -574,6 +603,47 @@ function parseCsv(text) {
   }).filter(r => r.rollnumber || r.rollNumber);
 }
 
+// Bulk-assign CSV template - matches the columns handleCsv/parseCsv expect
+// (rollNumber/department/year/section), with one example row so admins know
+// the expected format without guessing at it from the bulk-assign result text.
+// department/year must be one of DEPARTMENTS/YEARS (lib/institutions.js) or
+// handleCsv now rejects the row client-side before it ever reaches
+// firestore.rules' own enum check on the students/{uid} create/update path.
+function downloadBulkAssignTemplate() {
+  const csv = [
+    "rollNumber,department,year,section",
+    "21CS001,CSE,III Year,A",
+  ].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "bulk-assign-template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// "2h 34m" style waiting duration, and the exact requested date/time - so an
+// admin working the pending queue immediately knows how long a request has
+// sat there, not just when it arrived.
+function formatWaitingTime(requestedAt) {
+  if (!requestedAt?.toDate) return "-";
+  const totalMin = Math.max(0, Math.floor((Date.now() - requestedAt.toDate().getTime()) / 60000));
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const mins = totalMin % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+function formatRequestedAt(requestedAt) {
+  if (!requestedAt?.toDate) return "-";
+  const d = requestedAt.toDate();
+  return {
+    date: d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }),
+    time: d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+  };
+}
+
 // Roster export - same client-side Blob-download pattern as
 // exportRegistrationsCsv (app/admin/page.jsx, campus-contest-dashboard.jsx),
 // extended with the identity/academic columns a TPC actually wants in a
@@ -594,8 +664,33 @@ function exportRosterCsv(students, institutionName) {
   URL.revokeObjectURL(url);
 }
 
+// Classrooms is a sub-view of Students, not its own MANAGE_TABS entry - per
+// CLAUDE.md, the admin console extends existing tabs rather than growing a
+// new top-level surface.
+function StudentsViewToggle({ studentsView, setStudentsView }) {
+  const options = [
+    { key: "requests", label: "Requests & Roster" },
+    { key: "classrooms", label: "Classrooms" },
+  ];
+  return (
+    <div className="flex gap-1.5 mb-4">
+      {options.map(o => (
+        <button key={o.key} onClick={() => setStudentsView(o.key)}
+          className="text-[12px] font-semibold px-3 py-3 rounded-lg transition-colors"
+          style={{
+            background: studentsView === o.key ? CAMPUS.tealTint : "transparent",
+            color: studentsView === o.key ? CAMPUS.teal : CAMPUS.inkFaint,
+          }}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ManageStudents({ institutionId, institution }) {
   const { user } = useAuth();
+  const [studentsView, setStudentsView] = useState("requests"); // "requests" | "classrooms"
   const [pending, setPending] = useState([]);
   const [approved, setApproved] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -610,27 +705,58 @@ function ManageStudents({ institutionId, institution }) {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
+  const [pendingDeptFilter, setPendingDeptFilter] = useState("all");
+  const [pendingYearFilter, setPendingYearFilter] = useState("all");
+  const [pendingSectionFilter, setPendingSectionFilter] = useState("all");
   const [editingUid, setEditingUid] = useState(null);
   const [editName, setEditName] = useState("");
   const [editRoll, setEditRoll] = useState("");
+  const [editDept, setEditDept] = useState("");
+  const [editYear, setEditYear] = useState("");
+  const [editSection, setEditSection] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [historyUid, setHistoryUid] = useState(null);
+  const [moreMenuUid, setMoreMenuUid] = useState(null);
+  const [removingUid, setRemovingUid] = useState(null);
+  // Just the uid, not the row object - the displayed student is always
+  // re-derived from `approved` below, so actions taken inside the dashboard
+  // (suspend, restrict, identity edit) reflect immediately on the next
+  // `load()` instead of showing a stale snapshot from the moment the row
+  // was clicked. If the student gets removed from the institution, they
+  // disappear from `approved` and the dashboard naturally falls back to the
+  // roster list - no special-case handling needed.
+  const [viewingStudentUid, setViewingStudentUid] = useState(null);
 
   const [selectedUids, setSelectedUids] = useState(new Set());
   const [composing, setComposing] = useState(false);
   const [annTitle, setAnnTitle] = useState("");
   const [annMessage, setAnnMessage] = useState("");
+  const [annScheduleFor, setAnnScheduleFor] = useState(""); // datetime-local string, blank = immediately
+  const [annDuration, setAnnDuration] = useState("");       // "", "1", "3", "7", "30" (days), or "custom"
+  const [annCustomExpiry, setAnnCustomExpiry] = useState(""); // datetime-local string, only used when annDuration === "custom"
   const [annSending, setAnnSending] = useState(false);
   const [annSent, setAnnSent] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+  const [deletingAnnId, setDeletingAnnId] = useState(null);
 
   const load = () => {
     setLoading(true);
-    Promise.all([fetchPendingStudents(institutionId), fetchApprovedStudents(institutionId)])
+    Promise.all([fetchPendingStudents(institutionId), fetchRosterStudents(institutionId)])
       .then(([p, a]) => { setPending(p); setApproved(a); })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [institutionId]);
+
+  const loadAnnouncements = () => {
+    setAnnouncementsLoading(true);
+    fetchAnnouncements(institutionId)
+      .then(setAnnouncements)
+      .catch(console.error)
+      .finally(() => setAnnouncementsLoading(false));
+  };
+  useEffect(() => { loadAnnouncements(); }, [institutionId]);
 
   const departments = useMemo(() => [...new Set(approved.map(s => s.department).filter(Boolean))], [approved]);
   const years = useMemo(() => [...new Set(approved.map(s => s.year).filter(Boolean))], [approved]);
@@ -644,6 +770,22 @@ function ManageStudents({ institutionId, institution }) {
       return true;
     });
   }, [approved, search, deptFilter, yearFilter]);
+
+  // Same derived-from-data filter pattern as the approved list above, just
+  // applied to `pending` and with a Section filter added (neither list had
+  // one before this).
+  const pendingDepartments = useMemo(() => [...new Set(pending.map(s => s.department).filter(Boolean))], [pending]);
+  const pendingYears = useMemo(() => [...new Set(pending.map(s => s.year).filter(Boolean))], [pending]);
+  const pendingSections = useMemo(() => [...new Set(pending.map(s => s.section).filter(Boolean))].sort(), [pending]);
+
+  const filteredPending = useMemo(() => {
+    return pending.filter(s => {
+      if (pendingDeptFilter !== "all" && s.department !== pendingDeptFilter) return false;
+      if (pendingYearFilter !== "all" && s.year !== pendingYearFilter) return false;
+      if (pendingSectionFilter !== "all" && s.section !== pendingSectionFilter) return false;
+      return true;
+    });
+  }, [pending, pendingDeptFilter, pendingYearFilter, pendingSectionFilter]);
 
   const handleApprove = async (student) => {
     setError("");
@@ -661,18 +803,51 @@ function ManageStudents({ institutionId, institution }) {
     }
   };
 
-  const startEdit = (s) => { setEditingUid(s.uid); setEditName(s.name || ""); setEditRoll(s.rollNumber || ""); };
+  const startEdit = (s) => {
+    setEditingUid(s.uid);
+    setEditName(s.name || ""); setEditRoll(s.rollNumber || "");
+    setEditDept(s.department || ""); setEditYear(s.year || ""); setEditSection(s.section || "");
+  };
 
   const saveEdit = async (uid) => {
     setEditSaving(true);
     try {
-      await updateStudentIdentity(institutionId, uid, { name: editName.trim(), rollNumber: editRoll.trim() }, user?.uid);
+      await updateStudentIdentity(institutionId, uid, {
+        name: editName.trim(), rollNumber: editRoll.trim(),
+        department: editDept.trim(), year: editYear.trim(), section: editSection.trim(),
+      }, user?.uid);
       setEditingUid(null);
       load();
     } catch (e) {
       setError(e.message || "Failed to update identity.");
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const handleToggleContestRestriction = async (s) => {
+    setWorking(p => ({ ...p, [s.uid]: true }));
+    try {
+      await setContestRestriction(institutionId, s.uid, !s.contestRestricted);
+      load();
+    } catch (e) {
+      setError(e.message || "Failed to update contest access.");
+    } finally {
+      setWorking(p => ({ ...p, [s.uid]: false }));
+    }
+  };
+
+  const handleRemoveStudent = async (uid) => {
+    setWorking(p => ({ ...p, [uid]: true }));
+    try {
+      await removeStudentFromInstitution(institutionId, uid);
+      setRemovingUid(null);
+      setMoreMenuUid(null);
+      load();
+    } catch (e) {
+      setError(e.message || "Failed to remove student.");
+    } finally {
+      setWorking(p => ({ ...p, [uid]: false }));
     }
   };
 
@@ -712,19 +887,44 @@ function ManageStudents({ institutionId, institution }) {
     });
   };
 
+  // Duration -> expiresAt Date, computed from whichever "start" the
+  // announcement actually has (the scheduled time if set, else now) - a
+  // "3 day" announcement scheduled for tomorrow should expire 3 days after
+  // it goes live, not 3 days from the moment it was authored.
+  const computeExpiresAt = () => {
+    if (annDuration === "custom") return annCustomExpiry ? new Date(annCustomExpiry) : null;
+    if (!annDuration) return null;
+    const start = annScheduleFor ? new Date(annScheduleFor) : new Date();
+    return new Date(start.getTime() + Number(annDuration) * 24 * 60 * 60 * 1000);
+  };
+
   const handleSendAnnouncement = async () => {
     setAnnSending(true);
     try {
       await sendAnnouncement(institutionId, {
         title: annTitle.trim(), message: annMessage.trim(), targetUids: [...selectedUids],
+        scheduledFor: annScheduleFor ? new Date(annScheduleFor) : null,
+        expiresAt: computeExpiresAt(),
       }, user?.uid);
       setAnnTitle(""); setAnnMessage(""); setSelectedUids(new Set()); setComposing(false);
+      setAnnScheduleFor(""); setAnnDuration(""); setAnnCustomExpiry("");
       setAnnSent(true);
+      loadAnnouncements();
       setTimeout(() => setAnnSent(false), 4000);
     } catch (e) {
       setError(e.message || "Failed to send announcement.");
     } finally {
       setAnnSending(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    try {
+      await deleteAnnouncement(institutionId, id);
+      setDeletingAnnId(null);
+      loadAnnouncements();
+    } catch (e) {
+      setError(e.message || "Failed to delete announcement.");
     }
   };
 
@@ -736,11 +936,18 @@ function ManageStudents({ institutionId, institution }) {
     setError("");
     try {
       const text = await file.text();
-      const rows = parseCsv(text).map(r => ({
+      const parsed = parseCsv(text).map(r => ({
         rollNumber: r.rollnumber, department: r.department, year: r.year, section: r.section,
       }));
+      // Validated client-side against the same DEPARTMENTS/YEARS list
+      // firestore.rules now enforces server-side - a row with a value the
+      // rules would reject is skipped here with a clear count, instead of
+      // silently failing (or worse, half-applying) once it hits the rules.
+      const invalidRows = parsed.filter(r =>
+        !DEPARTMENTS.includes(r.department) || !YEARS.includes(r.year) || !/^[A-Za-z]$/.test(r.section || ""));
+      const rows = parsed.filter(r => !invalidRows.includes(r)).map(r => ({ ...r, section: r.section.toUpperCase() }));
       const result = await bulkAssignByRollNumber(institutionId, rows);
-      setCsvResult(result);
+      setCsvResult({ ...result, total: parsed.length, invalid: invalidRows.length });
       load();
     } catch (err) {
       setError(err.message || "Failed to process CSV.");
@@ -750,17 +957,42 @@ function ManageStudents({ institutionId, institution }) {
     }
   };
 
+  const viewingStudent = viewingStudentUid ? approved.find(a => a.uid === viewingStudentUid) : null;
+  if (viewingStudent) {
+    return (
+      <StudentAnalyticsDashboard institutionId={institutionId} institution={institution} student={viewingStudent}
+        onBack={() => setViewingStudentUid(null)} onChanged={load} />
+    );
+  }
+
+  if (studentsView === "classrooms") {
+    return (
+      <div>
+        <StudentsViewToggle studentsView={studentsView} setStudentsView={setStudentsView} />
+        <CampusClassrooms institutionId={institutionId} institution={institution} />
+      </div>
+    );
+  }
+
   return (
     <div>
+      <StudentsViewToggle studentsView={studentsView} setStudentsView={setStudentsView} />
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h2 className="text-lg font-semibold" style={{ color: CAMPUS.ink }}>
           Pending join requests {!loading && <span style={{ color: CAMPUS.warn }}>({pending.length})</span>}
         </h2>
-        <label className="text-[12.5px] font-semibold px-3.5 py-2 rounded-lg cursor-pointer inline-flex items-center gap-1.5"
-          style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-          <Upload size={13} /> {csvBusy ? "Processing..." : "Bulk-assign via CSV"}
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsv} disabled={csvBusy} />
-        </label>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button type="button" onClick={downloadBulkAssignTemplate}
+            className="text-[12.5px] font-semibold px-3.5 py-2 rounded-lg cursor-pointer inline-flex items-center gap-1.5"
+            style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+            <Download size={13} /> Download template
+          </button>
+          <label className="text-[12.5px] font-semibold px-3.5 py-2 rounded-lg cursor-pointer inline-flex items-center gap-1.5"
+            style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+            <Upload size={13} /> {csvBusy ? "Processing..." : "Bulk-assign via CSV"}
+            <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsv} disabled={csvBusy} />
+          </label>
+        </div>
       </div>
 
       {error && (
@@ -770,8 +1002,38 @@ function ManageStudents({ institutionId, institution }) {
       {csvResult && (
         <p className="text-[12.5px] mb-4" style={{ color: CAMPUS.inkSoft }}>
           Matched {csvResult.matched} of {csvResult.total} rows to existing pending requests by roll number and approved them.
-          {csvResult.matched < csvResult.total && " Unmatched rows had no matching pending request - the student needs to request access first."}
+          {csvResult.matched < csvResult.total - csvResult.invalid && " Unmatched rows had no matching pending request - the student needs to request access first."}
+          {csvResult.invalid > 0 && ` ${csvResult.invalid} row${csvResult.invalid === 1 ? "" : "s"} skipped - department/year/section didn't match the canonical lists.`}
         </p>
+      )}
+
+      {pending.length > 0 && (pendingDepartments.length > 0 || pendingYears.length > 0 || pendingSections.length > 0) && (
+        <div className="flex gap-2 flex-wrap mb-4">
+          {pendingDepartments.length > 0 && (
+            <select value={pendingDeptFilter} onChange={e => setPendingDeptFilter(e.target.value)}
+              className="text-[12.5px] px-3 py-2 rounded-lg outline-none"
+              style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+              <option value="all">All departments</option>
+              {pendingDepartments.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          )}
+          {pendingYears.length > 0 && (
+            <select value={pendingYearFilter} onChange={e => setPendingYearFilter(e.target.value)}
+              className="text-[12.5px] px-3 py-2 rounded-lg outline-none"
+              style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+              <option value="all">All years</option>
+              {pendingYears.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          )}
+          {pendingSections.length > 0 && (
+            <select value={pendingSectionFilter} onChange={e => setPendingSectionFilter(e.target.value)}
+              className="text-[12.5px] px-3 py-2 rounded-lg outline-none"
+              style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+              <option value="all">All sections</option>
+              {pendingSections.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+            </select>
+          )}
+        </div>
       )}
 
       {loading ? (
@@ -785,15 +1047,21 @@ function ManageStudents({ institutionId, institution }) {
         </div>
       ) : pending.length === 0 ? (
         <CampusEmptyState size="sm" icon={Check} title="No pending requests" description="New join requests will show up here for approval." />
+      ) : filteredPending.length === 0 ? (
+        <CampusEmptyState size="sm" icon={Check} title="No requests match these filters" description="Try a different department, year, or section." />
       ) : (
         <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
-          {pending.map((s, i) => (
+          {filteredPending.map((s, i) => (
             <div key={s.uid} style={{ background: CAMPUS.surface, borderTop: i > 0 ? `1px solid ${CAMPUS.line}` : "none" }}>
               <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <b className="block text-[13px]" style={{ color: CAMPUS.ink }}>{s.name || "(no name given)"}</b>
                   <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>
-                    {s.rollNumber} {s.department && `· ${s.department}`} {s.year && `· Year ${s.year}`}
+                    {s.rollNumber} {s.department && `· ${s.department}`} {s.year && `· ${s.year}`} {s.section && `· Sec ${s.section}`}
+                  </span>
+                  <span className="block text-[10.5px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>
+                    Requested {formatRequestedAt(s.requestedAt).date} · {formatRequestedAt(s.requestedAt).time}
+                    <b style={{ color: CAMPUS.warn }}> · Waiting {formatWaitingTime(s.requestedAt)}</b>
                   </span>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
@@ -861,14 +1129,86 @@ function ManageStudents({ institutionId, institution }) {
           <textarea value={annMessage} onChange={e => setAnnMessage(e.target.value)} placeholder="Message" rows={3}
             className="w-full text-[12.5px] px-3 py-1.5 rounded-lg outline-none resize-none"
             style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+          <div className="flex gap-2 flex-wrap">
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>SCHEDULE FOR (optional)</label>
+              <input type="datetime-local" value={annScheduleFor} onChange={e => setAnnScheduleFor(e.target.value)}
+                className="w-full text-[12.5px] px-3 py-1.5 rounded-lg outline-none"
+                style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>DURATION</label>
+              <select value={annDuration} onChange={e => setAnnDuration(e.target.value)}
+                className="w-full text-[12.5px] px-3 py-1.5 rounded-lg outline-none"
+                style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+                <option value="">No expiry</option>
+                <option value="1">1 day</option>
+                <option value="3">3 days</option>
+                <option value="7">7 days</option>
+                <option value="30">30 days</option>
+                <option value="custom">Custom date...</option>
+              </select>
+            </div>
+            {annDuration === "custom" && (
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>EXPIRES AT</label>
+                <input type="datetime-local" value={annCustomExpiry} onChange={e => setAnnCustomExpiry(e.target.value)}
+                  className="w-full text-[12.5px] px-3 py-1.5 rounded-lg outline-none"
+                  style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+              </div>
+            )}
+          </div>
           <div className="flex gap-2">
             <button onClick={handleSendAnnouncement} disabled={annSending || !annTitle.trim() || !annMessage.trim()}
               className="text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.ink, color: "#fff" }}>
-              {annSending ? "Sending..." : "Send"}
+              {annSending ? "Sending..." : annScheduleFor ? "Schedule" : "Send"}
             </button>
             <button onClick={() => setComposing(false)} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ color: CAMPUS.inkFaint }}>
               Cancel
             </button>
+          </div>
+        </CampusCard>
+      )}
+
+      {!announcementsLoading && announcements.length > 0 && (
+        <CampusCard className="p-4 mb-6">
+          <p className="text-[10px] font-mono tracking-widest mb-3 flex items-center gap-1.5" style={{ color: CAMPUS.inkFaint }}>
+            <Megaphone size={11} /> ANNOUNCEMENTS ({announcements.length})
+          </p>
+          <div className="space-y-2">
+            {announcements.map(a => {
+              const status = announcementStatus(a);
+              const statusColor = status === "active" ? CAMPUS.good : status === "scheduled" ? CAMPUS.warn : CAMPUS.inkFaint;
+              return (
+                <div key={a.id} className="py-2 first:pt-0" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+                  <div className="flex items-start gap-2 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <b className="text-[12.5px]" style={{ color: CAMPUS.ink }}>{a.title}</b>
+                        <CampusChip color={statusColor}>{status.toUpperCase()}</CampusChip>
+                        {a.targetUids?.length > 0 && <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>{a.targetUids.length} student{a.targetUids.length === 1 ? "" : "s"}</span>}
+                      </div>
+                      <p className="text-[11.5px] mt-0.5" style={{ color: CAMPUS.inkSoft }}>{a.message}</p>
+                      <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: CAMPUS.inkFaint }}>
+                        <CalendarClock size={10} />
+                        {a.scheduledFor?.toDate ? `Starts ${a.scheduledFor.toDate().toLocaleString()}` : "Immediate"}
+                        {a.expiresAt?.toDate ? ` · Expires ${a.expiresAt.toDate().toLocaleString()}` : " · No expiry"}
+                      </p>
+                    </div>
+                    {deletingAnnId === a.id ? (
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button onClick={() => handleDeleteAnnouncement(a.id)} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ background: CAMPUS.bad, color: "#fff" }}>Confirm</button>
+                        <button onClick={() => setDeletingAnnId(null)} className="text-[11px] font-semibold px-2 py-1" style={{ color: CAMPUS.inkFaint }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setDeletingAnnId(a.id)} title="Delete announcement" className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </CampusCard>
       )}
@@ -915,6 +1255,17 @@ function ManageStudents({ institutionId, institution }) {
                     className="w-full text-[12.5px] px-3 py-1.5 rounded-lg outline-none font-mono"
                     style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
                   <div className="flex gap-2">
+                    <input value={editDept} onChange={e => setEditDept(e.target.value)} placeholder="Department"
+                      className="flex-1 text-[12.5px] px-3 py-1.5 rounded-lg outline-none"
+                      style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+                    <input value={editYear} onChange={e => setEditYear(e.target.value)} placeholder="Year"
+                      className="w-24 text-[12.5px] px-3 py-1.5 rounded-lg outline-none"
+                      style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+                    <input value={editSection} onChange={e => setEditSection(e.target.value)} placeholder="Section"
+                      className="w-24 text-[12.5px] px-3 py-1.5 rounded-lg outline-none"
+                      style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+                  </div>
+                  <div className="flex gap-2">
                     <button onClick={() => saveEdit(s.uid)} disabled={editSaving}
                       className="text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.ink, color: "#fff" }}>
                       {editSaving ? "Saving..." : "Save"}
@@ -928,29 +1279,82 @@ function ManageStudents({ institutionId, institution }) {
                   </p>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
+                <div onClick={() => setViewingStudentUid(s.uid)} className="flex items-center gap-3 px-4 py-3 flex-wrap cursor-pointer">
                   <input type="checkbox" checked={selectedUids.has(s.uid)} onChange={() => toggleSelect(s.uid)}
+                    onClick={(e) => e.stopPropagation()}
                     className="flex-shrink-0" style={{ accentColor: CAMPUS.teal }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <b className="text-[13px]" style={{ color: CAMPUS.ink }}>{s.name || "(no name)"}</b>
                       {s.status === "suspended" && <CampusChip color={CAMPUS.bad}>SUSPENDED</CampusChip>}
+                      {s.contestRestricted && <CampusChip color={CAMPUS.warn}>CONTEST RESTRICTED</CampusChip>}
                     </div>
                     <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>
                       {s.rollNumber} {s.department && `· ${s.department}`} {s.year && `· Year ${s.year}`} {s.section && `· Sec ${s.section}`}
                     </span>
                   </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    {s.identityAuditLog?.length > 0 && (
-                      <button onClick={() => setHistoryUid(historyUid === s.uid ? null : s.uid)} title="Identity history" style={{ color: CAMPUS.inkFaint }}>
-                        <History size={14} />
-                      </button>
+                  <button onClick={(e) => { e.stopPropagation(); setMoreMenuUid(moreMenuUid === s.uid ? null : s.uid); setRemovingUid(null); }}
+                    title="More options" className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>
+                    <MoreVertical size={16} />
+                  </button>
+                </div>
+              )}
+              {moreMenuUid === s.uid && (
+                <div className="px-4 pb-3">
+                  <div className="rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface }}>
+                    <div className="px-3 py-2.5 flex items-center gap-2" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
+                      <Mail size={12} style={{ color: CAMPUS.inkFaint }} />
+                      <span className="text-[12px] font-mono" style={{ color: CAMPUS.inkSoft }}>{s.email || "(no email on file)"}</span>
+                    </div>
+
+                    {removingUid === s.uid ? (
+                      <div className="p-3 space-y-2" style={{ background: CAMPUS.badTint }}>
+                        <p className="text-[12px]" style={{ color: CAMPUS.bad }}>
+                          Permanently remove {s.name || "this student"} from {institution?.name}? Their roster record is deleted
+                          (not just suspended) and their roll number becomes claimable again. To rejoin, they'll have to submit a
+                          brand new request that your Training &amp; Placement Cell reviews - they are never re-added automatically.
+                          Their DeVert account, XP and coins are untouched.
+                        </p>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleRemoveStudent(s.uid)} disabled={working[s.uid]}
+                            className="text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.bad, color: "#fff" }}>
+                            {working[s.uid] ? "Removing..." : "Confirm removal"}
+                          </button>
+                          <button onClick={() => setRemovingUid(null)} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ color: CAMPUS.inkFaint }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <button onClick={() => { startEdit(s); setMoreMenuUid(null); }}
+                          className="w-full text-left text-[12.5px] font-semibold px-3 py-2.5 flex items-center gap-2" style={{ color: CAMPUS.ink }}>
+                          <Pencil size={13} /> Edit name, roll number, dept/year/section
+                        </button>
+                        {s.identityAuditLog?.length > 0 && (
+                          <button onClick={() => { setHistoryUid(historyUid === s.uid ? null : s.uid); setMoreMenuUid(null); }}
+                            className="w-full text-left text-[12.5px] font-semibold px-3 py-2.5 flex items-center gap-2" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
+                            <History size={13} /> View identity edit history
+                          </button>
+                        )}
+                        <button onClick={() => handleToggleSuspend(s)} disabled={working[s.uid]}
+                          className="w-full text-left text-[12.5px] font-semibold px-3 py-2.5 flex items-center gap-2 disabled:opacity-50"
+                          style={{ color: s.status === "suspended" ? CAMPUS.good : CAMPUS.bad, borderTop: `1px solid ${CAMPUS.line}` }}>
+                          {s.status === "suspended" ? <UserCheck size={13} /> : <UserX size={13} />}
+                          {s.status === "suspended" ? "Reactivate (un-suspend)" : "Suspend from institution"}
+                        </button>
+                        <button onClick={() => handleToggleContestRestriction(s)} disabled={working[s.uid]}
+                          className="w-full text-left text-[12.5px] font-semibold px-3 py-2.5 flex items-center gap-2 disabled:opacity-50"
+                          style={{ color: s.contestRestricted ? CAMPUS.good : CAMPUS.warn, borderTop: `1px solid ${CAMPUS.line}` }}>
+                          <Ban size={13} /> {s.contestRestricted ? "Lift contest restriction" : "Restrict from contests"}
+                        </button>
+                        <button onClick={() => setRemovingUid(s.uid)}
+                          className="w-full text-left text-[12.5px] font-semibold px-3 py-2.5 flex items-center gap-2"
+                          style={{ color: CAMPUS.bad, borderTop: `1px solid ${CAMPUS.line}` }}>
+                          <UserMinus size={13} /> Remove from institution
+                        </button>
+                      </>
                     )}
-                    <button onClick={() => startEdit(s)} title="Edit identity" style={{ color: CAMPUS.inkFaint }}><Pencil size={14} /></button>
-                    <button onClick={() => handleToggleSuspend(s)} disabled={working[s.uid]} title={s.status === "suspended" ? "Reactivate" : "Suspend"}
-                      style={{ color: s.status === "suspended" ? CAMPUS.good : CAMPUS.bad }}>
-                      {s.status === "suspended" ? <UserCheck size={14} /> : <UserX size={14} />}
-                    </button>
                   </div>
                 </div>
               )}

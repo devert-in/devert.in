@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Users, BarChart3, Trophy, Download, Pencil, Copy, Archive, Medal, Settings, ChevronDown, ChevronUp, Award, X, Printer, RotateCcw } from "lucide-react";
+import { Users, BarChart3, Trophy, Download, Pencil, Copy, Archive, Medal, Settings, ChevronDown, ChevronUp, Award, X, Printer, RotateCcw, AlertTriangle } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton } from "@/components/campus/campus-ui";
 import {
@@ -224,6 +224,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
   const { user } = useAuth();
   const [contest, setContest] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [registrations, setRegistrations] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -237,21 +238,27 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
   const [certRow, setCertRow] = useState(null);
 
   const load = async () => {
-    setLoading(true);
-    const c = await fetchContest(contestId);
-    setContest(c);
-    const [regs, subs, lb, qs, keys, students, inst] = await Promise.all([
-      fetchContestRegistrations(contestId).catch(() => []),
-      fetchContestSubmissions(contestId).catch(() => []),
-      fetchLeaderboard(contestId).catch(() => []),
-      fetchContestQuestions(contestId).catch(() => []),
-      fetchContestAnswerKeys(contestId).catch(() => ({})),
-      c?.institutionId ? fetchApprovedStudents(c.institutionId).catch(() => []) : Promise.resolve([]),
-      c?.institutionId ? fetchInstitution(c.institutionId).catch(() => null) : Promise.resolve(null),
-    ]);
-    setRegistrations(regs); setSubmissions(subs); setLeaderboard(lb);
-    setQuestions(qs); setAnswerKeys(keys); setRoster(students); setInstitution(inst);
-    setLoading(false);
+    setLoading(true); setLoadError(false);
+    try {
+      const c = await fetchContest(contestId);
+      setContest(c);
+      const [regs, subs, lb, qs, keys, students, inst] = await Promise.all([
+        fetchContestRegistrations(contestId).catch(() => []),
+        fetchContestSubmissions(contestId).catch(() => []),
+        fetchLeaderboard(contestId).catch(() => []),
+        fetchContestQuestions(contestId).catch(() => []),
+        fetchContestAnswerKeys(contestId).catch(() => ({})),
+        c?.institutionId ? fetchApprovedStudents(c.institutionId).catch(() => []) : Promise.resolve([]),
+        c?.institutionId ? fetchInstitution(c.institutionId).catch(() => null) : Promise.resolve(null),
+      ]);
+      setRegistrations(regs); setSubmissions(subs); setLeaderboard(lb);
+      setQuestions(qs); setAnswerKeys(keys); setRoster(students); setInstitution(inst);
+    } catch (e) {
+      console.error(e);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { load(); }, [contestId]);
 
@@ -356,6 +363,16 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[0, 1, 2, 3].map(i => <CampusCard key={i} className="p-3.5"><CampusSkeleton variant="text" width="60%" className="mb-2" /><CampusSkeleton variant="text" width="40%" height={20} /></CampusCard>)}
         </div>
+      </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <div>
+        <CampusBackButton onClick={onBack} label="back to contests" />
+        <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load this dashboard"
+          description="Check your connection and try again."
+          action={<CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>} />
       </div>
     );
   }

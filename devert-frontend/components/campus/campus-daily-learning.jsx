@@ -6,10 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Circle, Lock, BookOpen, Code2, Zap, Coins, ClipboardCheck,
   ChevronRight, X as CloseIcon, Trophy, Medal, Target, AlertTriangle, Info,
-  Briefcase, ArrowRight, Lightbulb, Copy, ListChecks, Clock,
+  Briefcase, ArrowRight, Lightbulb, Copy, ListChecks, Clock, Play, RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProblem, fetchUserCodelabProgress, CODELAB_LANGUAGES } from "@/lib/codelab";
+import { fetchProblem, fetchUserCodelabProgress, CODELAB_LANGUAGES, runCode } from "@/lib/codelab";
 import {
   DOW_LABELS, DOW_ORDER, mondayOf, todayISO, fetchWeekItems, fetchLog,
   fetchUserWeekLogs, submitDayCompletion, fetchDayLeaderboard, fetchWeekTests,
@@ -17,10 +17,11 @@ import {
 } from "@/lib/dailyLearning";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
-  CampusCard, CampusChip, CampusTable, CampusSkeleton, CampusEmptyState, CampusBackButton,
+  CampusCard, CampusChip, CampusTable, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton,
 } from "@/components/campus/campus-ui";
 import { CampusProblemView } from "@/components/campus/campus-practice";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
+import { LanguageLogo } from "@/components/campus/language-logo";
 
 // Institution-scoped Mon-Sat structured learning, backed by
 // institutions/{slug}/dailyLearning (see lib/dailyLearning.js for the
@@ -82,7 +83,7 @@ function parseConceptBlocks(text) {
   return blocks;
 }
 
-function ConceptRenderer({ text }) {
+export function ConceptRenderer({ text }) {
   const blocks = useMemo(() => parseConceptBlocks(text), [text]);
   return (
     <div className="space-y-3">
@@ -120,7 +121,7 @@ function ConceptRenderer({ text }) {
 // Prerequisites, Key Points, Important Notes, Common Mistakes, Interview
 // Tips, Real-world Applications) - renders nothing at all when the admin
 // hasn't authored that section for this lesson, rather than an empty card.
-function InfoListCard({ icon: Icon, title, items, color, tint, checkItems = false }) {
+export function InfoListCard({ icon: Icon, title, items, color, tint, checkItems = false }) {
   if (!items || items.length === 0) return null;
   return (
     <CampusCard className="p-4" style={{ border: `1px solid ${color}40`, background: tint }}>
@@ -142,26 +143,113 @@ function InfoListCard({ icon: Icon, title, items, color, tint, checkItems = fals
   );
 }
 
-function CodeExampleBlock({ codeExample }) {
+// Interactive when live execution is available (proxied through
+// devert-backend -> Judge0, same runCode() CodeLab's problem view uses), so a
+// lesson's example isn't just something to read - a student can edit it, run
+// it, and see real output without leaving the lesson. Falls back to the
+// original read-only view (+ the admin's own pre-authored expectedOutput, if
+// any) the moment a run actually fails - never a fabricated output, and
+// never a dead Run button left behind. `NEXT_PUBLIC_API_URL` unset (execution
+// not configured at all, e.g. local dev) skips straight to that fallback
+// instead of waiting for a doomed first click.
+export function CodeExampleBlock({ codeExample }) {
+  const [code, setCode] = useState(codeExample?.code || "");
+  const [running, setRunning] = useState(false);
+  const [output, setOutput] = useState(null);
+  const [unavailable, setUnavailable] = useState(!process.env.NEXT_PUBLIC_API_URL);
+
+  useEffect(() => {
+    setCode(codeExample?.code || "");
+    setOutput(null);
+    setUnavailable(!process.env.NEXT_PUBLIC_API_URL);
+  }, [codeExample?.code]);
+
   if (!codeExample?.code) return null;
   const lang = CODELAB_LANGUAGES.find(l => l.id === codeExample.language);
-  const lineCount = codeExample.code.split("\n").length;
+  const dirty = code !== codeExample.code;
+
+  const handleRun = async () => {
+    setRunning(true);
+    try {
+      const result = await runCode({ language: codeExample.language, code, stdin: "" });
+      setOutput(result);
+    } catch {
+      setUnavailable(true);
+    } finally {
+      setRunning(false);
+    }
+  };
+  const handleReset = () => { setCode(codeExample.code); setOutput(null); };
+  const handleCopy = () => navigator.clipboard?.writeText(code);
+
+  if (unavailable) {
+    const lineCount = codeExample.code.split("\n").length;
+    return (
+      <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
+        <div className="flex items-center justify-between px-3 py-1.5" style={{ background: CAMPUS.paper, borderBottom: `1px solid ${CAMPUS.line}` }}>
+          <span className="flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide" style={{ color: CAMPUS.teal }}>
+            <LanguageLogo name={codeExample.language} size={12} />
+            {lang?.label || "CODE"}
+          </span>
+          <button onClick={handleCopy} className="flex items-center gap-1 text-[10px]" style={{ color: CAMPUS.inkFaint }} title="Copy">
+            <Copy size={11} /> copy
+          </button>
+        </div>
+        <div style={{ height: Math.max(80, Math.min(320, 40 + lineCount * 19)) }}>
+          <MonacoEditor
+            language={lang?.monacoId || "plaintext"}
+            theme="light"
+            value={codeExample.code}
+            options={{ readOnly: true, domReadOnly: true, fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true }}
+          />
+        </div>
+        {codeExample.expectedOutput && (
+          <div className="px-3 py-2.5" style={{ borderTop: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface }}>
+            <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>EXPECTED OUTPUT</p>
+            <pre className="text-[12px] font-mono whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{codeExample.expectedOutput}</pre>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const lineCount = code.split("\n").length;
   return (
     <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
       <div className="flex items-center justify-between px-3 py-1.5" style={{ background: CAMPUS.paper, borderBottom: `1px solid ${CAMPUS.line}` }}>
-        <span className="text-[10px] font-mono font-semibold tracking-wide" style={{ color: CAMPUS.teal }}>{lang?.label || "CODE"}</span>
-        <button onClick={() => navigator.clipboard?.writeText(codeExample.code)} className="flex items-center gap-1 text-[10px]" style={{ color: CAMPUS.inkFaint }} title="Copy">
-          <Copy size={11} /> copy
-        </button>
+        <span className="flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide" style={{ color: CAMPUS.teal }}>
+          <LanguageLogo name={codeExample.language} size={12} />
+          {lang?.label || "CODE"}
+        </span>
+        <div className="flex items-center gap-3">
+          {dirty && (
+            <button onClick={handleReset} className="flex items-center gap-1 text-[10px]" style={{ color: CAMPUS.inkFaint }} title="Reset to original">
+              <RotateCcw size={11} /> reset
+            </button>
+          )}
+          <button onClick={handleCopy} className="flex items-center gap-1 text-[10px]" style={{ color: CAMPUS.inkFaint }} title="Copy">
+            <Copy size={11} /> copy
+          </button>
+          <button onClick={handleRun} disabled={running} className="flex items-center gap-1 text-[10px] font-semibold disabled:opacity-50" style={{ color: CAMPUS.good }} title="Run">
+            <Play size={11} /> {running ? "running..." : "run"}
+          </button>
+        </div>
       </div>
       <div style={{ height: Math.max(80, Math.min(320, 40 + lineCount * 19)) }}>
         <MonacoEditor
           language={lang?.monacoId || "plaintext"}
           theme="light"
-          value={codeExample.code}
-          options={{ readOnly: true, domReadOnly: true, fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true }}
+          value={code}
+          onChange={(v) => setCode(v ?? "")}
+          options={{ fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true }}
         />
       </div>
+      {output && (
+        <div className="px-3 py-2.5" style={{ borderTop: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface }}>
+          <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: output.stderr ? CAMPUS.bad : CAMPUS.good }}>OUTPUT</p>
+          <pre className="text-[12px] font-mono whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{output.stdout || output.stderr || "(no output)"}</pre>
+        </div>
+      )}
     </div>
   );
 }
@@ -189,14 +277,24 @@ function NextLessonCard({ dayCompleted, nextItem, onGoToNext }) {
 export function CampusDailyLearningTab({ slug }) {
   const [items, setItems] = useState(undefined); // undefined = loading
   const [moduleEnabled, setModuleEnabled] = useState(true);
+  const [error, setError] = useState(false);
   const weekId = mondayOf();
 
-  useEffect(() => {
+  const load = () => {
+    setItems(undefined); setError(false);
     Promise.all([fetchWeekItems(slug, weekId), fetchModuleConfig(slug)])
       .then(([rows, cfg]) => { setItems(rows); setModuleEnabled(cfg.enabled !== false); })
-      .catch(() => setItems([]));
-  }, [slug, weekId]);
+      .catch(() => setError(true));
+  };
+  useEffect(load, [slug, weekId]);
 
+  if (error) {
+    return (
+      <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load Daily Learning"
+        description="Check your connection and try again."
+        action={<CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>} />
+    );
+  }
   if (items === undefined) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
   if (!moduleEnabled || items.length === 0) return <CampusLearningSection />;
 
@@ -228,7 +326,7 @@ export function CampusDailyLearningAdminPreview({ slug, weekId: weekIdProp }) {
       description="Nothing has been authored for this institution's current week yet." />;
   }
 
-  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} />;
+  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel="Daily Learning" />;
   const item = items.find(it => it.date === selected) || items[0];
 
   return (
@@ -276,7 +374,7 @@ function CampusDailyLearningWeek({ slug, items }) {
   const item = items.find(it => it.date === selected) || defaultItem;
 
   if (openProblemId) {
-    return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} />;
+    return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel="Daily Learning" />;
   }
 
   return (
@@ -328,13 +426,16 @@ function CampusDailyLearningWeek({ slug, items }) {
 export function CampusDailyAssessmentsTab({ slug }) {
   const { user } = useAuth();
   const [tests, setTests] = useState(undefined);
+  const [testsError, setTestsError] = useState(false);
   const [logs, setLogs] = useState({});
   const [openTest, setOpenTest] = useState(null);
   const [openProblemId, setOpenProblemId] = useState(null);
 
-  useEffect(() => {
-    fetchWeekTests(slug).then(setTests).catch(() => setTests([]));
-  }, [slug]);
+  const loadTests = () => {
+    setTests(undefined); setTestsError(false);
+    fetchWeekTests(slug).then(setTests).catch(() => setTestsError(true));
+  };
+  useEffect(loadTests, [slug]);
 
   useEffect(() => {
     if (!user || !tests?.length) return;
@@ -345,9 +446,16 @@ export function CampusDailyAssessmentsTab({ slug }) {
     }).catch(() => {});
   }, [slug, user, tests]);
 
+  if (testsError) {
+    return (
+      <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load assessments"
+        description="Check your connection and try again."
+        action={<CampusButton variant="secondary" size="sm" onClick={loadTests}>Retry</CampusButton>} />
+    );
+  }
   if (tests === undefined) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
 
-  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} />;
+  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel={openTest?.title || "Assessments"} />;
   if (openTest) {
     return (
       <div>

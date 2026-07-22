@@ -98,6 +98,17 @@ export async function fetchProblemSubmissions(uid, problemId, topN = 20) {
     .slice(0, topN);
 }
 
+// Every submission a user has ever made, unfiltered by problem - powers a
+// real per-student acceptance rate (accepted/total by verdict) instead of
+// the coarser problemsSolvedCount/totalSubmissions ratio, which conflates
+// "solved on the Nth try" with "solved on the first try". Same no-orderBy
+// shape as fetchAttemptedProblemIds for the same reason (a uid+createdAt
+// composite index isn't provisioned).
+export async function fetchAllSubmissionsForUser(uid) {
+  const snap = await getDocs(query(collection(db, "codelab_submissions"), where("uid", "==", uid)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 export async function fetchMySubmissions(uid, topN = 10) {
   const snap = await getDocs(query(
     collection(db, "codelab_submissions"),

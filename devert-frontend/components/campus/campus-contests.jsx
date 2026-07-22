@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Zap, Coins, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3 } from "lucide-react";
+import { CheckCircle2, Zap, Coins, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchContest, fetchContestQuestions, fetchContestAnswerKeys, fetchMyRegistration,
@@ -11,7 +11,7 @@ import {
 } from "@/lib/contests";
 import { seededShuffle } from "@/lib/contestRandom";
 import { CAMPUS } from "@/lib/campus-theme";
-import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusSkeleton, CampusEmptyState, CampusTable } from "@/components/campus/campus-ui";
+import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusBreadcrumb, CampusButton, CampusSkeleton, CampusEmptyState, CampusTable } from "@/components/campus/campus-ui";
 
 // Native, light-themed port of components/contests/{attempt,details,results}-view.jsx
 // for DeVert Campus - reuses every read/write/grading/shuffle function from
@@ -58,7 +58,7 @@ function SignInPrompt({ message }) {
 
 // ---------------- List ----------------
 
-export function CampusContestList({ contests, loading, onSelect }) {
+export function CampusContestList({ contests, loading, error, onRetry, onSelect }) {
   if (loading) {
     return (
       <div className="space-y-2.5">
@@ -72,6 +72,13 @@ export function CampusContestList({ contests, loading, onSelect }) {
           </CampusCard>
         ))}
       </div>
+    );
+  }
+  if (error) {
+    return (
+      <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load contests"
+        description="Check your connection and try again."
+        action={<CampusButton variant="secondary" size="sm" onClick={onRetry}>Retry</CampusButton>} />
     );
   }
   if (contests.length === 0) {
@@ -115,14 +122,18 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
   const { user } = useAuth();
   const [contest, setContest] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState("");
   const [now, setNow] = useState(new Date());
 
-  useEffect(() => {
+  const load = () => {
     if (!contestId) { setLoading(false); return; }
-    fetchContest(contestId).then(setContest).catch(console.error).finally(() => setLoading(false));
-  }, [contestId]);
+    setLoading(true); setError(false);
+    fetchContest(contestId).then(setContest).catch(() => setError(true)).finally(() => setLoading(false));
+  };
+  useEffect(load, [contestId]);
 
   useEffect(() => {
     if (!user || !contestId) { setRegistered(false); return; }
@@ -137,10 +148,18 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
   const handleRegister = async () => {
     if (!user) return;
     setRegistering(true);
+    setRegisterError("");
     try {
       await registerForContest(contestId, user.uid);
       setRegistered(true);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setRegisterError(
+        e.code === "permission-denied"
+          ? "You're not eligible to register for this contest - contact your Training & Placement Cell if you think this is a mistake."
+          : "Failed to register. Please try again."
+      );
+    }
     finally { setRegistering(false); }
   };
 
@@ -156,6 +175,16 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
       </div>
     );
   }
+  if (error) {
+    return (
+      <div className="max-w-2xl">
+        <CampusBackButton onClick={onBack} label="Back to contests" />
+        <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load this contest"
+          description="Check your connection and try again."
+          action={<CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>} />
+      </div>
+    );
+  }
   if (!contest) return <CampusEmptyState icon={Trophy} title="Contest not found" description="This contest may have ended or been removed." />;
 
   const settings = getContestSettings(contest);
@@ -168,7 +197,7 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
 
   return (
     <div className="max-w-2xl">
-      <CampusBackButton onClick={onBack} label="Back to contests" />
+      <CampusBreadcrumb items={[{ label: "Contests", onClick: onBack }, { label: contest.title }]} />
 
       {contest.bannerUrl && (
         <div className="w-full h-40 rounded-xl mb-5 bg-cover bg-center" style={{ backgroundImage: `url(${contest.bannerUrl})`, border: `1px solid ${CAMPUS.line}` }} />
@@ -240,10 +269,13 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
           ) : phase === "closed" ? (
             <span className="flex-1 text-center text-sm py-3 rounded-xl" style={{ color: CAMPUS.inkFaint, border: `1px solid ${CAMPUS.line}` }}>registration closed</span>
           ) : (
-            <button onClick={handleRegister} disabled={registering} className="flex-1 text-sm font-semibold py-3 rounded-xl disabled:opacity-50 transition-colors"
-              style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
-              {registering ? "registering..." : "register for contest"}
-            </button>
+            <div className="flex-1">
+              <button onClick={handleRegister} disabled={registering} className="w-full text-sm font-semibold py-3 rounded-xl disabled:opacity-50 transition-colors"
+                style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
+                {registering ? "registering..." : "register for contest"}
+              </button>
+              {registerError && <p className="text-xs mt-2" style={{ color: CAMPUS.bad }}>{registerError}</p>}
+            </div>
           )}
           {leaderboardVisible && (
             <button onClick={() => onViewResults(contestId)} className="text-sm px-5 py-3 rounded-xl flex items-center gap-2 transition-colors"
@@ -297,11 +329,14 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
-  useEffect(() => {
-    if (!contestId) { setBlocked("No contest specified."); setLoading(false); return; }
-    if (!user) { setLoading(false); return; }
+  const [loadError, setLoadError] = useState(false);
 
+  const load = () => {
+    setLoading(true); setLoadError(false); setBlocked(null);
     (async () => {
+      if (!contestId) { setBlocked("No contest specified."); setLoading(false); return; }
+      if (!user) { setLoading(false); return; }
+
       const c = await fetchContest(contestId);
       if (!c) { setBlocked("Contest not found."); setLoading(false); return; }
       const phase = contestPhase(c);
@@ -330,8 +365,13 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
       setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
       questionEnteredAtRef.current = Date.now();
       setLoading(false);
-    })();
-  }, [user, contestId]);
+    })().catch((e) => {
+      console.error(e);
+      setLoadError(true);
+      setLoading(false);
+    });
+  };
+  useEffect(load, [user, contestId]);
 
   const handleSubmit = async () => {
     if (submittedRef.current || !user) return;
@@ -376,6 +416,18 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
           <CampusSkeleton variant="rect" height={44} />
         </CampusCard>
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <CampusCard className="p-7 text-center max-w-sm mx-auto">
+        <p className="text-sm mb-4" style={{ color: CAMPUS.bad }}>Couldn&apos;t load this contest. Check your connection and try again.</p>
+        <div className="flex items-center justify-center gap-3">
+          <CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>
+          <CampusBackButton onClick={() => onBack(contestId)} label="Back to contest details" className="justify-center" />
+        </div>
+      </CampusCard>
     );
   }
 
@@ -687,11 +739,12 @@ function formatKeyAnswer(q, key) {
   return q.options?.find(o => o.id === (key.correctOptionIds || [])[0])?.text || "";
 }
 
-export function CampusContestResults({ contestId, onBack }) {
+export function CampusContestResults({ contestId, onBack, onBackToList }) {
   const { user, refreshProfile } = useAuth();
 
   const [contest, setContest] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [mySubmission, setMySubmission] = useState(null);
   const [myRank, setMyRank] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -699,8 +752,9 @@ export function CampusContestResults({ contestId, onBack }) {
   const [questions, setQuestions] = useState([]);
   const [answerKeys, setAnswerKeys] = useState({});
 
-  useEffect(() => {
+  const load = () => {
     if (!contestId) { setLoading(false); return; }
+    setLoading(true); setLoadError(false);
 
     (async () => {
       const c = await fetchContest(contestId);
@@ -735,8 +789,13 @@ export function CampusContestResults({ contestId, onBack }) {
         if (sub?.graded) setMyRank(await fetchMyRank(contestId, sub.score).catch(() => null));
       }
       setLoading(false);
-    })();
-  }, [contestId, user]);
+    })().catch((e) => {
+      console.error(e);
+      setLoadError(true);
+      setLoading(false);
+    });
+  };
+  useEffect(load, [contestId, user]);
 
   if (loading) {
     return (
@@ -753,6 +812,16 @@ export function CampusContestResults({ contestId, onBack }) {
       </div>
     );
   }
+  if (loadError) {
+    return (
+      <div className="max-w-2xl">
+        <CampusBackButton onClick={() => onBack(contestId)} label="Back to contest details" />
+        <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load results"
+          description="Check your connection and try again."
+          action={<CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>} />
+      </div>
+    );
+  }
   if (!contest) return <CampusEmptyState icon={Trophy} title="Contest not found" description="This contest may have ended or been removed." />;
 
   const phase = contestPhase(contest);
@@ -764,9 +833,12 @@ export function CampusContestResults({ contestId, onBack }) {
 
   return (
     <div className="max-w-2xl">
-      <CampusBackButton onClick={() => onBack(contestId)} label="Back to contest details" />
+      <CampusBreadcrumb items={[
+        { label: "Contests", onClick: onBackToList },
+        { label: contest.title, onClick: () => onBack(contestId) },
+        { label: "Results" },
+      ]} />
 
-      <p className="text-xs mb-1.5" style={{ color: CAMPUS.teal }}>{contest.title}</p>
       <h1 className="text-xl font-bold mb-6" style={{ color: CAMPUS.ink }}>Leaderboard &amp; Results</h1>
 
       {phase !== "past" ? (
@@ -853,7 +925,7 @@ export function CampusContestResults({ contestId, onBack }) {
 // `screen`/`setScreen` can be lifted by the caller (Workspace does this, so
 // Overview's "Upcoming Contests" widget can jump straight into a contest's
 // details from a different tab) or left local (Directory's own useState).
-export function CampusContestFlow({ contests, loading, screen, setScreen }) {
+export function CampusContestFlow({ contests, loading, error, onRetry, screen, setScreen }) {
   if (screen.view === "details") {
     return <CampusContestDetails contestId={screen.contestId} onBack={() => setScreen({ view: "list" })}
       onEnterAttempt={(id) => setScreen({ view: "attempt", contestId: id })}
@@ -864,7 +936,9 @@ export function CampusContestFlow({ contests, loading, screen, setScreen }) {
       onViewResults={(id) => setScreen({ view: "results", contestId: id })} />;
   }
   if (screen.view === "results") {
-    return <CampusContestResults contestId={screen.contestId} onBack={(id) => setScreen({ view: "details", contestId: id })} />;
+    return <CampusContestResults contestId={screen.contestId} onBack={(id) => setScreen({ view: "details", contestId: id })}
+      onBackToList={() => setScreen({ view: "list" })} />;
   }
-  return <CampusContestList contests={contests} loading={loading} onSelect={(id) => setScreen({ view: "details", contestId: id })} />;
+  return <CampusContestList contests={contests} loading={loading} error={error} onRetry={onRetry}
+    onSelect={(id) => setScreen({ view: "details", contestId: id })} />;
 }

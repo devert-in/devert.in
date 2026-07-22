@@ -15,10 +15,12 @@ import {
 import { useIsWindowed } from "@/components/window/is-windowed";
 import { ROADMAPS, getRoadmap } from "@/lib/roadmaps";
 import { RoadmapGrid, RoadmapPath } from "@/components/intel/roadmap-path";
+import { OpportunitiesTab } from "@/components/intel/opportunities";
 
 const INTEL_TAB_META = {
-  feed:     { breadcrumb: "dev_intelligence.feed", tagline: "Signal over noise. Curated by The Duo." },
-  roadmaps: { breadcrumb: "roadmaps.db",           tagline: "Original, DeVert-curated learning paths for the tracks builders actually ask about." },
+  feed:          { breadcrumb: "dev_intelligence.feed", tagline: "Signal over noise. Curated by The Duo." },
+  roadmaps:      { breadcrumb: "roadmaps.db",           tagline: "Original, DeVert-curated learning paths for the tracks builders actually ask about." },
+  opportunities: { breadcrumb: "opportunities.db",      tagline: "Internships, certifications, hackathons and every other opportunity worth applying to." },
 };
 
 // ── Static resource bundle definitions ──────────────────────────────────────────
@@ -264,9 +266,9 @@ function BundleCard({ bundle, resources, index }) {
 
 // ── app ──────────────────────────────────────────────────────────────────────────
 
-export function IntelApp({ initialTab }) {
+export function IntelApp({ initialTab, initialOppId }) {
   const windowed = useIsWindowed();
-  const [intelTab,  setIntelTab]  = useState(["feed", "roadmaps"].includes(initialTab) ? initialTab : "feed");
+  const [intelTab,  setIntelTab]  = useState(["feed", "roadmaps", "opportunities"].includes(initialTab) ? initialTab : "feed");
   const [activeRoadmapId, setActiveRoadmapId] = useState(null);
   const [ticker,    setTicker]    = useState([]);
   const [repos,     setRepos]     = useState([]);
@@ -315,7 +317,7 @@ export function IntelApp({ initialTab }) {
           <p className="font-mono text-sm text-white/35">{INTEL_TAB_META[intelTab].tagline}</p>
 
           <div className="flex gap-2 mt-6">
-            {[{ key: "feed", label: "Live Feed" }, { key: "roadmaps", label: "Roadmaps" }].map(t => (
+            {[{ key: "feed", label: "Live Feed" }, { key: "roadmaps", label: "Roadmaps" }, { key: "opportunities", label: "Opportunities" }].map(t => (
               <button key={t.key} onClick={() => { setIntelTab(t.key); setActiveRoadmapId(null); }}
                 className="font-mono text-xs px-4 py-2 rounded-lg transition-colors"
                 style={{
@@ -328,6 +330,12 @@ export function IntelApp({ initialTab }) {
             ))}
           </div>
         </motion.div>
+
+        {intelTab === "opportunities" && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-14">
+            <OpportunitiesTab initialOppId={initialOppId} />
+          </motion.div>
+        )}
 
         {intelTab === "roadmaps" && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-14">

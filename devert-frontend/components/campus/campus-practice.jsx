@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Send, RotateCcw, Copy, Lightbulb, CheckCircle2, CircleDot, XCircle, Monitor, Code2,
   Search, Eye, EyeOff, ChevronUp, ChevronDown, GripHorizontal, Terminal, History, PartyPopper,
-  Coins, Flame, ArrowRight, RefreshCw, Clock, MemoryStick, ListChecks, Check, Youtube,
+  Coins, Flame, ArrowRight, RefreshCw, Clock, MemoryStick, ListChecks, Check, Youtube, AlertTriangle,
 } from "lucide-react";
 
 // Fallback labels only - a problem's own solutions.brute/better/optimal.title
@@ -20,7 +20,7 @@ import {
   acceptanceRate, CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, CODELAB_LANGUAGES, STARTER_CODE,
 } from "@/lib/codelab";
 import { CAMPUS } from "@/lib/campus-theme";
-import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusSkeleton, CampusEmptyState } from "@/components/campus/campus-ui";
+import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusBreadcrumb, CampusSkeleton, CampusEmptyState, CampusButton } from "@/components/campus/campus-ui";
 
 // Native, light-themed port of components/codelab/problem-view.jsx for
 // DeVert Campus - reuses lib/codelab.js's run/submit/fetch functions verbatim
@@ -104,6 +104,7 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
   const { user } = useAuth();
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [categoryState, setCategoryState] = useState(initialCategory || "All");
   const [difficultyState, setDifficultyState] = useState("All");
   const [search, setSearch] = useState("");
@@ -112,9 +113,11 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
   const category = controlledCategory ?? categoryState;
   const difficulty = controlledDifficulty ?? difficultyState;
 
-  useEffect(() => {
-    fetchPublishedProblems().then(setProblems).catch(console.error).finally(() => setLoading(false));
-  }, []);
+  const loadProblems = () => {
+    setLoading(true); setError(false);
+    fetchPublishedProblems().then(setProblems).catch(() => setError(true)).finally(() => setLoading(false));
+  };
+  useEffect(loadProblems, []);
 
   useEffect(() => {
     if (!user) { setSolvedIds(new Set()); setAttemptedIds(new Set()); return; }
@@ -165,6 +168,10 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
               </CampusCard>
             ))}
           </div>
+        ) : error ? (
+          <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load problems"
+            description="Check your connection and try again."
+            action={<CampusButton variant="secondary" size="sm" onClick={loadProblems}>Retry</CampusButton>} />
         ) : filtered.length === 0 ? (
           <CampusEmptyState icon={Code2} title="No problems match" description="Try a different category or difficulty." />
         ) : (
@@ -577,13 +584,14 @@ function CodeLabFailDialog({ verdict, onViewFailed, onRetry }) {
   );
 }
 
-export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
+export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabel = "Problems" }) {
   const { user } = useAuth();
 
   const [problem, setProblem] = useState(null);
   const [sampleTests, setSampleTests] = useState([]);
   const [solved, setSolved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [allProblems, setAllProblems] = useState([]);
 
   const [language, setLanguage] = useState("java");
@@ -632,13 +640,15 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   }, []);
 
-  useEffect(() => {
+  const loadProblem = () => {
     if (!problemId) { setLoading(false); return; }
+    setLoading(true); setFetchError(false);
     Promise.all([fetchProblem(problemId), fetchSampleTests(problemId)])
       .then(([p, tests]) => { setProblem(p); setSampleTests(tests); })
-      .catch(console.error)
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
-  }, [problemId]);
+  };
+  useEffect(loadProblem, [problemId]);
 
   useEffect(() => {
     if (!user || !problemId) return;
@@ -758,13 +768,26 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem }) {
       </div>
     );
   }
-  if (!problem) return <CampusEmptyState icon={Code2} title="Problem not found" description="This problem may have been unpublished or removed." />;
+  if (!problem) {
+    return (
+      <div>
+        <CampusBackButton onClick={onBack} label={backLabel} />
+        {fetchError ? (
+          <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load this problem"
+            description="Check your connection and try again."
+            action={<CampusButton variant="secondary" size="sm" onClick={loadProblem}>Retry</CampusButton>} />
+        ) : (
+          <CampusEmptyState icon={Code2} title="Problem not found" description="This problem may have been unpublished or removed." />
+        )}
+      </div>
+    );
+  }
 
   const rate = acceptanceRate(problem);
 
   return (
     <div>
-      <CampusBackButton onClick={onBack} />
+      <CampusBreadcrumb items={[{ label: backLabel, onClick: onBack }, { label: problem.title }]} />
 
       <div ref={splitContainerRef} className="flex flex-col lg:flex-row items-start lg:items-stretch gap-5 lg:gap-0">
         {/* Statement */}

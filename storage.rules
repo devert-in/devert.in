@@ -64,5 +64,25 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.auth.token.get('admin', false) == true;
     }
+
+    // Campus branding (banner/logo) - public read, owner-uid writes (same
+    // proven pattern as avatars/projects/portfolio_covers above), max 5MB,
+    // images only. A cross-service firestore.exists() check against
+    // institutions/{institutionId}/admins/{uid} was tried here first (to
+    // verify institution-admin status directly in the Storage rule) but
+    // didn't evaluate reliably in practice, so real authorization is
+    // enforced where it already reliably works: updateCampusBranding()'s
+    // Firestore write to institutions/{id}.bannerUrl is isInstitutionAdmin()-
+    // gated (see firestore.rules) - an uploaded file that never gets pointed
+    // to by that field is just an orphaned unused object, never a displayed
+    // banner, so this path only needs to stop cross-user tampering, not
+    // prove admin-ness on its own.
+    match /institution_branding/{institutionId}/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
   }
 }

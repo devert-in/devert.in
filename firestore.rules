@@ -34,12 +34,69 @@ service cloud.firestore {
     // but against a Firestore membership doc instead of a custom claim (claims are
     // a single global flag on this project - not tenant-scoped, so institution
     // admins can't reuse that mechanism). See institutions/{institutionId} below.
+    // institutionId != '' guards against a malformed institutions//admins/{uid}
+    // path (Firestore throws an evaluation error, not a clean false, for an
+    // empty path segment) - removeStudentFromInstitution's users/{uid} write
+    // clears institutionId to '' as part of ending membership, and the
+    // users/{uid} rule below calls isInstitutionAdmin(request.resource.data.institutionId)
+    // on whatever value is being written, so this must fail closed on empty
+    // input rather than crash the whole write.
     function isInstitutionAdmin(institutionId) {
-      return isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/admins/$(request.auth.uid));
+      return institutionId != '' && isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/admins/$(request.auth.uid));
     }
     function isApprovedStudent(institutionId) {
       return isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid))
         && get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    // Resolves which institution (if any) a student uid belongs to, purely
+    // from the denormalized users/{uid}.institutionId field. Returns '' (never
+    // matches a real institutionId, so isInstitutionAdmin('') is false) if the
+    // user doc doesn't exist - fails closed, not open.
+    function studentInstitutionId(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        ? get(/databases/$(database)/documents/users/$(uid)).data.get('institutionId', '')
+        : '';
+    }
+    // Lets a campus admin be granted READ (never write) access to one
+    // student's per-user docs in collections that are global, not nested
+    // under institutions/{id} (Programming/CS Core progress, CodeLab progress
+    // and submissions, Company Prep progress) for the Student Analytics
+    // Dashboard. Deliberately does NOT trust studentInstitutionId(uid) alone -
+    // users/{uid}.institutionId is writable by ANY institution admin (see
+    // that match block's institution-admin branch), with no check there that
+    // a real approved roster entry backs it, so trusting it here alone would
+    // let an institution admin self-grant read access to an arbitrary
+    // uninvolved user's progress by simply writing that user's own
+    // institutionId to their own institution. Requiring the actual
+    // institutions/{institutionId}/students/{uid} doc to exist AND still be on
+    // the roster (approved OR suspended - same "still admin-manageable, just
+    // not currently active" scope as fetchRosterStudents in lib/institutions.js;
+    // a suspended student's whole point is staying reviewable so the admin can
+    // decide whether to reactivate, so the Student Analytics Dashboard must
+    // still work for them) closes that gap: the only way this doc exists in
+    // one of those two states is through approveStudent()/suspendStudent()/
+    // bulkAssignByRollNumber(), which are themselves already
+    // institution-admin-gated writes tied to a real self-submitted join
+    // request - 'pending'/'rejected' students, and removed ones (no doc at
+    // all), don't qualify.
+    function isAdminOfStudent(uid) {
+      return studentInstitutionId(uid) != ''
+        && isInstitutionAdmin(studentInstitutionId(uid))
+        && exists(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid))
+        && get(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid)).data.status in ['approved', 'suspended'];
+    }
+
+    // Campus Entry's canonical academic fields - must exactly mirror
+    // DEPARTMENTS/YEARS in lib/institutions.js (no shared source between a
+    // rules file and client JS is possible, same manual-sync constraint the
+    // CAMPUS_BRANDING_FIELDS allow-list already lives with elsewhere in this
+    // file). Section isn't an enum - just one uppercase letter.
+    function isValidDepartment(v) {
+      return v in ['CSE(AI&ML)', 'CSE(DS)', 'CSE(CS)', 'CSE', 'CSE(IT)', 'MECH', 'AERO', 'ECE', 'EEE', 'CIVIL'];
+    }
+    function isValidYear(v) {
+      return v in ['I Year', 'II Year', 'III Year', 'IV Year'];
     }
 
     // Institution-scoped contests (see contests/{contestId} below) are plain
@@ -61,8 +118,17 @@ service cloud.firestore {
     // must all pass through this, or a private college contest's questions,
     // answer keys, and other students' scores end up readable by anyone
     // with a DeVert account, not just that college's own approved roster.
+    // A narrower punishment than suspendStudent() (which blocks the whole
+    // workspace) - a student flagged contestRestricted (e.g. for cheating in
+    // a contest) keeps daily learning/DSA/company vault access but can't
+    // register for or read any more contests at that institution.
+    function isContestRestricted(institutionId) {
+      return isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid))
+        && get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid)).data.get('contestRestricted', false) == true;
+    }
     function isApprovedForContest(contestId) {
-      return contestInstitutionId(contestId) == '' || isApprovedStudent(contestInstitutionId(contestId));
+      return contestInstitutionId(contestId) == ''
+        || (isApprovedStudent(contestInstitutionId(contestId)) && !isContestRestricted(contestInstitutionId(contestId)));
     }
 
     // A single write may never move a user's own XP or credits by more than
@@ -104,9 +170,18 @@ service cloud.firestore {
           'totalLikesReceived', 'totalCommentsReceived', 'totalSavesReceived', 'totalSharesReceived',
           'totalViewsReceived', 'totalRepostsReceived', 'totalRepostsMade', 'profileViews',
         ]))
+        // Checks isInstitutionAdmin against BOTH the new institutionId being
+        // written AND the old one already on the doc - approveStudent needs
+        // the former (new value "mrcet", old "" for a first-time approval),
+        // but removeStudentFromInstitution needs the LATTER: it clears
+        // institutionId to "", and isInstitutionAdmin("") is always false by
+        // design (see that function), so without also checking the old value
+        // a removal could never satisfy this branch at all - the admin doing
+        // the removing administers the institution the student is LEAVING,
+        // not any institution the (now blank) new value could name.
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
           ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName']
-        ) && isInstitutionAdmin(request.resource.data.institutionId));
+        ) && (isInstitutionAdmin(request.resource.data.institutionId) || isInstitutionAdmin(resource.data.get('institutionId', ''))));
       allow delete: if isAdmin();
     }
 
@@ -216,6 +291,24 @@ service cloud.firestore {
     match /intel_jobs/{docId} {
       allow read:  if true;
       allow write: if isAdmin();
+    }
+
+    // Intel - Opportunities feed (internships, certifications, hackathons,
+    // scholarships, etc.) - global, admin-authored, same status-gated shape
+    // as problems/programmingLanguages above. IMPORTANT: any client list()
+    // query against this collection for non-admins MUST include a matching
+    // where("status","==","published") filter - see lib/programming.js's
+    // fetchLanguages comment for why an unfiltered query + client-side
+    // filtering silently fails with permission-denied for every real user.
+    match /opportunities/{oppId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Per-user saved/bookmarked opportunities - same shape as pulse_saves
+    // (one doc per uid, a flat `saved` array of opportunity ids).
+    match /opportunity_saves/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
     // Hackathons - public read, admin writes
@@ -666,22 +759,71 @@ service cloud.firestore {
     }
 
     match /codelab_submissions/{submissionId} {
-      allow read:  if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow read:  if isAuth() && (resource.data.uid == request.auth.uid || isAdmin() || isAdminOfStudent(resource.data.uid));
       allow write: if isAdmin();
     }
 
-    // Per-user CodeLab progress - owner or admin only. Written by devert-backend's
-    // admin SDK after each graded submission; the owner-write path exists only so
-    // future client-side preference writes (if any) have somewhere sane to land.
+    // Per-user CodeLab progress - owner, platform admin, or that student's own
+    // campus admin (read-only) may read; only the owner or a platform admin
+    // may write. Written by devert-backend's admin SDK after each graded
+    // submission; the owner-write path exists only so future client-side
+    // preference writes (if any) have somewhere sane to land.
     match /user_codelab_progress/{uid} {
-      allow read, write: if isOwner(uid) || isAdmin();
+      allow read:  if isOwner(uid) || isAdmin() || isAdminOfStudent(uid);
+      allow write: if isOwner(uid) || isAdmin();
     }
 
     // Per-user Company Prep progress (solved/bookmarked question ids, flat
     // maps keyed by questionId - same shape as user_codelab_progress's
-    // solvedProblems) - owner or admin only.
+    // solvedProblems) - same owner/platform-admin/campus-admin-read shape.
     match /user_companyPrep/{uid} {
-      allow read, write: if isOwner(uid) || isAdmin();
+      allow read:  if isOwner(uid) || isAdmin() || isAdminOfStudent(uid);
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // Programming module - a GLOBAL language/topic catalog (like problems/
+    // companies above), not per-institution: a language's curriculum is the
+    // same for every college, authored once by platform admins via /admin,
+    // not each Training & Placement Cell. Published languages/topics are
+    // publicly readable (including unauthenticated, matching the
+    // problems/companies precedent); drafts are admin-only so in-progress
+    // authoring never leaks.
+    match /programmingLanguages/{langId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+
+      match /topics/{topicId} {
+        allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    // Per-user Programming progress - one doc per (uid, langId), same
+    // owner-writes-their-own-record trust boundary as user_codelab_progress/
+    // dailyLearningLog: self-reported completion, bounded to this user's own
+    // doc id, XP/coins awarded client-side the same way Daily Learning's
+    // submitDayCompletion() already does (see lib/programming.js).
+    match /programming_progress/{progressId} {
+      allow read:  if isAuth() && (progressId.split('_')[0] == request.auth.uid || isAdminOfStudent(progressId.split('_')[0]));
+      allow write: if isAuth() && progressId.split('_')[0] == request.auth.uid;
+    }
+
+    // CS Core - identical shape/authority to programmingLanguages above
+    // (global, admin-authored subject/topic catalog - OS, DBMS, Networks,
+    // etc. are the same for every institution, not per-campus content).
+    match /csCoreSubjects/{subjectId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+
+      match /topics/{topicId} {
+        allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    match /cscore_progress/{progressId} {
+      allow read:  if isAuth() && (progressId.split('_')[0] == request.auth.uid || isAdminOfStudent(progressId.split('_')[0]));
+      allow write: if isAuth() && progressId.split('_')[0] == request.auth.uid;
     }
 
     // DeVert Campus - each institution (college) is its own tenant, isolated from
@@ -702,7 +844,18 @@ service cloud.firestore {
       // Verification form the client shows, not a rules-level block.
       allow read: if resource.data.get('accessMode', 'public') != 'private'
         || isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
-      allow create, update, delete: if isAdmin();
+      // Institution admins (Training & Placement Cell) may self-serve edit
+      // their own campus's public branding - name/shortName/description/
+      // tagline/banner/logo/accent color - but nothing else on this doc (accessMode,
+      // status, studentCount, contact info, etc. stay platform-isAdmin()-only).
+      // affectedKeys().hasOnly(...) makes this atomic: a write that touches
+      // even one field outside the allow-list is rejected outright, not
+      // partially applied.
+      allow update: if isAdmin()
+        || (isInstitutionAdmin(institutionId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['name', 'shortName', 'description', 'tagline', 'bannerUrl', 'logoUrl', 'heroAccentColor']));
+      allow create, delete: if isAdmin();
 
       // Institution-admin membership (placement officer / faculty / dept admin /
       // TPC). Grantable only by platform isAdmin() for now.
@@ -724,17 +877,26 @@ service cloud.firestore {
         // accepted for every access mode now - "invite_only" no longer blocks
         // this at the rules level. The distinction lives entirely in the
         // client: "public" shows the full JoinForm, "invite_only" shows the
-        // simplified 2-field Campus Identity Verification form (name +
-        // rollNumber only - see CampusIdentityForm). Either way this is
-        // still just a pending request; that institution's own admin (or
+        // simplified Campus Identity Verification form (name + roll number +
+        // department/year/section - see CampusIdentityForm). Either way this
+        // is still just a pending request; that institution's own admin (or
         // platform isAdmin()) reviews and approves it exactly as before.
         // "private" doesn't need its own check here - the
         // institutions/{institutionId} read rule above already makes a
         // private institution invisible before a student could even reach a
-        // join button.
+        // join button. Department/year/section are enum/shape-validated here
+        // (isValidDepartment/isValidYear above, section a single uppercase
+        // letter) so a self-serve submission can't smuggle in a value the
+        // canonical dropdowns never offered - this is the one enforcement
+        // point, since JoinForm/CampusIdentityForm are the only client paths
+        // that hit this branch (isInstitutionAdmin()/isAdmin() below stay
+        // unrestricted, same as every other admin-authored field elsewhere).
         allow create: if (isOwner(uid)
             && request.resource.data.uid == uid
-            && request.resource.data.status == 'pending')
+            && request.resource.data.status == 'pending'
+            && isValidDepartment(request.resource.data.get('department', ''))
+            && isValidYear(request.resource.data.get('year', ''))
+            && request.resource.data.get('section', '').matches('^[A-Z]$'))
           || isInstitutionAdmin(institutionId) || isAdmin();
         // Update stays admin-only (institution admin or platform admin) -
         // this is also what enforces the Roll Number Lock: a student can
@@ -759,6 +921,20 @@ service cloud.firestore {
           (request.resource.data.uid == request.auth.uid || isInstitutionAdmin(institutionId) || isAdmin());
         allow delete: if isAuth() &&
           ((resource.data != null && resource.data.uid == request.auth.uid) || isInstitutionAdmin(institutionId) || isAdmin());
+      }
+
+      // Pure identity metadata (department/year/section/createdAt) for one
+      // Department+Year+Section combination - never a place statistics get
+      // denormalized (see ensureClassroom's comment in lib/institutions.js
+      // for why: no Cloud Functions in this project means nothing would keep
+      // a stored count/average in sync). Auto-created by ensureClassroom()
+      // from approveStudent/bulkAssignByRollNumber, both already
+      // institution-admin-gated - students never write here directly, only
+      // read their own classroom's metadata (name shown in the UI, e.g.
+      // "III Year - CSE(AI&ML) - A").
+      match /classrooms/{classroomId} {
+        allow read: if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        allow create, update: if isInstitutionAdmin(institutionId) || isAdmin();
       }
 
       // Admin-authored content, visible only to that institution's own approved

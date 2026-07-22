@@ -11,7 +11,7 @@ import {
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
-  Briefcase,
+  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy,
 } from "lucide-react";
 import {
   db, auth
@@ -32,6 +32,21 @@ import {
   downloadCompanyQuestionCsvTemplate, csvRowsToCompanyQuestions,
 } from "@/lib/companyPrep";
 import { ACCESS_MODES, createInstitution, updateInstitution, addInstitutionAdmin } from "@/lib/institutions";
+import {
+  fetchLanguages, saveLanguage, deleteLanguage, fetchTopics, saveTopic, deleteTopic,
+  PROGRAMMING_DIFFICULTIES,
+} from "@/lib/programming";
+import {
+  fetchSubjects, saveSubject, deleteSubject, fetchTopics as fetchCsCoreTopics,
+  saveTopic as saveCsCoreTopic, deleteTopic as deleteCsCoreTopic, CS_CORE_DIFFICULTIES,
+} from "@/lib/csCore";
+import {
+  fetchOpportunities, saveOpportunity, deleteOpportunity, notifyNewOpportunity,
+  OPPORTUNITY_TYPES, WORK_MODES, DIFFICULTIES as OPP_DIFFICULTIES,
+} from "@/lib/opportunities";
+import { StringListField } from "@/components/campus/campus-daily-learning-editor";
+import { LanguageLogo } from "@/components/campus/language-logo";
+import { subjectIcon } from "@/components/campus/campus-cscore";
 import {
   collection, query, orderBy, where, getDocs, addDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch
@@ -1174,6 +1189,204 @@ function LogsPanel() {
 // ── Intel panel ───────────────────────────────────────────────────────────────
 
 const SIGNAL_OPTS = ["HIGH", "MED", "LOW"];
+
+function blankOpportunityForm() {
+  return {
+    title: "", shortDescription: "", detailedDescription: "",
+    organizationName: "", organizationLogoUrl: "", bannerUrl: "", type: OPPORTUNITY_TYPES[0],
+    registrationUrl: "", officialWebsite: "", sourceUrl: "",
+    registrationDeadline: "", eventStart: "", eventEnd: "", resultDate: "",
+    eligibility: { degree: "", yearOfStudy: "", branches: [], minCgpa: "", backlogCriteria: "", skillsRequired: [], country: "", collegeRestrictions: "" },
+    details: { rewards: "", stipend: "", salary: "", certificate: false, ppoAvailable: false, workMode: "Remote", teamSize: "", difficulty: OPP_DIFFICULTIES[0], estimatedTime: "" },
+    tags: [], featured: false, status: "draft",
+  };
+}
+
+function OpportunitiesPanel() {
+  const [opportunities, setOpportunities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState(blankOpportunityForm());
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    fetchOpportunities({ includeUnpublished: true }).then(setOpportunities).catch(console.error).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const startEdit = (o) => {
+    setEditingId(o.id);
+    setForm({ ...blankOpportunityForm(), ...o, eligibility: { ...blankOpportunityForm().eligibility, ...o.eligibility }, details: { ...blankOpportunityForm().details, ...o.details } });
+    setAdding(false);
+  };
+  const startAdd = () => { setAdding(true); setEditingId(null); setForm(blankOpportunityForm()); };
+
+  const handleSave = async (publishAndNotify = false) => {
+    if (!form.title.trim() || !form.registrationUrl.trim()) return;
+    setSaving(true);
+    try {
+      const id = editingId || form.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const wasPublished = opportunities.find(o => o.id === id)?.status === "published";
+      const data = { ...form, status: publishAndNotify ? "published" : form.status };
+      await saveOpportunity(id, data);
+      if (publishAndNotify && !wasPublished) await notifyNewOpportunity({ ...data, id });
+      setEditingId(null); setAdding(false); setForm(blankOpportunityForm());
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this opportunity?")) return;
+    await deleteOpportunity(id);
+    load();
+  };
+
+  const handleDuplicate = (o) => {
+    setAdding(true); setEditingId(null);
+    setForm({ ...blankOpportunityForm(), ...o, title: o.title + " (copy)", status: "draft" });
+  };
+
+  return (
+    <div className="space-y-4">
+      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
+        style={{ background: "rgba(0,255,65,0.08)", color: "#00FF41", border: "1px solid rgba(0,255,65,0.25)" }}>
+        <Plus size={12} /> Add Opportunity
+      </button>
+
+      {(adding || editingId) && (
+        <div className="p-3 rounded space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <p className="font-mono text-[10px] text-white/40 tracking-widest">BASIC INFORMATION</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="GeeksforGeeks x MongoDB Campus Mantri - Level 2" />
+            <Input label="ORGANIZATION NAME" value={form.organizationName} onChange={v => setForm(p => ({ ...p, organizationName: v }))} placeholder="GeeksforGeeks" />
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">TYPE</p>
+              <Dropdown value={form.type} onChange={v => setForm(p => ({ ...p, type: v }))} options={OPPORTUNITY_TYPES} className="w-full" />
+            </div>
+            <Input label="ORGANIZATION LOGO URL" value={form.organizationLogoUrl} onChange={v => setForm(p => ({ ...p, organizationLogoUrl: v }))} placeholder="https://..." />
+            <Input label="BANNER IMAGE URL" value={form.bannerUrl} onChange={v => setForm(p => ({ ...p, bannerUrl: v }))} placeholder="https://..." />
+          </div>
+          <Textarea label="SHORT DESCRIPTION (shown on the card)" value={form.shortDescription} onChange={v => setForm(p => ({ ...p, shortDescription: v }))} rows={2} />
+          <Textarea label="DETAILED DESCRIPTION (shown on the detail page)" value={form.detailedDescription} onChange={v => setForm(p => ({ ...p, detailedDescription: v }))} rows={4} />
+
+          <p className="font-mono text-[10px] text-white/40 tracking-widest pt-2">LINKS</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="REGISTRATION URL (Apply Now)" value={form.registrationUrl} onChange={v => setForm(p => ({ ...p, registrationUrl: v }))} placeholder="https://gfgcdn.com/tu/10jJ/" />
+            <Input label="OFFICIAL WEBSITE" value={form.officialWebsite} onChange={v => setForm(p => ({ ...p, officialWebsite: v }))} placeholder="https://..." />
+          </div>
+
+          <p className="font-mono text-[10px] text-white/40 tracking-widest pt-2">TIMELINE</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="REGISTRATION DEADLINE" type="datetime-local" value={form.registrationDeadline} onChange={v => setForm(p => ({ ...p, registrationDeadline: v }))} />
+            <Input label="EVENT START (optional)" type="datetime-local" value={form.eventStart} onChange={v => setForm(p => ({ ...p, eventStart: v }))} />
+          </div>
+
+          <p className="font-mono text-[10px] text-white/40 tracking-widest pt-2">ELIGIBILITY</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="DEGREE" value={form.eligibility.degree} onChange={v => setForm(p => ({ ...p, eligibility: { ...p.eligibility, degree: v } }))} placeholder="B.Tech / BE" />
+            <Input label="YEAR OF STUDY" value={form.eligibility.yearOfStudy} onChange={v => setForm(p => ({ ...p, eligibility: { ...p.eligibility, yearOfStudy: v } }))} placeholder="2nd, 3rd, 4th year" />
+            <Input label="MIN CGPA" value={form.eligibility.minCgpa} onChange={v => setForm(p => ({ ...p, eligibility: { ...p.eligibility, minCgpa: v } }))} />
+            <Input label="COUNTRY" value={form.eligibility.country} onChange={v => setForm(p => ({ ...p, eligibility: { ...p.eligibility, country: v } }))} placeholder="India" />
+          </div>
+          <StringListField label="BRANCHES" items={form.eligibility.branches} onChange={v => setForm(p => ({ ...p, eligibility: { ...p.eligibility, branches: v } }))} />
+          <StringListField label="SKILLS REQUIRED" items={form.eligibility.skillsRequired} onChange={v => setForm(p => ({ ...p, eligibility: { ...p.eligibility, skillsRequired: v } }))} />
+
+          <p className="font-mono text-[10px] text-white/40 tracking-widest pt-2">ADDITIONAL DETAILS</p>
+          <div className="grid grid-cols-3 gap-2.5">
+            <Input label="STIPEND" value={form.details.stipend} onChange={v => setForm(p => ({ ...p, details: { ...p.details, stipend: v } }))} />
+            <Input label="SALARY" value={form.details.salary} onChange={v => setForm(p => ({ ...p, details: { ...p.details, salary: v } }))} />
+            <Input label="REWARDS" value={form.details.rewards} onChange={v => setForm(p => ({ ...p, details: { ...p.details, rewards: v } }))} />
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">WORK MODE</p>
+              <Dropdown value={form.details.workMode} onChange={v => setForm(p => ({ ...p, details: { ...p.details, workMode: v } }))} options={WORK_MODES} className="w-full" />
+            </div>
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
+              <Dropdown value={form.details.difficulty} onChange={v => setForm(p => ({ ...p, details: { ...p.details, difficulty: v } }))} options={OPP_DIFFICULTIES} className="w-full" />
+            </div>
+            <Input label="ESTIMATED TIME" value={form.details.estimatedTime} onChange={v => setForm(p => ({ ...p, details: { ...p.details, estimatedTime: v } }))} />
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-1.5 font-mono text-[11px] text-white/50">
+              <input type="checkbox" checked={form.details.certificate} onChange={e => setForm(p => ({ ...p, details: { ...p.details, certificate: e.target.checked } }))} /> Certificate provided
+            </label>
+            <label className="flex items-center gap-1.5 font-mono text-[11px] text-white/50">
+              <input type="checkbox" checked={form.details.ppoAvailable} onChange={e => setForm(p => ({ ...p, details: { ...p.details, ppoAvailable: e.target.checked } }))} /> PPO available
+            </label>
+          </div>
+
+          <StringListField label="TAGS" items={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="MongoDB, Backend, Database" />
+
+          <div className="flex items-center gap-4 pt-2">
+            <label className="flex items-center gap-1.5 font-mono text-[11px] text-white/50">
+              <input type="checkbox" checked={form.featured} onChange={e => setForm(p => ({ ...p, featured: e.target.checked }))} /> Featured (pinned + highlighted)
+            </label>
+            <div className="flex items-center gap-2">
+              <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
+              <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-36" />
+            </div>
+          </div>
+          <p className="font-mono text-[10px] text-white/20">Note: no push/email notification pipeline exists yet - "Publish &amp; Notify" sends an in-app notification only.</p>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => handleSave(false)} disabled={saving || !form.title.trim() || !form.registrationUrl.trim()}
+              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "rgba(255,255,255,0.08)", color: "white" }}>
+              {saving ? "Saving..." : "Save as Draft"}
+            </button>
+            <button onClick={() => handleSave(true)} disabled={saving || !form.title.trim() || !form.registrationUrl.trim()}
+              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
+              {saving ? "Saving..." : "Publish & Notify"}
+            </button>
+            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="font-mono text-xs text-white/30">Loading...</p>
+      ) : opportunities.length === 0 ? (
+        <p className="font-mono text-xs text-white/30">No opportunities yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {opportunities.map(o => (
+            <div key={o.id} className="flex items-center gap-3 p-3 rounded flex-wrap"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <b className="font-mono text-xs text-white/80">{o.title}</b>
+                  {o.featured && <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,215,0,0.1)", color: "#FFD700" }}>FEATURED</span>}
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                    style={{ background: o.status === "published" ? "rgba(0,255,65,0.1)" : o.status === "archived" ? "rgba(255,80,80,0.1)" : "rgba(255,255,255,0.08)",
+                      color: o.status === "published" ? "#00FF41" : o.status === "archived" ? "#FF5050" : "rgba(255,255,255,0.4)" }}>
+                    {o.status?.toUpperCase() || "DRAFT"}
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] text-white/30">{o.organizationName} · {o.type} · {o.views || 0} views · {o.applyClicks || 0} apply-clicks · {o.saveCount || 0} saves</span>
+              </div>
+              <button onClick={() => handleDuplicate(o)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#00FFFF" }}>
+                <Copy size={11} /> Duplicate
+              </button>
+              <button onClick={() => startEdit(o)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FFD700" }}>
+                <Pencil size={11} /> Edit
+              </button>
+              <button onClick={() => handleDelete(o.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FF5050" }}>
+                <Trash2 size={11} /> Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function IntelPanel() {
   const [ticker,     setTicker]     = useState([]);
@@ -2880,6 +3093,571 @@ async function deleteCompanyCascade(companyId) {
   const roundSnap = await getDocs(collection(db, "companies", companyId, "rounds"));
   await Promise.all(roundSnap.docs.map(r => deleteCompanyRoundCascade(companyId, r.id)));
   await deleteDoc(doc(db, "companies", companyId));
+}
+
+function blankLanguageForm() {
+  return {
+    name: "", difficulty: "Beginner", estimatedDuration: "", order: 0,
+    placementRelevance: "", industryUsage: "", status: "draft",
+  };
+}
+
+function ProgrammingLanguagesPanel() {
+  const [languages, setLanguages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(blankLanguageForm());
+  const [adding, setAdding] = useState(false);
+  const [managingTopicsFor, setManagingTopicsFor] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    fetchLanguages({ includeUnpublished: true }).then(setLanguages).catch(console.error).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const startEdit = (lang) => { setEditingId(lang.id); setForm({ ...blankLanguageForm(), ...lang }); setAdding(false); };
+  const startAdd = () => { setAdding(true); setEditingId(null); setForm(blankLanguageForm()); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      const id = editingId || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      await saveLanguage(id, form);
+      setEditingId(null); setAdding(false); setForm(blankLanguageForm());
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this language and all of its topics? This can't be undone.")) return;
+    await deleteLanguage(id);
+    load();
+  };
+
+  if (managingTopicsFor) {
+    const lang = languages.find(l => l.id === managingTopicsFor);
+    return <ProgrammingTopicsPanel langId={managingTopicsFor} langName={lang?.name} onBack={() => setManagingTopicsFor(null)} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
+        style={{ background: "rgba(0,255,255,0.08)", color: "#00FFFF", border: "1px solid rgba(0,255,255,0.25)" }}>
+        <Plus size={12} /> Add Language
+      </button>
+
+      {(adding || editingId) && (
+        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Java" />
+          <p className="font-mono text-[10px] text-white/30 -mt-1.5">Icon is picked automatically from the name - no emoji, matches the rest of the app.</p>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
+              <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={PROGRAMMING_DIFFICULTIES} className="w-full" />
+            </div>
+            <Input label="ESTIMATED DURATION" value={form.estimatedDuration} onChange={v => setForm(p => ({ ...p, estimatedDuration: v }))} placeholder="8-10 weeks" />
+            <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: Number(v) || 0 }))} />
+          </div>
+          <Textarea label="PLACEMENT RELEVANCE" value={form.placementRelevance} onChange={v => setForm(p => ({ ...p, placementRelevance: v }))}
+            placeholder="Most-asked language in service company interviews (TCS, Infosys, Wipro, Accenture)." rows={2} />
+          <Textarea label="INDUSTRY USAGE" value={form.industryUsage} onChange={v => setForm(p => ({ ...p, industryUsage: v }))}
+            placeholder="Enterprise backend systems, Android development, banking software." rows={2} />
+          <div className="flex items-center gap-3">
+            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
+            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-40" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving || !form.name.trim()}
+              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="font-mono text-xs text-white/30">Loading...</p>
+      ) : languages.length === 0 ? (
+        <p className="font-mono text-xs text-white/30">No languages yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {languages.map(lang => {
+            return (
+            <div key={lang.id} className="flex items-center gap-3 p-3 rounded flex-wrap"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <LanguageLogo name={lang.name} size={18} className="flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <b className="font-mono text-xs text-white/80">{lang.name}</b>
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                    style={{ background: lang.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: lang.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
+                    {lang.status?.toUpperCase() || "DRAFT"}
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] text-white/30">{lang.difficulty} · {lang.estimatedDuration} · {lang.topicCount || 0} topics</span>
+              </div>
+              <button onClick={() => setManagingTopicsFor(lang.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1 rounded" style={{ color: "#00FFFF" }}>
+                <Layers size={11} /> Topics
+              </button>
+              <button onClick={() => startEdit(lang)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FFD700" }}>
+                <Pencil size={11} /> Edit
+              </button>
+              <button onClick={() => handleDelete(lang.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FF5050" }}>
+                <Trash2 size={11} /> Delete
+              </button>
+            </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function blankProgrammingTopicForm() {
+  return {
+    title: "", module: "", order: 0, status: "draft",
+    difficulty: "Beginner", estimatedMinutes: 20,
+    whatYoullLearn: [], prerequisites: [], concept: "", keyPoints: [],
+    commonMistakes: [], interviewTips: [], realWorldApplications: [],
+    codeExample: { language: "java", code: "" },
+    assignment: "", xpReward: 25, coinReward: 10,
+    practiceProblemIds: [],
+  };
+}
+
+function ProgrammingTopicsPanel({ langId, langName, onBack }) {
+  const [topics, setTopics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState(blankProgrammingTopicForm());
+  const [saving, setSaving] = useState(false);
+  const [practiceIdsText, setPracticeIdsText] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    fetchTopics(langId, { includeUnpublished: true }).then(setTopics).catch(console.error).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [langId]);
+
+  const startEdit = (t) => {
+    setEditingId(t.id);
+    setForm({ ...blankProgrammingTopicForm(), ...t });
+    setPracticeIdsText((t.practiceProblemIds || []).join(", "));
+    setAdding(false);
+  };
+  const startAdd = () => { setAdding(true); setEditingId(null); setForm(blankProgrammingTopicForm()); setPracticeIdsText(""); };
+
+  const handleSave = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      const id = editingId || form.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const practiceProblemIds = practiceIdsText.split(",").map(s => s.trim()).filter(Boolean);
+      await saveTopic(langId, id, { ...form, practiceProblemIds });
+      // Keep the language doc's topicCount denormalized so the landing grid's
+      // progress bar never needs an N-topic subcollection read per language.
+      await saveLanguage(langId, { topicCount: (await fetchTopics(langId, { includeUnpublished: true })).length });
+      setEditingId(null); setAdding(false); setForm(blankProgrammingTopicForm());
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this topic?")) return;
+    await deleteTopic(langId, id);
+    await saveLanguage(langId, { topicCount: Math.max(0, (topics.length - 1)) });
+    load();
+  };
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="font-mono text-xs text-white/40">&larr; Back to Languages</button>
+      <h4 className="font-mono text-sm" style={{ color: "#00FFFF" }}>{langName} - Topics ({topics.length})</h4>
+
+      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
+        style={{ background: "rgba(0,255,255,0.08)", color: "#00FFFF", border: "1px solid rgba(0,255,255,0.25)" }}>
+        <Plus size={12} /> Add Topic
+      </button>
+
+      {(adding || editingId) && (
+        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Arrays" />
+            <Input label="MODULE (groups topics in the roadmap tree)" value={form.module} onChange={v => setForm(p => ({ ...p, module: v }))} placeholder="Fundamentals" />
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: Number(v) || 0 }))} />
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
+              <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={PROGRAMMING_DIFFICULTIES} className="w-full" />
+            </div>
+            <Input label="EST. MINUTES" type="number" value={form.estimatedMinutes} onChange={v => setForm(p => ({ ...p, estimatedMinutes: Number(v) || 0 }))} />
+          </div>
+          <div className="flex items-center gap-3">
+            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS (published = visible in roadmap; content below can still be empty = shows "coming soon")</p>
+            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-40" />
+          </div>
+
+          <StringListField label="WHAT YOU'LL LEARN" items={form.whatYoullLearn} onChange={v => setForm(p => ({ ...p, whatYoullLearn: v }))} placeholder="How arrays store elements in contiguous memory" />
+          <StringListField label="PREREQUISITES" items={form.prerequisites} onChange={v => setForm(p => ({ ...p, prerequisites: v }))} placeholder="Variables & Data Types" />
+          <Textarea label="CONCEPT / LEARNING MATERIAL" value={form.concept} onChange={v => setForm(p => ({ ...p, concept: v }))} rows={6}
+            placeholder="Explain the concept in prose. Indented lines render as code blocks, '- ' lines render as a bulleted list." />
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">CODE EXAMPLE LANGUAGE</p>
+              <Dropdown value={form.codeExample?.language || "java"} onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, language: v } }))}
+                options={CODELAB_LANGUAGES.map(l => l.id)} className="w-full" />
+            </div>
+          </div>
+          <Textarea label="CODE EXAMPLE" value={form.codeExample?.code || ""} onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, code: v } }))} rows={5} />
+          <Textarea label="EXPECTED OUTPUT (shown if live Run is ever unavailable - optional but recommended)"
+            value={form.codeExample?.expectedOutput || ""} onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, expectedOutput: v } }))} rows={2} />
+          <StringListField label="KEY POINTS" items={form.keyPoints} onChange={v => setForm(p => ({ ...p, keyPoints: v }))} />
+          <StringListField label="COMMON MISTAKES" items={form.commonMistakes} onChange={v => setForm(p => ({ ...p, commonMistakes: v }))} />
+          <StringListField label="INTERVIEW TIPS" items={form.interviewTips} onChange={v => setForm(p => ({ ...p, interviewTips: v }))} />
+          <StringListField label="REAL-WORLD APPLICATIONS" items={form.realWorldApplications} onChange={v => setForm(p => ({ ...p, realWorldApplications: v }))} />
+          <Textarea label="ASSIGNMENT" value={form.assignment} onChange={v => setForm(p => ({ ...p, assignment: v }))} rows={2} />
+          <Input label="PRACTICE PROBLEM IDS (comma-separated CodeLab problem IDs)" value={practiceIdsText} onChange={setPracticeIdsText} placeholder="0Iwq5sfiExGtB62k6fOd, ..." />
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="XP REWARD" type="number" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: Number(v) || 0 }))} />
+            <Input label="COIN REWARD" type="number" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: Number(v) || 0 }))} />
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving || !form.title.trim()}
+              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="font-mono text-xs text-white/30">Loading...</p>
+      ) : topics.length === 0 ? (
+        <p className="font-mono text-xs text-white/30">No topics yet.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {topics.map(t => (
+            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded flex-wrap"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">#{t.order}</span>
+              <div className="flex-1 min-w-0">
+                <span className="font-mono text-xs text-white/80">{t.title}</span>
+                <span className="font-mono text-[10px] text-white/30 ml-2">{t.module}</span>
+              </div>
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                style={{ background: t.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: t.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
+                {t.status?.toUpperCase() || "DRAFT"}
+              </span>
+              {!(t.concept?.trim() || t.keyPoints?.length) && (
+                <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO CONTENT</span>
+              )}
+              <button onClick={() => startEdit(t)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FFD700" }}>
+                <Pencil size={11} /> Edit
+              </button>
+              <button onClick={() => handleDelete(t.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FF5050" }}>
+                <Trash2 size={11} /> Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function blankSubjectForm() {
+  return {
+    name: "", difficulty: "Beginner", estimatedDuration: "", order: 0,
+    placementRelevance: "", industryUsage: "", status: "draft",
+  };
+}
+
+function CsCoreSubjectsPanel() {
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(blankSubjectForm());
+  const [adding, setAdding] = useState(false);
+  const [managingTopicsFor, setManagingTopicsFor] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    fetchSubjects({ includeUnpublished: true }).then(setSubjects).catch(console.error).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const startEdit = (s) => { setEditingId(s.id); setForm({ ...blankSubjectForm(), ...s }); setAdding(false); };
+  const startAdd = () => { setAdding(true); setEditingId(null); setForm(blankSubjectForm()); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      const id = editingId || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      await saveSubject(id, form);
+      setEditingId(null); setAdding(false); setForm(blankSubjectForm());
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this subject and all of its topics? This can't be undone.")) return;
+    await deleteSubject(id);
+    load();
+  };
+
+  if (managingTopicsFor) {
+    const subject = subjects.find(s => s.id === managingTopicsFor);
+    return <CsCoreTopicsPanel subjectId={managingTopicsFor} subjectName={subject?.name} onBack={() => setManagingTopicsFor(null)} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
+        style={{ background: "rgba(167,139,250,0.08)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.25)" }}>
+        <Plus size={12} /> Add Subject
+      </button>
+
+      {(adding || editingId) && (
+        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Operating Systems" />
+          <p className="font-mono text-[10px] text-white/30 -mt-1.5">Icon is picked automatically from the name - no emoji, matches the rest of the app.</p>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
+              <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={CS_CORE_DIFFICULTIES} className="w-full" />
+            </div>
+            <Input label="ESTIMATED DURATION" value={form.estimatedDuration} onChange={v => setForm(p => ({ ...p, estimatedDuration: v }))} placeholder="6-8 weeks" />
+            <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: Number(v) || 0 }))} />
+          </div>
+          <Textarea label="PLACEMENT RELEVANCE" value={form.placementRelevance} onChange={v => setForm(p => ({ ...p, placementRelevance: v }))}
+            placeholder="Asked in nearly every technical interview across product and service companies." rows={2} />
+          <Textarea label="INDUSTRY USAGE" value={form.industryUsage} onChange={v => setForm(p => ({ ...p, industryUsage: v }))}
+            placeholder="Underpins process scheduling, memory management, and file systems in every real system." rows={2} />
+          <div className="flex items-center gap-3">
+            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
+            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-40" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving || !form.name.trim()}
+              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="font-mono text-xs text-white/30">Loading...</p>
+      ) : subjects.length === 0 ? (
+        <p className="font-mono text-xs text-white/30">No subjects yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {subjects.map(s => {
+            const SubjIcon = subjectIcon(s.name);
+            return (
+            <div key={s.id} className="flex items-center gap-3 p-3 rounded flex-wrap"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <SubjIcon size={18} className="flex-shrink-0" style={{ color: "#A78BFA" }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <b className="font-mono text-xs text-white/80">{s.name}</b>
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                    style={{ background: s.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: s.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
+                    {s.status?.toUpperCase() || "DRAFT"}
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] text-white/30">{s.difficulty} · {s.estimatedDuration} · {s.topicCount || 0} topics</span>
+              </div>
+              <button onClick={() => setManagingTopicsFor(s.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1 rounded" style={{ color: "#A78BFA" }}>
+                <Layers size={11} /> Topics
+              </button>
+              <button onClick={() => startEdit(s)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FFD700" }}>
+                <Pencil size={11} /> Edit
+              </button>
+              <button onClick={() => handleDelete(s.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FF5050" }}>
+                <Trash2 size={11} /> Delete
+              </button>
+            </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function blankCsCoreTopicForm() {
+  return {
+    title: "", module: "", order: 0, status: "draft",
+    difficulty: "Beginner", estimatedMinutes: 20,
+    whatYoullLearn: [], prerequisites: [], concept: "", keyPoints: [],
+    commonMistakes: [], interviewTips: [], realWorldApplications: [],
+    codeExample: { language: "java", code: "" },
+    assignment: "", xpReward: 25, coinReward: 10,
+    practiceProblemIds: [],
+  };
+}
+
+function CsCoreTopicsPanel({ subjectId, subjectName, onBack }) {
+  const [topics, setTopics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState(blankCsCoreTopicForm());
+  const [saving, setSaving] = useState(false);
+  const [practiceIdsText, setPracticeIdsText] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    fetchCsCoreTopics(subjectId, { includeUnpublished: true }).then(setTopics).catch(console.error).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [subjectId]);
+
+  const startEdit = (t) => {
+    setEditingId(t.id);
+    setForm({ ...blankCsCoreTopicForm(), ...t });
+    setPracticeIdsText((t.practiceProblemIds || []).join(", "));
+    setAdding(false);
+  };
+  const startAdd = () => { setAdding(true); setEditingId(null); setForm(blankCsCoreTopicForm()); setPracticeIdsText(""); };
+
+  const handleSave = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      const id = editingId || form.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const practiceProblemIds = practiceIdsText.split(",").map(s => s.trim()).filter(Boolean);
+      await saveCsCoreTopic(subjectId, id, { ...form, practiceProblemIds });
+      await saveSubject(subjectId, { topicCount: (await fetchCsCoreTopics(subjectId, { includeUnpublished: true })).length });
+      setEditingId(null); setAdding(false); setForm(blankCsCoreTopicForm());
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this topic?")) return;
+    await deleteCsCoreTopic(subjectId, id);
+    await saveSubject(subjectId, { topicCount: Math.max(0, (topics.length - 1)) });
+    load();
+  };
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="font-mono text-xs text-white/40">&larr; Back to Subjects</button>
+      <h4 className="font-mono text-sm" style={{ color: "#A78BFA" }}>{subjectName} - Topics ({topics.length})</h4>
+
+      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
+        style={{ background: "rgba(167,139,250,0.08)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.25)" }}>
+        <Plus size={12} /> Add Topic
+      </button>
+
+      {(adding || editingId) && (
+        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="CPU Scheduling" />
+            <Input label="MODULE (groups topics in the roadmap tree)" value={form.module} onChange={v => setForm(p => ({ ...p, module: v }))} placeholder="Process Management" />
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: Number(v) || 0 }))} />
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
+              <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={CS_CORE_DIFFICULTIES} className="w-full" />
+            </div>
+            <Input label="EST. MINUTES" type="number" value={form.estimatedMinutes} onChange={v => setForm(p => ({ ...p, estimatedMinutes: Number(v) || 0 }))} />
+          </div>
+          <div className="flex items-center gap-3">
+            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS (published = visible in roadmap; content below can still be empty = shows "coming soon")</p>
+            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-40" />
+          </div>
+
+          <StringListField label="WHAT YOU'LL LEARN" items={form.whatYoullLearn} onChange={v => setForm(p => ({ ...p, whatYoullLearn: v }))} />
+          <StringListField label="PREREQUISITES" items={form.prerequisites} onChange={v => setForm(p => ({ ...p, prerequisites: v }))} />
+          <Textarea label="CONCEPT / LEARNING MATERIAL" value={form.concept} onChange={v => setForm(p => ({ ...p, concept: v }))} rows={6}
+            placeholder="Explain the concept in prose. Indented lines render as code blocks, '- ' lines render as a bulleted list." />
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">CODE EXAMPLE LANGUAGE</p>
+              <Dropdown value={form.codeExample?.language || "java"} onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, language: v } }))}
+                options={CODELAB_LANGUAGES.map(l => l.id)} className="w-full" />
+            </div>
+          </div>
+          <Textarea label="CODE EXAMPLE" value={form.codeExample?.code || ""} onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, code: v } }))} rows={5} />
+          <Textarea label="EXPECTED OUTPUT (shown if live Run is ever unavailable - optional but recommended)"
+            value={form.codeExample?.expectedOutput || ""} onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, expectedOutput: v } }))} rows={2} />
+          <StringListField label="KEY POINTS" items={form.keyPoints} onChange={v => setForm(p => ({ ...p, keyPoints: v }))} />
+          <StringListField label="COMMON MISTAKES" items={form.commonMistakes} onChange={v => setForm(p => ({ ...p, commonMistakes: v }))} />
+          <StringListField label="INTERVIEW TIPS" items={form.interviewTips} onChange={v => setForm(p => ({ ...p, interviewTips: v }))} />
+          <StringListField label="REAL-WORLD APPLICATIONS" items={form.realWorldApplications} onChange={v => setForm(p => ({ ...p, realWorldApplications: v }))} />
+          <Textarea label="ASSIGNMENT" value={form.assignment} onChange={v => setForm(p => ({ ...p, assignment: v }))} rows={2} />
+          <Input label="PRACTICE PROBLEM IDS (comma-separated CodeLab problem IDs)" value={practiceIdsText} onChange={setPracticeIdsText} />
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="XP REWARD" type="number" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: Number(v) || 0 }))} />
+            <Input label="COIN REWARD" type="number" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: Number(v) || 0 }))} />
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving || !form.title.trim()}
+              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="font-mono text-xs text-white/30">Loading...</p>
+      ) : topics.length === 0 ? (
+        <p className="font-mono text-xs text-white/30">No topics yet.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {topics.map(t => (
+            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded flex-wrap"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">#{t.order}</span>
+              <div className="flex-1 min-w-0">
+                <span className="font-mono text-xs text-white/80">{t.title}</span>
+                <span className="font-mono text-[10px] text-white/30 ml-2">{t.module}</span>
+              </div>
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                style={{ background: t.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: t.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
+                {t.status?.toUpperCase() || "DRAFT"}
+              </span>
+              {!(t.concept?.trim() || t.keyPoints?.length) && (
+                <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO CONTENT</span>
+              )}
+              <button onClick={() => startEdit(t)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FFD700" }}>
+                <Pencil size={11} /> Edit
+              </button>
+              <button onClick={() => handleDelete(t.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FF5050" }}>
+                <Trash2 size={11} /> Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CompanyPrepPanel() {
@@ -5371,8 +6149,17 @@ export default function AdminPage() {
                 <Section title="COMPANY PREP" icon={Briefcase} color="#FF9500">
                   <CompanyPrepPanel />
                 </Section>
+                <Section title="PROGRAMMING LANGUAGES" icon={CodeXml} color="#00FFFF">
+                  <ProgrammingLanguagesPanel />
+                </Section>
+                <Section title="CS CORE SUBJECTS" icon={BrainCircuit} color="#A78BFA">
+                  <CsCoreSubjectsPanel />
+                </Section>
                 <Section title="INTEL FEED" icon={Radio} color="#C77DFF">
                   <IntelPanel />
+                </Section>
+                <Section title="INTEL - OPPORTUNITIES" icon={Briefcase} color="#00FF41">
+                  <OpportunitiesPanel />
                 </Section>
                 <Section title="INTEL RESOURCES" icon={BookOpen} color="#FF9500">
                   <ResourcesPanel />

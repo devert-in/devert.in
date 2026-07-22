@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2, XCircle, Bookmark, BookmarkCheck, ExternalLink, Clock,
-  ChevronRight, ListChecks, Briefcase, Eye, EyeOff,
+  ChevronRight, ListChecks, Briefcase, Eye, EyeOff, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -13,7 +13,7 @@ import {
   COMPANY_QUESTION_DIFFICULTIES,
 } from "@/lib/companyPrep";
 import { CAMPUS } from "@/lib/campus-theme";
-import { CampusCard, CampusChip, CampusBreadcrumb, CampusBackButton, CampusEmptyState, CampusSkeleton } from "@/components/campus/campus-ui";
+import { CampusCard, CampusChip, CampusBreadcrumb, CampusEmptyState, CampusSkeleton, CampusButton } from "@/components/campus/campus-ui";
 import Dropdown from "@/components/dropdown";
 
 // Native port of the "Company Learning Tree" - Company -> Round -> Category
@@ -38,11 +38,14 @@ const DIFF_COLOR = { Easy: CAMPUS.good, Medium: CAMPUS.warn, Hard: CAMPUS.bad };
 export function CampusCompanyList({ onSelect, adminMode = false, hiddenIds, onToggleHidden }) {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    fetchPublishedCompanies().then(setCompanies).catch(console.error).finally(() => setLoading(false));
-  }, []);
+  const load = () => {
+    setLoading(true); setError(false);
+    fetchPublishedCompanies().then(setCompanies).catch(() => setError(true)).finally(() => setLoading(false));
+  };
+  useEffect(load, []);
 
   const q = search.trim().toLowerCase();
   const visible = adminMode ? companies : companies.filter(c => !hiddenIds?.has(c.id));
@@ -65,6 +68,10 @@ export function CampusCompanyList({ onSelect, adminMode = false, hiddenIds, onTo
             </CampusCard>
           ))}
         </div>
+      ) : error ? (
+        <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load companies"
+          description="Check your connection and try again."
+          action={<CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>} />
       ) : filtered.length === 0 ? (
         <CampusEmptyState icon={Briefcase} title={q ? "No company matches" : "No companies published yet"}
           description={q ? "Try a different search." : "Check back soon."} />
@@ -165,25 +172,40 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
   const [company, setCompany] = useState(null);
   const [rounds, setRounds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [activeRoundId, setActiveRoundId] = useState(null);
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true); setError(false);
     Promise.all([fetchCompany(companyId), fetchCompanyRounds(companyId)])
       .then(([c, r]) => { setCompany(c); setRounds(r); setActiveRoundId(r[0]?.id || null); })
-      .catch(console.error)
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [companyId]);
+  };
+  useEffect(load, [companyId]);
 
+  const loadCategories = () => {
+    setCategoriesLoading(true); setCategoriesError(false);
+    fetchRoundCategories(companyId, activeRoundId)
+      .then(setCategories).catch(() => setCategoriesError(true)).finally(() => setCategoriesLoading(false));
+  };
   useEffect(() => {
     if (!activeRoundId) { setCategories([]); return; }
-    setCategoriesLoading(true);
-    fetchRoundCategories(companyId, activeRoundId)
-      .then(setCategories).catch(console.error).finally(() => setCategoriesLoading(false));
+    loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, activeRoundId]);
 
   if (loading) return <p className="text-[13px]" style={{ color: CAMPUS.inkFaint }}>Loading...</p>;
+  if (error) {
+    return (
+      <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load this company"
+        description="Check your connection and try again."
+        action={<CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>} />
+    );
+  }
   if (!company) return <CampusEmptyState icon={Briefcase} title="Company not found" description="This company prep guide may have been unpublished." />;
 
   const activeRound = rounds.find(r => r.id === activeRoundId);
@@ -272,6 +294,10 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
           <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>CATEGORY</p>
           {categoriesLoading ? (
             <p className="text-[13px]" style={{ color: CAMPUS.inkFaint }}>Loading categories...</p>
+          ) : categoriesError ? (
+            <CampusEmptyState size="sm" icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load categories"
+              description="Check your connection and try again."
+              action={<CampusButton variant="secondary" size="sm" onClick={loadCategories}>Retry</CampusButton>} />
           ) : categories.length === 0 ? (
             <CampusEmptyState size="sm" icon={ListChecks} title="No categories yet for this round" description="Check back soon." />
           ) : (
@@ -366,10 +392,11 @@ function CompanyQuestionCard({ q, selected, submitted, solved, bookmarked, onSel
   );
 }
 
-export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, roundName, categoryName, onBack }) {
+export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, companyName, roundName, categoryName, onBack, onBackToList }) {
   const { user } = useAuth();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [difficulty, setDifficulty] = useState("All");
   // Keyed by question id, not a single shared index - every question is its
   // own independent mini quiz rendered in one scrollable list (see
@@ -379,9 +406,11 @@ export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, ro
   const [progress, setProgress] = useState({ solved: {}, bookmarked: {} });
   const startedAtRef = useRef({});
 
-  useEffect(() => {
-    fetchCategoryQuestions(companyId, roundId, categoryId).then(setQuestions).catch(console.error).finally(() => setLoading(false));
-  }, [companyId, roundId, categoryId]);
+  const load = () => {
+    setLoading(true); setError(false);
+    fetchCategoryQuestions(companyId, roundId, categoryId).then(setQuestions).catch(() => setError(true)).finally(() => setLoading(false));
+  };
+  useEffect(load, [companyId, roundId, categoryId]);
 
   useEffect(() => {
     if (!user) { setProgress({ solved: {}, bookmarked: {} }); return; }
@@ -420,69 +449,85 @@ export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, ro
     setProgress(p => ({ ...p, bookmarked: { ...p.bookmarked, [qq.id]: next } }));
   };
 
-  if (loading) return <p className="text-[13px]" style={{ color: CAMPUS.inkFaint }}>Loading questions...</p>;
-  if (questions.length === 0) {
-    return <CampusEmptyState icon={ListChecks} title="No questions yet in this category" description="Check back soon." />;
-  }
-
+  // Breadcrumb renders unconditionally (loading/error/empty/list) so a bad
+  // fetch or an empty category never strands the user with no way back -
+  // previously the early returns below skipped past the CampusBackButton
+  // entirely, leaving a genuine dead end.
   return (
     <div className="max-w-2xl">
-      <CampusBackButton onClick={onBack} label={`Back to ${roundName}`} />
+      <CampusBreadcrumb items={[
+        { label: "Company Vault", onClick: onBackToList },
+        { label: companyName, onClick: onBack },
+        { label: roundName },
+        { label: categoryName },
+      ]} />
 
-      {/* The "brief" for this topic - no hand-written blurb to keep in sync,
-          just what's actually true about what you're about to practice. */}
-      <p className="text-[13px] mb-4" style={{ color: CAMPUS.inkSoft }}>
-        {questions.length} question{questions.length === 1 ? "" : "s"} in {categoryName}
-        {Object.keys(diffCounts).length > 0 && (
-          <> &middot; {Object.entries(diffCounts).map(([d, c]) => `${c} ${d}`).join(", ")}</>
-        )}
-        . Work through them at your own pace - each one checks and explains itself as you go.
-      </p>
-
-      <div className="flex items-end justify-between gap-3 flex-wrap mb-5">
-        <div>
-          <label className="block text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>DIFFICULTY</label>
-          <Dropdown value={difficulty} onChange={setDifficulty} options={["All", ...COMPANY_QUESTION_DIFFICULTIES]}
-            className="w-36" buttonClassName="text-[12.5px] px-3 py-2 rounded-lg bg-[var(--campus-paper)] border border-[var(--campus-line)] text-[var(--campus-ink)]" />
-        </div>
-
-        {/* Live scorecard - the "how am I doing so far" analysis for this
-            category, updating as each question is submitted below, instead
-            of only ever showing feedback one question at a time. */}
-        {answeredCount > 0 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <CampusChip color={CAMPUS.teal}>{answeredCount}/{filtered.length} answered</CampusChip>
-            <CampusChip color={CAMPUS.good} icon={CheckCircle2}>{correctCount} correct</CampusChip>
-            <CampusChip color={CAMPUS.bad} icon={XCircle}>{answeredCount - correctCount} wrong</CampusChip>
-            <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>
-              {Math.round((correctCount / answeredCount) * 100)}% accuracy
-            </span>
-          </div>
-        )}
-      </div>
-
-      {filtered.length === 0 ? (
-        <CampusEmptyState icon={ListChecks} title="No questions at this difficulty" description="Try a different difficulty filter." />
+      {loading ? (
+        <p className="text-[13px]" style={{ color: CAMPUS.inkFaint }}>Loading questions...</p>
+      ) : error ? (
+        <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load questions"
+          description="Check your connection and try again."
+          action={<CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>} />
+      ) : questions.length === 0 ? (
+        <CampusEmptyState icon={ListChecks} title="No questions yet in this category" description="Check back soon." />
       ) : (
-        <div className="space-y-4">
-          {filtered.map(qq => (
-            <CompanyQuestionCard key={qq.id} q={qq}
-              selected={answers[qq.id] ?? null}
-              submitted={submittedIds.has(qq.id)}
-              solved={!!progress.solved?.[qq.id]}
-              bookmarked={!!progress.bookmarked?.[qq.id]}
-              showUser={!!user}
-              onSelect={(oi) => handleSelect(qq.id, oi)}
-              onSubmit={() => handleSubmit(qq)}
-              onToggleBookmark={() => toggleBookmark(qq)} />
-          ))}
-        </div>
-      )}
+        <>
+          {/* The "brief" for this topic - no hand-written blurb to keep in sync,
+              just what's actually true about what you're about to practice. */}
+          <p className="text-[13px] mb-4" style={{ color: CAMPUS.inkSoft }}>
+            {questions.length} question{questions.length === 1 ? "" : "s"} in {categoryName}
+            {Object.keys(diffCounts).length > 0 && (
+              <> &middot; {Object.entries(diffCounts).map(([d, c]) => `${c} ${d}`).join(", ")}</>
+            )}
+            . Work through them at your own pace - each one checks and explains itself as you go.
+          </p>
 
-      {!user && (
-        <p className="text-[11px] text-center mt-5" style={{ color: CAMPUS.inkFaint }}>
-          Sign in to save your progress and bookmarks - practicing still works fully without it.
-        </p>
+          <div className="flex items-end justify-between gap-3 flex-wrap mb-5">
+            <div>
+              <label className="block text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>DIFFICULTY</label>
+              <Dropdown value={difficulty} onChange={setDifficulty} options={["All", ...COMPANY_QUESTION_DIFFICULTIES]}
+                className="w-36" buttonClassName="text-[12.5px] px-3 py-2 rounded-lg bg-[var(--campus-paper)] border border-[var(--campus-line)] text-[var(--campus-ink)]" />
+            </div>
+
+            {/* Live scorecard - the "how am I doing so far" analysis for this
+                category, updating as each question is submitted below, instead
+                of only ever showing feedback one question at a time. */}
+            {answeredCount > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <CampusChip color={CAMPUS.teal}>{answeredCount}/{filtered.length} answered</CampusChip>
+                <CampusChip color={CAMPUS.good} icon={CheckCircle2}>{correctCount} correct</CampusChip>
+                <CampusChip color={CAMPUS.bad} icon={XCircle}>{answeredCount - correctCount} wrong</CampusChip>
+                <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>
+                  {Math.round((correctCount / answeredCount) * 100)}% accuracy
+                </span>
+              </div>
+            )}
+          </div>
+
+          {filtered.length === 0 ? (
+            <CampusEmptyState icon={ListChecks} title="No questions at this difficulty" description="Try a different difficulty filter." />
+          ) : (
+            <div className="space-y-4">
+              {filtered.map(qq => (
+                <CompanyQuestionCard key={qq.id} q={qq}
+                  selected={answers[qq.id] ?? null}
+                  submitted={submittedIds.has(qq.id)}
+                  solved={!!progress.solved?.[qq.id]}
+                  bookmarked={!!progress.bookmarked?.[qq.id]}
+                  showUser={!!user}
+                  onSelect={(oi) => handleSelect(qq.id, oi)}
+                  onSubmit={() => handleSubmit(qq)}
+                  onToggleBookmark={() => toggleBookmark(qq)} />
+              ))}
+            </div>
+          )}
+
+          {!user && (
+            <p className="text-[11px] text-center mt-5" style={{ color: CAMPUS.inkFaint }}>
+              Sign in to save your progress and bookmarks - practicing still works fully without it.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -505,8 +550,9 @@ export function CampusCompanyPrepFlow({ screen, setScreen, adminMode = false, hi
   if (screen.view === "practice") {
     return (
       <CampusCompanyQuestionRunner companyId={screen.companyId} roundId={screen.roundId} categoryId={screen.categoryId}
-        roundName={screen.roundName} categoryName={screen.categoryName}
-        onBack={() => setScreen({ view: "company", companyId: screen.companyId })} />
+        companyName={screen.companyName} roundName={screen.roundName} categoryName={screen.categoryName}
+        onBack={() => setScreen({ view: "company", companyId: screen.companyId })}
+        onBackToList={() => setScreen({ view: "list" })} />
     );
   }
   return <CampusCompanyList onSelect={(companyId) => setScreen({ view: "company", companyId })}

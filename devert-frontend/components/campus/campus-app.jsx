@@ -10,7 +10,7 @@ import {
   ChevronRight, Users, ArrowUpRight, Medal, Code2, Briefcase, ChevronDown,
   UserCircle2, TrendingUp, X as CloseIcon, PanelLeftClose, PanelLeftOpen,
   Activity, Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
-  AlertTriangle, DoorOpen,
+  AlertTriangle, DoorOpen, CodeXml, BrainCircuit,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
@@ -18,8 +18,10 @@ import { collection, query, where, orderBy, limit, getDocs, getCountFromServer }
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchInstitutions, fetchInstitution, fetchMyMembership, requestToJoin,
-  fetchMyInstitutionAdminRole, fetchApprovedStudents, toggleFavoriteInstitution, fetchAnnouncements,
+  fetchMyInstitutionAdminRole, fetchApprovedStudents, toggleFavoriteInstitution, fetchAnnouncements, isAnnouncementActive,
+  institutionInitials, DEPARTMENTS, YEARS,
 } from "@/lib/institutions";
+import Dropdown from "@/components/dropdown";
 import { fetchInstitutionContests, fetchPublishedContests, contestPhase, bucketContests } from "@/lib/contests";
 import { fetchCourseTree, flattenTasks, getCurrentTask, courseProgressPct } from "@/lib/learning";
 import { CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, fetchUserCodelabProgress, fetchPublishedProblems } from "@/lib/codelab";
@@ -34,6 +36,8 @@ import { CampusPracticeList, CampusProblemView, SidebarFilterGroup } from "@/com
 import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
 import { CampusDailyLearningTab, CampusDailyAssessmentsTab, CampusDayLeaderboard } from "@/components/campus/campus-daily-learning";
+import { CampusProgrammingTab } from "@/components/campus/campus-programming";
+import { CampusCsCoreTab } from "@/components/campus/campus-cscore";
 import { mondayOf, DOW_LABELS, todayISO, fetchWeekItems, fetchModuleConfig, fetchUserWeekLogs } from "@/lib/dailyLearning";
 import { fetchContentVisibility } from "@/lib/contentVisibility";
 import { CampusManage } from "@/components/campus/campus-manage";
@@ -42,6 +46,8 @@ const TABS = [
   { key: "dashboard",     label: "Overview",          icon: LayoutDashboard },
   { key: "profile",       label: "Profile",           icon: IdCard },
   { key: "learning",      label: "Daily Learning",    icon: BookOpen },
+  { key: "programming",   label: "Programming",       icon: CodeXml },
+  { key: "csCore",        label: "CS Core",           icon: BrainCircuit },
   { key: "dsa",           label: "DSA",               icon: Code2 },
   { key: "companyVault",  label: "Company Vault",     icon: Briefcase },
   { key: "assessments",   label: "Assessments",       icon: ClipboardCheck },
@@ -132,11 +138,22 @@ function CampusThemeToggle({ className = "" }) {
   );
 }
 
+// Every pre-workspace phase (checking/not-found/signed-out/join-form/pending/
+// rejected/suspended) renders through here - it's the one place a "wrong
+// college, let me pick another" or "just let me back out" escape hatch needs
+// to exist for all of them at once. Without it, landing here (e.g. clicking
+// the wrong institution card) was a dead end: no back button, no breadcrumb,
+// nothing but a theme toggle.
 function CampusShell({ children }) {
   const { theme } = useCampusTheme();
   return (
     <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }}
       className="campus-theme relative flex items-center justify-center px-6">
+      <Link href="/campus"
+        className="absolute top-5 left-5 flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors hover:opacity-80"
+        style={{ color: CAMPUS.inkSoft }}>
+        <ArrowLeft size={14} /> Back to Campus
+      </Link>
       <div className="absolute top-5 right-5"><CampusThemeToggle /></div>
       {children}
     </main>
@@ -280,9 +297,11 @@ function InstitutionCard({ inst, studentCount, featured }) {
           FEATURED
         </span>
       )}
-      <div className="w-11 h-11 flex items-center justify-center font-bold text-[15px] mb-4"
-        style={{ background: CAMPUS.teal, color: "#fff" }}>
-        {inst.name?.slice(0, 2).toUpperCase() || "??"}
+      <div className="w-11 h-11 flex items-center justify-center font-bold text-[15px] mb-4 overflow-hidden"
+        style={inst.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.teal, color: "#fff" }}>
+        {inst.logoUrl
+          ? <img src={inst.logoUrl} alt="" className="w-full h-full object-contain" />
+          : (inst.name?.slice(0, 2).toUpperCase() || "??")}
       </div>
       <h4 className="text-[16px] font-semibold mb-1" style={{ color: CAMPUS.ink }}>{inst.name}</h4>
       {inst.location && (
@@ -918,6 +937,7 @@ function CampusGlobalSection({ section }) {
   const searchParams = useSearchParams();
   const [contests, setContests] = useState([]);
   const [contestsLoading, setContestsLoading] = useState(section === "contests");
+  const [contestsError, setContestsError] = useState(false);
   const [contestScreen, setContestScreen] = useState({ view: "list" });
   const [practiceScreen, setPracticeScreen] = useState({ view: "list" });
   // Seeded once from ?mode=companyPrep (the nav rail deep-links here from
@@ -932,10 +952,12 @@ function CampusGlobalSection({ section }) {
   const [practiceDifficulty, setPracticeDifficulty] = useState("All");
   const [codelabStats, setCodelabStats] = useState(null);
 
-  useEffect(() => {
+  const loadContests = () => {
     if (section !== "contests") return;
-    fetchPublishedContests().then(setContests).catch(() => setContests([])).finally(() => setContestsLoading(false));
-  }, [section]);
+    setContestsLoading(true); setContestsError(false);
+    fetchPublishedContests().then(setContests).catch(() => setContestsError(true)).finally(() => setContestsLoading(false));
+  };
+  useEffect(loadContests, [section]);
 
   useEffect(() => {
     const openId = searchParams.get("open");
@@ -994,7 +1016,7 @@ function CampusGlobalSection({ section }) {
 
           <div className="flex-1 min-w-0">
             {section === "contests" && (
-              <CampusContestFlow contests={contests} loading={contestsLoading} screen={contestScreen} setScreen={setContestScreen} />
+              <CampusContestFlow contests={contests} loading={contestsLoading} error={contestsError} onRetry={loadContests} screen={contestScreen} setScreen={setContestScreen} />
             )}
             {section === "learning" && <CampusLearningSection />}
             {section === "practice" && (
@@ -1008,7 +1030,7 @@ function CampusGlobalSection({ section }) {
                 {practiceMode === "coding" ? (
                   practiceScreen.view === "problem"
                     ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })}
-                        onSelectProblem={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
+                        onSelectProblem={(id) => setPracticeScreen({ view: "problem", problemId: id })} backLabel="DSA" />
                     : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty}
                         onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
                 ) : (
@@ -1178,10 +1200,10 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
     return (
       <CampusShell>
         {institution.accessMode === "invite_only" ? (
-          <CampusIdentityForm slug={slug} institution={institution} uid={user.uid}
+          <CampusIdentityForm slug={slug} institution={institution} uid={user?.uid}
             onSubmitted={handleJoinSubmitted} />
         ) : (
-          <JoinForm slug={slug} institution={institution} uid={user.uid} userData={userData}
+          <JoinForm slug={slug} institution={institution} uid={user?.uid} userData={userData}
             onSubmitted={handleJoinSubmitted} />
         )}
       </CampusShell>
@@ -1234,18 +1256,21 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
       <CampusNavRail institution={institution} tab={tab} setTab={goTab} isInstAdmin={isInstAdmin}
         onRequestExit={exitGuard.requestExit} />
       <div className="flex-1 min-w-0 flex flex-col">
-        <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user.uid} />
+        <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user?.uid} />
         <div className="flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-6 min-w-0">
           {tab === "dashboard" && (
             <OverviewTab slug={slug} userData={userData} membership={membership} isInstAdmin={isInstAdmin}
               onOpenContest={openContest} onContinueLearning={() => goTab("learning")}
               onBrowseDsa={() => goTab("dsa")} onBrowseCompanyVault={() => goTab("companyVault")}
-              onBrowseLeaderboard={() => goTab("leaderboard")} onManage={() => goTab("manage")} />
+              onBrowseLeaderboard={() => goTab("leaderboard")} onAssessments={() => goTab("assessments")}
+              onManage={() => goTab("manage")} />
           )}
           {tab === "profile" && (
             <ProfileTab userData={userData} membership={membership} institution={institution} isInstAdmin={isInstAdmin} />
           )}
           {tab === "learning" && <CampusDailyLearningTab slug={slug} />}
+          {tab === "programming" && <CampusProgrammingTab />}
+          {tab === "csCore" && <CampusCsCoreTab />}
           {tab === "dsa" && (
             <>
               {practiceScreen.view === "list" && (
@@ -1258,7 +1283,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
                 </>
               )}
               {practiceScreen.view === "problem"
-                ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} />
+                ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} backLabel="DSA" />
                 : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty}
                     hiddenIds={new Set(contentVisibility.hiddenProblemIds)}
                     onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
@@ -1273,7 +1298,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
           {tab === "contests" && (
             <CampusContestsTabContent institutionId={slug} screen={contestScreen} setScreen={setContestScreen} />
           )}
-          {tab === "leaderboard" && <CampusLeaderboardTab slug={slug} myUid={user.uid} />}
+          {tab === "leaderboard" && <CampusLeaderboardTab slug={slug} myUid={user?.uid} />}
           {tab === "manage" && isInstAdmin && <CampusManage institutionId={slug} institution={institution} />}
         </div>
       </div>
@@ -1391,7 +1416,7 @@ function CampusExitConfirmDialog({ open, institutionName, onStay, onLeave }) {
 // Manage is a separate admin-only group at the bottom (see render below).
 const NAV_GROUPS = [
   { label: null,      keys: ["dashboard", "profile"] },
-  { label: "Learn",   keys: ["learning", "dsa", "companyVault", "assessments"] },
+  { label: "Learn",   keys: ["learning", "programming", "csCore", "dsa", "companyVault", "assessments"] },
   { label: "Compete", keys: ["contests", "leaderboard"] },
 ];
 
@@ -1431,12 +1456,17 @@ function CampusNavRail({ institution, tab, setTab, isInstAdmin, onRequestExit })
     <aside style={{ background: CAMPUS.surface, borderRight: `1px solid ${CAMPUS.line}` }}
       className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:self-start px-3 py-5 flex-col gap-1 transition-[width] duration-200 ${collapsed ? "lg:w-[76px]" : "lg:w-[220px]"}`}>
       <div className={`flex items-center gap-2.5 px-1 pb-5 mb-1 ${collapsed ? "justify-center" : ""}`} style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[13px] flex-shrink-0" style={{ background: CAMPUS.teal, color: "#fff" }}>
-          {institution.name?.slice(0, 2).toUpperCase()}
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
+          style={institution.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.teal, color: "#fff" }}>
+          {institution.logoUrl
+            ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
+            : institution.name?.slice(0, 2).toUpperCase()}
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <b className="block text-[13px] truncate" style={{ color: CAMPUS.ink }}>{institution.name}</b>
+            <b className="block text-[13px] truncate" style={{ color: CAMPUS.ink }} title={institution.name}>
+              {institution.shortName?.trim() || institutionInitials(institution.name) || institution.name}
+            </b>
             <span className="block text-[10px] font-mono tracking-wide" style={{ color: CAMPUS.inkFaint }}>CAMPUS WORKSPACE</span>
           </div>
         )}
@@ -1606,8 +1636,11 @@ function CampusTopBar({ institution, userData, setTab, slug, uid }) {
   return (
     <header className="flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0"
       style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
-      <div className="lg:hidden w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[12px] flex-shrink-0" style={{ background: CAMPUS.teal, color: "#fff" }}>
-        {institution.name?.slice(0, 2).toUpperCase()}
+      <div className="lg:hidden w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[12px] flex-shrink-0 overflow-hidden"
+        style={institution.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.teal, color: "#fff" }}>
+        {institution.logoUrl
+          ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
+          : institution.name?.slice(0, 2).toUpperCase()}
       </div>
       <span className="hidden lg:inline text-[12.5px] font-medium truncate" style={{ color: CAMPUS.inkFaint }}>{institution.name}</span>
       <div className="flex-1" />
@@ -1636,12 +1669,13 @@ function useMyInstitutionRank(slug, myUid) {
 
 // Real navigation shortcuts only - every entry routes to a tab that already
 // exists and already works, never a placeholder feature.
-function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onManage, isInstAdmin }) {
+function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onAssessments, onManage, isInstAdmin }) {
   const actions = [
     { label: "DSA", icon: Code2, onClick: onDsa },
     { label: "Company Vault", icon: Briefcase, onClick: onCompanyVault },
     { label: "Leaderboard", icon: BarChart3, onClick: onLeaderboard },
     { label: "Daily Learning", icon: BookOpen, onClick: onLearning },
+    { label: "Assessments", icon: ClipboardCheck, onClick: onAssessments },
     ...(isInstAdmin ? [{ label: "Manage", icon: ShieldCheck, onClick: onManage }] : []),
   ];
   return (
@@ -1656,7 +1690,7 @@ function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onM
   );
 }
 
-function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowseDsa, onBrowseCompanyVault, onBrowseLeaderboard, onManage }) {
+function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowseDsa, onBrowseCompanyVault, onBrowseLeaderboard, onAssessments, onManage }) {
   const rank = useMyInstitutionRank(slug, userData?.uid);
   const [contests, setContests] = useState([]);
   const [contestsLoading, setContestsLoading] = useState(true);
@@ -1673,7 +1707,7 @@ function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, o
 
   useEffect(() => {
     fetchAnnouncements(slug)
-      .then(list => setAnnouncements(list.slice(0, 3)))
+      .then(list => setAnnouncements(list.filter(a => isAnnouncementActive(a)).slice(0, 3)))
       .catch(() => setAnnouncements([]))
       .finally(() => setAnnouncementsLoading(false));
   }, [slug]);
@@ -1702,7 +1736,7 @@ function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, o
       </motion.div>
 
       <motion.div variants={slideUp}>
-        <QuickActionsRow onDsa={onBrowseDsa} onCompanyVault={onBrowseCompanyVault} onLeaderboard={onBrowseLeaderboard} onLearning={onContinueLearning} onManage={onManage} isInstAdmin={isInstAdmin} />
+        <QuickActionsRow onDsa={onBrowseDsa} onCompanyVault={onBrowseCompanyVault} onLeaderboard={onBrowseLeaderboard} onLearning={onContinueLearning} onAssessments={onAssessments} onManage={onManage} isInstAdmin={isInstAdmin} />
       </motion.div>
 
       <motion.div variants={slideUp} className="grid md:grid-cols-2 gap-5 mb-6 items-stretch">
@@ -1936,15 +1970,18 @@ function CampusLeaderboardTab({ slug, myUid }) {
 function CampusContestsTabContent({ institutionId, screen, setScreen }) {
   const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true); setError(false);
     fetchInstitutionContests(institutionId)
       .then(list => setContests(list.filter(c => c.status === "published")))
-      .catch(console.error)
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [institutionId]);
+  };
+  useEffect(load, [institutionId]);
 
-  return <CampusContestFlow contests={contests} loading={loading} screen={screen} setScreen={setScreen} />;
+  return <CampusContestFlow contests={contests} loading={loading} error={error} onRetry={load} screen={screen} setScreen={setScreen} />;
 }
 
 // Invite-only campuses show this instead of the full JoinForm - just two
@@ -1958,15 +1995,18 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
   const [step, setStep] = useState("form"); // "form" | "review"
   const [name, setName] = useState("");
   const [rollNumber, setRollNumber] = useState("");
+  const [department, setDepartment] = useState("");
+  const [year, setYear] = useState("");
+  const [section, setSection] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const canReview = name.trim() && rollNumber.trim();
+  const canReview = name.trim() && rollNumber.trim() && department && year && section;
 
   const handleConfirm = async () => {
     setError(""); setSubmitting(true);
     try {
-      const payload = { name: name.trim(), rollNumber: rollNumber.trim() };
+      const payload = { name: name.trim(), rollNumber: rollNumber.trim(), department, year, section };
       await requestToJoin(slug, uid, payload);
       onSubmitted(payload);
     } catch (e) {
@@ -1985,9 +2025,10 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
             <AlertTriangle size={13} /> Campus Identity
           </p>
           <p className="text-[11.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
-            Your Full Name and Roll Number become your official identity for <b>{institution.name}</b>. These
-            are used for leaderboards, contest rankings, certificates, progress tracking, analytics, and campus
-            reports. <b>After submission you cannot modify these details yourself</b> - only your Training &amp;
+            Your Full Name, Roll Number, Department, Year, and Section become your official identity for
+            <b> {institution.name}</b> - they're also what places you in the right classroom. These are used
+            for leaderboards, contest rankings, certificates, progress tracking, analytics, and campus reports.
+            <b> After submission you cannot modify these details yourself</b> - only your Training &amp;
             Placement Cell can. Please verify everything carefully before continuing.
           </p>
         </div>
@@ -1996,9 +2037,13 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
             <span style={{ color: CAMPUS.inkFaint }}>Full Name</span>
             <b style={{ color: CAMPUS.ink }}>{name}</b>
           </div>
-          <div className="flex items-center justify-between text-[12.5px]">
+          <div className="flex items-center justify-between text-[12.5px] pb-2.5" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
             <span style={{ color: CAMPUS.inkFaint }}>Roll Number</span>
             <b className="font-mono" style={{ color: CAMPUS.ink }}>{rollNumber}</b>
+          </div>
+          <div className="flex items-center justify-between text-[12.5px] pb-2.5" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
+            <span style={{ color: CAMPUS.inkFaint }}>Classroom</span>
+            <b style={{ color: CAMPUS.ink }}>{year} · {department} · Sec {section}</b>
           </div>
         </div>
         {error && <p className="text-[11.5px] mb-3" style={{ color: CAMPUS.bad }}>{error}</p>}
@@ -2025,6 +2070,11 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
       <div className="space-y-3">
         <Field label="Full name" value={name} onChange={setName} />
         <Field label="Roll number" value={rollNumber} onChange={setRollNumber} placeholder="21A91A0512" />
+        <LabeledDropdown label="Department" value={department} options={DEPARTMENTS} onChange={setDepartment} />
+        <div className="grid grid-cols-2 gap-3">
+          <LabeledDropdown label="Year" value={year} options={YEARS} onChange={setYear} />
+          <SectionField value={section} onChange={setSection} />
+        </div>
       </div>
       <button onClick={() => setStep("review")} disabled={!canReview}
         className="w-full mt-5 text-[13px] font-semibold py-2.5 rounded-lg disabled:opacity-50"
@@ -2043,7 +2093,10 @@ function JoinForm({ slug, institution, uid, userData, onSubmitted }) {
   const [error, setError] = useState("");
 
   const submit = async () => {
-    if (!form.name.trim() || !form.rollNumber.trim()) { setError("Name and roll number are required."); return; }
+    if (!form.name.trim() || !form.rollNumber.trim() || !form.department || !form.year || !form.section) {
+      setError("Name, roll number, department, year, and section are all required.");
+      return;
+    }
     setError(""); setSubmitting(true);
     try {
       await requestToJoin(slug, uid, form);
@@ -2059,15 +2112,16 @@ function JoinForm({ slug, institution, uid, userData, onSubmitted }) {
     <CampusCard className="p-7 w-full max-w-sm">
       <h3 className="text-[16px] font-semibold mb-1.5" style={{ color: CAMPUS.ink }}>Join {institution.name}</h3>
       <p className="text-[12.5px] mb-5" style={{ color: CAMPUS.inkSoft }}>
-        Your Training &amp; Placement Cell reviews requests before granting access.
+        Your Training &amp; Placement Cell reviews requests before granting access. Department/Year/Section
+        also place you in the right classroom automatically once approved.
       </p>
       <div className="space-y-3">
         <Field label="Full name" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} />
         <Field label="Roll number" value={form.rollNumber} onChange={v => setForm(p => ({ ...p, rollNumber: v }))} placeholder="21A91A0512" />
-        <Field label="Department" value={form.department} onChange={v => setForm(p => ({ ...p, department: v }))} placeholder="CSE" />
+        <LabeledDropdown label="Department" value={form.department} options={DEPARTMENTS} onChange={v => setForm(p => ({ ...p, department: v }))} />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Year" value={form.year} onChange={v => setForm(p => ({ ...p, year: v }))} placeholder="3" />
-          <Field label="Section" value={form.section} onChange={v => setForm(p => ({ ...p, section: v }))} placeholder="A" />
+          <LabeledDropdown label="Year" value={form.year} options={YEARS} onChange={v => setForm(p => ({ ...p, year: v }))} />
+          <SectionField value={form.section} onChange={v => setForm(p => ({ ...p, section: v }))} />
         </div>
       </div>
       {error && <p className="text-[11.5px] mt-3" style={{ color: CAMPUS.bad }}>{error}</p>}
@@ -2091,7 +2145,48 @@ function Field({ label, value, onChange, placeholder }) {
   );
 }
 
+// Department/Year - canonical dropdowns (DEPARTMENTS/YEARS, lib/institutions.js),
+// not free text, so every submission lands cleanly in one classroom instead of
+// fragmenting across "CSE"/"cse"/"Cse" typos - firestore.rules enforces the
+// same two lists server-side on the students/{uid} create rule.
+function LabeledDropdown({ label, value, options, onChange }) {
+  return (
+    <div>
+      <label className="block text-[10.5px] font-mono tracking-wide mb-1" style={{ color: CAMPUS.inkFaint }}>{label.toUpperCase()}</label>
+      <Dropdown value={value} options={options} onChange={onChange} className="w-full"
+        buttonClassName="text-[13px] px-3 py-2 rounded-lg bg-[var(--campus-paper)] border border-[var(--campus-line)] text-[var(--campus-ink)]" />
+    </div>
+  );
+}
+
+// Exactly one uppercase letter - matches firestore.rules' section.matches('^[A-Z]$')
+// on the same create rule. Forces uppercase as the student types rather than
+// rejecting lowercase after the fact.
+function SectionField({ value, onChange }) {
+  return (
+    <div>
+      <label className="block text-[10.5px] font-mono tracking-wide mb-1" style={{ color: CAMPUS.inkFaint }}>SECTION</label>
+      <input value={value} maxLength={1} placeholder="A"
+        onChange={e => onChange(e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 1))}
+        className="w-full text-[13px] px-3 py-2 rounded-lg outline-none"
+        style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+    </div>
+  );
+}
+
+// A pending join request can sit for days - leaving the student with nothing
+// to do but this one card was the dead end the nav audit flagged. The "while
+// you wait" links point at the global (non-institution-scoped) sections -
+// see GLOBAL_SECTIONS above - so a not-yet-approved student can still
+// practice DSA, browse Company Vault, and take public contests in the
+// meantime, not just stare at a waiting screen.
 function PendingCard({ institution, membership }) {
+  const exploreLinks = [
+    { label: "Daily Learning", href: "/campus/learning" },
+    { label: "DSA Practice", href: "/campus/practice" },
+    { label: "Company Vault", href: "/campus/practice?mode=companyPrep" },
+    { label: "Contests", href: "/campus/contests" },
+  ];
   return (
     <CampusCard className="p-7 w-full max-w-sm text-center">
       <div className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: CAMPUS.warnTint, color: CAMPUS.warn }}>
@@ -2101,8 +2196,18 @@ function PendingCard({ institution, membership }) {
       <p className="text-[13px] mb-4" style={{ color: CAMPUS.inkSoft }}>
         You&apos;ll get a notification the moment you&apos;re approved.
       </p>
-      <div className="flex justify-between text-[11.5px] py-2" style={{ borderTop: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkFaint }}>
+      <div className="flex justify-between text-[11.5px] py-2 mb-5" style={{ borderTop: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkFaint }}>
         <span>Roll number</span><span className="font-mono" style={{ color: CAMPUS.ink }}>{membership.rollNumber}</span>
+      </div>
+      <p className="text-[9px] font-mono tracking-widest mb-2.5 text-left" style={{ color: CAMPUS.inkFaint }}>WHILE YOU WAIT</p>
+      <div className="grid grid-cols-2 gap-2">
+        {exploreLinks.map(l => (
+          <Link key={l.label} href={l.href}
+            className="text-[12px] font-medium px-3 py-2 rounded-lg text-center transition-colors hover:opacity-80"
+            style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+            {l.label}
+          </Link>
+        ))}
       </div>
     </CampusCard>
   );
