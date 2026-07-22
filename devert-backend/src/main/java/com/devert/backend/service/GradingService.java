@@ -121,11 +121,24 @@ public class GradingService {
             submission.put("createdAt", FieldValue.serverTimestamp());
             transaction.set(submissionRef, submission);
 
+            // NOTE: these two fields are genuinely NESTED Maps, not dotted string
+            // keys like "languageUsage." + finalLanguage - Map<String,Object> keys
+            // passed to set(..., SetOptions.merge()) are taken LITERALLY (a key
+            // containing a period becomes a real field named e.g.
+            // "languageUsage.java", not a nested field languageUsage -> java).
+            // Dotted-string-as-nested-path only works for update()/FieldPath, not
+            // for a plain Map given to set(merge). A real nested Map object here
+            // merges correctly (only the touched sub-key changes, siblings like
+            // other languages/problems are left alone) - see the historical bug
+            // this replaced, which silently created garbage top-level fields
+            // literally named "solvedProblems.<problemId>" and meant
+            // alreadySolved (below) could never find a real solve, so every
+            // resubmission of an already-accepted problem re-awarded XP/coins.
             Map<String, Object> progressUpdate = new HashMap<>();
             progressUpdate.put("totalSubmissions", FieldValue.increment(1));
-            progressUpdate.put("languageUsage." + finalLanguage, FieldValue.increment(1));
+            progressUpdate.put("languageUsage", Map.of(finalLanguage, FieldValue.increment(1)));
             if (accepted && !alreadySolved) {
-                progressUpdate.put("solvedProblems." + problemId, true);
+                progressUpdate.put("solvedProblems", Map.of(problemId, true));
                 progressUpdate.put("problemsSolvedCount", FieldValue.increment(1));
             }
             transaction.set(progressRef, progressUpdate, SetOptions.merge());
