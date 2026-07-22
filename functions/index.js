@@ -94,6 +94,27 @@ function readStaticShell(fileName) {
 // that same logic, parameterized instead of copy-pasted per entity type.
 function makePreviewRouter({ shellFile, backendPreviewPath, genericFallbackHtml }) {
   return onRequest({ region: "us-central1" }, async (req, res) => {
+    // Next.js's client-side router fetches its own internal per-segment
+    // cache/RSC payloads (e.g. "/campus/mrcet/__next.campus.$d$slug.__PAGE__.txt")
+    // as background requests during a normal Link click - these never exist
+    // as real static files (the exporter writes them under a nested
+    // directory shape the client's flattened, dot-separated request path
+    // doesn't match - a Next 16 static-export quirk), so Hosting's "/<prefix>/**"
+    // rewrite sends them here right along with real page hits. Every OTHER
+    // branch below happily answers with 200 + a full HTML shell, which is
+    // exactly the wrong shape for this: the client router expects a genuine
+    // 404 for a cache miss (and recovers by falling back to a normal
+    // navigation when it gets one - confirmed directly), not a whole
+        // unrelated HTML document, which corrupts the in-flight fetch and
+    // silently kills the navigation instead - the actual bug behind "the
+    // campus card isn't clickable" in production. A real human or crawler
+    // never requests a "__next.*" path directly, so this is safe to 404
+    // unconditionally before any of the crawler/shell logic below.
+    if (req.path.includes("__next")) {
+      res.status(404).send("Not Found");
+      return;
+    }
+
     const userAgent = req.get("user-agent") || "";
     const id = extractEntityId(req.path);
 
