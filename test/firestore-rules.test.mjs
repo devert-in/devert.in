@@ -846,3 +846,30 @@ test("invite_only institutions accept a self-serve pending submission (Campus Id
     rollNumber: "21A91A0599", identityAuditLog: ["placeholder-array-write-still-an-update"],
   }));
 });
+
+// institutions/{id}/settings/{settingId} - backs Manage > Leaderboards
+// (fetchLeaderboardSettings/saveLeaderboardSettings, lib/institutions.js).
+// Approved students need read (their own Leaderboard tab checks it) but
+// never write; only that institution's own admin (or platform admin) may
+// configure it. An outsider (no membership at this institution at all) must
+// see neither.
+test("institution settings (e.g. leaderboard config) are readable by that institution's own approved students and admins, writable only by admins", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+    await ctx.firestore().doc("institutions/mrcet/students/approved-uid").set({ uid: "approved-uid", status: "approved" });
+  });
+
+  const outsider = testEnv.authenticatedContext("outsider-uid");
+  await assertFails(outsider.firestore().doc("institutions/mrcet/settings/leaderboard").get());
+  await assertFails(outsider.firestore().doc("institutions/mrcet/settings/leaderboard").set({ enabled: false }));
+
+  const approvedStudent = testEnv.authenticatedContext("approved-uid");
+  await assertSucceeds(approvedStudent.firestore().doc("institutions/mrcet/settings/leaderboard").get());
+  await assertFails(approvedStudent.firestore().doc("institutions/mrcet/settings/leaderboard").set({ enabled: false }));
+
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertSucceeds(mrcetAdmin.firestore().doc("institutions/mrcet/settings/leaderboard").set({
+    enabled: true, sectionEnabled: true, departmentEnabled: true, campusEnabled: true, rankingMetric: "credits",
+  }, { merge: true }));
+});

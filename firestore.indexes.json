@@ -101,6 +101,85 @@
       ]
     },
     {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId", "order": "ASCENDING"  },
+        { "fieldPath": "department",    "order": "ASCENDING"  },
+        { "fieldPath": "year",          "order": "ASCENDING"  },
+        { "fieldPath": "xp",            "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId", "order": "ASCENDING"  },
+        { "fieldPath": "department",    "order": "ASCENDING"  },
+        { "fieldPath": "year",          "order": "ASCENDING"  },
+        { "fieldPath": "section",       "order": "ASCENDING"  },
+        { "fieldPath": "xp",            "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId", "order": "ASCENDING"  },
+        { "fieldPath": "credits",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId", "order": "ASCENDING"  },
+        { "fieldPath": "department",    "order": "ASCENDING"  },
+        { "fieldPath": "year",          "order": "ASCENDING"  },
+        { "fieldPath": "credits",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId", "order": "ASCENDING"  },
+        { "fieldPath": "department",    "order": "ASCENDING"  },
+        { "fieldPath": "year",          "order": "ASCENDING"  },
+        { "fieldPath": "section",       "order": "ASCENDING"  },
+        { "fieldPath": "credits",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId",       "order": "ASCENDING"  },
+        { "fieldPath": "problemsSolvedCount",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId",       "order": "ASCENDING"  },
+        { "fieldPath": "department",           "order": "ASCENDING"  },
+        { "fieldPath": "year",                 "order": "ASCENDING"  },
+        { "fieldPath": "problemsSolvedCount",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "institutionId",       "order": "ASCENDING"  },
+        { "fieldPath": "department",           "order": "ASCENDING"  },
+        { "fieldPath": "year",                 "order": "ASCENDING"  },
+        { "fieldPath": "section",              "order": "ASCENDING"  },
+        { "fieldPath": "problemsSolvedCount",  "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "contests",
       "queryScope": "COLLECTION",
       "fields": [

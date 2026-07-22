@@ -937,6 +937,16 @@ service cloud.firestore {
         allow create, update: if isInstitutionAdmin(institutionId) || isAdmin();
       }
 
+      // Institution-wide settings docs (currently just "leaderboard" - see
+      // lib/institutions.js's fetchLeaderboardSettings/saveLeaderboardSettings).
+      // Approved students need read access so their own Leaderboard tab can
+      // see which scopes/metric the campus admin has configured; only that
+      // institution's own admin (or platform isAdmin()) may change it.
+      match /settings/{settingId} {
+        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        allow write: if isInstitutionAdmin(institutionId) || isAdmin();
+      }
+
       // Admin-authored content, visible only to that institution's own approved
       // students and admins - unlike courses/aptitude_topics (public read), Campus
       // content is the whole reason institutions get isolated workspaces.

@@ -11,6 +11,7 @@ import {
   bulkAssignByRollNumber, updateStudentIdentity, suspendStudent, sendAnnouncement,
   fetchAnnouncements, deleteAnnouncement, isAnnouncementActive, announcementStatus,
   removeStudentFromInstitution, setContestRestriction, DEPARTMENTS, YEARS,
+  fetchLeaderboardSettings, saveLeaderboardSettings, LEADERBOARD_METRICS,
 } from "@/lib/institutions";
 import { fetchInstitutionContests, contestPhase } from "@/lib/contests";
 import { fetchPublishedProblems } from "@/lib/codelab";
@@ -41,6 +42,7 @@ const MANAGE_TABS = [
   { key: "dailyLearning", label: "Daily Learning" },
   { key: "practice", label: "Practice & DSA" },
   { key: "companyPrep", label: "Company Vault" },
+  { key: "leaderboards", label: "Leaderboards" },
   { key: "branding", label: "Branding" },
 ];
 
@@ -65,7 +67,105 @@ export function CampusManage({ institutionId, institution }) {
       {tab === "dailyLearning" && <ManageDailyLearning institutionId={institutionId} />}
       {tab === "practice" && <ManagePracticePreview institutionId={institutionId} />}
       {tab === "companyPrep" && <ManageCompanyPrepPreview institutionId={institutionId} />}
+      {tab === "leaderboards" && <ManageLeaderboards institutionId={institutionId} />}
       {tab === "branding" && <ManageBranding institutionId={institutionId} institution={institution} />}
+    </div>
+  );
+}
+
+// Institution-wide leaderboard configuration - master on/off, per-scope
+// enables (Section/Department/Campus - the three scopes that actually exist,
+// see CampusLeaderboardTab in campus-app.jsx), and which stat ranks students.
+// Per-classroom visibility (further restricting these for one specific
+// classroom) lives on the classroom itself - see campus-classrooms.jsx's
+// ClassroomDashboard - not here, since that's a finer grain than an
+// institution-wide setting. "Reset weekly/monthly" and "Archive previous
+// leaderboards" from the original spec aren't built here: this app has no
+// Cloud Functions (blocked on the same Firebase billing gap noted throughout
+// lib/institutions.js), so a true scheduled reset isn't reliably buildable
+// yet - only a live, all-time ranking exists today.
+function ManageLeaderboards({ institutionId }) {
+  const [settings, setSettings] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const load = () => { fetchLeaderboardSettings(institutionId).then(setSettings); };
+  useEffect(load, [institutionId]);
+
+  const save = async (patch) => {
+    setSaving(true);
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    try {
+      await saveLeaderboardSettings(institutionId, patch);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) {
+      window.alert(e.message || "Failed to save.");
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!settings) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={140} /></CampusCard>;
+
+  const scopeRows = [
+    { key: "sectionEnabled", label: "Section (Class) Leaderboard", description: "Students ranked against classmates in the exact same Department + Year + Section." },
+    { key: "departmentEnabled", label: "Department Leaderboard", description: "Students ranked against their whole Department + Year, across every section." },
+    { key: "campusEnabled", label: "Overall Campus Leaderboard", description: "Every approved student at this institution, ranked together." },
+  ];
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <h2 className="text-lg font-semibold" style={{ color: CAMPUS.ink }}>Leaderboards</h2>
+
+      {saved && (
+        <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>Saved.</p>
+      )}
+
+      <CampusCard className="p-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[13.5px] font-semibold" style={{ color: CAMPUS.ink }}>Leaderboards module</p>
+          <p className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>When disabled, students see no leaderboard tab at all for this campus.</p>
+        </div>
+        <ToggleSwitch value={settings.enabled !== false} onChange={(v) => save({ enabled: v })} />
+      </CampusCard>
+
+      <CampusCard className="p-4">
+        <p className="text-[10px] font-mono tracking-widest mb-3" style={{ color: CAMPUS.inkFaint }}>SCOPES</p>
+        <div className="space-y-3">
+          {scopeRows.map(r => (
+            <div key={r.key} className="flex items-center justify-between gap-4 py-2" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium" style={{ color: CAMPUS.ink }}>{r.label}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>{r.description}</p>
+              </div>
+              <ToggleSwitch value={settings[r.key] !== false} onChange={(v) => save({ [r.key]: v })} />
+            </div>
+          ))}
+        </div>
+        <p className="text-[10.5px] mt-3" style={{ color: CAMPUS.inkFaint }}>
+          A classroom can further hide a scope just for itself from Students -&gt; Classrooms view -&gt; open a classroom -&gt; Leaderboard Visibility.
+        </p>
+      </CampusCard>
+
+      <CampusCard className="p-4">
+        <p className="text-[10px] font-mono tracking-widest mb-3" style={{ color: CAMPUS.inkFaint }}>RANKING METRIC</p>
+        <div className="flex gap-2 flex-wrap">
+          {LEADERBOARD_METRICS.map(m => (
+            <button key={m.key} onClick={() => save({ rankingMetric: m.key })} disabled={saving}
+              className="text-[12px] font-semibold px-3.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              style={{
+                color: (settings.rankingMetric || "xp") === m.key ? "#fff" : CAMPUS.inkSoft,
+                background: (settings.rankingMetric || "xp") === m.key ? CAMPUS.teal : "transparent",
+                border: `1px solid ${(settings.rankingMetric || "xp") === m.key ? CAMPUS.teal : CAMPUS.line}`,
+              }}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </CampusCard>
     </div>
   );
 }

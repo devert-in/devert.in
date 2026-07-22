@@ -217,6 +217,50 @@ export async function fetchClassrooms(institutionId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+export async function fetchClassroom(institutionId, classroomId) {
+  const snap = await getDoc(doc(db, "institutions", institutionId, "classrooms", classroomId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// The three leaderboard scopes that actually exist today (see
+// CampusLeaderboardTab in campus-app.jsx) - Contest/DSA/Programming/Custom
+// leaderboards aren't real features yet, so there's nothing to gate here for
+// them. `leaderboardVisibility` defaults to all-true via .get(scope, true) at
+// every read site (see fetchLeaderboardVisibleScopes below) - a classroom
+// with no explicit visibility map at all (every classroom before this
+// feature existed) gets the "every new classroom defaults to all three
+// enabled" behavior for free, no backfill migration needed.
+export const LEADERBOARD_SCOPES = ["section", "department", "campus"];
+
+export async function updateClassroomLeaderboardVisibility(institutionId, classroomId, visibility) {
+  await updateDoc(doc(db, "institutions", institutionId, "classrooms", classroomId), {
+    leaderboardVisibility: visibility,
+  });
+}
+
+// Institution-wide leaderboard configuration - a master on/off switch, a
+// per-scope enable (mirrors the classroom-level toggle, but campus-wide),
+// and which stat ranks students. Lives in its own doc (not fields on the
+// institution doc itself) so it doesn't need its own entry in
+// CAMPUS_BRANDING_FIELDS' affectedKeys() allow-list. Missing doc = every
+// default true / "xp" - a brand-new institution needs no setup write to get
+// working leaderboards.
+export const LEADERBOARD_METRICS = [
+  { key: "xp", label: "XP" },
+  { key: "credits", label: "Coins" },
+  { key: "problemsSolvedCount", label: "Problems Solved" },
+];
+const DEFAULT_LEADERBOARD_SETTINGS = { enabled: true, sectionEnabled: true, departmentEnabled: true, campusEnabled: true, rankingMetric: "xp" };
+
+export async function fetchLeaderboardSettings(institutionId) {
+  const snap = await getDoc(doc(db, "institutions", institutionId, "settings", "leaderboard"));
+  return { ...DEFAULT_LEADERBOARD_SETTINGS, ...(snap.exists() ? snap.data() : {}) };
+}
+
+export async function saveLeaderboardSettings(institutionId, patch) {
+  await setDoc(doc(db, "institutions", institutionId, "settings", "leaderboard"), patch, { merge: true });
+}
+
 // Approving writes BOTH the roster record (authoritative, under this
 // institution) and a denormalized copy on users/{uid} (what leaderboard
 // queries actually filter/order on - see firestore.indexes.json) - batched so
@@ -400,6 +444,24 @@ export async function addInstitutionAdmin(institutionId, uid, role) {
   await setDoc(doc(db, "institutions", institutionId, "admins", uid), {
     uid, role, addedAt: serverTimestamp(),
   });
+}
+
+// Small, bounded collection (an institution has a handful of admins, not
+// thousands) - each doc is just {uid, role, addedAt}, no handle/displayName
+// denormalized onto it, so callers that want something human-readable
+// resolve uid -> users/{uid} themselves (see InstitutionsPanel in
+// app/admin/page.jsx).
+export async function fetchInstitutionAdmins(institutionId) {
+  const snap = await getDocs(collection(db, "institutions", institutionId, "admins"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Same isAdmin()-only authority as addInstitutionAdmin (see firestore.rules'
+// institutions/{id}/admins/{uid} write rule) - granting/revoking campus admin
+// access is a platform-admin action from this console, not something an
+// institution admin can do to a peer.
+export async function removeInstitutionAdmin(institutionId, uid) {
+  await deleteDoc(doc(db, "institutions", institutionId, "admins", uid));
 }
 
 export async function fetchMyInstitutionAdminRole(institutionId, uid) {

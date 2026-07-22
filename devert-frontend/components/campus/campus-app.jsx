@@ -20,6 +20,7 @@ import {
   fetchInstitutions, fetchInstitution, fetchMyMembership, requestToJoin,
   fetchMyInstitutionAdminRole, fetchApprovedStudents, toggleFavoriteInstitution, fetchAnnouncements, isAnnouncementActive,
   institutionInitials, DEPARTMENTS, YEARS,
+  fetchLeaderboardSettings, fetchClassroom, classroomKey, LEADERBOARD_METRICS,
 } from "@/lib/institutions";
 import Dropdown from "@/components/dropdown";
 import { fetchInstitutionContests, fetchPublishedContests, contestPhase, bucketContests } from "@/lib/contests";
@@ -1864,34 +1865,90 @@ function ProfileTab({ userData, membership, institution, isInstAdmin }) {
 // Real, institution-scoped xp leaderboard - mirrors app/ranks/page.jsx's
 // query pattern with one added `where`, using the composite index already
 // provisioned in firestore.indexes.json ([institutionId, xp desc]).
+const LEADERBOARD_SCOPE_LABELS = { section: "My Section", department: "My Department", campus: "Campus" };
+
+// Class -> Department -> Campus scoping, on top of the pre-existing
+// campus-wide-only leaderboard. Which scopes actually show up is the
+// intersection of three things: the institution-wide master switch and
+// per-scope toggle (Manage -> Leaderboards, lib/institutions.js's
+// fetchLeaderboardSettings), THIS student's own classroom's visibility map
+// (Manage -> Classrooms -> a classroom's Leaderboard Visibility, defaults
+// all-true), and simply having enough academic data to scope by (no
+// department/year/section on file at all means only Campus can ever apply -
+// there's nothing to scope Section/Department to). The existing day-specific
+// Daily Learning leaderboard (filterChips/CampusDayLeaderboard below) stays
+// campus-wide only, exactly as before - it was never asked to gain
+// class/department scoping, unlike the overall ranking metric.
 function CampusLeaderboardTab({ slug, myUid }) {
+  const { userData } = useAuth();
+  const [settings, setSettings] = useState(null);
+  const [classroom, setClassroom] = useState(null);
+  const [scope, setScope] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [weekItems, setWeekItems] = useState([]);
-  const [filter, setFilter] = useState("xp"); // "xp" or an item's date
+  const [filter, setFilter] = useState("metric"); // "metric" or an item's date - campus scope only
 
   useEffect(() => {
-    getDocs(query(collection(db, "users"), where("institutionId", "==", slug), orderBy("xp", "desc"), limit(50)))
-      .then(snap => setRows(snap.docs.map((d, i) => ({ rank: i + 1, uid: d.id, ...d.data() }))))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    fetchLeaderboardSettings(slug)
+      .then(setSettings)
+      .catch(() => setSettings({ enabled: true, sectionEnabled: true, departmentEnabled: true, campusEnabled: true, rankingMetric: "xp" }));
   }, [slug]);
+
+  const myClassroomId = userData?.classroomId
+    || (userData?.department && userData?.year && userData?.section ? classroomKey(userData.year, userData.department, userData.section) : null);
+
+  useEffect(() => {
+    if (!myClassroomId) { setClassroom(null); return; }
+    fetchClassroom(slug, myClassroomId).then(setClassroom).catch(() => setClassroom(null));
+  }, [slug, myClassroomId]);
+
+  const availableScopes = useMemo(() => {
+    if (!settings || settings.enabled === false) return [];
+    const visibility = classroom?.leaderboardVisibility || {};
+    const out = [];
+    if (settings.sectionEnabled !== false && visibility.section !== false && userData?.department && userData?.year && userData?.section) out.push("section");
+    if (settings.departmentEnabled !== false && visibility.department !== false && userData?.department && userData?.year) out.push("department");
+    if (settings.campusEnabled !== false && visibility.campus !== false) out.push("campus");
+    return out;
+  }, [settings, classroom, userData?.department, userData?.year, userData?.section]);
+
+  useEffect(() => {
+    if (availableScopes.length === 0) { setScope(null); return; }
+    if (!scope || !availableScopes.includes(scope)) setScope(availableScopes[0]);
+  }, [availableScopes]);
 
   useEffect(() => {
     fetchWeekItems(slug, mondayOf()).then(setWeekItems).catch(() => setWeekItems([]));
   }, [slug]);
 
+  const metric = settings?.rankingMetric || "xp";
+  const metricLabel = LEADERBOARD_METRICS.find(m => m.key === metric)?.label || "XP";
+
+  useEffect(() => {
+    if (!scope) return;
+    setLoading(true);
+    const col = collection(db, "users");
+    const filters = [where("institutionId", "==", slug)];
+    if (scope === "section") filters.push(where("department", "==", userData.department), where("year", "==", userData.year), where("section", "==", userData.section));
+    if (scope === "department") filters.push(where("department", "==", userData.department), where("year", "==", userData.year));
+    getDocs(query(col, ...filters, orderBy(metric, "desc"), limit(50)))
+      .then(snap => setRows(snap.docs.map((d, i) => ({ rank: i + 1, uid: d.id, ...d.data() }))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [scope, slug, metric, userData?.department, userData?.year, userData?.section]);
+
   const activeItem = weekItems.find(it => it.date === filter);
 
   const filterChips = (
     <div className="flex items-center gap-1.5 flex-wrap mb-4">
-      <button onClick={() => setFilter("xp")} className="text-[11px] font-mono font-semibold px-3 py-1.5 rounded-lg transition-colors"
+      <button onClick={() => setFilter("metric")} className="text-[11px] font-mono font-semibold px-3 py-1.5 rounded-lg transition-colors"
         style={{
-          color: filter === "xp" ? CAMPUS.teal : CAMPUS.inkSoft,
-          background: filter === "xp" ? CAMPUS.tealTint : "transparent",
-          border: `1px solid ${filter === "xp" ? CAMPUS.teal : CAMPUS.line}`,
+          color: filter === "metric" ? CAMPUS.teal : CAMPUS.inkSoft,
+          background: filter === "metric" ? CAMPUS.tealTint : "transparent",
+          border: `1px solid ${filter === "metric" ? CAMPUS.teal : CAMPUS.line}`,
         }}>
-        Overall XP
+        Overall {metricLabel}
       </button>
       {weekItems.filter(it => it.date <= todayISO()).map(it => (
         <button key={it.date} onClick={() => setFilter(it.date)} className="text-[11px] font-mono font-semibold px-3 py-1.5 rounded-lg transition-colors"
@@ -1906,16 +1963,32 @@ function CampusLeaderboardTab({ slug, myUid }) {
     </div>
   );
 
-  if (filter !== "xp" && activeItem) {
+  const scopeTabs = availableScopes.length > 1 && (
+    <div className="flex items-center gap-1.5 flex-wrap mb-4">
+      {availableScopes.map(s => (
+        <button key={s} onClick={() => setScope(s)} className="text-[12px] font-semibold px-3.5 py-1.5 rounded-lg transition-colors"
+          style={{ color: scope === s ? "#fff" : CAMPUS.inkSoft, background: scope === s ? CAMPUS.teal : "transparent", border: `1px solid ${scope === s ? CAMPUS.teal : CAMPUS.line}` }}>
+          {LEADERBOARD_SCOPE_LABELS[s]}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (settings && availableScopes.length === 0) {
+    return <CampusEmptyState icon={Medal} title="Leaderboards are disabled" description="Your campus admin has turned off leaderboards for now." />;
+  }
+
+  if (scope === "campus" && filter !== "metric" && activeItem) {
     return (
       <div>
+        {scopeTabs}
         {filterChips}
         <CampusDayLeaderboard slug={slug} date={activeItem.date} dayLabel={DOW_LABELS[activeItem.dow]} myUid={myUid} />
       </div>
     );
   }
 
-  if (loading) {
+  if (!settings || !scope || loading) {
     return (
       <CampusCard className="p-5 space-y-4">
         {[0, 1, 2, 3, 4].map(i => (
@@ -1947,16 +2020,17 @@ function CampusLeaderboardTab({ slug, myUid }) {
         </div>
       </div>
     ) },
-    { key: "xp", label: "XP", sortable: true, render: r => <span className="font-mono font-semibold" style={{ color: CAMPUS.teal }}>{(r.xp || 0).toLocaleString()}</span> },
+    { key: metric, label: metricLabel, sortable: true, render: r => <span className="font-mono font-semibold" style={{ color: CAMPUS.teal }}>{(r[metric] || 0).toLocaleString()}</span> },
   ];
 
   return (
     <div>
-      {weekItems.length > 0 && filterChips}
+      {scopeTabs}
+      {scope === "campus" && weekItems.length > 0 && filterChips}
       <CampusCard className="overflow-hidden">
         <CampusTable columns={columns} rows={rows} rowKey="uid"
           rowStyle={r => ({ background: r.uid === myUid ? CAMPUS.tealTint : "transparent" })}
-          emptyState={<CampusEmptyState icon={Medal} title="No ranked students yet" description="Once students start earning XP, they'll show up here." />} />
+          emptyState={<CampusEmptyState icon={Medal} title="No ranked students yet" description={`Once ${scope === "campus" ? "students" : scope === "section" ? "your section" : "your department"} start earning ${metricLabel.toLowerCase()}, they'll show up here.`} />} />
       </CampusCard>
     </div>
   );

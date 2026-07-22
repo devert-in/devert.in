@@ -31,7 +31,7 @@ import {
   COMPANY_QUESTION_DIFFICULTIES, COMPANY_QUESTION_CSV_HELP,
   downloadCompanyQuestionCsvTemplate, csvRowsToCompanyQuestions,
 } from "@/lib/companyPrep";
-import { ACCESS_MODES, createInstitution, updateInstitution, addInstitutionAdmin } from "@/lib/institutions";
+import { ACCESS_MODES, createInstitution, updateInstitution, addInstitutionAdmin, fetchInstitutionAdmins, removeInstitutionAdmin } from "@/lib/institutions";
 import {
   fetchLanguages, saveLanguage, deleteLanguage, fetchTopics, saveTopic, deleteTopic,
   PROGRAMMING_DIFFICULTIES,
@@ -549,15 +549,48 @@ function InstitutionsPanel() {
   const [adminHandle, setAdminHandle] = useState({});
   const [working, setWorking] = useState({});
   const [adminFeedback, setAdminFeedback] = useState({});
+  const [adminsByInst, setAdminsByInst] = useState({});
+  const [removingAdmin, setRemovingAdmin] = useState(null); // `${institutionId}_${uid}` currently confirming
+
+  // Admin docs only carry {uid, role, addedAt} (see addInstitutionAdmin) -
+  // resolve each uid against users/{uid} for a human-readable handle/name,
+  // same "resolve after the fact" shape as handleAddAdmin's own handle ->
+  // uid lookup, just in reverse.
+  const loadAdmins = async (institutionId) => {
+    const rows = await fetchInstitutionAdmins(institutionId);
+    const resolved = await Promise.all(rows.map(async (a) => {
+      const snap = await getDoc(doc(db, "users", a.uid));
+      const u = snap.exists() ? snap.data() : null;
+      return { ...a, handle: u?.handle || "", displayName: u?.displayName || "" };
+    }));
+    setAdminsByInst(p => ({ ...p, [institutionId]: resolved }));
+  };
 
   const load = () => {
     setLoading(true);
     getDocs(query(collection(db, "institutions"), orderBy("createdAt", "desc")))
-      .then(snap => setInstitutions(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .then(async (snap) => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setInstitutions(list);
+        await Promise.all(list.map(inst => loadAdmins(inst.id)));
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
+
+  const handleRemoveAdmin = async (institutionId, uid) => {
+    setWorking(p => ({ ...p, [`${institutionId}_${uid}`]: true }));
+    try {
+      await removeInstitutionAdmin(institutionId, uid);
+      setRemovingAdmin(null);
+      await loadAdmins(institutionId);
+    } catch (e) {
+      setAdminFeedback(p => ({ ...p, [institutionId]: { type: "error", text: e.message || "Failed to remove admin." } }));
+    } finally {
+      setWorking(p => ({ ...p, [`${institutionId}_${uid}`]: false }));
+    }
+  };
 
   const handleCreate = async () => {
     setError("");
@@ -593,6 +626,7 @@ function InstitutionsPanel() {
       await addInstitutionAdmin(institutionId, uid, "faculty");
       setAdminHandle(p => ({ ...p, [institutionId]: "" }));
       setAdminFeedback(p => ({ ...p, [institutionId]: { type: "success", text: `@${handle} added as an admin.` } }));
+      await loadAdmins(institutionId);
     } catch (e) {
       setAdminFeedback(p => ({ ...p, [institutionId]: { type: "error", text: e.message || "Failed to add admin." } }));
     } finally {
@@ -680,6 +714,37 @@ function InstitutionsPanel() {
                 {adminFeedback[inst.id].text}
               </p>
             )}
+            <div className="space-y-1.5">
+              {(adminsByInst[inst.id] || []).length === 0 ? (
+                <p className="font-mono text-[10px] text-white/20">No admins yet - add one above.</p>
+              ) : adminsByInst[inst.id].map(a => {
+                const key = `${inst.id}_${a.uid}`;
+                return (
+                  <div key={a.uid} className="flex items-center gap-2 px-2.5 py-1.5 rounded" style={{ background: "rgba(255,255,255,0.02)" }}>
+                    <span className="font-mono text-[11px] text-white/70 flex-1 min-w-0 truncate">
+                      {a.displayName || "(no name)"} {a.handle && <span className="text-white/30">@{a.handle}</span>}
+                    </span>
+                    <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{a.role}</span>
+                    {removingAdmin === key ? (
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button onClick={() => handleRemoveAdmin(inst.id, a.uid)} disabled={working[key]}
+                          className="font-mono text-[10px] px-2 py-1 rounded border border-red-400/30 text-red-400 hover:bg-red-400/8 transition-colors disabled:opacity-50">
+                          {working[key] ? "removing..." : "confirm"}
+                        </button>
+                        <button onClick={() => setRemovingAdmin(null)} className="font-mono text-[10px] px-1.5 text-white/30 hover:text-white/50">
+                          cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setRemovingAdmin(key)}
+                        className="font-mono text-[10px] px-2 py-1 rounded border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 transition-colors flex-shrink-0">
+                        remove as admin
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>
