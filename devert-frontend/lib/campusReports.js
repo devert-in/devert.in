@@ -54,12 +54,27 @@ async function toExcelBuffer(columns, rows, sheetName) {
 }
 
 async function toPdfBlob(columns, rows, title) {
-  const { default: JsPDF } = await import("jspdf");
-  await import("jspdf-autotable");
+  // Named export, not default. jspdf's package.json exports map resolves to a
+  // DIFFERENT build per environment: the browser gets jspdf.es.min.js (where
+  // `default` and `jsPDF` are the same binding) but node gets
+  // jspdf.node.min.js (where `default` is an object and only `jsPDF` is the
+  // constructor). Destructuring `default` therefore works in the app and throws
+  // "JsPDF is not a constructor" anywhere it is exercised outside a browser,
+  // including a test. The named export is correct in both.
+  const { jsPDF: JsPDF } = await import("jspdf");
+  // jspdf-autotable v5 exports a STANDALONE function - autoTable(doc, opts) -
+  // and no longer patches jsPDF's prototype on import. The v3 style this used
+  // to be written in (`await import("jspdf-autotable")` for its side effect,
+  // then `pdf.autoTable({...})`) fails at runtime with
+  // "pdf.autoTable is not a function", and only at runtime: the import
+  // succeeds, the build passes, and it breaks when a user clicks Export.
+  // v5 does still ship applyPlugin() for the old call style, but the function
+  // form is the documented API and does not depend on prototype mutation.
+  const { default: autoTable } = await import("jspdf-autotable");
   const pdf = new JsPDF({ orientation: columns.length > 5 ? "landscape" : "portrait" });
   pdf.setFontSize(14);
   pdf.text(title, 14, 15);
-  pdf.autoTable({
+  autoTable(pdf, {
     startY: 20,
     head: [columns.map(c => c.label)],
     body: rows.map(r => columns.map(c => String(c.value(r) ?? ""))),
