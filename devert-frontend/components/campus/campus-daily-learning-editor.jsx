@@ -115,7 +115,7 @@ export function McqListField({ label = "QUIZ (MCQS)", items, onChange }) {
   );
 }
 
-export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSaved }) {
+export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSaved, trackId = "dsa" }) {
   const isNew = !item;
   const [form, setForm] = useState(item ? { ...item } : blankItem(defaultDate));
   const [saving, setSaving] = useState(false);
@@ -137,10 +137,34 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
   const set = (patch) => setForm(f => ({ ...f, ...patch }));
 
   const addMcq = () => set({ mcqs: [...(form.mcqs || []), blankMcq()] });
-  const removeMcq = (id) => set({ mcqs: form.mcqs.filter(q => q.id !== id) });
+  // Also drops the deleted question's id from timedQuiz.mcqIds, if it was
+  // included there - otherwise a dangling id would silently vanish that
+  // question from the student's Timed Mini Quiz with no visible warning here.
+  const removeMcq = (id) => set({
+    mcqs: form.mcqs.filter(q => q.id !== id),
+    timedQuiz: form.timedQuiz ? { ...form.timedQuiz, mcqIds: form.timedQuiz.mcqIds.filter(qid => qid !== id) } : form.timedQuiz,
+  });
   const patchMcq = (id, patch) => set({ mcqs: form.mcqs.map(q => q.id === id ? { ...q, ...patch } : q) });
   const patchMcqOption = (id, idx, value) => set({
     mcqs: form.mcqs.map(q => q.id === id ? { ...q, options: q.options.map((o, i) => i === idx ? value : o) } : q),
+  });
+
+  // Timed Mini Quiz (see TimedMiniQuiz in campus-daily-learning.jsx) - a
+  // subset of this SAME mcqs list, referenced by id, plus one shared time
+  // limit for that subset. Deliberately not a separate question bank: it
+  // reuses the exact same questions/grading the untimed Practice quiz above
+  // already has, just under a countdown.
+  const toggleTimedMcq = (id) => {
+    const mcqIds = form.timedQuiz?.mcqIds || [];
+    set({
+      timedQuiz: {
+        timeLimitSeconds: form.timedQuiz?.timeLimitSeconds || 300,
+        mcqIds: mcqIds.includes(id) ? mcqIds.filter(qid => qid !== id) : [...mcqIds, id],
+      },
+    });
+  };
+  const setTimedQuizMinutes = (minutes) => set({
+    timedQuiz: { timeLimitSeconds: Math.max(1, minutes) * 60, mcqIds: form.timedQuiz?.mcqIds || [] },
   });
 
   const addProblem = (p) => {
@@ -159,7 +183,7 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
     if (!canSave || saving) return;
     setSaving(true);
     try {
-      await saveItem(slug, { ...form, status: publish ? "published" : (form.status || "draft") });
+      await saveItem(slug, { ...form, status: publish ? "published" : (form.status || "draft") }, trackId);
       onSaved();
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
@@ -277,32 +301,52 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
         </CampusCard>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <label className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>MCQs ({(form.mcqs || []).length})</label>
-            <button onClick={addMcq} className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
-              <Plus size={11} /> add question
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>Timed quiz limit</span>
+                <input type="number" min={1} value={Math.round((form.timedQuiz?.timeLimitSeconds || 300) / 60)}
+                  onChange={e => setTimedQuizMinutes(parseInt(e.target.value) || 1)}
+                  className="w-14 text-[12px] px-2 py-1 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+                <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>min</span>
+              </div>
+              <button onClick={addMcq} className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+                <Plus size={11} /> add question
+              </button>
+            </div>
           </div>
+          <p className="text-[10.5px] mb-2" style={{ color: CAMPUS.inkFaint }}>
+            Check &quot;timed quiz&quot; on a question to include it in the day&apos;s Timed Mini Quiz - a separate,
+            countdown-timed subset of these same questions (see the day page&apos;s own Timed Mini Quiz card).
+          </p>
           <div className="space-y-3">
-            {(form.mcqs || []).map((q, qi) => (
-              <CampusCard key={q.id} className="p-4">
-                <div className="flex items-start gap-2 mb-2.5">
-                  <span className="text-[11px] font-mono mt-2" style={{ color: CAMPUS.inkFaint }}>{qi + 1}.</span>
-                  <input value={q.text} onChange={e => patchMcq(q.id, { text: e.target.value })} placeholder="Question text"
-                    className="flex-1 text-[13px] px-3 py-1.5 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
-                  <button onClick={() => removeMcq(q.id)} style={{ color: CAMPUS.bad }} className="mt-1.5"><Trash2 size={14} /></button>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-2 pl-5">
-                  {q.options.map((opt, oi) => (
-                    <div key={oi} className="flex items-center gap-2">
-                      <input type="radio" checked={q.correctIndex === oi} onChange={() => patchMcq(q.id, { correctIndex: oi })} style={{ accentColor: CAMPUS.good }} />
-                      <input value={opt} onChange={e => patchMcqOption(q.id, oi, e.target.value)} placeholder={`Option ${oi + 1}`}
-                        className="flex-1 text-[12.5px] px-2.5 py-1.5 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${q.correctIndex === oi ? CAMPUS.good : CAMPUS.line}`, color: CAMPUS.ink }} />
-                    </div>
-                  ))}
-                </div>
-              </CampusCard>
-            ))}
+            {(form.mcqs || []).map((q, qi) => {
+              const inTimedQuiz = (form.timedQuiz?.mcqIds || []).includes(q.id);
+              return (
+                <CampusCard key={q.id} className="p-4">
+                  <div className="flex items-start gap-2 mb-2.5">
+                    <span className="text-[11px] font-mono mt-2" style={{ color: CAMPUS.inkFaint }}>{qi + 1}.</span>
+                    <input value={q.text} onChange={e => patchMcq(q.id, { text: e.target.value })} placeholder="Question text"
+                      className="flex-1 text-[13px] px-3 py-1.5 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+                    <button onClick={() => removeMcq(q.id)} style={{ color: CAMPUS.bad }} className="mt-1.5"><Trash2 size={14} /></button>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-2 pl-5 mb-2.5">
+                    {q.options.map((opt, oi) => (
+                      <div key={oi} className="flex items-center gap-2">
+                        <input type="radio" checked={q.correctIndex === oi} onChange={() => patchMcq(q.id, { correctIndex: oi })} style={{ accentColor: CAMPUS.good }} />
+                        <input value={opt} onChange={e => patchMcqOption(q.id, oi, e.target.value)} placeholder={`Option ${oi + 1}`}
+                          className="flex-1 text-[12.5px] px-2.5 py-1.5 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${q.correctIndex === oi ? CAMPUS.good : CAMPUS.line}`, color: CAMPUS.ink }} />
+                      </div>
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-1.5 pl-5 text-[11.5px]" style={{ color: inTimedQuiz ? CAMPUS.teal : CAMPUS.inkFaint }}>
+                    <input type="checkbox" checked={inTimedQuiz} onChange={() => toggleTimedMcq(q.id)} style={{ accentColor: CAMPUS.teal }} />
+                    Include in Timed Mini Quiz
+                  </label>
+                </CampusCard>
+              );
+            })}
             {(form.mcqs || []).length === 0 && <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>No MCQs yet - click &quot;add question&quot;.</p>}
           </div>
         </div>

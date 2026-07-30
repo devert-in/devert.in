@@ -336,6 +336,31 @@ export async function fetchLogsForDate(slug, date, trackId = "dsa") {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// Scoped counterpart to fetchLogsForDate, for HOD/Faculty callers viewing
+// their own department/classroom's analytics (see lib/classroomAnalytics.js's
+// fetchClassroomDailyLearningTrend). fetchLogsForDate's plain date-only query
+// returns every student's log institution-wide - fine for isApprovedStudent/
+// isInstitutionAdmin callers, but firestore.rules' dailyLearningLog read rule
+// only grants an HOD/Faculty caller access to docs belonging to a student in
+// their OWN scope (via isHodOfStudent/isFacultyOfStudent), so that unscoped
+// query is denied in full the instant even one returned doc belongs to a
+// student outside their department/classroom - the same "list queries fail
+// all-or-nothing" trap fetchRosterStudentsByDepartment/ByClassroom already
+// work around. Chunked into groups of 30 (Firestore's "in" cap).
+export async function fetchLogsForDateByUids(slug, date, uids, trackId = "dsa") {
+  const rows = [];
+  for (let i = 0; i < uids.length; i += 30) {
+    const chunk = uids.slice(i, i + 30);
+    if (!chunk.length) continue;
+    const snap = await getDocs(query(
+      collection(db, trackPaths(slug, trackId).logs),
+      where("date", "==", date), where("uid", "in", chunk),
+    ));
+    snap.docs.forEach(d => rows.push({ id: d.id, ...d.data() }));
+  }
+  return rows;
+}
+
 // Filters to completedAt specifically, not mere doc existence - saveDraftProgress
 // (above) writes a doc for this same (uid, date) the moment a student marks a
 // lesson read or picks one MCQ answer, well before any real completion, and

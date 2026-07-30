@@ -73,11 +73,31 @@ const TARGETS = [
   { root: "csCoreSubjects", sub: ["topics"] },
   { root: "programmingLanguages", sub: ["topics"] },
   { root: "gatePapers", sub: ["subjects", "topics"] },
+  // Software Engineering Bootcamp. Added on the second pass: this collection did
+  // not exist when the content map was taken, and landed while Phase 0 was being
+  // written - which is exactly why this script is idempotent and re-runnable
+  // rather than a one-shot migration.
+  { root: "seModules", sub: ["lessons"] },
   { root: "aptitude_topics", sub: [] },          // `questions` sub-parts excluded
   { root: "companies", sub: [] },                // `rounds/categories` excluded
   { root: "courses", sub: [] },                  // `modules/tasks` excluded
   { root: "intel_resources", sub: [] },
+  // The GATE question/test/formula/resource banks. Empty today, so these are
+  // no-ops - listed so that seeding them later is covered without anyone having
+  // to remember to come back here.
+  { root: "gate_pyqs", sub: [] },
+  { root: "gate_tests", sub: [] },
+  { root: "gate_formulas", sub: [] },
+  { root: "gate_resources", sub: [] },
 ];
+
+// NOT targeted, deliberately:
+//   problems          - 545 DSA problems, pending open question 4. Also the
+//                       most-read collection in the app.
+//   opportunities     - job/internship listings. Not educational content, so it
+//                       stays outside the learning distribution model even
+//                       though it shares the same read-rule shape.
+//   gate_announcements- operational messaging, not content.
 
 // Per-institution content. Daily Learning is the only genuinely
 // institution-owned learning content in the system (13 docs at MRCET).

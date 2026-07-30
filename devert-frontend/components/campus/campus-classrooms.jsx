@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
-  fetchRosterStudents, YEARS, classroomKey, fetchClassroom, updateClassroomLeaderboardVisibility,
+  fetchRosterStudents, fetchRosterStudentsByClassroom, YEARS, classroomKey, fetchClassroom, updateClassroomLeaderboardVisibility,
   LEADERBOARD_SCOPES, LEADERBOARD_METRICS, MODULES, isModuleEnabledForClassroom, setClassroomModuleAccess,
 } from "@/lib/institutions";
 import { fetchClassroomAnalytics, fetchCampusAverages } from "@/lib/classroomAnalytics";
@@ -183,21 +183,20 @@ export function CampusClassrooms({ institutionId, institution }) {
 // CampusHodDashboard in campus-departments.jsx - there's no classroom list
 // for them to leave).
 export function CampusFacultyDashboard({ institutionId, classroomId }) {
-  const [students, setStudents] = useState(null);
+  const [classroomStudents, setClassroomStudents] = useState(null);
   const [classroom, setClassroom] = useState(undefined);
   const [viewingStudentUid, setViewingStudentUid] = useState(null);
 
   useEffect(() => {
-    fetchRosterStudents(institutionId).then(setStudents).catch(() => setStudents([]));
+    fetchRosterStudentsByClassroom(institutionId, classroomId).then(setClassroomStudents).catch(() => setClassroomStudents([]));
     fetchClassroom(institutionId, classroomId).then(setClassroom).catch(() => setClassroom(null));
   }, [institutionId, classroomId]);
 
   useCampusBackHandler(3, !!viewingStudentUid, () => setViewingStudentUid(null));
 
-  if (students === null || classroom === undefined) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={200} /></CampusCard>;
+  if (classroomStudents === null || classroom === undefined) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={200} /></CampusCard>;
   if (!classroom) return <CampusEmptyState icon={GraduationCap} title="Classroom not found" description="This classroom no longer exists." />;
 
-  const classroomStudents = students.filter(s => s.classroomId === classroomId);
   if (viewingStudentUid) {
     const student = classroomStudents.find(s => s.uid === viewingStudentUid);
     if (student) {

@@ -155,6 +155,29 @@ test("timeline rows keep author order", () => {
   assert.deepEqual(block.steps.map(s => s.term), ["Power On", "BIOS", "Kernel"]);
 });
 
+// ---------------- table ----------------
+
+test("table splits the header row from data rows on the pipe delimiter", () => {
+  const [block] = parseLessonBlocks("::: table Powers of 2\nPower | Value\n2^10 | 1,024\n2^20 | 1,048,576\n:::");
+  assert.equal(block.type, "table");
+  assert.equal(block.title, "Powers of 2");
+  assert.deepEqual(block.headers, ["Power", "Value"]);
+  assert.deepEqual(block.rows, [["2^10", "1,024"], ["2^20", "1,048,576"]]);
+});
+
+test("a table title is optional and blank lines inside the fence are ignored", () => {
+  const [block] = parseLessonBlocks("::: table\nA | B\n\n1 | 2\n:::");
+  assert.equal(block.title, "");
+  assert.deepEqual(block.headers, ["A", "B"]);
+  assert.deepEqual(block.rows, [["1", "2"]]);
+});
+
+test("a table with only a header row has no data rows, not a crash", () => {
+  const [block] = parseLessonBlocks("::: table\nA | B\n:::");
+  assert.deepEqual(block.headers, ["A", "B"]);
+  assert.deepEqual(block.rows, []);
+});
+
 // ---------------- checkpoint ----------------
 
 test("checkpoint parses prompt, options, the correct flag and the explanation", () => {

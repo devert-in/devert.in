@@ -230,7 +230,7 @@ test("only a user with the admin custom claim can write system config", async ()
 // lifecycle.
 test("a published aptitude topic (and its questions) is publicly readable; a draft is not; only admin can write", async () => {
   const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
-  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages").set({ name: "Percentages", category: "Quantitative", status: "published" }));
+  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages").set({ name: "Percentages", category: "Quantitative", status: "published", audiences: ["legacy"] }));
   await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages/questions/q1").set({ question: "2+2?" }));
 
   const guest = testEnv.unauthenticatedContext();
@@ -326,7 +326,7 @@ const PAST = new Date(Date.now() - 60 * 60 * 1000);    // -1h, mirrors a contest
 
 async function seedContest(ctx, contestId, overrides = {}) {
   await ctx.firestore().doc(`contests/${contestId}`).set({
-    status: "published",
+    status: "published", audiences: ["legacy"],
     registrationEnd: FUTURE,
     contestEnd: FUTURE,
     prizeXp: 100,
@@ -429,7 +429,7 @@ test("only admin can write contest questions/answerKeys; anyone can read publish
 // --- CodeLab ---
 
 async function seedProblem(ctx, problemId, overrides = {}) {
-  await ctx.firestore().doc(`problems/${problemId}`).set({ status: "published", ...overrides });
+  await ctx.firestore().doc(`problems/${problemId}`).set({ status: "published", audiences: ["legacy"], ...overrides });
 }
 
 test("anyone can read a published problem and its sample tests; a client can NEVER read hidden tests", async () => {
@@ -454,7 +454,7 @@ test("only admin can write problems/sample/hidden tests", async () => {
   const user = testEnv.authenticatedContext("user-uid");
   await assertFails(user.firestore().doc("problems/p1").set({ status: "published", title: "hack" }));
   const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
-  await assertSucceeds(admin.firestore().doc("problems/p1").set({ status: "published", title: "Two Sum" }));
+  await assertSucceeds(admin.firestore().doc("problems/p1").set({ status: "published", audiences: ["legacy"], title: "Two Sum" }));
 });
 
 test("codelab_submissions are owner/admin read-only; a client can never write one directly (grading is backend-only)", async () => {
@@ -697,7 +697,7 @@ test("an institution admin can create a contest for their own institution, but n
 
 test("an institution-scoped contest is invisible to outsiders even when published, visible to that institution's approved students/admins", async () => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
-    await ctx.firestore().doc("contests/inst-contest").set({ title: "MRCET Contest", status: "published", institutionId: "mrcet" });
+    await ctx.firestore().doc("contests/inst-contest").set({ title: "MRCET Contest", status: "published", audiences: ["legacy"], institutionId: "mrcet" });
     await ctx.firestore().doc("institutions/mrcet/students/approved-uid").set({ uid: "approved-uid", status: "approved" });
     await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid" });
     await ctx.firestore().doc("institutions/other-college/admins/other-admin-uid").set({ uid: "other-admin-uid" });
@@ -717,7 +717,7 @@ test("an institution-scoped contest is invisible to outsiders even when publishe
   // Global Arena hub is unaffected - a contest with no institutionId stays exactly
   // as open as before.
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
-    await ctx.firestore().doc("contests/global-contest").set({ title: "Global Arena Contest", status: "published" });
+    await ctx.firestore().doc("contests/global-contest").set({ title: "Global Arena Contest", status: "published", audiences: ["legacy"] });
   });
   await assertSucceeds(outsider.firestore().doc("contests/global-contest").get());
 });
@@ -774,7 +774,10 @@ test("an institution-scoped contest's questions/answerKeys/submissions/registrat
 // --- Company Prep ---
 
 async function seedCompanyQuestion(ctx, companyId, { status = "published" } = {}) {
-  await ctx.firestore().doc(`companies/${companyId}`).set({ name: "Cognizant", status, order: 0 });
+  // audiences mirrors the Phase 0 backfill - every production content document
+  // carries ["legacy"], which every reader carries, so publication behaviour is
+  // governed by `status` exactly as before.
+  await ctx.firestore().doc(`companies/${companyId}`).set({ name: "Cognizant", status, order: 0, audiences: ["legacy"] });
   await ctx.firestore().doc(`companies/${companyId}/rounds/technical`).set({ name: "Technical Assessment", order: 0 });
   await ctx.firestore().doc(`companies/${companyId}/rounds/technical/categories/oop`).set({ name: "OOP", order: 0 });
   await ctx.firestore().doc(`companies/${companyId}/rounds/technical/categories/oop/questions/q1`).set({
@@ -786,7 +789,7 @@ async function seedCompanyQuestion(ctx, companyId, { status = "published" } = {}
 test("a draft company's questions are admin-only; a published company's are public, and a signed-in user may only bump the bounded stat counters", async () => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await seedCompanyQuestion(ctx, "cog-draft", { status: "draft" });
-    await seedCompanyQuestion(ctx, "cog-live", { status: "published" });
+    await seedCompanyQuestion(ctx, "cog-live", { status: "published", audiences: ["legacy"] });
   });
   const qPath = (companyId) => `companies/${companyId}/rounds/technical/categories/oop/questions/q1`;
 
@@ -1137,6 +1140,45 @@ test("an institution admin can still write any student's dailyLearningLog slot (
   }));
 });
 
+// Regression: Department/Classroom Analytics' "Couldn't load analytics" bug -
+// an HOD/Faculty caller could read the roster (isHodOfDepartment) but had NO
+// read path at all into dailyLearningLog (only isApprovedStudent/
+// isInstitutionAdmin/isAdmin were ever checked), so fetchClassroomAnalytics'
+// own dailyLearningLog reads threw for every HOD/Faculty viewer, not just
+// ones with an empty cohort. Fixed via isHodOfStudent/isFacultyOfStudent,
+// resolved from the LOG's own uid field (these log docs carry no department/
+// classroomId directly).
+
+test("an HOD can read a dailyLearningLog entry for a student in their OWN department, but not one outside it", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/roleAssignments/hod-uid").set({
+      uid: "hod-uid", roleKey: "hod", status: "active", scope: { department: "CSE(AI&ML)" },
+    });
+    await ctx.firestore().doc("institutions/mrcet/students/in-scope-uid").set({
+      uid: "in-scope-uid", status: "approved", department: "CSE(AI&ML)",
+    });
+    await ctx.firestore().doc("institutions/mrcet/students/other-dept-uid").set({
+      uid: "other-dept-uid", status: "approved", department: "ECE",
+    });
+    // isHodOfStudent resolves studentInstitutionId(uid) via users/{uid}.institutionId,
+    // not the roster doc itself - both must exist for the lookup to succeed.
+    await ctx.firestore().doc("users/in-scope-uid").set({ institutionId: "mrcet" });
+    await ctx.firestore().doc("users/other-dept-uid").set({ institutionId: "mrcet" });
+    await ctx.firestore().doc("institutions/mrcet/dailyLearningLog/in-scope-uid_2026-07-24").set({
+      uid: "in-scope-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+      xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+    });
+    await ctx.firestore().doc("institutions/mrcet/dailyLearningLog/other-dept-uid_2026-07-24").set({
+      uid: "other-dept-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+      xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+    });
+  });
+  const hod = testEnv.authenticatedContext("hod-uid");
+  await assertSucceeds(hod.firestore().doc("institutions/mrcet/dailyLearningLog/in-scope-uid_2026-07-24").get());
+  await assertFails(hod.firestore().doc("institutions/mrcet/dailyLearningLog/other-dept-uid_2026-07-24").get());
+});
+
 // --- Multi-track Daily Learning (institutions/{id}/learningTracks/{trackId}/
 // {items,logs}) - every NEW track (Aptitude Series first) besides the
 // grandfathered "dsa" track lives here instead of in dailyLearning/
@@ -1362,7 +1404,7 @@ test("aptitude_topics read is gated on published status for non-admins, same as 
   await assertFails(student.firestore().doc("aptitude_topics/percentages").get());
 
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
-    await ctx.firestore().doc("aptitude_topics/percentages").update({ status: "published" });
+    await ctx.firestore().doc("aptitude_topics/percentages").update({ status: "published", audiences: ["legacy"] });
   });
   await assertSucceeds(student.firestore().doc("aptitude_topics/percentages").get());
 
@@ -1418,7 +1460,7 @@ test("companies/{id}/interviewExperiences and mockInterviews follow the same pub
   await assertFails(student.firestore().doc("companies/knowvation/interviewExperiences/exp2").set({ tips: "hack" }));
   await assertFails(student.firestore().doc("companies/knowvation/mockInterviews/mock2").set({ name: "hack" }));
 
-  await assertSucceeds(admin.firestore().doc("companies/knowvation").update({ status: "published" }));
+  await assertSucceeds(admin.firestore().doc("companies/knowvation").update({ status: "published", audiences: ["legacy"] }));
   await assertSucceeds(student.firestore().doc("companies/knowvation/interviewExperiences/exp1").get());
   await assertSucceeds(student.firestore().doc("companies/knowvation/mockInterviews/mock1").get());
   await assertFails(student.firestore().doc("companies/knowvation/interviewExperiences/exp1").set({ tips: "hacked" }));

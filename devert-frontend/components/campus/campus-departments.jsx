@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
-  fetchRosterStudents, fetchRoleAssignments, fetchDepartments, fetchDepartment, updateDepartment, departmentKey,
+  fetchRosterStudents, fetchRosterStudentsByDepartment, fetchRoleAssignments, fetchDepartments, fetchDepartment, updateDepartment, departmentKey,
 } from "@/lib/institutions";
 import { fetchClassroomAnalytics, fetchCampusAverages } from "@/lib/classroomAnalytics";
 import { useCampusBackHandler } from "@/lib/campusNav";
@@ -95,6 +95,33 @@ export function CampusDepartments({ institutionId }) {
 // assigned to (onBack: null renders the breadcrumb's first crumb as plain
 // text, not a link - there's no department list for an HOD to leave).
 export function CampusHodDashboard({ institutionId, department }) {
+  const [deptStudents, setDeptStudents] = useState(null);
+  const [roleAssignments, setRoleAssignments] = useState([]);
+
+  useEffect(() => {
+    fetchRosterStudentsByDepartment(institutionId, department).then(setDeptStudents).catch(() => setDeptStudents([]));
+    fetchRoleAssignments(institutionId).then(setRoleAssignments).catch(() => setRoleAssignments([]));
+  }, [institutionId, department]);
+
+  if (deptStudents === null) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={200} /></CampusCard>;
+
+  const hod = roleAssignments.find(r => r.roleKey === "hod" && r.scope?.department === department && r.status === "active");
+  const faculty = roleAssignments.filter(r => r.roleKey === "facultyClassTeacher" && r.status === "active");
+  return <DepartmentDashboard institutionId={institutionId} department={department} students={deptStudents} hod={hod} faculty={faculty} onBack={null} />;
+}
+
+// Principal's own Overview tab - identical breadth to Institution Admin at
+// the rules layer (see firestore.rules' isPrincipal(), folded directly into
+// isInstitutionAdmin()), so an unscoped fetchRosterStudents() is genuinely
+// safe here unlike CampusHodDashboard/CampusFacultyDashboard above. Reuses
+// the same rich DepartmentDashboard those get, just fed the WHOLE roster
+// instead of one department/classroom's slice - hideSettingsTab, since that
+// tab edits one department's own description field, which has no
+// institution-wide equivalent. The Faculty tab's own "classroom appears in
+// the given student list" filter naturally becomes "every classroom in the
+// institution" when given every student, so it reads as a full staff
+// directory with no extra logic needed.
+export function CampusPrincipalDashboard({ institutionId, institution }) {
   const [students, setStudents] = useState(null);
   const [roleAssignments, setRoleAssignments] = useState([]);
 
@@ -105,10 +132,11 @@ export function CampusHodDashboard({ institutionId, department }) {
 
   if (students === null) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={200} /></CampusCard>;
 
-  const deptStudents = students.filter(s => s.department === department);
-  const hod = roleAssignments.find(r => r.roleKey === "hod" && r.scope?.department === department && r.status === "active");
   const faculty = roleAssignments.filter(r => r.roleKey === "facultyClassTeacher" && r.status === "active");
-  return <DepartmentDashboard institutionId={institutionId} department={department} students={deptStudents} hod={hod} faculty={faculty} onBack={null} />;
+  return (
+    <DepartmentDashboard institutionId={institutionId} department={institution?.name || "All Departments"}
+      students={students} hod={null} faculty={faculty} onBack={null} hideSettingsTab />
+  );
 }
 
 const DEPT_TABS = [
@@ -126,11 +154,12 @@ const DEPT_TABS = [
 // classroom's), Years reuses buildClassroomTree + the imported
 // ClassroomDashboard for its Section drill-down, so this is genuinely
 // additive on top of campus-classrooms.jsx, not a fork of it.
-export function DepartmentDashboard({ institutionId, department, students, hod, faculty, onBack }) {
+export function DepartmentDashboard({ institutionId, department, students, hod, faculty, onBack, hideSettingsTab = false }) {
   const [tab, setTab] = useState("overview");
   const [analytics, setAnalytics] = useState(null);
   const [viewingStudentUid, setViewingStudentUid] = useState(null);
   const [yearSection, setYearSection] = useState(null); // { year, section, students }
+  const tabs = hideSettingsTab ? DEPT_TABS.filter(t => t.key !== "settings") : DEPT_TABS;
 
   useEffect(() => {
     setAnalytics(null);
@@ -161,7 +190,7 @@ export function DepartmentDashboard({ institutionId, department, students, hod, 
       </h2>
 
       <div className="flex items-center gap-1.5 flex-wrap mb-4 overflow-x-auto">
-        {DEPT_TABS.map(t => (
+        {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
             style={{ color: tab === t.key ? "#fff" : CAMPUS.inkSoft, background: tab === t.key ? CAMPUS.teal : "transparent", border: `1px solid ${tab === t.key ? CAMPUS.teal : CAMPUS.line}` }}>

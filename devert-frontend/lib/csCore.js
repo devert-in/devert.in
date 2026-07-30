@@ -2,6 +2,7 @@
 // admin-authored subject/topic catalog): OS, DBMS, Networks, OOP, etc. are
 // the same curriculum for every institution, not per-campus content.
 import { db } from "@/lib/firebase";
+import { currentAudiences } from "@/lib/audiences";
 import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
   serverTimestamp, writeBatch, arrayUnion, arrayRemove, runTransaction,
@@ -15,7 +16,7 @@ import { withVersionSnapshot } from "@/lib/contentVersioning";
 // avoid needing a composite index for filter+sort on different fields.
 export async function fetchSubjects({ includeUnpublished = false } = {}) {
   const col = collection(db, "csCoreSubjects");
-  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published")));
+  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
@@ -46,7 +47,7 @@ export async function deleteSubject(subjectId) {
 
 export async function fetchTopics(subjectId, { includeUnpublished = false } = {}) {
   const col = collection(db, "csCoreSubjects", subjectId, "topics");
-  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published")));
+  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 

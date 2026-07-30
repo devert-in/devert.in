@@ -11,7 +11,7 @@ import {
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
-  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload,
+  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network,
 } from "lucide-react";
 import {
   db, auth
@@ -46,6 +46,7 @@ import {
   OPPORTUNITY_TYPES, WORK_MODES, DIFFICULTIES as OPP_DIFFICULTIES,
 } from "@/lib/opportunities";
 import { StringListField, McqListField } from "@/components/campus/campus-daily-learning-editor";
+import { SeModulesPanel } from "@/components/admin/se-panel";
 import {
   GatePapersPanel, GateSubjectsPanel, GatePyqPanel, GateTestsPanel,
   GateFormulaPanel, GateResourcesPanel, GateLessonImportPanel,
@@ -6891,6 +6892,14 @@ function AdminPageInner() {
                 </Section>
                 <Section title="CS CORE SUBJECTS" icon={BrainCircuit} color="#A78BFA">
                   <CsCoreSubjectsPanel />
+                </Section>
+                {/* Software Engineering Fundamentals - the core-platform flagship
+                    course (app/fundamentals). Deliberately listed BEFORE the GATE
+                    block: it is a core DeVert product, not part of the Campus
+                    exam-prep vertical, and its curriculum seeder is the first
+                    thing a new deployment needs. */}
+                <Section title="SOFTWARE ENGINEERING FUNDAMENTALS" icon={Network} color="#7DD3FC">
+                  <SeModulesPanel />
                 </Section>
                 {/* GATE - seven sections inside the existing CONTENT tab rather than
                     a new top-level admin tab, per CLAUDE.md. Papers comes first

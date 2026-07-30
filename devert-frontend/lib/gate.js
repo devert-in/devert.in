@@ -25,6 +25,7 @@
 //   - Reward-bearing completion is transaction-wrapped and idempotent, and
 //     grants through the one shared grantRewards() ledger.
 import { db } from "@/lib/firebase";
+import { currentAudiences } from "@/lib/audiences";
 import { withVersionSnapshot } from "@/lib/contentVersioning";
 import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
@@ -59,7 +60,7 @@ export const GATE_PAPER_CATALOG = [
 
 export async function fetchPapers({ includeUnpublished = false } = {}) {
   const col = collection(db, "gatePapers");
-  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published")));
+  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
@@ -135,7 +136,7 @@ export { commitInChunks };
 
 export async function fetchSubjects(paperId, { includeUnpublished = false } = {}) {
   const col = collection(db, "gatePapers", paperId, "subjects");
-  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published")));
+  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
@@ -181,7 +182,7 @@ async function scrubCompletedTopicIds(paperId, topicIds) {
 
 export async function fetchTopics(paperId, subjectId, { includeUnpublished = false } = {}) {
   const col = collection(db, "gatePapers", paperId, "subjects", subjectId, "topics");
-  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published")));
+  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 

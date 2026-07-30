@@ -53,7 +53,7 @@ import { fetchContentVisibility } from "@/lib/contentVisibility";
 import { CampusManage, SEGMENT_TO_MANAGE_TAB } from "@/components/campus/campus-manage";
 import { CampusAdminOverview } from "@/components/campus/campus-admin-overview";
 import { CampusStaffOverview } from "@/components/campus/campus-staff-overview";
-import { CampusHodDashboard } from "@/components/campus/campus-departments";
+import { CampusHodDashboard, CampusPrincipalDashboard } from "@/components/campus/campus-departments";
 import { CampusFacultyDashboard } from "@/components/campus/campus-classrooms";
 import { NAV_ITEMS, GROUP_ORDER, NAV_GROUP_LABELS } from "@/lib/campusNavConfig";
 import { CampusMobileDrawer } from "@/components/campus/campus-mobile-drawer";
@@ -1608,6 +1608,8 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             <CampusHodDashboard institutionId={slug} department={staffScope.department} />
           ) : tab === "dashboard" && staffScope?.role === "facultyClassTeacher" ? (
             <CampusFacultyDashboard institutionId={slug} classroomId={staffScope.classroomId} />
+          ) : tab === "dashboard" && staffScope?.role === "principal" ? (
+            <CampusPrincipalDashboard institutionId={slug} institution={institution} />
           ) : tab === "dashboard" && staffScope ? (
             <CampusStaffOverview slug={slug} institution={institution} staffScope={staffScope} />
           ) : tab === "dashboard" ? (

@@ -21,6 +21,60 @@ service cloud.firestore {
       return isAuth() && request.auth.token.get('admin', false) == true;
     }
 
+    // ---------- content distribution: audiences ----------
+    // See docs/CONTENT-ENGINE-ARCHITECTURE.md sections 4, 5 and 6a. Mirrors
+    // readerAudiences()/audienceAllows() in devert-frontend/lib/audiences.js -
+    // if you change one, change the other, or a consumer's query will return
+    // documents this then denies (or, worse, the reverse).
+    //
+    // The flat-array shape is forced, not chosen: rules cannot join, get() caps
+    // at 10 reads per request, and list queries must be statically provable, so
+    // the institution/department/year/section hierarchy cannot be walked here.
+    // It is expanded into flat strings at claim-minting time instead.
+    // The claim is `auds`, NOT `aud`. `aud` is a RESERVED JWT claim holding the
+    // Firebase project id (a string) - using it here made
+    // token.get('aud', []) return that string, .size() return its character
+    // length, and hasAny() receive a string instead of a list, which threw and
+    // denied every authenticated read. Unauthenticated reads passed, so the bug
+    // hid until an emulator test with a signed-in user caught it. Firebase's
+    // Admin SDK also refuses to set reserved claims, so this would have failed
+    // at mint time as well. Never rename this back.
+    function readerAud() {
+      // NOT an edge case: no account has an `auds` claim yet, so this fallback
+      // is the state of every real user until claims are minted. `legacy` is in
+      // it deliberately - published content is currently readable
+      // UNAUTHENTICATED (the content reads below have no isAuth()), so omitting
+      // it would break public reads of every existing lesson.
+      return isAuth() && request.auth.token.get('auds', []).size() > 0
+        ? request.auth.token.get('auds', [])
+        : ['public', 'legacy'];
+    }
+
+    // DEFENCE IN DEPTH ONLY - exclusion is delivered by the consumer's
+    // array-contains-any filter. Emulator probing found list() returning
+    // documents that get() denies, contradicting the documented "rules are not
+    // filters" model (doc section 6a), so nothing here relies on list()
+    // enforcing this per document. What DOES hold unconditionally: `audiences:
+    // []` can never match, because no string is a member of an empty array.
+    //
+    // .get('audiences', []) means a document with no such field is INVISIBLE.
+    // That is the intended default for newly authored content, and it is safe
+    // for existing content only because Phase 0 backfilled all 1,305 documents
+    // (scripts/backfill-content-audiences.mjs). Gating a collection that has
+    // NOT been backfilled will make it vanish - check before adding one.
+    function audienceAllows() {
+      return resource.data.get('audiences', []).hasAny(readerAud());
+    }
+
+    // The published-and-in-audience predicate every global content read uses.
+    // isAdmin() is OR'd in by callers so admins keep seeing drafts and
+    // unpublished content.
+    function contentReadable() {
+      return resource != null
+        && resource.data.get('status', 'draft') == 'published'
+        && audienceAllows();
+    }
+
     // Live economy config (system/economy), with a sane fallback if it's
     // somehow missing - used to bound coin-reward deltas below to whatever
     // the admin has actually configured, instead of a value baked into rules.
@@ -708,6 +762,13 @@ service cloud.firestore {
 
     // Intel resources - public read, admin writes
     match /intel_resources/{moduleId} {
+      // NOT audience-gated, deliberately. This was `if true` and its consumers
+      // (intel-app.jsx, admin/page.jsx) read it with a fully unfiltered
+      // getDocs(collection(...)). Because Firestore's list authorisation is
+      // analytical, a rule inspecting `audiences` would require every one of
+      // those queries to constrain it - so gating 2 documents would break three
+      // components for no benefit. The field is backfilled and ready if this ever
+      // becomes real distribution.
       allow read:  if true;
       allow write: if isAdmin();
     }
@@ -842,6 +903,9 @@ service cloud.firestore {
     // inherit the same shape so new levels (module exams, etc.) slot in
     // without a rules rewrite.
     match /courses/{courseId} {
+      // NOT audience-gated - same reasoning as intel_resources. today-task-card.jsx
+      // reads this with an unfiltered getDocs(collection(db, "courses")), which an
+      // audiences-inspecting rule would deny outright. One document; not worth it.
       allow read:  if true;
       allow write: if isAdmin();
       match /modules/{moduleId} {
@@ -872,7 +936,7 @@ service cloud.firestore {
     // existing content - see lib/aptitude.js's fetchAptitudeTopics for the
     // matching required query-side where("status",...) filter.
     match /aptitude_topics/{topicId} {
-      allow read:  if resource.data.get('status', 'draft') == 'published' || isAdmin();
+      allow read:  if (resource.data.get('status', 'draft') == 'published' && audienceAllows()) || isAdmin();
       allow write: if isAdmin();
       match /questions/{questionId} {
         allow read: if true;
@@ -906,7 +970,7 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/companies/$(companyId)).data.get('status', '') == 'published';
     }
     match /companies/{companyId} {
-      allow read:  if isAdmin() || (resource != null && resource.data.status == 'published');
+      allow read:  if isAdmin() || (resource != null && resource.data.status == 'published' && audienceAllows());
       allow write: if isAdmin();
 
       match /rounds/{roundId} {
@@ -1210,11 +1274,11 @@ service cloud.firestore {
     // problems/companies precedent); drafts are admin-only so in-progress
     // authoring never leaks.
     match /programmingLanguages/{langId} {
-      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow read:  if contentReadable() || isAdmin();
       allow write: if isAdmin();
 
       match /topics/{topicId} {
-        allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+        allow read:  if contentReadable() || isAdmin();
         allow write: if isAdmin();
       }
     }
@@ -1246,11 +1310,11 @@ service cloud.firestore {
     // (global, admin-authored subject/topic catalog - OS, DBMS, Networks,
     // etc. are the same for every institution, not per-campus content).
     match /csCoreSubjects/{subjectId} {
-      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow read:  if contentReadable() || isAdmin();
       allow write: if isAdmin();
 
       match /topics/{topicId} {
-        allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+        allow read:  if contentReadable() || isAdmin();
         allow write: if isAdmin();
       }
     }
@@ -1283,15 +1347,15 @@ service cloud.firestore {
     // unfiltered query plus client-side filtering fails with permission-denied
     // for every real student rather than silently returning less.
     match /gatePapers/{paperId} {
-      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow read:  if contentReadable() || isAdmin();
       allow write: if isAdmin();
 
       match /subjects/{subjectId} {
-        allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+        allow read:  if contentReadable() || isAdmin();
         allow write: if isAdmin();
 
         match /topics/{topicId} {
-          allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+          allow read:  if contentReadable() || isAdmin();
           allow write: if isAdmin();
         }
       }
@@ -1495,6 +1559,53 @@ service cloud.firestore {
     match /gate_notes/{notesId} {
       allow read:  if isAdmin() || (isAuth() && notesId.split('_')[0] == request.auth.uid);
       allow write: if isAdmin() || (isAuth() && notesId.split('_')[0] == request.auth.uid);
+    }
+
+    // Software Engineering Fundamentals - the core-platform flagship course
+    // (lib/softwareEngineering.js). Global and world-readable when published,
+    // exactly like programmingLanguages/csCoreSubjects/problems: the whole point
+    // is that a prospective student can read the course before signing up, and
+    // that search engines can index it. Drafts stay admin-only so in-progress
+    // authoring never leaks.
+    //
+    // NOTE for any client list() here: the non-admin read branch checks
+    // resource.data.status, so a query MUST carry a matching
+    // where("status","==","published") filter or Firestore denies the whole
+    // request - see lib/programming.js's fetchLanguages comment for the full
+    // story. fetchModules/fetchLessons both do.
+    match /seModules/{moduleId} {
+      allow read:  if contentReadable() || isAdmin();
+      allow write: if isAdmin();
+
+      match /lessons/{lessonId} {
+        allow read:  if contentReadable() || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    // Per-user course progress - ONE document per user, keyed by uid (this is a
+    // single course, unlike GATE's per-paper progress docs).
+    //
+    // isAdmin() is a separate TOP-LEVEL disjunct, not nested inside isAuth() -
+    // see payout_requests above for why nesting breaks list(). It is needed as a
+    // list() here specifically because deleting a module or lesson has to scrub
+    // that id out of every learner's completedLessonIds
+    // (scrubCompletedLessonIds), which is an unfiltered collection read.
+    //
+    // completedLessonIds.hasAll(...) makes the owner's own array MONOTONIC: once
+    // a lesson id is in there the owner can never remove it, only add more.
+    // Without this, arrayRemove-ing a completed id and re-triggering
+    // completeLesson() would re-earn that lesson's XP/coins indefinitely - the
+    // identical reward-replay exploit already closed on programming_progress,
+    // cscore_progress and gate_progress. Scoped to fire only when the field is
+    // actually present on the existing doc, so the first write (and the
+    // notes/bookmarks/labs-only writes, which never touch it) are unaffected.
+    match /se_progress/{uid} {
+      allow read:  if isAdmin() || isOwner(uid);
+      allow write: if isAdmin() || (isOwner(uid)
+        && (resource == null
+          || !('completedLessonIds' in resource.data)
+          || request.resource.data.get('completedLessonIds', []).hasAll(resource.data.completedLessonIds)));
     }
 
     // DeVert Campus - each institution (college) is its own tenant, isolated from
@@ -1784,7 +1895,18 @@ service cloud.firestore {
       // only while genuinely enrolled - same isOwner+isApprovedStudent
       // shape as the rest of this Daily Learning feature.
       match /dailyLearningLog/{logId} {
-        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        // isHodOfStudent/isFacultyOfStudent (not isHodOfDepartment/
+        // isFacultyOfClassroom directly - these log docs carry no
+        // department/classroomId of their own) look up THIS log's own uid's
+        // roster doc to check scope, same as user_earnings/coin_transactions/
+        // codelab_submissions above already do. Paired with
+        // fetchLogsForDateByUids (lib/classroomAnalytics.js) actually scoping
+        // the query itself to that HOD/Faculty's own cohort - without that,
+        // an unscoped date-only list query would still be denied in full the
+        // instant it returned even one other department's log (Classroom/
+        // Department Analytics' "Couldn't load analytics" bug).
+        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
+          || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid);
         // completedAt is monotonic for a student's own write: once set, that
         // exact write is what submitDayCompletion's transaction checks to
         // decide "already rewarded" - without this, a student could call the
@@ -1842,7 +1964,12 @@ service cloud.firestore {
           allow delete: if isInstitutionAdmin(institutionId) || isAdmin();
         }
         match /logs/{logId} {
-          allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+          // Mirrors dailyLearningLog's own isHodOfStudent/isFacultyOfStudent
+          // disjunct above - see that rule's comment for why (log docs carry
+          // no department/classroomId of their own, so scope is resolved via
+          // the log's own uid's roster doc instead).
+          allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
+            || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid);
           allow write: if isInstitutionAdmin(institutionId) || isAdmin() ||
             (isApprovedStudent(institutionId) && isOwner(request.resource.data.uid)
               && logId.split('_')[0] == request.auth.uid

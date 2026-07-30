@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebase";
+import { currentAudiences } from "@/lib/audiences";
 import {
   collection, doc, getDocs, getDoc, setDoc, query, where, orderBy,
   serverTimestamp, runTransaction, arrayUnion,
@@ -22,7 +23,7 @@ const MAX_ATTEMPT_HISTORY = 10;
 // authoring screen needs to see drafts).
 export async function fetchAptitudeTopics({ includeUnpublished = false } = {}) {
   const col = collection(db, "aptitude_topics");
-  const snap = await getDocs(includeUnpublished ? query(col, orderBy("order", "asc")) : query(col, where("status", "==", "published")));
+  const snap = await getDocs(includeUnpublished ? query(col, orderBy("order", "asc")) : query(col, where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 

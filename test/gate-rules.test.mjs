@@ -46,16 +46,16 @@ test.beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    await db.doc("gatePapers/cs").set({ name: "GATE CS", status: "published", order: 10 });
+    await db.doc("gatePapers/cs").set({ name: "GATE CS", status: "published", audiences: ["legacy"], order: 10 });
     await db.doc("gatePapers/draft-paper").set({ name: "Unfinished", status: "draft", order: 20 });
-    await db.doc("gatePapers/cs/subjects/algorithms").set({ name: "Algorithms", status: "published" });
-    await db.doc("gatePapers/cs/subjects/algorithms/topics/sorting").set({ title: "Sorting", status: "published" });
+    await db.doc("gatePapers/cs/subjects/algorithms").set({ name: "Algorithms", status: "published", audiences: ["legacy"] });
+    await db.doc("gatePapers/cs/subjects/algorithms/topics/sorting").set({ title: "Sorting", status: "published", audiences: ["legacy"] });
     await db.doc("gatePapers/cs/subjects/algorithms/topics/unfinished").set({ title: "WIP", status: "draft" });
 
-    await db.doc("gate_pyqs/pyq1").set({ paperId: "cs", status: "published", question: "Q", solution: "S" });
+    await db.doc("gate_pyqs/pyq1").set({ paperId: "cs", status: "published", audiences: ["legacy"], question: "Q", solution: "S" });
     await db.doc("gate_pyqs/pyq-draft").set({ paperId: "cs", status: "draft", question: "Q", solution: "S" });
 
-    await db.doc("gate_tests/test1").set({ paperId: "cs", status: "published", title: "Mock 1", durationMinutes: 180 });
+    await db.doc("gate_tests/test1").set({ paperId: "cs", status: "published", audiences: ["legacy"], title: "Mock 1", durationMinutes: 180 });
     await db.doc("gate_tests/test1/questions/q1").set({ question: "2+2?", marks: 1, questionType: "mcq" });
     await db.doc("gate_tests/test1/answerKeys/q1").set({ correctOptionIds: ["b"], explanation: "It is 4." });
   });

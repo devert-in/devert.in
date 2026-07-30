@@ -7,7 +7,7 @@
 import { db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, query, where, documentId, getAggregateFromServer, sum, count } from "firebase/firestore";
 import { lastNDatesIST, todayIST, dateToISTString, istMidnightUtcMillis } from "@/lib/activity";
-import { fetchLogsForDate } from "@/lib/dailyLearning";
+import { fetchLogsForDateByUids } from "@/lib/dailyLearning";
 import { fetchSubmissionDatesForUser } from "@/lib/codelab";
 import { fetchTransactionDatesForUser } from "@/lib/economy";
 
@@ -51,13 +51,19 @@ export async function fetchClassroomEarnings(uids) {
   return new Map(rows.map(r => [r.uid, r.totalCoins]));
 }
 
-// One query per date (not per student) against the institution's own
-// dailyLearningLog, filtered client-side to this classroom's uids - the same
-// isInstitutionAdmin-gated list query fetchDayLeaderboard already proves safe
-// under list mode (unlike isAdminOfStudent's nested get() chain).
+// One query per (date, uid-chunk-of-30) against the institution's own
+// dailyLearningLog, scoped to exactly this cohort's own uids -
+// fetchLogsForDateByUids (not the plain date-only fetchLogsForDate) because
+// this function is called for HOD/Faculty department/classroom cohorts too
+// (CampusHodDashboard/CampusFacultyDashboard), and firestore.rules only
+// grants those callers read access to a STUDENT'S OWN scope - an unscoped,
+// institution-wide date query would be denied in full the instant it
+// returned even one other department's log. isInstitutionAdmin/Principal
+// callers still work identically, since they already have unscoped read
+// access regardless of how the query itself is shaped.
 export async function fetchClassroomDailyLearningTrend(institutionId, uids, dates) {
   const uidSet = new Set(uids);
-  const perDate = await Promise.all(dates.map(date => fetchLogsForDate(institutionId, date)));
+  const perDate = await Promise.all(dates.map(date => fetchLogsForDateByUids(institutionId, date, uids)));
   return dates.map((date, i) => {
     const rows = perDate[i].filter(r => !!r.completedAt && uidSet.has(r.uid));
     return { date, completedCount: rows.length, rows };

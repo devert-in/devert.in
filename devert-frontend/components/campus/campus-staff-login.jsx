@@ -96,7 +96,13 @@ export function CampusStaffLogin({ slug, roleKey }) {
     setError(""); setResetSent(false);
     if (!email.trim()) { setError("Enter your email above first, then tap “Forgot password”."); return; }
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      // Same branded continue URL AdminAccountService's own reset emails use
+      // (see devert-backend's passwordResetSettings) - campus/role are
+      // already known here, so the reset-password page's "Continue" button
+      // can point straight back at THIS login page with no extra lookup.
+      await sendPasswordResetEmail(auth, email.trim(), {
+        url: `https://devert.in/reset-password?campus=${slug}&role=${roleKey === "facultyClassTeacher" ? "faculty" : roleKey}`,
+      });
       setResetSent(true);
     } catch {
       setError("Couldn't send a reset email for that address.");

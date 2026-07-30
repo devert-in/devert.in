@@ -22,7 +22,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, documentId, getDocs, orderBy, limit } from "firebase/firestore";
 import {
   DOW_LABELS, mondayOf, shiftWeek, todayISO, fetchWeekItems, fetchModuleConfig, setModuleEnabled,
-  setItemStatus, fetchDayLeaderboard, duplicateItem, deleteItem,
+  setItemStatus, fetchDayLeaderboard, duplicateItem, deleteItem, TRACK_CATALOG,
 } from "@/lib/dailyLearning";
 import { DailyLearningItemEditor } from "@/components/campus/campus-daily-learning-editor";
 import { useAuth } from "@/context/AuthContext";
@@ -600,6 +600,12 @@ function ManageDailyLearning({ institutionId }) {
     const w = Number(searchParams.get("week"));
     return Number.isFinite(w) ? w : 0;
   });
+  // Defaults to "dsa" so an admin who never touches this chip row sees
+  // exactly the same behavior as before multi-track existed - the chip row
+  // itself is the only new surface, everything below it (week nav, editor,
+  // preview) just threads whichever trackId is currently selected through to
+  // the same lib/dailyLearning.js calls that already accept one.
+  const [trackId, setTrackId] = useState(() => searchParams.get("track") || "dsa");
   const [items, setItems] = useState(undefined);
   const [moduleEnabled, setModuleEnabledState] = useState(true);
   const [approvedCount, setApprovedCount] = useState(0);
@@ -629,16 +635,17 @@ function ManageDailyLearning({ institutionId }) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams();
     if (weekOffset) params.set("week", String(weekOffset));
+    if (trackId !== "dsa") params.set("track", trackId);
     if (editorState) params.set("editDay", editorState === "new" ? "new" : editorState.date);
     else if (showPreview) params.set("view", "preview");
     const qs = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
-  }, [weekOffset, editorState, showPreview]);
+  }, [weekOffset, trackId, editorState, showPreview]);
   const weekId = shiftWeek(mondayOf(), weekOffset);
 
   const reload = () => {
     Promise.all([
-      fetchWeekItems(institutionId, weekId, { includeUnpublished: true }),
+      fetchWeekItems(institutionId, weekId, { includeUnpublished: true }, trackId),
       fetchModuleConfig(institutionId),
       fetchApprovedStudentCount(institutionId),
     ]).then(([rows, cfg, count]) => {
@@ -648,11 +655,11 @@ function ManageDailyLearning({ institutionId }) {
     }).catch(() => setItems([]));
   };
 
-  useEffect(reload, [institutionId, weekId]);
+  useEffect(reload, [institutionId, weekId, trackId]);
 
   useEffect(() => {
     if (!items?.length) { setStats({}); return; }
-    Promise.all(items.map(it => fetchDayLeaderboard(institutionId, it.date))).then(results => {
+    Promise.all(items.map(it => fetchDayLeaderboard(institutionId, it.date, trackId))).then(results => {
       const byDate = {};
       items.forEach((it, i) => {
         const rows = results[i];
@@ -664,7 +671,7 @@ function ManageDailyLearning({ institutionId }) {
       });
       setStats(byDate);
     }).catch(() => {});
-  }, [items, institutionId]);
+  }, [items, institutionId, trackId]);
 
   const toggleModule = async (next) => {
     setModuleEnabledState(next);
@@ -673,7 +680,7 @@ function ManageDailyLearning({ institutionId }) {
 
   const toggleDayStatus = async (date, nextStatus) => {
     setItems(prev => prev.map(it => it.date === date ? { ...it, status: nextStatus } : it));
-    await setItemStatus(institutionId, date, nextStatus);
+    await setItemStatus(institutionId, date, nextStatus, trackId);
   };
 
   const handleDuplicate = async (item) => {
@@ -681,14 +688,14 @@ function ManageDailyLearning({ institutionId }) {
     if (!toDate) return;
     if (items.some(it => it.date === toDate)) { window.alert("That date already has a day - pick a different one."); return; }
     try {
-      await duplicateItem(institutionId, item.date, toDate);
+      await duplicateItem(institutionId, item.date, toDate, trackId);
       reload();
     } catch (e) { window.alert(e.message); }
   };
 
   const handleDelete = async (item) => {
     if (!window.confirm(`Delete "${item.title}" (${item.date})? This can't be undone.`)) return;
-    await deleteItem(institutionId, item.date);
+    await deleteItem(institutionId, item.date, trackId);
     setItems(prev => prev.filter(it => it.date !== item.date));
   };
 
@@ -697,7 +704,7 @@ function ManageDailyLearning({ institutionId }) {
   if (editorState) {
     return (
       <DailyLearningItemEditor slug={institutionId} item={editorState === "new" ? null : editorState}
-        defaultDate={editorState === "new" ? todayISO() : undefined}
+        defaultDate={editorState === "new" ? todayISO() : undefined} trackId={trackId}
         onClose={() => setEditorState(null)}
         onSaved={() => { setEditorState(null); reload(); }} />
     );
@@ -707,13 +714,27 @@ function ManageDailyLearning({ institutionId }) {
     return (
       <div>
         <CampusBackButton onClick={() => setShowPreview(false)} label="Back to Daily Learning management" />
-        <CampusDailyLearningAdminPreview slug={institutionId} weekId={weekId} />
+        <CampusDailyLearningAdminPreview slug={institutionId} weekId={weekId} trackId={trackId} />
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
+      <div className="flex items-center gap-2 flex-wrap">
+        {TRACK_CATALOG.map(t => (
+          <button key={t.key} onClick={() => setTrackId(t.key)}
+            className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            style={{
+              color: trackId === t.key ? "#fff" : CAMPUS.inkSoft,
+              background: trackId === t.key ? CAMPUS.teal : "transparent",
+              border: `1px solid ${trackId === t.key ? CAMPUS.teal : CAMPUS.line}`,
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <CampusCard className="p-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <Power size={15} style={{ color: moduleEnabled ? CAMPUS.good : CAMPUS.inkFaint }} />

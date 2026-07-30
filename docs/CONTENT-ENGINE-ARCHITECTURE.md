@@ -434,15 +434,46 @@ Concretely:
 That last property is what makes "invisible until published" structurally true
 rather than dependent on unresolved semantics.
 
-### Follow-up required
+### Q4 RESOLVED — the probe was invalid, and the news is better and worse
 
-Q4 needs an answer against **production** Firestore before Phase 2 grants any
-audience that is meant to *restrict* rather than *widen* access. If production
-also returns restricted documents to unfiltered list queries, then any
-collection holding mixed-audience content needs either a mandatory-filter
-convention enforced in review, or genuinely separate collection paths — the
-pattern already used to keep contest answer keys away from students
-(`contests/{id}/questions` vs `contests/{id}/answerKeys`).
+**The Q4 probe was wrong.** It placed audiences under the claim key `aud`, which
+is a **reserved JWT claim** holding the Firebase project id — a string. So
+`token.get('aud', [])` returned that string, `.size()` returned its character
+length, and `hasAny()` received a string instead of a list. The rule was
+*erroring*, not evaluating, which is why `list()` appeared to return documents
+`get()` denied.
+
+The claim is now `auds`, and `test/audience-rules.test.mjs` pins the collision as
+a regression test. Firebase's Admin SDK also refuses to set reserved claims, so
+this would have failed at claim-minting time too.
+
+**Good news:** rules *are* enforced on list queries. Nothing is leaking.
+
+**Bad news, and it is a rollout blocker:** Firestore's list authorisation is
+**analytical, not per-document**. The query's constraints must *prove* that every
+matching document satisfies the rule. A rule that inspects `audiences` therefore
+requires the query to constrain `audiences` — **regardless of what the data
+actually contains.**
+
+Demonstrated: a collection where every document carries `["legacy"]`, read by a
+reader carrying `legacy`, queried with `where("status","==","published")` and no
+audience filter, is **denied** — even though the rule would evaluate true for
+every document in range. Adding the audience filter makes the identical query
+succeed.
+
+### The consequence for deployment
+
+The rules **cannot ship independently of the consumers.** Every list query over a
+gated collection must gain its `array-contains-any` filter in the *same* deploy
+as the rules, or that collection's listing breaks for everyone.
+
+This supersedes the phasing in Section 10: Phase 1 is not "schema + rules", it is
+**schema + rules + every consumer + fixtures, shipped atomically.** Affected
+consumers: `lib/csCore.js`, `lib/programming.js`, `lib/gate.js`, the aptitude and
+company-vault readers, `courses`, `intel_resources`, and `seModules`.
+
+On the plus side, the failure mode is loud rather than silent — a forgotten filter
+produces `permission-denied` immediately, not quietly missing content.
 
 ---
 

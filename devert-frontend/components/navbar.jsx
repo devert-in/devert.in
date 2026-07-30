@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Swords, Radio, Target, Zap, Tv2, Flame, Code2, LogIn, Command, User, LogOut, Activity, Wallet, GraduationCap } from "lucide-react";
+import { Home, Swords, Radio, Target, Zap, Tv2, Flame, Code2, LogIn, Command, User, LogOut, Activity, Wallet, GraduationCap, Network } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
@@ -14,17 +14,24 @@ import { NotificationBell } from "@/components/notification-bell";
 // actions (components/quick-actions-grid.jsx), not here - keeps the persistent dock
 // to the modules used every session. CodeLab is its own top-level route (app/codelab/),
 // separate from Arena (which still hosts Solo Challenges + Contests).
-// Every item but Home and Campus carries `windowApp` - it opens as a Builder's OS
-// window (see context/WindowManagerContext + context/window-registry) instead of a
-// plain route transition. Home and Campus stay real routes: Home is the "desktop"
-// the windows float above, and Campus is a deliberately separate, differently
-// themed experience (see components/campus/campus-app.jsx) that isn't a Builder's
-// OS window at all - this link is a one-way door out of the dark dock, which
-// self-suppresses the moment you're on a /campus/* route.
+// Most items carry `windowApp` - they open as a Builder's OS window (see
+// context/WindowManagerContext + context/window-registry) instead of a plain
+// route transition. Three deliberately do not:
+//   - Home is the "desktop" the windows float above.
+//   - Campus is a separate, differently themed experience (see
+//     components/campus/campus-app.jsx) - a one-way door out of the dark dock,
+//     which self-suppresses the moment you're on a /campus/* route.
+//   - Fundamentals is a long-form reading surface. A floating window scrolls an
+//     INNER container, but the lesson reader's reading-progress bar, sticky
+//     section rail and jump-to-section all measure against document scroll (same
+//     constraint documented in components/campus/lesson-blocks.jsx's
+//     useReadingProgress). Windowing it would silently break all three, and a
+//     720px-wide window is the wrong shape for a 4000-word lesson anyway.
 const NAV_ITEMS = [
   { icon: Home,          label: "Home",       href: "/"           },
   { icon: Swords,        label: "Arena",      href: "/arena",      windowApp: "arena"      },
   { icon: Code2,         label: "CodeLab",    href: "/codelab",    windowApp: "codelab"    },
+  { icon: Network,       label: "Fundamentals", href: "/fundamentals" },
   { icon: Zap,           label: "Grind",      href: "/grind",      windowApp: "grind"      },
   { icon: Radio,         label: "Intel",      href: "/intel",      windowApp: "intel"      },
   { icon: GraduationCap, label: "Campus",     href: "/campus"     },

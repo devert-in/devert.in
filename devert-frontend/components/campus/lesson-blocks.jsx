@@ -503,6 +503,8 @@ export function LessonBlocks({ blocks }) {
             return <FlowDiagram key={i} title={b.title} steps={b.steps} />;
           case "timeline":
             return <Timeline key={i} title={b.title} steps={b.steps} />;
+          case "table":
+            return <Table key={i} title={b.title} headers={b.headers} rows={b.rows} />;
           case "checkpoint":
             return <Checkpoint key={i} title={b.title} question={b.question} options={b.options} explanation={b.explanation} />;
           case "reveal":

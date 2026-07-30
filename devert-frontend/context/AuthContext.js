@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
+import { setCurrentAudiences, readerAudiences } from "@/lib/audiences";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, deleteField } from "firebase/firestore";
 
@@ -44,15 +45,26 @@ export function AuthProvider({ children }) {
         setIsAdmin(false);
         setAdminChecked(true);
         setLoading(false);
+        // Back to the least-privileged set on sign-out, so a signed-out tab
+        // cannot keep querying with the previous user's audiences.
+        setCurrentAudiences(null);
         return;
       }
       try {
         const token = await currentUser.getIdTokenResult();
         console.log("[Auth Debug] Token fetched successfully for", currentUser.uid);
         setIsAdmin(token.claims.admin === true);
+        // Publish this reader's content audiences for every content query to
+        // use - see lib/audiences.js on why this is ambient rather than threaded
+        // through eight lib modules. No account carries the `auds` claim yet, so
+        // this resolves to public+legacy today, which is exactly what keeps
+        // existing content visible.
+        setCurrentAudiences(readerAudiences(token.claims));
       } catch (err) {
         console.error("[Auth Debug] Token fetch failed:", err);
         setIsAdmin(false);
+        // A failed token fetch must not leave stale audiences in place.
+        setCurrentAudiences(null);
       } finally {
         setAdminChecked(true);
       }

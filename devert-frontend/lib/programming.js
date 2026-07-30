@@ -5,6 +5,7 @@
 // `programmingLanguages`/`programming_progress` blocks for the read/write
 // authority this all defers to.
 import { db } from "@/lib/firebase";
+import { currentAudiences } from "@/lib/audiences";
 import { withVersionSnapshot } from "@/lib/contentVersioning";
 import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
@@ -24,7 +25,7 @@ import { grantRewards } from "@/lib/rewards";
 // function) looked correct but failed for every real student.
 export async function fetchLanguages({ includeUnpublished = false } = {}) {
   const col = collection(db, "programmingLanguages");
-  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published")));
+  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
@@ -63,7 +64,7 @@ export async function deleteLanguage(langId) {
 
 export async function fetchTopics(langId, { includeUnpublished = false } = {}) {
   const col = collection(db, "programmingLanguages", langId, "topics");
-  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published")));
+  const snap = await getDocs(includeUnpublished ? col : query(col, where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 

@@ -211,6 +211,36 @@ export async function fetchRosterStudents(institutionId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// Scoped counterparts to fetchRosterStudents, for HOD/Faculty callers -
+// NOT just a client-side convenience. firestore.rules' students/{uid} read
+// rule only grants an HOD/Faculty caller access to docs whose OWN
+// department/classroomId matches their scope; a Firestore list query is
+// denied in full (not silently filtered) the instant its result set would
+// include even one document outside what the rule permits. The unscoped
+// fetchRosterStudents() above spans every department/classroom, so calling
+// it as an HOD/Faculty always PERMISSION_DENIEDs the whole query once the
+// institution has more than one department/classroom - it happened to look
+// like "0 students" because the caller's own .catch() silently swallowed
+// that failure. Filtering with a `where` clause instead of client-side
+// keeps the result set within what the rule actually allows.
+export async function fetchRosterStudentsByDepartment(institutionId, department) {
+  const snap = await getDocs(query(
+    collection(db, "institutions", institutionId, "students"),
+    where("department", "==", department),
+    where("status", "in", ["approved", "suspended"]),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchRosterStudentsByClassroom(institutionId, classroomId) {
+  const snap = await getDocs(query(
+    collection(db, "institutions", institutionId, "students"),
+    where("classroomId", "==", classroomId),
+    where("status", "in", ["approved", "suspended"]),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 // A classroom is pure identity metadata (department/year/section/createdAt)
 // - never a place statistics get denormalized. This app has no Cloud
 // Functions (blocked on the same Firebase billing gap as the coin economy -

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.google.cloud.firestore.CollectionReference;
@@ -16,6 +17,7 @@ import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.SetOptions;
+import com.google.firebase.auth.ActionCodeSettings;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
@@ -44,6 +46,22 @@ public class AdminAccountService {
 
     @Autowired
     private RateLimiter rateLimiter;
+
+    @Value("${app.frontend.password-reset-url}")
+    private String passwordResetUrl;
+
+    // Every password-reset link this service generates lands on our own
+    // branded page (see that page's own comment for why) instead of Firebase
+    // Hosting's default <project>.firebaseapp.com/__/auth/action - the oobCode
+    // Firebase appends still does all the real work, only the domain the
+    // user actually sees changes. campus/role are carried as plain query
+    // params (not sensitive - just routing hints) so that page can point its
+    // "Continue" button straight at this account's own login page without
+    // ever needing to sign in first just to look up where it belongs.
+    private ActionCodeSettings passwordResetSettings(String institutionId, String roleKey) {
+        String url = passwordResetUrl + "?campus=" + institutionId + "&role=" + loginUrlSegment(roleKey);
+        return ActionCodeSettings.builder().setUrl(url).build();
+    }
 
     // Who may create/manage which role - the literal "new role = configuration,
     // not redesign" surface on the backend side (lib/permissions.js's
@@ -218,7 +236,7 @@ public class AdminAccountService {
 
         boolean emailSent = true;
         try {
-            String resetLink = firebaseAuth.generatePasswordResetLink(email);
+            String resetLink = firebaseAuth.generatePasswordResetLink(email, passwordResetSettings(institutionId, roleKey));
             emailService.sendAccountSetupEmail(email, displayName, roleLabel(roleKey), resetLink);
         } catch (Exception e) {
             emailSent = false; // account exists regardless - resend-setup covers retry
@@ -255,7 +273,7 @@ public class AdminAccountService {
         authorize(resolveCaller(institutionId, callerUid), target.getString("roleKey"), departmentOf(target));
 
         String email = target.getString("email");
-        String resetLink = firebaseAuth.generatePasswordResetLink(email);
+        String resetLink = firebaseAuth.generatePasswordResetLink(email, passwordResetSettings(institutionId, target.getString("roleKey")));
         emailService.sendAccountSetupEmail(email, target.getString("displayName"), roleLabel(target.getString("roleKey")), resetLink);
         writeAuditLog(institutionId, callerUid, "reset_password", targetUid, null);
     }
@@ -361,6 +379,19 @@ public class AdminAccountService {
             case "hod" -> "Head of Department";
             case "facultyClassTeacher" -> "Faculty / Class Teacher";
             default -> roleKey;
+        };
+    }
+
+    // Mirrors campus-app.jsx's STAFF_LOGIN_ROLE (the inverse mapping) - the
+    // short segment each role's dedicated login page lives at:
+    // /campus/{institutionId}/{principal|hod|faculty}. Stamped onto the
+    // password-reset link's continue URL so the branded reset-password page
+    // knows exactly where to send someone next without any post-reset
+    // sign-in/lookup step.
+    private static String loginUrlSegment(String roleKey) {
+        return switch (roleKey) {
+            case "facultyClassTeacher" -> "faculty";
+            default -> roleKey; // "principal", "hod" already match
         };
     }
 

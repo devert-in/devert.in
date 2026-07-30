@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebase";
+import { currentAudiences } from "@/lib/audiences";
 import { collection, doc, getDocs, getDoc, query, orderBy, where, updateDoc, setDoc, increment } from "firebase/firestore";
 import { parseCSV } from "@/lib/contests";
 
@@ -24,7 +25,7 @@ export const COMPANY_QUESTION_DIFFICULTIES = ["Easy", "Medium", "Hard"];
 // call fetchPublishedContests() already makes for the identical shape -
 // filter server-side and sort client-side instead of provisioning one.
 export async function fetchPublishedCompanies() {
-  const snap = await getDocs(query(collection(db, "companies"), where("status", "==", "published")));
+  const snap = await getDocs(query(collection(db, "companies"), where("status", "==", "published"), where("audiences", "array-contains-any", currentAudiences())));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
