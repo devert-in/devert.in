@@ -75,3 +75,17 @@ devert-backend/target/
 # =====================
 .DS_Store
 Thumbs.db
+
+# =====================
+# One-off script run artifacts
+# =====================
+# Recovery dumps written by the content rewrite/migration scripts before they
+# write to Firestore. Kept on disk as a local undo path, but not versioned:
+# they are large content dumps (megabytes), and the same prior state is also
+# stored in each document's own `previousVersions` field.
+scripts/*-backup-*.json
+scripts/*-dryrun-*.json
+scripts/*-applied-*.json
+scripts/reward-ledger-audit-*.json
+scripts/score-migration-applied-*.json
+scripts/clamp-negative-balances-*.json
