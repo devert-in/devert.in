@@ -123,3 +123,7 @@ Cognizant-Placement-Preparation-Handbook.*
 ByteMart Java/
 adarisamuelprasad-portfolio/
 nandhakishor-portfolio/
+
+# Ad-hoc scratch checks (scripts/_tmp-*.mjs) - one-off Firestore probes, kept
+# locally but never committed.
+scripts/_tmp-*
