@@ -200,10 +200,9 @@ function ContestDetailsStep({ form, setForm, error, saving, onNext }) {
         <Field label="Duration (minutes)" type="number" value={form.durationMinutes} onChange={set("durationMinutes")} />
         <Field label="Tags (comma separated)" value={form.tags} onChange={set("tags")} placeholder="placement, aptitude" />
       </div>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Field label="Prize XP (max 2000)" type="number" value={form.prizeXp} onChange={set("prizeXp")} />
-        <Field label="Prize coins (max 2000)" type="number" value={form.prizeCoins} onChange={set("prizeCoins")} />
-      </div>
+      <p className="text-[11px] -mb-1" style={{ color: CAMPUS.inkFaint }}>
+        Contests no longer grant platform XP/Coins (only Daily Learning, Programming, and CS Core do) - describe any real prize below instead.
+      </p>
       <Field label="Prize details (optional)" value={form.prizeText} onChange={set("prizeText")} placeholder="Top 3 get certificates" />
 
       {error && <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>{error}</p>}
@@ -211,7 +210,7 @@ function ContestDetailsStep({ form, setForm, error, saving, onNext }) {
       <div className="flex justify-end pt-2">
         <button onClick={onNext} disabled={saving}
           className="text-[13px] font-semibold px-5 py-2.5 rounded-lg disabled:opacity-50"
-          style={{ background: CAMPUS.ink, color: "#fff" }}>
+          style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
           {saving ? "Saving..." : "Next: Add Questions →"}
         </button>
       </div>
@@ -302,7 +301,7 @@ export function QuestionEditorForm({ qForm, setQForm, onSave, saving, submitLabe
       )}
       <button onClick={onSave} disabled={saving || !valid}
         className="text-[12.5px] font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
-        style={{ background: CAMPUS.ink, color: "#fff" }}>
+        style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
         {saving ? "Saving..." : submitLabel}
       </button>
     </div>
@@ -367,7 +366,7 @@ function QuestionBankPickerPanel({ institutionId, existingTexts, onAdd }) {
       </div>
       <button onClick={() => { onAdd(bank.filter(q => selected[q.id])); setSelected({}); }} disabled={selectedIds.length === 0}
         className="text-[12.5px] font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
-        style={{ background: CAMPUS.ink, color: "#fff" }}>
+        style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
         Add {selectedIds.length || ""} selected question{selectedIds.length === 1 ? "" : "s"}
       </button>
     </div>
@@ -468,7 +467,7 @@ function BulkUploadPanel({ existingTexts, bankTexts, onImport }) {
           )}
           <button onClick={handleCommit} disabled={importing || rows.valid.length === 0}
             className="text-[12.5px] font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
-            style={{ background: CAMPUS.ink, color: "#fff" }}>
+            style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
             {importing ? "Importing..." : `Import ${rows.valid.length} question${rows.valid.length === 1 ? "" : "s"}`}
           </button>
         </div>
@@ -598,7 +597,7 @@ function ContestQuestionsStep({ institutionId, contestId, questions, setQuestion
         <button onClick={onBack} className="text-[13px] font-semibold px-4 py-2.5 rounded-lg" style={{ color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
           ← Back
         </button>
-        <button onClick={onNext} className="text-[13px] font-semibold px-5 py-2.5 rounded-lg" style={{ background: CAMPUS.ink, color: "#fff" }}>
+        <button onClick={onNext} className="text-[13px] font-semibold px-5 py-2.5 rounded-lg" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
           Next: Preview →
         </button>
       </div>
@@ -702,7 +701,7 @@ function ContestPreviewStep({ contestId, questions, setQuestions, onNext, onBack
         <button onClick={onBack} className="text-[13px] font-semibold px-4 py-2.5 rounded-lg" style={{ color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
           ← Back
         </button>
-        <button onClick={onNext} className="text-[13px] font-semibold px-5 py-2.5 rounded-lg" style={{ background: CAMPUS.ink, color: "#fff" }}>
+        <button onClick={onNext} className="text-[13px] font-semibold px-5 py-2.5 rounded-lg" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
           Next: Publish →
         </button>
       </div>

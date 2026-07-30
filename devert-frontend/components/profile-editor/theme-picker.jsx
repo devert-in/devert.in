@@ -8,7 +8,7 @@ export default function ThemePicker({ accent, onChange }) {
   return (
     <div>
       <SectionHeader title="accent color" />
-      <p className="font-mono text-[10px] text-white/25 mb-3">// picks the highlight color used across your portfolio's headings and links</p>
+      <p className="font-mono text-[10px] text-white/25 mb-3">// picks the highlight color used across your portfolio&apos;s headings and links</p>
       <div className="flex gap-3 flex-wrap">
         {ACCENT_OPTIONS.map(a => (
           <button key={a.value} onClick={() => onChange(a.value)}

@@ -4,12 +4,11 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { CheckCircle2, XCircle, ArrowLeft, Lock, GraduationCap, Zap, Coins } from "lucide-react";
+import { CheckCircle2, XCircle, ArrowLeft, Lock, GraduationCap } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, setDoc, increment, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
-import { logCoinTransaction } from "@/lib/economy";
-import { fetchCourseTree, flattenTasks, getTaskStatus } from "@/lib/learning";
+import { fetchCourseTree, flattenTasks, getTaskStatus, completeTask } from "@/lib/learning";
 
 function TerminalShell({ children, label }) {
   return (
@@ -38,6 +37,8 @@ function LearnContent() {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState(null); // { type: "info" | "error", message }
+  const [justRewarded, setJustRewarded] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -116,29 +117,31 @@ function LearnContent() {
   const handleSubmit = async () => {
     if (submitting || !allAnswered) return;
     setSubmitting(true);
+    setSubmitNotice(null);
     try {
       let correct = 0;
       quiz.forEach(q => { if (answers[q.id] === q.correctIndex) correct++; });
       const passed = quiz.length === 0 || correct === quiz.length;
-      setResult({ score: correct, total: quiz.length, passed });
 
       if (passed && !alreadyCompleted) {
-        await updateDoc(doc(db, "users", user.uid), { xp: increment(task.xpReward || 0) });
-        if (task.coinReward > 0) {
-          await setDoc(doc(db, "user_earnings", user.uid), {
-            pulseCoins: increment(task.coinReward),
-            totalCoins: increment(task.coinReward),
-          }, { merge: true });
-          logCoinTransaction(user.uid, "task_completed", task.coinReward);
-        }
-        await setDoc(doc(db, "user_learning", user.uid), {
-          enrolledCourseId: courseId,
-          completedTaskIds: arrayUnion(taskId),
-          [`quizAttempts.${taskId}`]: { score: correct, total: quiz.length, passed: true, answeredAt: serverTimestamp() },
-        }, { merge: true });
+        const freshlyCompleted = await completeTask({
+          uid: user.uid, courseId, taskId,
+          quizScore: correct, quizTotal: quiz.length,
+        });
         setProgress(prev => ({ ...prev, completedTaskIds: [...(prev?.completedTaskIds || []), taskId] }));
+        setJustRewarded(freshlyCompleted);
+        if (!freshlyCompleted) {
+          setSubmitNotice({ type: "info", message: "You have already completed this activity." });
+        }
       }
-    } catch (e) { console.error(e); }
+      // Set only once the write above (if any) has actually confirmed - a
+      // failed write now throws before this line, instead of leaving the UI
+      // showing "passed" when nothing was actually saved.
+      setResult({ score: correct, total: quiz.length, passed });
+    } catch (e) {
+      console.error(e);
+      setSubmitNotice({ type: "error", message: "Couldn't submit - check your connection and try again." });
+    }
     finally { setSubmitting(false); }
   };
 
@@ -165,10 +168,6 @@ function LearnContent() {
 
         <TerminalShell label="lesson.md">
           <p className="font-mono text-[13px] text-white/70 leading-relaxed whitespace-pre-wrap">{task.lessonBody}</p>
-          <div className="flex items-center gap-4 mt-5 pt-4 border-t border-white/6">
-            <span className="flex items-center gap-1.5 font-mono text-[10px] text-neon-cyan/70"><Zap size={11} /> +{task.xpReward} XP</span>
-            <span className="flex items-center gap-1.5 font-mono text-[10px] text-neon-green/70"><Coins size={11} /> +{task.coinReward} coins</span>
-          </div>
         </TerminalShell>
 
         {quiz.length > 0 && (
@@ -195,6 +194,9 @@ function LearnContent() {
                       </div>
                     </div>
                   ))}
+                  {submitNotice?.type === "error" && (
+                    <p className="font-mono text-[11px] text-red-400">{submitNotice.message}</p>
+                  )}
                   <motion.button whileHover={allAnswered ? { scale: 1.01 } : {}} whileTap={allAnswered ? { scale: 0.98 } : {}}
                     onClick={handleSubmit} disabled={!allAnswered || submitting}
                     className="w-full font-mono text-sm py-3 rounded-xl transition-all disabled:opacity-40"
@@ -208,10 +210,10 @@ function LearnContent() {
                     <>
                       <CheckCircle2 size={32} className="mx-auto mb-3" style={{ color: "#00FF41" }} />
                       <p className="font-mono text-sm text-neon-green mb-1">
-                        {alreadyCompleted ? "Already completed" : `Passed! ${result.score}/${result.total}`}
+                        {justRewarded ? `Passed! ${result.score}/${result.total}` : "Already completed"}
                       </p>
-                      {!alreadyCompleted && (
-                        <p className="font-mono text-xs text-white/40 mb-5">+{task.xpReward} XP · +{task.coinReward} coins earned</p>
+                      {submitNotice?.type === "info" && (
+                        <p className="font-mono text-[11px] mb-5 text-white/40">{submitNotice.message}</p>
                       )}
                       {nextTask ? (
                         <Link href={`/learn?courseId=${courseId}&taskId=${nextTask.id}`}>

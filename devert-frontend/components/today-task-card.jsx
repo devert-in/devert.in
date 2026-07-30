@@ -109,7 +109,7 @@ export function TodayTaskCard() {
 
       {currentTask ? (
         <>
-          <p className="font-mono text-[10px] text-white/25 mb-1 tracking-wider">TODAY'S TASK - {currentTask.moduleTitle}</p>
+          <p className="font-mono text-[10px] text-white/25 mb-1 tracking-wider">TODAY&apos;S TASK - {currentTask.moduleTitle}</p>
           <h3 className="font-sans text-base font-bold text-white mb-3">{currentTask.title}</h3>
           <Link href={`/learn?courseId=${course.id}&taskId=${currentTask.id}`}>
             <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}

@@ -60,16 +60,72 @@ export function StringListField({ label, items, onChange, placeholder }) {
   );
 }
 
+// Mirrors the {question, options[], correctIndex} shape TopicQuiz already
+// renders (campus-programming.jsx/campus-cscore.jsx) - this is the admin
+// side of a field the seed scripts have always written, but which had no
+// UI editor at all until now (quizzes could only be added by hand-editing
+// a seed script and rerunning it from the terminal).
+export function McqListField({ label = "QUIZ (MCQS)", items, onChange }) {
+  const list = items || [];
+  const patchQ = (i, patch) => onChange(list.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  const patchOption = (i, optIdx, value) => onChange(list.map((v, idx) =>
+    idx === i ? { ...v, options: v.options.map((o, oi) => (oi === optIdx ? value : o)) } : v));
+  const addOption = (i) => onChange(list.map((v, idx) => (idx === i ? { ...v, options: [...(v.options || []), ""] } : v)));
+  const removeOption = (i, optIdx) => onChange(list.map((v, idx) => {
+    if (idx !== i) return v;
+    const options = v.options.filter((_, oi) => oi !== optIdx);
+    const correctIndex = v.correctIndex === optIdx ? 0 : v.correctIndex > optIdx ? v.correctIndex - 1 : v.correctIndex;
+    return { ...v, options, correctIndex };
+  }));
+  const remove = (i) => onChange(list.filter((_, idx) => idx !== i));
+  const add = () => onChange([...list, { question: "", options: ["", ""], correctIndex: 0 }]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{label} ({list.length})</label>
+        <button onClick={add} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+          <Plus size={10} /> add question
+        </button>
+      </div>
+      <div className="space-y-3">
+        {list.map((q, i) => (
+          <div key={i} className="p-3 rounded-lg space-y-2" style={{ border: `1px solid ${CAMPUS.line}` }}>
+            <div className="flex items-center gap-2">
+              <input value={q.question} onChange={e => patchQ(i, { question: e.target.value })} placeholder="Question text"
+                className="flex-1 text-[12.5px] px-3 py-1.5 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+              <button onClick={() => remove(i)} style={{ color: CAMPUS.bad }}><Trash2 size={13} /></button>
+            </div>
+            <div className="space-y-1.5 pl-1">
+              {(q.options || []).map((opt, oi) => (
+                <div key={oi} className="flex items-center gap-2">
+                  <input type="radio" checked={q.correctIndex === oi} onChange={() => patchQ(i, { correctIndex: oi })} title="Correct answer" />
+                  <input value={opt} onChange={e => patchOption(i, oi, e.target.value)} placeholder={`Option ${oi + 1}`}
+                    className="flex-1 text-[12px] px-2.5 py-1 rounded-lg outline-none" style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+                  <button onClick={() => removeOption(i, oi)} style={{ color: CAMPUS.bad }}><Trash2 size={11} /></button>
+                </div>
+              ))}
+              <button onClick={() => addOption(i)} className="text-[10.5px] font-semibold" style={{ color: CAMPUS.teal }}>+ option</button>
+            </div>
+          </div>
+        ))}
+        {list.length === 0 && <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>None yet - optional, leave empty to skip the quiz gate on &quot;Complete Topic&quot;.</p>}
+      </div>
+    </div>
+  );
+}
+
 export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSaved }) {
   const isNew = !item;
   const [form, setForm] = useState(item ? { ...item } : blankItem(defaultDate));
   const [saving, setSaving] = useState(false);
   const [problemSearch, setProblemSearch] = useState("");
   const [allProblems, setAllProblems] = useState([]);
+  const [problemsLoading, setProblemsLoading] = useState(true);
   const [pickedProblems, setPickedProblems] = useState([]);
 
   useEffect(() => {
-    fetchPublishedProblems().then(setAllProblems).catch(() => setAllProblems([]));
+    fetchPublishedProblems().then(setAllProblems).catch(() => setAllProblems([])).finally(() => setProblemsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -179,7 +235,7 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
             <textarea value={form.concept} onChange={e => set({ concept: e.target.value })} rows={8} placeholder="The reading material students see before the quiz..."
               className="w-full text-[13px] px-3 py-2.5 rounded-lg outline-none leading-relaxed" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
             <p className="text-[10.5px] mt-1" style={{ color: CAMPUS.inkFaint }}>
-              Indent a block by 2+ spaces to render it as pseudocode, and start a line with "- " for a real bullet list - the lesson page detects both automatically.
+              Indent a block by 2+ spaces to render it as pseudocode, and start a line with &quot;- &quot; for a real bullet list - the lesson page detects both automatically.
             </p>
           </div>
 
@@ -247,7 +303,7 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
                 </div>
               </CampusCard>
             ))}
-            {(form.mcqs || []).length === 0 && <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>No MCQs yet - click "add question".</p>}
+            {(form.mcqs || []).length === 0 && <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>No MCQs yet - click &quot;add question&quot;.</p>}
           </div>
         </div>
 
@@ -266,6 +322,12 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
             <input value={problemSearch} onChange={e => setProblemSearch(e.target.value)} placeholder="Search the problem bank by title or number to add..."
               className="w-full text-[13px] pl-9 pr-3 py-2 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
           </div>
+          {problemSearch.trim() && problemsLoading && (
+            <p className="mt-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>Loading the problem bank...</p>
+          )}
+          {problemSearch.trim() && !problemsLoading && searchResults.length === 0 && (
+            <p className="mt-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>No problems match &quot;{problemSearch.trim()}&quot;.</p>
+          )}
           {searchResults.length > 0 && (
             <div className="mt-2 space-y-1">
               {searchResults.map(p => (

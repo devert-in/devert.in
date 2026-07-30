@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ArrowLeft, Play, Send, RotateCcw, Copy, Lightbulb, CheckCircle2, XCircle, Monitor } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchProblem, fetchSampleTests, fetchUserCodelabProgress,
+  fetchCodeDraft, saveCodeDraft,
   runCode, submitCode, acceptanceRate, CODELAB_LANGUAGES, STARTER_CODE,
 } from "@/lib/codelab";
 import Dropdown from "@/components/dropdown";
@@ -51,6 +52,46 @@ export function ProblemView({ problemId, onBack }) {
     fetchUserCodelabProgress(user.uid).then(p => setSolved(!!p.solvedProblems?.[problemId])).catch(() => {});
   }, [user, problemId]);
 
+  // Restores unsubmitted code instead of always starting from STARTER_CODE -
+  // see lib/codelab.js's saveCodeDraft. skipNextCodeSave is set synchronously
+  // here, before the async draft fetch resolves, so the autosave effect
+  // below doesn't immediately re-write back the exact draft it just restored.
+  const skipNextCodeSave = useRef(true);
+  useEffect(() => {
+    skipNextCodeSave.current = true;
+    if (!user || !problemId) { setLanguage("java"); setCode(STARTER_CODE.java); return; }
+    let cancelled = false;
+    fetchCodeDraft(user.uid, problemId).then(draft => {
+      if (cancelled) return;
+      if (draft?.code) { setLanguage(draft.language || "java"); setCode(draft.code); }
+      else { setLanguage("java"); setCode(STARTER_CODE.java); }
+    }).catch(() => { if (!cancelled) { setLanguage("java"); setCode(STARTER_CODE.java); } });
+    return () => { cancelled = true; };
+  }, [user, problemId]);
+
+  // Debounced periodic autosave, plus handleRun/handleSubmit save
+  // immediately before firing their request, and the visibility/unload
+  // listeners below save immediately on tab-switch/leave.
+  useEffect(() => {
+    if (skipNextCodeSave.current) { skipNextCodeSave.current = false; return; }
+    if (!user || !problemId) return;
+    const t = setTimeout(() => { saveCodeDraft(user.uid, problemId, { language, code }).catch(() => {}); }, 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, language]);
+
+  useEffect(() => {
+    if (!user || !problemId) return;
+    const saveNow = () => { saveCodeDraft(user.uid, problemId, { language, code }).catch(() => {}); };
+    const onVisibility = () => { if (document.visibilityState === "hidden") saveNow(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", saveNow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", saveNow);
+    };
+  }, [user, problemId, language, code]);
+
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
     setCode(STARTER_CODE[lang] || "");
@@ -58,6 +99,7 @@ export function ProblemView({ problemId, onBack }) {
   };
 
   const handleRun = async () => {
+    if (user && problemId) saveCodeDraft(user.uid, problemId, { language, code }).catch(() => {});
     setRunning(true); setError(""); setRunResults(null);
     try {
       const results = await Promise.all(sampleTests.map(async (t) => {
@@ -72,6 +114,7 @@ export function ProblemView({ problemId, onBack }) {
 
   const handleSubmit = async () => {
     if (!user) { window.location.href = `/login?next=${encodeURIComponent(`/codelab/problem?id=${problemId}`)}`; return; }
+    saveCodeDraft(user.uid, problemId, { language, code }).catch(() => {});
     setSubmitting(true); setError(""); setVerdict(null);
     try {
       const result = await submitCode({ problemId, language, code });

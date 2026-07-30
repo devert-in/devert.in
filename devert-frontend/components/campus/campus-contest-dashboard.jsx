@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Users, BarChart3, Trophy, Download, Pencil, Copy, Archive, Medal, Settings, ChevronDown, ChevronUp, Award, X, Printer, RotateCcw, AlertTriangle } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
-import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton } from "@/components/campus/campus-ui";
+import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton, ReportDownloadButton } from "@/components/campus/campus-ui";
 import {
   fetchContest, contestPhase, fetchContestRegistrations, fetchContestSubmissions,
   fetchLeaderboard, duplicateContest, updateContest, fetchContestQuestions, fetchContestAnswerKeys,
   isAnswerCorrect, getContestSettings, updateContestSettings, setManualRelease, resetContestAttempt,
 } from "@/lib/contests";
 import { fetchApprovedStudents, fetchInstitution } from "@/lib/institutions";
+import { gatherContestResultsReport } from "@/lib/campusReports";
 import { useAuth } from "@/context/AuthContext";
 
 function toDate(v) {
@@ -208,7 +209,7 @@ function CampusContestSettingsPanel({ contest, onSaved }) {
 
           <button onClick={save} disabled={saving}
             className="mt-3 text-[12px] font-semibold px-3.5 py-2 rounded-lg disabled:opacity-50"
-            style={{ background: CAMPUS.ink, color: "#fff" }}>
+            style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
             {saving ? "Saving..." : "Save Settings"}
           </button>
         </div>
@@ -397,6 +398,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
           <h1 className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{contest.title}</h1>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <ReportDownloadButton label="Full Report" size="sm" getReport={() => gatherContestResultsReport(contestId, contest.title)} />
           <button onClick={() => onEdit?.(contestId)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
             <Pencil size={12} /> Edit
           </button>
@@ -560,7 +562,6 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
           <span>Reg. ends: {formatDate(contest.registrationEnd)}</span>
           <span>Starts: {formatDate(contest.contestStart)}</span>
           <span>Ends: {formatDate(contest.contestEnd)}</span>
-          <span>Prize: {contest.prizeXp || 0} XP / {contest.prizeCoins || 0} coins</span>
         </div>
       </CampusCard>
 

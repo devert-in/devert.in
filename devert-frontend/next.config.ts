@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
-export default (phase: string): NextConfig => {
+const config = (phase: string): NextConfig => {
   if (phase === PHASE_DEVELOPMENT_SERVER) {
     return {
       images: { unoptimized: true },
@@ -40,3 +40,5 @@ export default (phase: string): NextConfig => {
     images: { unoptimized: true },
   };
 };
+
+export default config;

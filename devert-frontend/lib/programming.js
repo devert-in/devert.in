@@ -5,11 +5,12 @@
 // `programmingLanguages`/`programming_progress` blocks for the read/write
 // authority this all defers to.
 import { db } from "@/lib/firebase";
+import { withVersionSnapshot } from "@/lib/contentVersioning";
 import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
-  serverTimestamp, updateDoc, increment, writeBatch, arrayUnion,
+  serverTimestamp, writeBatch, arrayUnion, arrayRemove, runTransaction,
 } from "firebase/firestore";
-import { logCoinTransaction } from "@/lib/economy";
+import { grantRewards } from "@/lib/rewards";
 
 // No orderBy in the Firestore query itself - combining it with the
 // where("status",...) filter needed for non-admin reads would require a
@@ -39,12 +40,25 @@ export async function saveLanguage(langId, data) {
   }, { merge: true });
 }
 
+// Also deletes every student's programming_progress doc for this language -
+// without this, deleting a language left every student who'd ever opened it
+// with a permanently orphaned progress doc (completedTopicIds referencing
+// topics that no longer exist). firestore.rules grants isAdmin() write
+// access to programming_progress specifically so this cleanup can run.
+// Chunked at 450 deletes/batch (Firestore's 500-op cap) - a popular
+// language's progress docs alone could exceed one batch's limit even though
+// its topics never would.
 export async function deleteLanguage(langId) {
-  const topicsSnap = await getDocs(collection(db, "programmingLanguages", langId, "topics"));
-  const batch = writeBatch(db);
-  topicsSnap.docs.forEach(d => batch.delete(d.ref));
-  batch.delete(doc(db, "programmingLanguages", langId));
-  await batch.commit();
+  const [topicsSnap, progressSnap] = await Promise.all([
+    getDocs(collection(db, "programmingLanguages", langId, "topics")),
+    getDocs(query(collection(db, "programming_progress"), where("langId", "==", langId))),
+  ]);
+  const refs = [...topicsSnap.docs.map(d => d.ref), ...progressSnap.docs.map(d => d.ref), doc(db, "programmingLanguages", langId)];
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
 }
 
 export async function fetchTopics(langId, { includeUnpublished = false } = {}) {
@@ -59,13 +73,31 @@ export async function fetchTopic(langId, topicId) {
 }
 
 export async function saveTopic(langId, topicId, data) {
-  await setDoc(doc(db, "programmingLanguages", langId, "topics", topicId), {
+  const ref = doc(db, "programmingLanguages", langId, "topics", topicId);
+  const existing = (await getDoc(ref)).data();
+  await setDoc(ref, {
     updatedAt: serverTimestamp(),
+    ...withVersionSnapshot(existing),
     ...data,
   }, { merge: true });
 }
 
+// Also scrubs topicId out of every student's completedTopicIds for this
+// language - without this, a deleted topic stayed in every progress doc that
+// had completed it, letting a student's displayed completion % exceed 100%
+// (fetchProgrammingSummary divides completed count by the CURRENT topic
+// total, which just went down by one). isAdmin() write access already
+// exists on programming_progress; arrayRemove here isn't blocked by that
+// collection's owner-only monotonicity guard, which only applies to the
+// isOwner() branch.
 export async function deleteTopic(langId, topicId) {
+  const progressSnap = await getDocs(query(collection(db, "programming_progress"), where("langId", "==", langId)));
+  const affected = progressSnap.docs.filter(d => (d.data().completedTopicIds || []).includes(topicId));
+  for (let i = 0; i < affected.length; i += 450) {
+    const batch = writeBatch(db);
+    affected.slice(i, i + 450).forEach(d => batch.update(d.ref, { completedTopicIds: arrayRemove(topicId) }));
+    await batch.commit();
+  }
   await deleteDoc(doc(db, "programmingLanguages", langId, "topics", topicId));
 }
 
@@ -77,11 +109,29 @@ export async function fetchLanguageProgress(uid, langId) {
 }
 
 // All of a student's progress docs across every language they've touched -
-// powers the landing page's "Continue Learning"/"Recently Opened" without
-// needing to know which languages to check up front.
+// powers the landing page's "Continue Learning"/"Recently Opened" and every
+// language card's "X/Y completed" figure.
+//
+// Per-language getDoc() calls, NOT a where("uid","==",uid) list query -
+// verified directly against the emulator that such a query is DENIED
+// outright ("Null value error ... for 'list'"): firestore.rules' rule here
+// checks the wildcard path segment (progressId.split('_')[0] ==
+// request.auth.uid), which has no relationship Firestore's rules engine can
+// statically prove to a query filtered on the `uid` FIELD instead - the
+// exact same "list() is unprovable, get() by known id works fine" pattern
+// already hit for programming_progress/cscore_progress under
+// isAdminOfStudent() elsewhere in this app, just triggered here for the
+// OWNER's own read instead of a campus admin's. The previous version of this
+// function silently caught that denial (ProgrammingLanding's
+// .catch(() => setAllProgress([]))) and rendered every language card as
+// 0/X regardless of real progress - this was a standing, platform-wide bug,
+// not something that only showed up occasionally.
 export async function fetchAllUserProgress(uid) {
-  const snap = await getDocs(query(collection(db, "programming_progress"), where("uid", "==", uid)));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const languages = await fetchLanguages();
+  const progressList = await Promise.all(languages.map(lang => fetchLanguageProgress(uid, lang.id)));
+  return languages
+    .map((lang, i) => progressList[i] ? { id: progressId(uid, lang.id), ...progressList[i] } : null)
+    .filter(Boolean);
 }
 
 export async function markTopicOpened(uid, langId, topicId) {
@@ -93,35 +143,42 @@ export async function markTopicOpened(uid, langId, topicId) {
   }, { merge: true });
 }
 
-// Mirrors lib/dailyLearning.js's submitDayCompletion() exactly - same
-// self-reported-completion trust boundary, same XP-to-users/{uid}.xp +
-// coins-to-user_earnings/{uid} split, same coin_transactions log entry.
-// Idempotent via completedTopicIds membership, not a transaction (same
-// acceptable race-window as Daily Learning's, per that function's own
-// comment - a student completing the same topic twice in quick succession
-// is a non-issue, not a security boundary).
+// Mirrors lib/dailyLearning.js's submitDayCompletion() - same self-reported-
+// completion trust boundary, same shared grantRewards() split (xp/coins/
+// score). The idempotency check (is topicId already in completedTopicIds?)
+// is wrapped in a transaction, not a plain get()-then-set() - two
+// near-simultaneous completions used to both read "not yet completed"
+// before either write landed, double-awarding XP/coins/score; Firestore now
+// retries this callback if the progress doc changes underneath it, so the
+// loser of the race re-reads an already-completed doc and earns nothing.
 export async function completeTopic({ uid, langId, topicId, xpReward = 0, coinReward = 0 }) {
-  const existing = await fetchLanguageProgress(uid, langId);
-  const alreadyCompleted = !!existing?.completedTopicIds?.includes(topicId);
+  const progressRef = doc(db, "programming_progress", progressId(uid, langId));
+  let alreadyCompleted;
 
-  await setDoc(doc(db, "programming_progress", progressId(uid, langId)), {
-    uid, langId,
-    completedTopicIds: arrayUnion(topicId),
-    lastOpenedTopicId: topicId,
-    lastCompletedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(progressRef);
+    const existing = snap.exists() ? snap.data() : null;
+    alreadyCompleted = !!existing?.completedTopicIds?.includes(topicId);
 
-  if (!alreadyCompleted) {
-    if (xpReward > 0) await updateDoc(doc(db, "users", uid), { xp: increment(xpReward) });
-    if (coinReward > 0) {
-      await setDoc(doc(db, "user_earnings", uid), {
-        pulseCoins: increment(coinReward),
-        totalCoins: increment(coinReward),
-      }, { merge: true });
-      logCoinTransaction(uid, "programming_topic_completed", coinReward);
+    tx.set(progressRef, {
+      uid, langId,
+      completedTopicIds: arrayUnion(topicId),
+      lastOpenedTopicId: topicId,
+      lastCompletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    // Inside the same transaction as the completion flag - see
+    // dailyLearning.js's submitDayCompletion for why granting the reward as
+    // a separate call after commit could permanently strand it.
+    if (!alreadyCompleted) {
+      grantRewards(uid, {
+        xpReward, coinReward, scoreReward: xpReward, transactionType: "programming_topic_completed",
+        activityType: "programming_topic", activityId: `${langId}_${topicId}`, sourceModule: "programming",
+      }, tx);
     }
-  }
+  });
+
   return !alreadyCompleted;
 }
 

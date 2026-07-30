@@ -1,16 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Star, Eye, EyeOff, ShieldCheck } from "lucide-react";
-import { db, auth } from "@/lib/firebase";
-import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc, serverTimestamp } from "firebase/firestore";
-
-const ADMIN_EMAIL = "devert.contact@gmail.com";
-function logAdminActivity(action, detail) {
-  addDoc(collection(db, "admin_activity_log"), {
-    action, detail, actor: auth.currentUser?.email || ADMIN_EMAIL, createdAt: serverTimestamp(),
-  }).catch(() => {});
-}
+import { ExternalLink } from "lucide-react";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 
 function Input({ label, value, onChange, placeholder }) {
   return (
@@ -41,7 +34,6 @@ export default function PortfoliosPanel() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [working, setWorking] = useState({});
 
   const load = () => {
     setLoading(true);
@@ -55,17 +47,6 @@ export default function PortfoliosPanel() {
 
   const filtered = users.filter(u => !search || u.handle?.toLowerCase().includes(search.toLowerCase()));
   const withContent = filtered.filter(u => portfolioCompleteness(u) > 0);
-
-  const toggle = async (u, field) => {
-    const next = !u[field];
-    setWorking(w => ({ ...w, [`${field}-${u.uid}`]: true }));
-    try {
-      await updateDoc(doc(db, "users", u.uid), { [field]: next });
-      setUsers(prev => prev.map(x => x.uid === u.uid ? { ...x, [field]: next } : x));
-      logAdminActivity(`portfolio ${field} -> ${next}`, `@${u.handle}`);
-    } catch (e) { console.error(e); }
-    finally { setWorking(w => ({ ...w, [`${field}-${u.uid}`]: false })); }
-  };
 
   return (
     <div className="space-y-3">
@@ -81,9 +62,6 @@ export default function PortfoliosPanel() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-xs text-white/80">@{u.handle}</span>
-                  {u.portfolioFeatured && <span className="font-mono text-[9px] px-1.5 py-0.5 rounded" style={{ color: "#FFD700", background: "rgba(255,215,0,0.1)" }}>FEATURED</span>}
-                  {u.portfolioVerified && <span className="font-mono text-[9px] px-1.5 py-0.5 rounded" style={{ color: "#00FF41", background: "rgba(0,255,65,0.1)" }}>VERIFIED</span>}
-                  {u.portfolioHidden && <span className="font-mono text-[9px] px-1.5 py-0.5 rounded" style={{ color: "#FF5050", background: "rgba(255,80,80,0.1)" }}>HIDDEN</span>}
                 </div>
                 <p className="font-mono text-[10px] text-white/30 truncate">{u.headline || "no headline set"} · {portfolioCompleteness(u)}/6 sections filled</p>
               </div>
@@ -91,18 +69,6 @@ export default function PortfoliosPanel() {
                 <a href={`/u/${u.handle}`} target="_blank" rel="noreferrer" className="text-white/20 hover:text-neon-cyan transition-colors p-1.5" title="View live portfolio">
                   <ExternalLink size={13} />
                 </a>
-                <button disabled={working[`portfolioFeatured-${u.uid}`]} onClick={() => toggle(u, "portfolioFeatured")}
-                  className="p-1.5 transition-colors disabled:opacity-50" style={{ color: u.portfolioFeatured ? "#FFD700" : "rgba(255,255,255,0.25)" }} title="Feature">
-                  <Star size={13} fill={u.portfolioFeatured ? "#FFD700" : "none"} />
-                </button>
-                <button disabled={working[`portfolioVerified-${u.uid}`]} onClick={() => toggle(u, "portfolioVerified")}
-                  className="p-1.5 transition-colors disabled:opacity-50" style={{ color: u.portfolioVerified ? "#00FF41" : "rgba(255,255,255,0.25)" }} title="Verify">
-                  <ShieldCheck size={13} />
-                </button>
-                <button disabled={working[`portfolioHidden-${u.uid}`]} onClick={() => toggle(u, "portfolioHidden")}
-                  className="p-1.5 transition-colors disabled:opacity-50" style={{ color: u.portfolioHidden ? "#FF5050" : "rgba(255,255,255,0.25)" }} title={u.portfolioHidden ? "Unhide" : "Hide (moderate)"}>
-                  {u.portfolioHidden ? <EyeOff size={13} /> : <Eye size={13} />}
-                </button>
               </div>
             </div>
           ))}

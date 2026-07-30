@@ -79,7 +79,7 @@ export function CampusQuestionBank({ institutionId }) {
           Question Bank {!loading && <span style={{ color: CAMPUS.inkFaint }}>({bank.length})</span>}
         </p>
         <button onClick={startNew} className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3.5 py-2 rounded-lg"
-          style={{ background: CAMPUS.ink, color: "#fff" }}>
+          style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
           <Plus size={13} /> Add question
         </button>
       </div>

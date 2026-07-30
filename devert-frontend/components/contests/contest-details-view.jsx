@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Zap, Coins, ListChecks, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ListChecks, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchContest, fetchMyRegistration, registerForContest, contestPhase } from "@/lib/contests";
 import { useIsWindowed } from "@/components/window/is-windowed";
@@ -150,11 +150,11 @@ export function ContestDetailsView({ contestId, onBack, onEnterAttempt, onViewRe
               <Stat label="PARTICIPANTS" value={contest.participantCount || 0} />
               <Stat label="QUESTIONS" value={contest.questionCount || 0} />
             </div>
-            <div className="flex items-center gap-4 font-mono text-xs pt-2 border-t border-white/6">
-              {contest.prizeXp > 0 && <span className="flex items-center gap-1" style={{ color: "#00FF41" }}><Zap size={12} /> {contest.prizeXp} XP</span>}
-              {contest.prizeCoins > 0 && <span className="flex items-center gap-1" style={{ color: "#FFD700" }}><Coins size={12} /> {contest.prizeCoins} coins</span>}
-              {contest.prizeText && <span className="text-white/40">{contest.prizeText}</span>}
-            </div>
+            {contest.prizeText && (
+              <div className="flex items-center gap-4 font-mono text-xs pt-2 border-t border-white/6">
+                <span className="text-white/40">{contest.prizeText}</span>
+              </div>
+            )}
           </div>
         </div>
 

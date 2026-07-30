@@ -143,6 +143,20 @@ function parseRows(lines) {
   return rows;
 }
 
+// Pipe-delimited rows for the `table` fence - header row first, then one
+// data row per line. Deliberately a separate helper from parseRows() above:
+// that one splits on the FIRST `::` into exactly a term/body pair (cards,
+// timeline), while a table has an arbitrary, author-chosen column count, so
+// every cell on a row is split the same way instead of just the first two.
+function parseTableRows(lines) {
+  const rows = [];
+  lines.forEach(line => {
+    if (!line.trim()) return;
+    rows.push(line.split("|").map(cell => cell.trim()));
+  });
+  return rows;
+}
+
 function parseFlowSteps(lines) {
   const steps = [];
   lines.forEach(line => {
@@ -192,6 +206,10 @@ function parseFence(variant, title, lines) {
   if (v === "timeline") return { type: "timeline", title, steps: parseRows(lines) };
   if (v === "checkpoint") return parseCheckpoint(lines, title);
   if (v === "reveal") return { type: "reveal", title, blocks: parseLessonBlocks(lines.join("\n")) };
+  if (v === "table") {
+    const [headers, ...rows] = parseTableRows(lines);
+    return { type: "table", title, headers: headers || [], rows };
+  }
   return { type: "callout", variant: v, title, blocks: parseLessonBlocks(lines.join("\n")) };
 }
 

@@ -77,10 +77,22 @@ export function AuthProvider({ children }) {
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
     let unsubscribeDoc = () => {};
+    // Standard cancelled-flag effect-cleanup pattern (see e.g.
+    // campus-app.jsx's CampusWorkspace phase-determination effect) - without
+    // it, a quick logout+login in the same tab could leave this async IIFE's
+    // getDoc/backfill for the PREVIOUS user still in flight when its own
+    // cleanup runs (unsubscribeDoc is still the no-op placeholder at that
+    // point - the real onSnapshot call hasn't happened yet), so the
+    // cancelled effect's onSnapshot would attach anyway once the awaits
+    // resolved, orphaned outside React's cleanup system, and keep calling
+    // setUserData with the OLD user's data - silently clobbering the
+    // NEW user's already-loaded profile for the rest of the session.
+    let cancelled = false;
 
     (async () => {
       try {
         const docSnap = await getDoc(docRef);
+        if (cancelled) return;
 
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -122,6 +134,7 @@ export function AuthProvider({ children }) {
             website:        "",
             xp:             0,
             credits:        0,
+            score:          0,
             ships:          0,
             arenaWins:      0,
             streak:         0,
@@ -155,25 +168,29 @@ export function AuthProvider({ children }) {
           };
           await setDoc(docRef, newProfile);
         }
+        if (cancelled) return;
 
         unsubscribeDoc = onSnapshot(docRef, snap => {
+          if (cancelled) return;
           if (snap.exists()) {
             const data = snap.data();
             setUserData({ ...data, uid: user.uid, tier: getTier(data.xp) });
           }
           setLoading(false);
         }, err => {
+          if (cancelled) return;
           console.error("AuthContext: profile listener error", err);
           setLoading(false);
         });
       } catch (err) {
+        if (cancelled) return;
         console.error("AuthContext: Firestore error", err);
         setUserData(null);
         setLoading(false);
       }
     })();
 
-    return () => unsubscribeDoc();
+    return () => { cancelled = true; unsubscribeDoc(); };
   }, [user]);
 
   const logout = async () => {

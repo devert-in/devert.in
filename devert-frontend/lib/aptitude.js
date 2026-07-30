@@ -1,5 +1,10 @@
 import { db } from "@/lib/firebase";
-import { collection, doc, getDocs, getDoc, query, orderBy } from "firebase/firestore";
+import {
+  collection, doc, getDocs, getDoc, setDoc, query, where, orderBy,
+  serverTimestamp, runTransaction, arrayUnion,
+} from "firebase/firestore";
+import { withVersionSnapshot } from "@/lib/contentVersioning";
+import { grantRewards } from "@/lib/rewards";
 
 export const APTITUDE_CATEGORIES = ["Quantitative", "Logical", "Verbal"];
 
@@ -9,14 +14,73 @@ export const APTITUDE_EXAM_TAGS = ["GATE", "CAT", "Campus Placement", "Product C
 
 const MAX_ATTEMPT_HISTORY = 10;
 
-export async function fetchAptitudeTopics() {
-  const snap = await getDocs(query(collection(db, "aptitude_topics"), orderBy("order", "asc")));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+// Same "where(status) is REQUIRED, not optional" reasoning as
+// lib/programming.js's fetchLanguages/fetchTopics: once firestore.rules
+// gates aptitude_topics' read on status=='published', a non-admin list()
+// query with no matching filter is denied outright, not silently
+// filtered - includeUnpublished is the admin-only escape hatch (topic
+// authoring screen needs to see drafts).
+export async function fetchAptitudeTopics({ includeUnpublished = false } = {}) {
+  const col = collection(db, "aptitude_topics");
+  const snap = await getDocs(includeUnpublished ? query(col, orderBy("order", "asc")) : query(col, where("status", "==", "published")));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+export async function fetchAptitudeTopic(topicId) {
+  const snap = await getDoc(doc(db, "aptitude_topics", topicId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// Lesson-content authoring save (the new concept/keyPoints/mcqs/etc. layer -
+// see AptitudeTopicsPanel in app/admin/page.jsx) - separate from the
+// existing AptitudePanel's handleAddTopic/handleAddQuestion, which still own
+// the category/name/description create flow and the practice-question
+// subcollection untouched by this function.
+export async function saveAptitudeTopic(topicId, data) {
+  const ref = doc(db, "aptitude_topics", topicId);
+  const existing = (await getDoc(ref)).data();
+  await setDoc(ref, {
+    updatedAt: serverTimestamp(),
+    ...withVersionSnapshot(existing),
+    ...data,
+  }, { merge: true });
 }
 
 export async function fetchTopicQuestions(topicId) {
   const snap = await getDocs(query(collection(db, "aptitude_topics", topicId, "questions"), orderBy("order", "asc")));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Same transaction-wrapped idempotency pattern as programming.js/csCore.js's
+// completeTopic - reuses the EXISTING user_aptitude_progress/{uid} doc
+// (adding completedTopicIds alongside its current attempted/topicStats/
+// bookmarks fields) rather than a new collection, since that doc already IS
+// this user's aptitude state.
+export async function completeAptitudeTopic({ uid, topicId, xpReward = 0, coinReward = 0 }) {
+  const progressRef = doc(db, "user_aptitude_progress", uid);
+  let alreadyCompleted;
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(progressRef);
+    const existing = snap.exists() ? snap.data() : null;
+    alreadyCompleted = !!existing?.completedTopicIds?.includes(topicId);
+
+    tx.set(progressRef, {
+      completedTopicIds: arrayUnion(topicId),
+      lastOpenedTopicId: topicId,
+      lastCompletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    if (!alreadyCompleted) {
+      grantRewards(uid, {
+        xpReward, coinReward, scoreReward: xpReward, transactionType: "aptitude_topic_completed",
+        activityType: "aptitude_topic", activityId: topicId, sourceModule: "aptitude",
+      }, tx);
+    }
+  });
+
+  return !alreadyCompleted;
 }
 
 export async function fetchTopicWithQuestions(topicId) {

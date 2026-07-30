@@ -305,6 +305,49 @@ function Timeline({ title, steps }) {
   );
 }
 
+// ---------------- reference table ----------------
+
+// Formula/shortcut/conversion reference tables (the one genuinely new visual
+// primitive this format adds - see lib/lessonBlocks.js's `table` fence).
+// Deliberately reuses CampusTable's own header/row typography (components/
+// campus/campus-ui.jsx) rather than a new visual language, just without that
+// component's sort/row-click machinery, which a static reference table never
+// needs. Cell text runs through Inline so **bold**/`code` still work inside a
+// table the same as everywhere else.
+function Table({ title, headers, rows }) {
+  const motionProps = useBlockMotion();
+  if (!headers?.length) return null;
+  return (
+    <motion.figure {...motionProps} className="my-1">
+      {title && <figcaption className="text-[11px] font-mono tracking-widest mb-2.5" style={{ color: CAMPUS.inkFaint }}>{title.toUpperCase()}</figcaption>}
+      <div className="overflow-x-auto rounded-lg" style={{ border: `1px solid ${CAMPUS.line}` }}>
+        <table className="w-full">
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${CAMPUS.line}`, background: CAMPUS.paper }}>
+              {headers.map((h, i) => (
+                <th key={i} className="text-[10px] font-mono text-left px-3 py-2.5 tracking-wider whitespace-nowrap" style={{ color: CAMPUS.inkFaint }}>
+                  {h.toUpperCase()}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i} style={{ borderBottom: i < rows.length - 1 ? `1px solid ${CAMPUS.line}` : "none" }}>
+                {headers.map((_, j) => (
+                  <td key={j} className="text-[12px] px-3 py-2.5" style={{ color: CAMPUS.inkSoft }}>
+                    <Inline text={row[j] || ""} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </motion.figure>
+  );
+}
+
 // ---------------- inline checkpoint ----------------
 
 // A formative, mid-lesson "can you predict what happens next?" question.

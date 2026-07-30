@@ -1,5 +1,5 @@
 import { auth, db } from "@/lib/firebase";
-import { collection, doc, getDocs, getDoc, onSnapshot, query, orderBy, where, limit } from "firebase/firestore";
+import { collection, doc, getDocs, getDoc, setDoc, onSnapshot, query, orderBy, where, limit, serverTimestamp, Timestamp } from "firebase/firestore";
 
 export const CODELAB_CATEGORIES = [
   "Arrays", "Strings", "Linked List", "Stack", "Queue", "Trees", "Graphs",
@@ -9,6 +9,23 @@ export const CODELAB_CATEGORIES = [
 ];
 
 export const CODELAB_DIFFICULTIES = ["Easy", "Medium", "Hard"];
+
+// Autocomplete SUGGESTIONS only for the admin's "which companies ask this"
+// tagging UI - never written anywhere by default and never implies any of
+// these companies actually asks any given problem. A problem's real
+// `companies` array is 100% admin-authored (see admin/page.jsx's Companies
+// editor); this list exists only so an admin typing a tag doesn't have to
+// remember/retype "Google" vs "google" vs "Alphabet/Google" consistently.
+// Deliberately NOT the same list as the `companies` Firestore collection
+// (Company Vault's own full interview-prep hubs, lib/companyPrep.js) - most
+// of these (Amazon, Google, Meta...) have no Company Vault page today, and
+// tagging a DSA problem "asked by Amazon" doesn't require one to exist.
+export const COMPANY_TAG_SUGGESTIONS = [
+  "Amazon", "Google", "Microsoft", "Meta", "Apple", "Netflix", "Adobe", "Oracle",
+  "Goldman Sachs", "Atlassian", "Uber", "Flipkart", "PhonePe", "Paytm", "Razorpay",
+  "Swiggy", "Zomato", "TCS", "Infosys", "Wipro", "Accenture", "Capgemini",
+  "Cognizant", "Tech Mahindra", "Deloitte",
+];
 
 // Shared with Arena's solo-challenge editor (arena-app.jsx) - a challenge is
 // graded through this exact same starter-code/language set, just with a
@@ -61,6 +78,33 @@ export async function fetchUserCodelabProgress(uid) {
   return snap.exists() ? snap.data() : { solvedProblems: {}, languageUsage: {}, totalSubmissions: 0, problemsSolvedCount: 0 };
 }
 
+// In-progress code (not yet submitted) per problem, so leaving mid-attempt -
+// closing the tab, a crash, opening the same problem on another device -
+// never loses unsubmitted work. Lives as a map on the same small
+// user_codelab_progress/{uid} doc (already isOwner-write, no field
+// allow-list, so no rules change needed) rather than a new collection - the
+// realistic number of problems a student has an in-progress draft for at
+// once is small, so this doesn't risk unbounded doc growth the way an
+// unpruned submission log would.
+export async function fetchCodeDraft(uid, problemId) {
+  const snap = await getDoc(doc(db, "user_codelab_progress", uid));
+  return snap.exists() ? (snap.data().codeDrafts?.[problemId] || null) : null;
+}
+
+// consoleText/panelOpen/panelTab are optional - callers with no such UI
+// (the standalone CodeLab ProblemView) simply never pass them, and the
+// nested-map merge below leaves any previously-saved value alone rather
+// than wiping it, so passing a partial draft object is always safe.
+export async function saveCodeDraft(uid, problemId, { language, code, consoleText, panelOpen, panelTab }) {
+  const draft = { language, code, updatedAt: serverTimestamp() };
+  if (consoleText !== undefined) draft.consoleText = consoleText;
+  if (panelOpen !== undefined) draft.panelOpen = panelOpen;
+  if (panelTab !== undefined) draft.panelTab = panelTab;
+  await setDoc(doc(db, "user_codelab_progress", uid), {
+    codeDrafts: { [problemId]: draft },
+  }, { merge: true });
+}
+
 // Live counterpart to fetchUserCodelabProgress - a solved-map update from a
 // submission made anywhere (another tab, Arena, a re-solve) reaches every
 // mounted problem list immediately, no navigation/remount required to see
@@ -109,6 +153,41 @@ export async function fetchAllSubmissionsForUser(uid) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// Real submission timestamps (not just the cumulative solvedProblems/
+// totalSubmissions counters, which carry no per-day information) since a
+// given date - the Classroom Analytics dashboard's "Active" signal needs to
+// know WHICH days a student actually submitted code, not just their
+// lifetime total. Needs its own uid+createdAt composite index (every other
+// codelab_submissions query in this file deliberately avoids orderBy
+// alongside where("uid") for exactly this reason - this is the one case
+// where the index is worth provisioning, since "activity since date X" has
+// no cheaper equivalent).
+export async function fetchSubmissionDatesForUser(uid, sinceDate) {
+  const snap = await getDocs(query(
+    collection(db, "codelab_submissions"),
+    where("uid", "==", uid),
+    where("createdAt", ">=", Timestamp.fromDate(sinceDate)),
+  ));
+  return snap.docs.map(d => d.data().createdAt?.toDate?.()).filter(Boolean);
+}
+
+// Reduces fetchAllSubmissionsForUser's flat list into per-problem
+// {attempts, accepted, lastAt} - powers a DSA card's "3 attempts, last solved
+// 2 days ago" without any new Firestore read or denormalized counter, since
+// this student's full submission history is already fetched in one query.
+export function computeSubmissionStatsByProblem(submissions) {
+  const map = {};
+  for (const s of submissions) {
+    const entry = map[s.problemId] || { attempts: 0, accepted: 0, lastAt: null };
+    entry.attempts += 1;
+    if (s.verdict === "Accepted") entry.accepted += 1;
+    const t = s.createdAt?.toMillis?.() ?? 0;
+    if (t && (!entry.lastAt || t > entry.lastAt)) entry.lastAt = t;
+    map[s.problemId] = entry;
+  }
+  return map;
+}
+
 export async function fetchMySubmissions(uid, topN = 10) {
   const snap = await getDocs(query(
     collection(db, "codelab_submissions"),
@@ -148,7 +227,15 @@ export async function runCode({ language, code, stdin }) {
 // XP/coins server-side and returns the verdict for display. The backend verifies
 // the Firebase ID token itself and grades against THAT uid - it never trusts a
 // uid from the request body, so there's nothing to pass here besides the token.
-export async function submitCode({ problemId, language, code }) {
+// suppressReward: true when this problem is embedded inside a Daily
+// Learning day/assessment as one of its own completion requirements - the
+// day already grants one flat XP/coin/score bonus for finishing everything,
+// so the standalone per-problem CodeLab reward is skipped here to avoid
+// double-counting the same piece of work (see the backend's
+// CodeSubmitRequest for the full rationale). Defaults to false - a real,
+// standalone DSA-tab submission - so every existing caller keeps its
+// current behavior unchanged.
+export async function submitCode({ problemId, language, code, suppressReward = false }) {
   const base = apiUrl();
   if (!base) throw new Error("Submissions aren't configured yet (NEXT_PUBLIC_API_URL is unset).");
   if (!auth.currentUser) throw new Error("Sign in to submit.");
@@ -156,7 +243,7 @@ export async function submitCode({ problemId, language, code }) {
   const res = await fetch(`${base}/api/coding/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
-    body: JSON.stringify({ problemId, language, code }),
+    body: JSON.stringify({ problemId, language, code, suppressReward }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Submission failed.");

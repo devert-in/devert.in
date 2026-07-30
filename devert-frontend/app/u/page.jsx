@@ -56,28 +56,46 @@ export default function PublicDevCard() {
     setLoading(true);
     setNotFound(false);
     let unsubscribeDoc = () => {};
+    // Standard cancelled-flag effect-cleanup pattern (see e.g.
+    // campus-app.jsx's CampusWorkspace phase-determination effect, and the
+    // identical fix in context/AuthContext.js) - since this route is a
+    // single mounted page instance shared across every /u/* handle (see
+    // firebase.json's rewrite + usePathname()-derived handle, not a Next.js
+    // dynamic segment), client-side navigating from one profile to another
+    // (or Back/Forward between two visited profiles) reuses this component;
+    // without a cancelled guard, a slow-resolving getDocs+onSnapshot for the
+    // PREVIOUS handle could attach after this effect's own cleanup already
+    // ran, orphaned outside React's cleanup system, and keep calling
+    // setProfile with the OLD profile's data under the NEW handle's URL.
+    let cancelled = false;
 
     (async () => {
       try {
         const snap = await getDocs(
           query(collection(db, "users"), where("handle", "==", handle), limit(1))
         );
+        if (cancelled) return;
         if (snap.empty) { setNotFound(true); setLoading(false); return; }
         const uid = snap.docs[0].id;
         unsubscribeDoc = onSnapshot(doc(db, "users", uid), profileSnap => {
+          if (cancelled) return;
           if (!profileSnap.exists()) { setNotFound(true); setLoading(false); return; }
           const data = { ...profileSnap.data(), uid };
           setProfile({ ...data, tier: getTierFromXP(data.xp ?? 0) });
           setLoading(false);
-        }, err => { console.error(err); setNotFound(true); setLoading(false); });
+        }, err => {
+          if (cancelled) return;
+          console.error(err); setNotFound(true); setLoading(false);
+        });
       } catch (e) {
+        if (cancelled) return;
         console.error(e);
         setNotFound(true);
         setLoading(false);
       }
     })();
 
-    return () => unsubscribeDoc();
+    return () => { cancelled = true; unsubscribeDoc(); };
   }, [handle]);
 
   /* ── docked projects (Shipyard), owned by this profile ── */
@@ -162,7 +180,7 @@ export default function PublicDevCard() {
       <div className="text-center">
         <p className="font-mono text-2xl text-white/20 mb-3">404</p>
         <p className="font-mono text-sm text-white/30 mb-2">@{handle} not found</p>
-        <p className="font-mono text-xs text-white/15 mb-8">// this dev hasn't shipped yet</p>
+        <p className="font-mono text-xs text-white/15 mb-8">// this dev hasn&apos;t shipped yet</p>
         <Link href="/"
           className="font-mono text-xs text-neon-cyan/60 border border-neon-cyan/20 px-4 py-2 rounded hover:bg-neon-cyan/6 transition-colors">
           ← back to devert.in

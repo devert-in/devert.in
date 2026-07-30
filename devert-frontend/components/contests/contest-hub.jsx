@@ -52,10 +52,10 @@ export function ContestHub() {
   }, [user, contests]);
 
   useEffect(() => {
-    if (subtab === "announcements" && announcements === null) {
-      fetchRecentAnnouncements(15).then(setAnnouncements).catch(() => setAnnouncements([]));
+    if (subtab === "announcements" && announcements === null && contests.length > 0) {
+      fetchRecentAnnouncements(contests.map(c => c.id), 15).then(setAnnouncements).catch(() => setAnnouncements([]));
     }
-  }, [subtab, announcements]);
+  }, [subtab, announcements, contests]);
 
   const buckets = useMemo(() => bucketContests(contests), [contests]);
   const registeredContests = useMemo(() => contests.filter(c => myRegs[c.id]), [contests, myRegs]);

@@ -17,6 +17,7 @@ import EducationTab from "@/components/profile-editor/education-tab";
 import CertificationsTab from "@/components/profile-editor/certifications-tab";
 import AchievementsTab from "@/components/profile-editor/achievements-tab";
 import AppearanceTab from "@/components/profile-editor/appearance-tab";
+import AnalyticsTab from "@/components/profile-editor/analytics-tab";
 import { DEFAULT_SECTION_ORDER } from "@/lib/portfolio-sections";
 
 const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
@@ -319,6 +320,7 @@ export default function ProfilePage() {
                 onCoverFile={onCoverFile} coverUploading={coverUploading}
                 onResumeFile={onResumeFile} resumeUploading={resumeUploading} />
             )}
+            {activeTab === "analytics" && <AnalyticsTab uid={user.uid} />}
             {activeTab === "skills" && <SkillsTab skills={form.skills} onChange={v => patch({ skills: v })} />}
             {activeTab === "experience" && <ExperienceTab experience={form.experience} onChange={v => patch({ experience: v })} />}
             {activeTab === "education" && <EducationTab education={form.education} onChange={v => patch({ education: v })} />}

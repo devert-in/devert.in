@@ -42,7 +42,7 @@ export function EnterHqModal({ onClose, next = "/pulse" }) {
           </div>
           <h2 className="font-sans text-lg font-bold text-white mb-2">Enter HQ</h2>
           <p className="font-mono text-xs text-white/40 mb-5 leading-relaxed">
-            You're exploring the DeVert community. Sign in to unlock the full experience:
+            You&apos;re exploring the DeVert community. Sign in to unlock the full experience:
           </p>
 
           <div className="space-y-2.5 mb-6 text-left">

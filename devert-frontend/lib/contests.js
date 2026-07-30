@@ -1,7 +1,7 @@
 import { db } from "@/lib/firebase";
 import {
-  collection, collectionGroup, doc, addDoc, deleteDoc, getDocs, getDoc, setDoc, updateDoc, query, orderBy, where,
-  limit, increment, serverTimestamp, getCountFromServer, writeBatch,
+  collection, doc, addDoc, deleteDoc, getDocs, getDoc, setDoc, updateDoc, query, orderBy, where,
+  limit, increment, serverTimestamp, getCountFromServer, writeBatch, documentId, runTransaction,
 } from "firebase/firestore";
 
 export const CONTEST_CATEGORIES = [
@@ -28,7 +28,12 @@ export function blankContestForm() {
     title: "", category: CONTEST_CATEGORIES[0], difficulty: "Easy", bannerUrl: "",
     description: "", rules: "", eligibility: "", organizer: "", tags: "",
     registrationStart: "", registrationEnd: "", contestStart: "", contestEnd: "",
-    durationMinutes: "60", prizeXp: "100", prizeCoins: "50", prizeText: "", status: "draft",
+    // prizeXp/prizeCoins default to 0, not a nonzero placeholder - contests no
+    // longer grant platform XP/Coins at all (see persistGrading), so these
+    // fields are no longer collected in the authoring form; a stale nonzero
+    // default here would otherwise silently persist on every new contest with
+    // no UI to notice or change it.
+    durationMinutes: "60", prizeXp: "0", prizeCoins: "0", prizeText: "", status: "draft",
   };
 }
 
@@ -149,9 +154,25 @@ export function csvRowsToContestQuestions(rows) {
 // unscoped feed; this is the Campus-side equivalent for "my college's contests"
 // (used by both the student Contests tab and the admin manager, which also wants
 // to see its own drafts - hence no status filter here, unlike the public feed).
+// Admin-facing (Manage -> Contests) - every status, including drafts.
+// isContestInstitutionAdmin(contestId) in firestore.rules resolves via a
+// fresh get() on the contest's own id, not resource.data, so it doesn't need
+// a matching query filter the way a resource.data condition would.
 export async function fetchInstitutionContests(institutionId) {
   const snap = await getDocs(query(collection(db, "contests"), where("institutionId", "==", institutionId), orderBy("createdAt", "desc")));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Student-facing - the where("status","==","published") filter is REQUIRED,
+// not optional: firestore.rules' contests/{contestId} read rule's
+// non-admin branch checks resource.data.status == 'published', a real data
+// field the query itself must also filter on or Firestore rejects the whole
+// list() as unprovable for any non-admin - same "status filter mandatory"
+// trap as lib/programming.js's fetchLanguages. No orderBy alongside it (that
+// combo needs a composite index); sorted client-side instead.
+export async function fetchPublishedInstitutionContests(institutionId) {
+  const snap = await getDocs(query(collection(db, "contests"), where("institutionId", "==", institutionId), where("status", "==", "published")));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
 }
 
 function toDate(v) {
@@ -261,11 +282,28 @@ export async function fetchContestAnnouncements(contestId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-// Cross-contest feed for the Contest Hub's "Announcements" sub-view - relies on the
-// same nested announcements rule applying to collection-group queries.
-export async function fetchRecentAnnouncements(topN = 10) {
-  const snap = await getDocs(query(collectionGroup(db, "announcements"), orderBy("createdAt", "desc"), limit(topN)));
-  return snap.docs.map(d => ({ id: d.id, contestId: d.ref.parent.parent.id, ...d.data() }));
+// Cross-contest feed for the Contest Hub's "Announcements" sub-view. Fans out
+// one bounded query per contest the caller can already see (contestIds comes
+// from the Hub's own already-loaded fetchPublishedContests() list) rather
+// than a single collectionGroup(db, "announcements") query - Firestore
+// rejects a collection-group `list` outright when the same collection name
+// is matched by two structurally different rule blocks (this one is also
+// used by institutions/{id}/announcements, a completely unrelated feature
+// with its own targetUids-based rule), since it can't statically prove every
+// possible matching document is readable from the query shape alone. That
+// made the old query fail closed for literally everyone, including admins
+// and approved students who should have had full access - verified directly
+// against the emulator, not assumed from a lint-style read of the rules.
+export async function fetchRecentAnnouncements(contestIds, topN = 10) {
+  if (!contestIds?.length) return [];
+  const perContest = await Promise.all(contestIds.map(contestId =>
+    getDocs(query(collection(db, "contests", contestId, "announcements"), orderBy("createdAt", "desc"), limit(topN)))
+      .then(snap => snap.docs.map(d => ({ id: d.id, contestId, ...d.data() })))
+      .catch(() => [])
+  ));
+  return perContest.flat()
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    .slice(0, topN);
 }
 
 export async function fetchMyRegistration(contestId, uid) {
@@ -354,33 +392,35 @@ export function isAnswerCorrect(question, key, given) {
   return given === (key.correctOptionIds || [])[0];
 }
 
-// Reward is proportional to accuracyRatio, hard-capped at the contest's own announced
-// prize - matches the Firestore rules bound on the submission's grading update.
-export function computeRewards(contest, accuracyRatio) {
-  const xpEarned = Math.max(0, Math.round((contest.prizeXp || 0) * accuracyRatio));
-  const coinsEarned = Math.max(0, Math.round((contest.prizeCoins || 0) * accuracyRatio));
-  return { xpEarned, coinsEarned };
-}
+// Contests intentionally grant no XP/Coins/Score (platform policy: only
+// Daily Learning, Programming, and CS Core reward) - this only ever
+// persists the grading result (score/accuracy/rank inputs), never touches
+// users/{uid}, user_earnings/{uid}, or reward_grants.
+//
+// One-time, irreversible grading write. Wrapped in a transaction,
+// re-reading `graded` live immediately before writing, so two
+// near-simultaneous grading calls (a double-click, or two tabs) can't both
+// read the submission as `graded: false` and both commit - the loser of the
+// race re-reads an already-graded submission and writes nothing.
+export async function persistGrading(contestId, uid, grading) {
+  const submissionRef = doc(db, "contests", contestId, "submissions", uid);
+  let alreadyGraded;
 
-// One-time, irreversible grading write - rules enforce graded false->true and the
-// xpEarned/coinsEarned caps; this also bumps the user's contest + global XP/coin totals.
-export async function persistGrading(contestId, uid, grading, rewards) {
-  await updateDoc(doc(db, "contests", contestId, "submissions", uid), {
-    graded: true,
-    score: grading.score,
-    maxScore: grading.maxScore,
-    accuracy: grading.accuracy,
-    correctCount: grading.correctCount,
-    xpEarned: rewards.xpEarned,
-    coinsEarned: rewards.coinsEarned,
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(submissionRef);
+    alreadyGraded = !!snap.data()?.graded;
+    if (alreadyGraded) return;
+
+    tx.update(submissionRef, {
+      graded: true,
+      score: grading.score,
+      maxScore: grading.maxScore,
+      accuracy: grading.accuracy,
+      correctCount: grading.correctCount,
+    });
   });
-  await updateDoc(doc(db, "users", uid), {
-    xp: increment(rewards.xpEarned),
-    credits: increment(rewards.coinsEarned),
-    contestXp: increment(rewards.xpEarned),
-    contestCoins: increment(rewards.coinsEarned),
-    contestsParticipated: increment(1),
-  });
+
+  return !alreadyGraded;
 }
 
 export async function fetchLeaderboard(contestId, topN = 50) {
@@ -395,11 +435,17 @@ export async function fetchLeaderboard(contestId, topN = 50) {
   // rollNumber/campusFullName are only present for a Campus-institution
   // submitter (denormalized onto users/{uid} at approval - see
   // approveStudent in lib/institutions.js); undefined for a platform Arena
-  // contest, where callers fall back to handle/uid as before.
-  const profiles = await Promise.all(rows.map(r => getDoc(doc(db, "users", r.uid))
-    .then(u => u.exists() ? { handle: u.data().handle, rollNumber: u.data().rollNumber, campusFullName: u.data().campusFullName } : null)
-    .catch(() => null)));
-  return rows.map((r, i) => ({ ...r, ...profiles[i] }));
+  // contest, where callers fall back to handle/uid as before. Batched via
+  // documentId() "in" queries (30 uids/chunk) instead of one getDoc per
+  // row - same fix already applied to fetchContestRegistrations below.
+  const uids = rows.map(r => r.uid);
+  const profilesByUid = new Map();
+  for (let i = 0; i < uids.length; i += 30) {
+    const chunk = uids.slice(i, i + 30);
+    const chunkSnap = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
+    chunkSnap.docs.forEach(d => profilesByUid.set(d.id, { handle: d.data().handle, rollNumber: d.data().rollNumber, campusFullName: d.data().campusFullName }));
+  }
+  return rows.map(r => ({ ...r, ...(profilesByUid.get(r.uid) || null) }));
 }
 
 // Cheap rank-beyond-top-N via count aggregations instead of downloading the whole
@@ -470,15 +516,17 @@ export async function duplicateContest(contest, uid) {
 }
 
 export async function deleteContest(contestId) {
-  const [qSnap, akSnap, regSnap, subSnap] = await Promise.all([
+  const [qSnap, akSnap, regSnap, subSnap, annSnap] = await Promise.all([
     getDocs(collection(db, "contests", contestId, "questions")),
     getDocs(collection(db, "contests", contestId, "answerKeys")),
     getDocs(collection(db, "contests", contestId, "registrations")),
     getDocs(collection(db, "contests", contestId, "submissions")),
+    getDocs(collection(db, "contests", contestId, "announcements")),
   ]);
   await Promise.all([
     ...qSnap.docs.map(d => deleteDoc(d.ref)), ...akSnap.docs.map(d => deleteDoc(d.ref)),
     ...regSnap.docs.map(d => deleteDoc(d.ref)), ...subSnap.docs.map(d => deleteDoc(d.ref)),
+    ...annSnap.docs.map(d => deleteDoc(d.ref)),
   ]);
   await deleteDoc(doc(db, "contests", contestId));
 }
@@ -597,13 +645,22 @@ export async function archiveBankQuestion(institutionId, questionId) {
 
 // ---------------- Contest dashboard fetchers ----------------
 
+// Batched via documentId() "in" queries (30 uids per query, Firestore's own
+// cap) instead of one getDoc() per registrant - a contest with hundreds or
+// thousands of registrants used to fire that many individual reads in one
+// Promise.all burst. users/{uid} is public-read (see firestore.rules), so
+// this needs no per-uid permission check the way a single getDoc did.
 export async function fetchContestRegistrations(contestId) {
   const snap = await getDocs(collection(db, "contests", contestId, "registrations"));
   const rows = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
-  const profiles = await Promise.all(rows.map(r => getDoc(doc(db, "users", r.uid))
-    .then(u => u.exists() ? { handle: u.data().handle, rollNumber: u.data().rollNumber, campusFullName: u.data().campusFullName } : null)
-    .catch(() => null)));
-  return rows.map((r, i) => ({ ...r, ...profiles[i] }));
+  const uids = rows.map(r => r.uid);
+  const profilesByUid = new Map();
+  for (let i = 0; i < uids.length; i += 30) {
+    const chunk = uids.slice(i, i + 30);
+    const chunkSnap = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
+    chunkSnap.docs.forEach(d => profilesByUid.set(d.id, { handle: d.data().handle, rollNumber: d.data().rollNumber, campusFullName: d.data().campusFullName }));
+  }
+  return rows.map(r => ({ ...r, ...(profilesByUid.get(r.uid) || null) }));
 }
 
 export async function fetchContestSubmissions(contestId) {

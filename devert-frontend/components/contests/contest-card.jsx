@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Trophy, Coins, Zap, Clock, CheckCircle2, MoreVertical } from "lucide-react";
+import { Users, Trophy, Clock, CheckCircle2, MoreVertical } from "lucide-react";
 import { contestPhase } from "@/lib/contests";
 
 const DIFF_COLOR = { Easy: "#00FF41", Medium: "#FF9500", Hard: "#FF5050" };
@@ -67,10 +67,6 @@ export function ContestCard({ contest, registered, registering, onRegister, onVi
         <div className="flex items-center gap-3 flex-wrap font-mono text-[10px] text-white/35 mb-3">
           <span className="flex items-center gap-1"><Clock size={10} /> {formatDate(contest.contestStart)}</span>
           <span className="flex items-center gap-1"><Users size={10} /> {contest.participantCount || 0}</span>
-        </div>
-        <div className="flex items-center gap-3 font-mono text-[10px] mb-4">
-          {contest.prizeXp > 0 && <span className="flex items-center gap-1" style={{ color: "#00FF41" }}><Zap size={10} /> {contest.prizeXp} XP</span>}
-          {contest.prizeCoins > 0 && <span className="flex items-center gap-1" style={{ color: "#FFD700" }}><Coins size={10} /> {contest.prizeCoins}</span>}
         </div>
         <div className="flex gap-2">
           <button onClick={() => onViewDetails(contest.id)}

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
+import Script from "next/script";
 import { Terminal, Wifi, AlertCircle, X } from "lucide-react";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 
@@ -15,17 +16,27 @@ const BOOT_LINES = [
   "Ready. Awaiting credentials.",
 ];
 
+// Public OAuth Web Client ID for the devert-me Firebase project (not a secret —
+// same class of value as firebaseConfig.apiKey, safe to embed in client code).
+// Used to drive Google Identity Services directly so the sign-in popup never
+// has to visit Firebase's own /__/auth/handler relay page.
+const GOOGLE_CLIENT_ID = "550891323057-09tnhqhgpmtuoud983ug14f6rmoi4bgh.apps.googleusercontent.com";
+
 function LoginContent() {
   const [bootDone, setBootDone] = useState(false);
   const [visibleLines, setVisibleLines] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [gsiReady, setGsiReady] = useState(false);
+  const tokenClientRef = useRef(null);
+  const nextRef = useRef("/");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
 
   const rawNext = searchParams.get("next");
   const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  nextRef.current = next;
 
   // Already logged in → go straight to destination
   useEffect(() => {
@@ -45,13 +56,54 @@ function LoginContent() {
     return () => clearInterval(iv);
   }, []);
 
+  // Set up the Google Identity Services OAuth token client once its script has
+  // loaded. This drives Google's own account-chooser popup directly, so sign-in
+  // never has to bounce through Firebase's /__/auth/handler relay page.
+  useEffect(() => {
+    if (!gsiReady || typeof window === "undefined" || !window.google?.accounts?.oauth2) return;
+
+    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: "openid email profile",
+      callback: async (tokenResponse) => {
+        if (!tokenResponse || tokenResponse.error) {
+          setError("Authentication failed. Try again.");
+          setLoading(false);
+          return;
+        }
+        try {
+          const credential = GoogleAuthProvider.credential(null, tokenResponse.access_token);
+          await signInWithCredential(auth, credential);
+          router.push(nextRef.current);
+        } catch (e) {
+          setError("Authentication failed. Try again.");
+          setLoading(false);
+        }
+      },
+      error_callback: () => {
+        // User closed the Google popup or it was blocked — not a real failure,
+        // just stop the spinner and let them try again.
+        setLoading(false);
+      },
+    });
+  }, [gsiReady]);
+
   const handleGoogle = async () => {
     setLoading(true);
     setError("");
+
+    if (tokenClientRef.current) {
+      tokenClientRef.current.requestAccessToken({ prompt: "select_account" });
+      return;
+    }
+
+    // Fallback: if Google Identity Services hasn't loaded (slow network, an
+    // extension blocking accounts.google.com/gsi/client, etc.) fall back to
+    // Firebase's own popup flow rather than ever leaving sign-in broken.
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      router.push(next);
+      router.push(nextRef.current);
     } catch (e) {
       setError("Authentication failed. Try again.");
       setLoading(false);
@@ -60,6 +112,12 @@ function LoginContent() {
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 relative overflow-hidden">
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={() => setGsiReady(true)}
+        onError={() => setGsiReady(false)}
+      />
       <div className="absolute inset-0 grid-bg opacity-40 pointer-events-none" />
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,255,65,0.03) 0%, transparent 70%)" }}

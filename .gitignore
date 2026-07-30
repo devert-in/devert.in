@@ -89,3 +89,37 @@ scripts/*-applied-*.json
 scripts/reward-ledger-audit-*.json
 scripts/score-migration-applied-*.json
 scripts/clamp-negative-balances-*.json
+
+# =====================
+# Migration / authoring run artifacts
+# =====================
+# Every admin script under scripts/ that mutates Firestore writes a timestamped
+# dry-run or applied-changes record next to itself (see write-gate-lessons.mjs,
+# rewrite-cscore-lessons.mjs, the reward-migration scripts). Those files are local
+# recovery and audit artifacts for one run on one machine - useful to keep on disk,
+# never useful in history, and they accumulate fast.
+scripts/*-backup-*.json
+scripts/*-dryrun-*.json
+scripts/*-applied-*.json
+scripts/*-audit-*.json
+scripts/reward-ledger-audit-*.json
+scripts/clamp-negative-balances-*.json
+scripts/disallowed-module-rewards-*.json
+scripts/duplicate-rewards-*.json
+scripts/new-dsa-problems-migration-*.json
+scripts/problem-structure-migration-*.json
+scripts/retroactive-daily-learning-rewards-*.json
+scripts/reverse-premature-conversions-*.json
+scripts/score-migration-*.json
+
+# Scratch lint output
+devert-frontend/eslint_fresh.json
+
+# Third-party reference material - large binaries, not project source
+roadmaps/
+Cognizant-Placement-Preparation-Handbook.*
+
+# Unrelated projects that happen to live in this working directory
+ByteMart Java/
+adarisamuelprasad-portfolio/
+nandhakishor-portfolio/

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Mail, Calendar, Clock, Pencil, KeyRound, Megaphone, Ban, UserX, UserCheck, UserMinus,
   ExternalLink, CodeXml, BrainCircuit, ListChecks, Building2, GraduationCap, User,
+  Trophy, Zap, Coins,
 } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import { useAuth } from "@/context/AuthContext";
@@ -72,6 +73,7 @@ export function StudentAnalyticsDashboard({ institutionId, institution, student,
       <OverviewCard student={student} institution={institution} profile={profile} />
       <QuickActions institutionId={institutionId} student={student} profile={profile} adminUid={user?.uid}
         onChanged={() => { onChanged?.(); reload(); }} />
+      <RewardsSection rewards={analytics.rewards} timeline={analytics.rewardTimeline} />
       <ProgrammingSection data={analytics.programming} />
       <CsCoreSection data={analytics.csCore} />
       <DsaSection data={analytics.dsa} />
@@ -144,7 +146,7 @@ function EditIdentityForm({ form, setForm, onCancel, onSave, busy }) {
           className="w-24 text-[12.5px] px-3 py-1.5 rounded-lg outline-none" style={fieldStyle} />
       </div>
       <div className="flex gap-2">
-        <button onClick={onSave} disabled={busy} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.ink, color: "#fff" }}>
+        <button onClick={onSave} disabled={busy} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
           {busy ? "Saving..." : "Save"}
         </button>
         <button onClick={onCancel} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ color: CAMPUS.inkFaint }}>Cancel</button>
@@ -196,7 +198,7 @@ function AnnounceForm({ institutionId, uid, adminUid, onCancel, onSent }) {
         className="w-full text-[12.5px] px-3 py-1.5 rounded-lg outline-none resize-none" style={fieldStyle} />
       <div className="flex gap-2">
         <button onClick={send} disabled={sending || !title.trim() || !message.trim()}
-          className="text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.ink, color: "#fff" }}>
+          className="text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
           {sending ? "Sending..." : "Send"}
         </button>
         <button onClick={onCancel} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ color: CAMPUS.inkFaint }}>Cancel</button>
@@ -322,6 +324,81 @@ function QuickActions({ institutionId, student, profile, adminUid, onChanged }) 
         <AnnounceForm institutionId={institutionId} uid={student.uid} adminUid={adminUid}
           onCancel={() => setConfirmAction(null)}
           onSent={() => { setConfirmAction(null); setNotice("Announcement sent."); setTimeout(() => setNotice(""), 4000); }} />
+      )}
+    </CampusCard>
+  );
+}
+
+// Human-readable label per reward_grants activityType - keeps this the ONE
+// place a new reward-granting module's type string gets a friendly name,
+// rather than every consumer of the ledger inventing its own mapping.
+const ACTIVITY_LABELS = {
+  daily_learning_day: "Daily Learning - Day Completed",
+  daily_learning_problem: "Daily Learning - Practice Problem",
+  programming_topic: "Programming Lesson",
+  cscore_topic: "CS Core Lesson",
+  contest: "Contest",
+  arena_match: "Arena Solo Challenge",
+  codelab_problem: "DSA / CodeLab Problem",
+  learning_task: "Learning Module Task",
+  aptitude_question: "Aptitude Question",
+  admin_manual: "Manual Admin Adjustment",
+  duplicate_reversal: "Duplicate Reward Correction",
+};
+
+function formatGrantedAt(ts) {
+  if (!ts?.toDate) return "-";
+  return ts.toDate().toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+// Requirement: an admin opening a student from the leaderboard should
+// immediately understand how every reward was earned - this reads directly
+// from the central reward_grants ledger (lib/rewards.js), never computed or
+// assumed from progress percentages, so it's exactly as trustworthy as the
+// ledger itself (including surfacing manual admin XP grants, which have no
+// other visible trace anywhere else in the app).
+function RewardsSection({ rewards, timeline }) {
+  return (
+    <CampusCard className="p-5">
+      <SectionHeader icon={Trophy} title="Rewards" color={CAMPUS.gold} />
+      <StatRow stats={[
+        { label: "CURRENT XP", value: rewards.xp, color: CAMPUS.teal },
+        { label: "CURRENT COINS", value: rewards.coins, color: CAMPUS.good },
+        { label: "CURRENT STREAK", value: rewards.streak, color: CAMPUS.warn },
+        { label: "ACTIVITIES COMPLETED", value: rewards.totalActivitiesCompleted },
+      ]} />
+      <p className="text-[10px] font-mono tracking-widest mb-2 mt-1" style={{ color: CAMPUS.inkFaint }}>REWARD TIMELINE</p>
+      {timeline.length === 0 ? (
+        <CampusEmptyState size="sm" icon={Trophy} title="No rewards granted yet" description="Nothing in the reward ledger for this student yet." />
+      ) : (
+        <div className="space-y-1.5 max-h-96 overflow-y-auto">
+          {timeline.map(t => (
+            <div key={t.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}` }}>
+              <div className="min-w-0">
+                <p className="text-[12.5px] font-medium truncate" style={{ color: CAMPUS.ink }}>
+                  {ACTIVITY_LABELS[t.activityType] || t.activityType}
+                </p>
+                <p className="text-[10.5px] font-mono truncate" style={{ color: CAMPUS.inkFaint }}>
+                  {formatGrantedAt(t.grantedAt)}
+                  {t.grantedBy && t.grantedBy !== "system" && ` · granted by admin ${t.grantedBy}`}
+                  {t.status === "reversed" && " · REVERSED"}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {!!t.xp && (
+                  <span className="flex items-center gap-1 text-[11.5px] font-mono font-semibold" style={{ color: t.xp < 0 ? CAMPUS.bad : CAMPUS.teal }}>
+                    <Zap size={11} /> {t.xp > 0 ? "+" : ""}{t.xp}
+                  </span>
+                )}
+                {!!t.coins && (
+                  <span className="flex items-center gap-1 text-[11.5px] font-mono font-semibold" style={{ color: t.coins < 0 ? CAMPUS.bad : CAMPUS.good }}>
+                    <Coins size={11} /> {t.coins > 0 ? "+" : ""}{t.coins}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </CampusCard>
   );

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, ExternalLink, RefreshCw, UserPlus, Repeat2, Heart, MessageCircle, CheckCircle2, XCircle, Coins, Settings, Info, AlertTriangle, Gift } from "lucide-react";
 import Link from "next/link";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import {
   collection, query, where, orderBy, limit,
   onSnapshot, addDoc, serverTimestamp,
@@ -64,7 +64,12 @@ export async function writeNotification(targetUid, { type, title, body, ctaHref 
   if (!targetUid) return;
   try {
     await addDoc(collection(db, "notifications"), {
+      // Self-attribution firestore.rules now requires for any non-admin
+      // notification create (targetUid != 'all') - the actor recording that
+      // THEY are the one who triggered this, the same shape follows/likes/
+      // saves already use elsewhere in this app.
       targetUid, type, title, body, ctaHref, ctaLabel,
+      fromUid: auth.currentUser?.uid || null,
       createdAt: serverTimestamp(),
     });
   } catch {}

@@ -1,7 +1,8 @@
 import { auth, db } from "@/lib/firebase";
 import {
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where,
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, query, where,
   serverTimestamp, writeBatch, arrayUnion, arrayRemove, addDoc, orderBy, runTransaction, Timestamp,
+  getCountFromServer, increment, limit,
 } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
 
@@ -35,6 +36,15 @@ export function classroomKey(year, department, section) {
   return [year, department, section].map(slugifyClassroomPart).filter(Boolean).join("-");
 }
 
+// Same slugification as classroomKey - a Department entity's doc id, deterministic
+// from its canonical DEPARTMENTS name so ensureDepartments() is a plain existence
+// check per department, never a query. Mirrored server-side by
+// AdminAccountService's private slugify() (devert-backend) - keep both in sync if
+// this rule ever changes.
+export function departmentKey(name) {
+  return slugifyClassroomPart(name);
+}
+
 // institutionId IS the slug (institutions/{slug}) - no separate slug->id lookup
 // query needed, and it's what /campus/[slug] resolves directly via usePathname().
 export async function createInstitution(slug, data) {
@@ -46,6 +56,7 @@ export async function createInstitution(slug, data) {
     createdAt: serverTimestamp(),
     ...data,
   });
+  await ensureDepartments(slug);
 }
 
 export async function updateInstitution(slug, data) {
@@ -139,7 +150,8 @@ export async function fetchMyMembership(institutionId, uid) {
 // enumerate the whole roster. The registry doc exposes only "taken or not"
 // by a known key, never who. Wrapped in a transaction so two applicants
 // racing to claim the same roll number can't both succeed.
-export async function requestToJoin(institutionId, uid, fields) {
+export async function requestToJoin(institutionId, user, fields) {
+  const uid = user.uid || user; // Fallback just in case some other code passes uid string directly
   const rollNumber = (fields.rollNumber || "").trim();
   const key = rollNumberKey(rollNumber);
   const studentRef = doc(db, "institutions", institutionId, "students", uid);
@@ -154,9 +166,12 @@ export async function requestToJoin(institutionId, uid, fields) {
     }
     tx.set(studentRef, {
       uid, status: "pending", requestedAt: serverTimestamp(),
-      name: fields.name || "", rollNumber, email: fields.email || "",
+      name: fields.name || "", rollNumber, email: user.email || fields.email || "",
       department: fields.department || "", year: fields.year || "", section: fields.section || "",
       phone: fields.phone || "",
+      photoURL: user.photoURL || "",
+      emailVerified: user.emailVerified || false,
+      provider: user.providerData?.[0]?.providerId || "password",
     });
     if (regRef) tx.set(regRef, { uid, rollNumber, claimedAt: serverTimestamp() });
   });
@@ -170,6 +185,15 @@ export async function fetchPendingStudents(institutionId) {
 export async function fetchApprovedStudents(institutionId) {
   const snap = await getDocs(query(collection(db, "institutions", institutionId, "students"), where("status", "==", "approved")));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Server-side count aggregate, not a full-document download - callers that
+// only need the number (ManageDailyLearning's "X students" stat, the public
+// Directory's per-institution student count) shouldn't pay for every
+// approved student's full roster row just to read .length.
+export async function fetchApprovedStudentCount(institutionId) {
+  const snap = await getCountFromServer(query(collection(db, "institutions", institutionId, "students"), where("status", "==", "approved")));
+  return snap.data().count;
 }
 
 // The Students management list needs approved AND suspended rows - a
@@ -222,6 +246,54 @@ export async function fetchClassroom(institutionId, classroomId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
+// Department is a small fixed enum (DEPARTMENTS, ~10 entries), unlike
+// classrooms' combinatorial Department x Year x Section space - so unlike
+// ensureClassroom (called lazily, per approval), every department doc is
+// seeded eagerly by createInstitution(). This backfill helper covers
+// institutions created before this feature existed: idempotent (only
+// creates docs that don't already exist, never overwrites an existing
+// hodUid), safe to call repeatedly. `hodUid` itself is never written from
+// here or anywhere client-side - only AdminAccountService (devert-backend)
+// ever sets it, transactionally with the matching roleAssignment.
+export async function ensureDepartments(institutionId) {
+  const existing = await fetchDepartments(institutionId);
+  const existingKeys = new Set(existing.map(d => d.id));
+  const batch = writeBatch(db);
+  let wrote = false;
+  for (const name of DEPARTMENTS) {
+    const key = departmentKey(name);
+    if (existingKeys.has(key)) continue;
+    batch.set(doc(db, "institutions", institutionId, "departments", key), {
+      key, name, hodUid: null, createdAt: serverTimestamp(),
+    });
+    wrote = true;
+  }
+  if (wrote) await batch.commit();
+}
+
+// Small, bounded collection (one doc per canonical department) - no
+// pagination needed, same precedent as fetchClassrooms.
+export async function fetchDepartments(institutionId) {
+  const snap = await getDocs(collection(db, "institutions", institutionId, "departments"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchDepartment(institutionId, key) {
+  const snap = await getDoc(doc(db, "institutions", institutionId, "departments", key));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// Institution admins may update any field this way; an HOD may only ever
+// successfully write `description` here (see firestore.rules'
+// departments/{departmentKey} update rule) - `hodUid` is never client-
+// writable from ANY caller, admin included (only devert-backend's
+// AdminAccountService sets it, transactionally with the matching
+// roleAssignment write), so it's deliberately not accepted as a patch key
+// here at all.
+export async function updateDepartment(institutionId, key, { description }) {
+  await updateDoc(doc(db, "institutions", institutionId, "departments", key), { description });
+}
+
 // The three leaderboard scopes that actually exist today (see
 // CampusLeaderboardTab in campus-app.jsx) - Contest/DSA/Programming/Custom
 // leaderboards aren't real features yet, so there's nothing to gate here for
@@ -243,22 +315,182 @@ export async function updateClassroomLeaderboardVisibility(institutionId, classr
 // and which stat ranks students. Lives in its own doc (not fields on the
 // institution doc itself) so it doesn't need its own entry in
 // CAMPUS_BRANDING_FIELDS' affectedKeys() allow-list. Missing doc = every
-// default true / "xp" - a brand-new institution needs no setup write to get
-// working leaderboards.
+// default true / "score" - a brand-new institution needs no setup write to
+// get working leaderboards.
+//
+// Score-only, deliberately a single-item list - per the Score/XP/Coins
+// architecture, EVERY leaderboard ranks by Score (permanent academic
+// performance) and Score alone, never XP (spendable/convertible, not a
+// performance measure) or Coins. This used to be a real 3-way admin choice;
+// every call site that renders a "pick your ranking metric" control from
+// this array (ManageLeaderboards, ClassroomLeaderboardsTab) still works
+// unchanged - it just now has exactly one option to render.
 export const LEADERBOARD_METRICS = [
-  { key: "xp", label: "XP" },
-  { key: "credits", label: "Coins" },
-  { key: "problemsSolvedCount", label: "Problems Solved" },
+  { key: "score", label: "Score" },
 ];
-const DEFAULT_LEADERBOARD_SETTINGS = { enabled: true, sectionEnabled: true, departmentEnabled: true, campusEnabled: true, rankingMetric: "xp" };
+const DEFAULT_LEADERBOARD_SETTINGS = { enabled: true, sectionEnabled: true, departmentEnabled: true, campusEnabled: true, rankingMetric: "score" };
 
 export async function fetchLeaderboardSettings(institutionId) {
   const snap = await getDoc(doc(db, "institutions", institutionId, "settings", "leaderboard"));
-  return { ...DEFAULT_LEADERBOARD_SETTINGS, ...(snap.exists() ? snap.data() : {}) };
+  // rankingMetric is forced to "score" unconditionally, not merged in from
+  // whatever's persisted - any institution that picked "xp"/"credits"/
+  // "problemsSolvedCount" back when LEADERBOARD_METRICS was a real 3-way
+  // choice would otherwise keep ranking by that stale metric forever, since
+  // a spread merge lets a persisted value silently override the default.
+  // rankingMetric isn't a real per-institution choice anymore (the array
+  // above has exactly one entry) - there's nothing left to respect.
+  return { ...DEFAULT_LEADERBOARD_SETTINGS, ...(snap.exists() ? snap.data() : {}), rankingMetric: "score" };
 }
 
 export async function saveLeaderboardSettings(institutionId, patch) {
   await setDoc(doc(db, "institutions", institutionId, "settings", "leaderboard"), patch, { merge: true });
+}
+
+// Weekly leaderboard lock/announce state - lives at the same
+// institutions/{id}/settings/{settingId} wildcard path as the leaderboard
+// display config above, so no new firestore.rules match block is needed
+// (the existing `settings/{settingId}` rule already covers any sibling doc
+// id). `rewardConversionLocked` defaults to TRUE (locked) whenever the doc
+// doesn't exist yet or the field is unset - a brand-new institution starts
+// locked, not accidentally open, matching "reward conversion is locked
+// until the admin announces the week" as the safe default. There is no
+// Cloud Functions / scheduled job in this stack, so both lock and unlock
+// are explicit admin actions (announceWeeklyLeaderboard /
+// startNewLeaderboardWeek below), never automatic.
+const DEFAULT_WEEKLY_LEADERBOARD_SETTINGS = { currentWeekId: null, rewardConversionLocked: true, lastAnnouncedAt: null, lastAnnouncedWeekId: null };
+
+export async function fetchWeeklyLeaderboardSettings(institutionId) {
+  const snap = await getDoc(doc(db, "institutions", institutionId, "settings", "weeklyLeaderboard"));
+  return { ...DEFAULT_WEEKLY_LEADERBOARD_SETTINGS, ...(snap.exists() ? snap.data() : {}) };
+}
+
+// Admin action: begins a fresh week and re-locks reward conversion - the
+// only thing that ever re-locks conversion, since nothing runs on a
+// schedule. Safe to call even if a previous week was never announced (an
+// admin skipping a week entirely just means students never got that week's
+// conversion window).
+export async function startNewLeaderboardWeek(institutionId, weekId) {
+  await setDoc(doc(db, "institutions", institutionId, "settings", "weeklyLeaderboard"), {
+    currentWeekId: weekId, rewardConversionLocked: true,
+  }, { merge: true });
+}
+
+// Admin action: freezes the current campus-wide ranking into an immutable
+// snapshot (institutions/{id}/leaderboardSnapshots/{weekId} - a new
+// precedent in this codebase; no existing "copy live state into an
+// immutable dated record" pattern existed to reuse, unlike the settings
+// doc above), unlocks reward conversion for this completed week, and
+// notifies the institution via the same sendAnnouncement mechanism used
+// for the Noticeboard (institution-admin-writable, unlike the global
+// notifications/bell collection which is platform-admin-only - see that
+// function's own comment). Ranking mirrors CampusLeaderboardTab's own query
+// shape (campus-app.jsx) - institutionId + score, descending - so the
+// snapshot's ordering matches exactly what students already see live.
+export async function announceWeeklyLeaderboard(institutionId, weekId, authorUid) {
+  const snap = await getDocs(query(
+    collection(db, "users"),
+    where("institutionId", "==", institutionId),
+    orderBy("score", "desc"),
+    limit(100),
+  ));
+  const rows = snap.docs.map((d, i) => {
+    const data = d.data();
+    return {
+      uid: d.id, rank: i + 1,
+      displayName: data.campusFullName || data.displayName || data.handle || "Student",
+      rollNumber: data.rollNumber || null, department: data.department || null,
+      year: data.year || null, section: data.section || null,
+      score: data.score || 0, xp: data.xp || 0,
+    };
+  });
+
+  await setDoc(doc(db, "institutions", institutionId, "leaderboardSnapshots", weekId), {
+    weekId, institutionId, announcedAt: serverTimestamp(), announcedBy: authorUid, rows,
+  });
+  await setDoc(doc(db, "institutions", institutionId, "settings", "weeklyLeaderboard"), {
+    rewardConversionLocked: false, lastAnnouncedAt: serverTimestamp(), lastAnnouncedWeekId: weekId,
+  }, { merge: true });
+  await sendAnnouncement(institutionId, {
+    title: "Weekly Campus Leaderboard Announced",
+    message: `This week's leaderboard has been finalized. Reward conversion (XP -> Coins -> Wallet) is now unlocked for this week - check the Leaderboard tab to see your rank, XP, and coins.`,
+  }, authorUid);
+  return rows;
+}
+
+export async function fetchLeaderboardSnapshot(institutionId, weekId) {
+  const snap = await getDoc(doc(db, "institutions", institutionId, "leaderboardSnapshots", weekId));
+  return snap.exists() ? snap.data() : null;
+}
+
+// Classroom-level module access - which of these six real, campus-relevant
+// modules a specific classroom's students can currently reach. Stored as a
+// map on the classroom doc itself (institutions/{id}/classrooms/{classroomId}.
+// moduleAccess), keyed by classroomId per the roster's own denormalized
+// classroomId field - never by plain-text department/year/section, so a
+// later identity correction that changes those fields doesn't orphan the
+// permission. A module key absent from the map (every classroom before this
+// feature existed, or after resetClassroomModuleAccess) defaults to enabled -
+// "new classrooms/modules start open, admins opt into restricting them", not
+// the other way around, so nothing regresses for an institution that never
+// touches this feature.
+//
+// Two of these six (contests, dailyLearning) are also enforced in
+// firestore.rules, not just here - their write paths are real client
+// Firestore writes gated by institution scoping already, so classroom
+// scoping layers on cleanly. Programming/CS Core/DSA/Company Vault are
+// global, publicly-readable catalogs by design (see lib/programming.js et
+// al.'s own comments) - they were never institution-gated at the data layer
+// to begin with, so this toggle is a navigation/UX gate for those four
+// (hide the tab, block the in-app route), not a new content-read boundary.
+export const MODULES = [
+  { key: "dailyLearning", label: "Daily Learning" },
+  { key: "programming", label: "Programming" },
+  { key: "csCore", label: "CS Core" },
+  { key: "aptitude", label: "Aptitude" },
+  // GATE, like Programming/CS Core/DSA/Company Vault, is a global
+  // publicly-readable catalog - so this toggle is a navigation/UX gate for it
+  // (hide the tab, block the in-app route), not a content-read boundary. See
+  // the comment above and firestore.rules' gatePapers block.
+  { key: "gate", label: "GATE Preparation" },
+  { key: "dsa", label: "DSA / Practice" },
+  { key: "companyPrep", label: "Company Vault" },
+  { key: "contests", label: "Contests" },
+];
+
+export function isModuleEnabledForClassroom(classroom, moduleKey) {
+  return classroom?.moduleAccess?.[moduleKey] !== false;
+}
+
+export async function setClassroomModuleAccess(institutionId, classroomId, moduleKey, enabled) {
+  await updateDoc(doc(db, "institutions", institutionId, "classrooms", classroomId), {
+    [`moduleAccess.${moduleKey}`]: enabled,
+  });
+}
+
+// Clears this one module's override (not the whole map) back to "no
+// override" - isModuleEnabledForClassroom then falls through to its default
+// (enabled), same as never having touched this classroom's access at all.
+export async function resetClassroomModuleAccess(institutionId, classroomId, moduleKey) {
+  await updateDoc(doc(db, "institutions", institutionId, "classrooms", classroomId), {
+    [`moduleAccess.${moduleKey}`]: deleteField(),
+  });
+}
+
+export async function copyClassroomModuleAccess(institutionId, fromClassroomId, toClassroomId, moduleKey) {
+  const from = await fetchClassroom(institutionId, fromClassroomId);
+  await setClassroomModuleAccess(institutionId, toClassroomId, moduleKey, isModuleEnabledForClassroom(from, moduleKey));
+}
+
+// One module, every classroom, in a single batch - "Enable All"/"Disable
+// All" from a module's Manage Access view. Small, bounded collection (see
+// fetchClassrooms), so one batch covers even a large campus.
+export async function bulkSetModuleAccess(institutionId, moduleKey, enabled) {
+  const classrooms = await fetchClassrooms(institutionId);
+  const batch = writeBatch(db);
+  classrooms.forEach(c => {
+    batch.update(doc(db, "institutions", institutionId, "classrooms", c.id), { [`moduleAccess.${moduleKey}`]: enabled });
+  });
+  await batch.commit();
 }
 
 // Approving writes BOTH the roster record (authoritative, under this
@@ -276,26 +508,39 @@ export async function saveLeaderboardSettings(institutionId, patch) {
 // present, and the classroom itself is auto-created (see ensureClassroom) -
 // no admin ever creates one by hand.
 export async function approveStudent(institutionId, uid, assignment = {}) {
-  const rosterSnap = await getDoc(doc(db, "institutions", institutionId, "students", uid));
-  const roster = rosterSnap.exists() ? rosterSnap.data() : {};
-
   const classroomId = await ensureClassroom(institutionId, assignment);
 
-  const batch = writeBatch(db);
-  batch.update(doc(db, "institutions", institutionId, "students", uid), {
-    status: "approved", reviewedAt: serverTimestamp(),
-    ...(assignment.department ? { department: assignment.department } : {}),
-    ...(assignment.year ? { year: assignment.year } : {}),
-    ...(assignment.section ? { section: assignment.section } : {}),
-    ...(classroomId ? { classroomId } : {}),
+  // wasAlreadyApproved is re-read INSIDE the transaction, not via a plain
+  // getDoc() beforehand - two near-simultaneous approveStudent calls (e.g.
+  // an admin double-clicking Approve, or two admins acting on the same
+  // request) used to both read "not yet approved" before either write
+  // landed, double-incrementing institutions/{id}.studentCount. Firestore
+  // now retries this callback if the roster doc changes underneath it.
+  await runTransaction(db, async (tx) => {
+    const rosterRef = doc(db, "institutions", institutionId, "students", uid);
+    const rosterSnap = await tx.get(rosterRef);
+    const roster = rosterSnap.exists() ? rosterSnap.data() : {};
+    const wasAlreadyApproved = roster.status === "approved";
+
+    tx.update(rosterRef, {
+      status: "approved", reviewedAt: serverTimestamp(),
+      ...(assignment.department ? { department: assignment.department } : {}),
+      ...(assignment.year ? { year: assignment.year } : {}),
+      ...(assignment.section ? { section: assignment.section } : {}),
+      ...(classroomId ? { classroomId } : {}),
+    });
+    tx.update(doc(db, "users", uid), {
+      institutionId, institutionSlug: institutionId,
+      department: assignment.department || "", year: assignment.year || "", section: assignment.section || "",
+      rollNumber: roster.rollNumber || "", campusFullName: roster.name || "",
+      ...(classroomId ? { classroomId } : {}),
+    });
+    // Keeps the Directory's public student-count stat live - only bumped on
+    // a genuine pending/suspended -> approved transition, never on a
+    // re-approval (e.g. an admin just reassigning department/section on
+    // someone already approved), so it can't be inflated by repeat calls.
+    if (!wasAlreadyApproved) tx.update(doc(db, "institutions", institutionId), { studentCount: increment(1) });
   });
-  batch.update(doc(db, "users", uid), {
-    institutionId, institutionSlug: institutionId,
-    department: assignment.department || "", year: assignment.year || "", section: assignment.section || "",
-    rollNumber: roster.rollNumber || "", campusFullName: roster.name || "",
-    ...(classroomId ? { classroomId } : {}),
-  });
-  await batch.commit();
 }
 
 // Admin-only correction path for an already-submitted identity (the Roll
@@ -393,8 +638,34 @@ export async function rejectStudent(institutionId, uid, reason) {
 }
 
 export async function suspendStudent(institutionId, uid) {
-  await updateDoc(doc(db, "institutions", institutionId, "students", uid), {
-    status: "suspended", reviewedAt: serverTimestamp(),
+  // wasApproved is re-read INSIDE the transaction - suspending twice in a
+  // row (double-click, two admin tabs) used to unconditionally decrement
+  // studentCount both times with no guard at all, unlike approveStudent/
+  // removeStudentFromInstitution which at least checked a (stale) snapshot.
+  await runTransaction(db, async (tx) => {
+    const rosterRef = doc(db, "institutions", institutionId, "students", uid);
+    const rosterSnap = await tx.get(rosterRef);
+    const wasApproved = rosterSnap.exists() && rosterSnap.data().status === "approved";
+
+    tx.update(rosterRef, { status: "suspended", reviewedAt: serverTimestamp() });
+    // Suspended students no longer count toward the Directory's public
+    // "active students" stat - approveStudent adds them back if reinstated.
+    // Only decrement if they were actually counted (i.e. really approved) -
+    // otherwise repeat/no-op suspends would drive this negative.
+    if (wasApproved) tx.update(doc(db, "institutions", institutionId), { studentCount: increment(-1) });
+    // Clears the SAME denormalized institutionId/department/year/section
+    // fields removeStudentFromInstitution clears - without this, a suspended
+    // student (including one caught cheating) kept their full rank on every
+    // campus/department/section leaderboard indefinitely, since every
+    // leaderboard query filters on these users/{uid} fields, not the roster
+    // doc's status. rollNumber/campusFullName/classroomId are deliberately
+    // left alone (unlike removal) - suspension is reversible, and
+    // approveStudent re-supplies fresh department/year/section on
+    // reinstatement regardless, so nothing here needs to survive for that to
+    // work correctly.
+    tx.update(doc(db, "users", uid), {
+      institutionId: "", institutionSlug: "", department: "", year: "", section: "",
+    });
   });
 }
 
@@ -417,17 +688,30 @@ export async function setContestRestriction(institutionId, uid, restricted) {
 // their account, XP, or coins - this ends institution *membership*, not the
 // user's platform identity.
 export async function removeStudentFromInstitution(institutionId, uid) {
-  const rosterRef = doc(db, "institutions", institutionId, "students", uid);
-  const rosterSnap = await getDoc(rosterRef);
-  const key = rollNumberKey(rosterSnap.exists() ? rosterSnap.data().rollNumber : "");
+  // roster.status is re-read INSIDE the transaction - a plain getDoc()
+  // beforehand could race a concurrent suspendStudent() call (both reading
+  // "approved" before either write lands), double-decrementing studentCount.
+  await runTransaction(db, async (tx) => {
+    const rosterRef = doc(db, "institutions", institutionId, "students", uid);
+    const rosterSnap = await tx.get(rosterRef);
+    const roster = rosterSnap.exists() ? rosterSnap.data() : {};
+    const key = rollNumberKey(roster.rollNumber || "");
 
-  const batch = writeBatch(db);
-  batch.delete(rosterRef);
-  if (key) batch.delete(doc(db, "institutions", institutionId, "rollNumberRegistry", key));
-  batch.update(doc(db, "users", uid), {
-    institutionId: "", institutionSlug: "", department: "", year: "", section: "", rollNumber: "",
+    tx.delete(rosterRef);
+    if (key) tx.delete(doc(db, "institutions", institutionId, "rollNumberRegistry", key));
+    // All 8 denormalized fields, not just 6 - campusFullName/classroomId were
+    // previously left behind, so a removed-then-elsewhere-re-approved student
+    // (or a stale reference in old contest/leaderboard views) could show a
+    // stale display name next to a blanked roll number forever.
+    tx.update(doc(db, "users", uid), {
+      institutionId: "", institutionSlug: "", department: "", year: "", section: "", rollNumber: "",
+      campusFullName: "", classroomId: "",
+    });
+    // Only decrement the Directory's public student-count stat if they were
+    // actually counted in it - a pending/rejected/already-suspended removal
+    // never incremented it (or already decremented it at suspend time).
+    if (roster.status === "approved") tx.update(doc(db, "institutions", institutionId), { studentCount: increment(-1) });
   });
-  await batch.commit();
 }
 
 // Real Firebase Auth capability, not a campus-scoped roster field - sends
@@ -469,6 +753,54 @@ export async function fetchMyInstitutionAdminRole(institutionId, uid) {
   return snap.exists() ? snap.data() : null;
 }
 
+// Principal/HOD/Faculty-Class-Teacher membership - a SEPARATE collection
+// from admins/{uid} (see firestore.rules' isPrincipal()/isHodOfDepartment()/
+// isFacultyOfClassroom()), never client-writable (every write to this
+// collection goes through devert-backend's AdminAccountService - see
+// lib/staffAccounts.js). Read-only helpers here mirror
+// fetchMyInstitutionAdminRole's exact shape.
+export async function fetchMyRoleAssignment(institutionId, uid) {
+  const snap = await getDoc(doc(db, "institutions", institutionId, "roleAssignments", uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+// Manage Admins' Principal/HOD/Faculty tabs each list a role-filtered slice
+// of this - small, bounded collection (one doc per staff account an
+// institution actually has), no pagination needed, same precedent as
+// fetchInstitutionAdmins.
+export async function fetchRoleAssignments(institutionId) {
+  const snap = await getDocs(collection(db, "institutions", institutionId, "roleAssignments"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// system/rolePermissionDefaults - the "new role = configuration, not
+// redesign" doc (see lib/permissions.js's own comment and
+// scripts/seed-role-permission-defaults.mjs). Falls back to
+// FALLBACK_ROLE_PERMISSIONS if the doc is missing/unreadable so a brand-new
+// or offline institution never crashes - just shows nothing gated, the safe
+// default direction (rules-level enforcement is the real boundary, this is
+// only ever a client-side merge for UI gating).
+export async function fetchRolePermissionDefaults() {
+  const snap = await getDoc(doc(db, "system", "rolePermissionDefaults"));
+  return snap.exists() ? snap.data() : null;
+}
+
+// Manage Admins' Access Logs tab - written only by devert-backend's
+// AdminAccountService (every create/status/reset-password/permissions call),
+// read directly via the client SDK like any other institution-scoped
+// collection (rules-gated to isInstitutionAdmin()/isAdmin(), see
+// firestore.rules) - no backend listing endpoint needed for this, same
+// "backend only for the privileged WRITE, plain client read otherwise"
+// split as roleAssignments itself.
+export async function fetchAdminActivityLog(institutionId, limitCount = 100) {
+  const snap = await getDocs(query(
+    collection(db, "institutions", institutionId, "adminActivityLog"),
+    orderBy("createdAt", "desc"),
+    limit(limitCount),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 // Bulk CSV import matches EXISTING join requests by rollNumber and
 // bulk-approves + assigns department/year/section in one pass - it can't
 // invite students who've never signed up. firestore.rules requires a
@@ -480,8 +812,17 @@ export async function fetchMyInstitutionAdminRole(institutionId, uid) {
 // Firestore's 500-writes-per-batch limit (2 writes per matched row).
 export async function bulkAssignByRollNumber(institutionId, rows) {
   const pending = await fetchPendingStudents(institutionId);
-  const byRoll = new Map(pending.map(s => [s.rollNumber, s]));
-  const matches = rows.map(row => ({ row, student: byRoll.get(row.rollNumber) })).filter(m => m.student);
+  // rollNumberKey() on BOTH sides - every OTHER roll-number comparison in
+  // this file (requestToJoin's duplicate check, rejectStudent,
+  // updateStudentIdentity, removeStudentFromInstitution) already goes
+  // through this same normalization so "21a91a0512"/"21A91A0512" collide as
+  // one roll number. This match was the one place still doing a raw exact-
+  // string match - a student who typed their own roll number in a different
+  // casing than the admin's CSV silently failed to match and was reported
+  // as an ordinary "unmatched" row, when they had in fact already requested
+  // access.
+  const byRoll = new Map(pending.map(s => [rollNumberKey(s.rollNumber), s]));
+  const matches = rows.map(row => ({ row, student: byRoll.get(rollNumberKey(row.rollNumber)) })).filter(m => m.student);
 
   // One ensureClassroom call per DISTINCT combo, not per row - a CSV
   // typically has dozens of students landing in the same handful of
@@ -494,26 +835,46 @@ export async function bulkAssignByRollNumber(institutionId, rows) {
     }
   }
 
+  // Each chunk runs as a transaction, not a blind batch - matches was built
+  // from ONE stale fetchPendingStudents() snapshot taken before this whole
+  // (potentially slow, multi-chunk) import started. A plain batch.update()
+  // trusted that snapshot for the entire operation: a student rejected or
+  // removed by an admin mid-import (a side-channel rejectStudent()/
+  // removeStudentFromInstitution() call while this loop is still running)
+  // would either get silently re-approved (update() has no idea the roster
+  // doc's status changed) or, worse, make the ENTIRE chunk fail with
+  // NOT_FOUND if the doc was deleted, silently dropping every OTHER
+  // legitimate approval in that same chunk. Re-reading each roster doc's
+  // live status inside the transaction, immediately before deciding to
+  // write, closes both holes at once.
   const CHUNK = 200;
+  let approvedCount = 0;
   for (let i = 0; i < matches.length; i += CHUNK) {
-    const batch = writeBatch(db);
-    for (const { row, student } of matches.slice(i, i + CHUNK)) {
-      const classroomId = classroomIdByCombo.get(`${row.year}|${row.department}|${row.section}`);
-      batch.update(doc(db, "institutions", institutionId, "students", student.uid), {
-        status: "approved", reviewedAt: serverTimestamp(),
-        department: row.department || "", year: row.year || "", section: row.section || "",
-        ...(classroomId ? { classroomId } : {}),
+    const chunk = matches.slice(i, i + CHUNK);
+    await runTransaction(db, async (tx) => {
+      const rosterRefs = chunk.map(({ student }) => doc(db, "institutions", institutionId, "students", student.uid));
+      const rosterSnaps = await Promise.all(rosterRefs.map(ref => tx.get(ref)));
+      const stillPending = chunk.filter((_, idx) => rosterSnaps[idx].exists() && rosterSnaps[idx].data().status === "pending");
+
+      stillPending.forEach(({ row, student }) => {
+        const classroomId = classroomIdByCombo.get(`${row.year}|${row.department}|${row.section}`);
+        tx.update(doc(db, "institutions", institutionId, "students", student.uid), {
+          status: "approved", reviewedAt: serverTimestamp(),
+          department: row.department || "", year: row.year || "", section: row.section || "",
+          ...(classroomId ? { classroomId } : {}),
+        });
+        tx.update(doc(db, "users", student.uid), {
+          institutionId, institutionSlug: institutionId,
+          department: row.department || "", year: row.year || "", section: row.section || "",
+          rollNumber: student.rollNumber || "", campusFullName: student.name || "",
+          ...(classroomId ? { classroomId } : {}),
+        });
       });
-      batch.update(doc(db, "users", student.uid), {
-        institutionId, institutionSlug: institutionId,
-        department: row.department || "", year: row.year || "", section: row.section || "",
-        rollNumber: student.rollNumber || "", campusFullName: student.name || "",
-        ...(classroomId ? { classroomId } : {}),
-      });
-    }
-    await batch.commit();
+      if (stillPending.length) tx.update(doc(db, "institutions", institutionId), { studentCount: increment(stillPending.length) });
+      approvedCount += stillPending.length;
+    });
   }
-  return { matched: matches.length, total: rows.length };
+  return { matched: approvedCount, total: rows.length };
 }
 
 // Student Management's "send announcements to selected students" - an empty/

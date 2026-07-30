@@ -7,7 +7,7 @@
 // tracking, contest ratings, or any other metric with no underlying
 // collection - see the CS/Campus admin dashboard spec discussion for why.
 import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { fetchLanguages, fetchLanguageProgress } from "@/lib/programming";
 import { fetchSubjects, fetchSubjectProgress } from "@/lib/csCore";
 import { fetchUserCodelabProgress, fetchPublishedProblems, fetchAllSubmissionsForUser } from "@/lib/codelab";
@@ -15,6 +15,8 @@ import {
   fetchUserCompanyPrepProgress, fetchPublishedCompanies,
   fetchCompanyRounds, fetchRoundCategories, fetchCategoryQuestions,
 } from "@/lib/companyPrep";
+import { fetchAllUserLogs } from "@/lib/dailyLearning";
+import { fetchAptitudeTopics, topicAccuracy, detectWeakTopics } from "@/lib/aptitude";
 
 export async function fetchStudentProfile(uid) {
   const snap = await getDoc(doc(db, "users", uid));
@@ -135,6 +137,32 @@ export async function fetchDsaSummary(uid) {
 // map a bare questionId back to which company it belongs to) when this
 // student has actually touched Company Vault at all - most students never
 // will, and the full tree walk is real Firestore reads, not free.
+// The company -> round -> category -> question tree is admin-authored and
+// changes rarely, unlike per-student progress which changes constantly -
+// fetchCompanyVaultSummary used to re-walk the ENTIRE tree (every company,
+// every round, every category, every question) on every single call, even
+// though only the id->company mapping and per-company question counts were
+// actually needed (questionIds are bare Firestore auto-IDs with no
+// company/round/category encoding, so there's no way to attribute a solved
+// id to a company without building this map at least once). Cached
+// in-module for the life of the tab/session - correct as long as the page
+// isn't open while an admin is actively restructuring Company Vault content,
+// an acceptable trade-off for a dashboard summary, not a real-time view.
+let companyVaultTreeCache = null;
+async function fetchCompanyVaultTree() {
+  if (companyVaultTreeCache) return companyVaultTreeCache;
+  const companies = await fetchPublishedCompanies();
+  companyVaultTreeCache = await Promise.all(companies.map(async company => {
+    const rounds = await fetchCompanyRounds(company.id);
+    const categoriesByRound = await Promise.all(rounds.map(r => fetchRoundCategories(company.id, r.id)));
+    const questionSets = await Promise.all(
+      rounds.flatMap((r, ri) => categoriesByRound[ri].map(cat => fetchCategoryQuestions(company.id, r.id, cat.id)))
+    );
+    return { id: company.id, name: company.name || company.id, questionIds: questionSets.flat().map(q => q.id) };
+  }));
+  return companyVaultTreeCache;
+}
+
 export async function fetchCompanyVaultSummary(uid) {
   const progress = await fetchUserCompanyPrepProgress(uid);
   const solvedIds = new Set(Object.keys(progress.solved || {}));
@@ -144,19 +172,13 @@ export async function fetchCompanyVaultSummary(uid) {
     return { companiesStarted: 0, companiesCompleted: 0, totalSolved: 0, totalBookmarked: 0, companyBreakdown: [] };
   }
 
-  const companies = await fetchPublishedCompanies();
-  const companyBreakdown = await Promise.all(companies.map(async company => {
-    const rounds = await fetchCompanyRounds(company.id);
-    const categoriesByRound = await Promise.all(rounds.map(r => fetchRoundCategories(company.id, r.id)));
-    const questionSets = await Promise.all(
-      rounds.flatMap((r, ri) => categoriesByRound[ri].map(cat => fetchCategoryQuestions(company.id, r.id, cat.id)))
-    );
-    const questionIds = questionSets.flat().map(q => q.id);
-    const total = questionIds.length;
-    const solved = questionIds.filter(id => solvedIds.has(id)).length;
-    const bookmarked = questionIds.filter(id => bookmarkedIds.has(id)).length;
-    return { id: company.id, name: company.name || company.id, total, solved, bookmarked, pct: total ? Math.round((solved / total) * 100) : 0 };
-  }));
+  const tree = await fetchCompanyVaultTree();
+  const companyBreakdown = tree.map(company => {
+    const total = company.questionIds.length;
+    const solved = company.questionIds.filter(id => solvedIds.has(id)).length;
+    const bookmarked = company.questionIds.filter(id => bookmarkedIds.has(id)).length;
+    return { id: company.id, name: company.name, total, solved, bookmarked, pct: total ? Math.round((solved / total) * 100) : 0 };
+  });
 
   const touched = companyBreakdown.filter(c => c.solved > 0 || c.bookmarked > 0);
 
@@ -169,13 +191,101 @@ export async function fetchCompanyVaultSummary(uid) {
   };
 }
 
+// Every reward a student has ever been granted, straight from the central
+// reward_grants ledger (lib/rewards.js) - never computed/assumed from
+// progress percentages, so an admin sees exactly where each XP/coin came
+// from, including manual admin grants (activityType "admin_manual",
+// grantedBy set to the acting admin's uid) that have no other visible
+// trace anywhere else in the app. Single-field equality filter (uid only),
+// sorted client-side by grantedAt - avoids needing a composite index just
+// to show one student's own timeline, same reasoning as this file's other
+// per-uid queries.
+export async function fetchRewardTimeline(uid) {
+  const snap = await getDocs(query(collection(db, "reward_grants"), where("uid", "==", uid)));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => millis(b.grantedAt) - millis(a.grantedAt));
+}
+
+// Daily Learning's own per-day log doc already carries mcqScore/mcqTotal/
+// problemsSolved/xpEarned/coinEarned (see lib/dailyLearning.js's
+// submitDayCompletion) - this just rolls every day this student has ever
+// completed into one summary, the same "join what already exists" approach
+// as every other fetch*Summary in this file. Requires institutionId since
+// Daily Learning is institution-scoped, unlike the global catalogs above.
+export async function fetchDailyLearningSummary(uid, institutionId) {
+  if (!institutionId) return { daysCompleted: 0, avgMcqScorePct: null, totalProblemsSolved: 0, xpEarned: 0, coinsEarned: 0, recentDays: [] };
+  const logs = await fetchAllUserLogs(institutionId, uid);
+  const completed = logs.filter(l => l.completedAt);
+
+  const mcqRatios = completed.filter(l => (l.mcqTotal || 0) > 0).map(l => l.mcqScore / l.mcqTotal);
+  const avgMcqScorePct = mcqRatios.length ? Math.round((mcqRatios.reduce((a, b) => a + b, 0) / mcqRatios.length) * 100) : null;
+
+  return {
+    daysCompleted: completed.length,
+    avgMcqScorePct,
+    totalProblemsSolved: completed.reduce((s, l) => s + (l.problemsSolved?.length || 0), 0),
+    xpEarned: completed.reduce((s, l) => s + (l.xpEarned || 0), 0),
+    coinsEarned: completed.reduce((s, l) => s + (l.coinEarned || 0), 0),
+    recentDays: completed.sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 10),
+  };
+}
+
+// Aptitude/Grind's own per-question attempt history + per-topic accuracy
+// (lib/aptitude.js) rolled into one summary, reusing detectWeakTopics/
+// topicAccuracy verbatim rather than re-deriving weakness detection here.
+export async function fetchAptitudeSummary(uid) {
+  const [progressSnap, topics] = await Promise.all([
+    getDoc(doc(db, "user_aptitude_progress", uid)),
+    fetchAptitudeTopics(),
+  ]);
+  const progress = progressSnap.exists() ? progressSnap.data() : null;
+  if (!progress) return { topicsCompleted: 0, questionsAttempted: 0, overallAccuracyPct: null, weakTopics: [], categoryBreakdown: [] };
+
+  const attempted = progress.attempted || {};
+  const topicStats = progress.topicStats || {};
+  const attemptedIds = Object.keys(attempted);
+  const correctCount = attemptedIds.filter(qid => attempted[qid]?.everCorrect ?? attempted[qid]?.correct).length;
+
+  const byCategory = {};
+  for (const t of topics) {
+    byCategory[t.category] = byCategory[t.category] || { attempted: 0, correct: 0 };
+    const s = topicStats[t.id];
+    if (s) { byCategory[t.category].attempted += s.attempted || 0; byCategory[t.category].correct += s.correct || 0; }
+  }
+
+  return {
+    topicsCompleted: (progress.completedTopicIds || []).length,
+    questionsAttempted: attemptedIds.length,
+    overallAccuracyPct: attemptedIds.length ? Math.round((correctCount / attemptedIds.length) * 100) : null,
+    weakTopics: detectWeakTopics(topics, topicStats).slice(0, 5).map(t => ({ name: t.topic.name, category: t.topic.category, accuracy: t.accuracy })),
+    categoryBreakdown: Object.entries(byCategory)
+      .map(([category, v]) => ({ category, ...v, pct: v.attempted ? Math.round((v.correct / v.attempted) * 100) : 0 }))
+      .filter(c => c.attempted > 0),
+  };
+}
+
 export async function fetchStudentAnalytics(uid) {
-  const [profile, programming, csCore, dsa, companyVault] = await Promise.all([
-    fetchStudentProfile(uid),
+  // profile is fetched first (not folded into the Promise.all below) since
+  // dailyLearningSummary needs its institutionId before it can even build
+  // the right query - everything else has no such dependency.
+  const profile = await fetchStudentProfile(uid);
+  const [programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, earningsSnap] = await Promise.all([
     fetchProgrammingSummary(uid),
     fetchCsCoreSummary(uid),
     fetchDsaSummary(uid),
     fetchCompanyVaultSummary(uid),
+    fetchDailyLearningSummary(uid, profile?.institutionId),
+    fetchAptitudeSummary(uid),
+    fetchRewardTimeline(uid),
+    getDoc(doc(db, "user_earnings", uid)),
   ]);
-  return { profile, programming, csCore, dsa, companyVault };
+  const rewards = {
+    xp: profile?.xp || 0,
+    score: profile?.score || 0,
+    coins: earningsSnap.exists() ? (earningsSnap.data().pulseCoins || 0) : 0,
+    streak: profile?.streak || 0,
+    totalActivitiesCompleted: rewardTimeline.filter(r => r.status === "granted").length,
+  };
+  return { profile, programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, rewards };
 }

@@ -69,6 +69,13 @@ select option {
   --campus-blue-tint: #E7EEFD;
   --campus-purple: #7C3AED;
   --campus-purple-tint: #F0E9FE;
+  /* Fixed dark chrome for "always dark, always white text" surfaces (primary
+     buttons, hero banners, the sidebar logo badge) - deliberately NOT tied to
+     --campus-ink (a foreground token that inverts to near-white in dark
+     theme, which broke every one of these: white text on a background that
+     had itself become white). Same literal value in both themes on purpose. */
+  --campus-chrome-bg: #17202B;
+  --campus-chrome-fg: #FFFFFF;
   --campus-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 4px 12px rgba(16,24,40,0.05);
   --campus-shadow-hover: 0 2px 4px rgba(16,24,40,0.06), 0 8px 20px rgba(16,24,40,0.08);
   --campus-shadow-lg: 0 4px 8px rgba(16,24,40,0.06), 0 16px 40px rgba(16,24,40,0.12);
@@ -107,6 +114,8 @@ select option {
   --campus-blue-tint: rgba(91, 141, 239, 0.14);
   --campus-purple: #A78BFA;
   --campus-purple-tint: rgba(167, 139, 250, 0.14);
+  --campus-chrome-bg: #17202B;
+  --campus-chrome-fg: #FFFFFF;
   --campus-shadow: 0 1px 2px rgba(0,0,0,0.24), 0 4px 14px rgba(0,0,0,0.28);
   --campus-shadow-hover: 0 2px 4px rgba(0,0,0,0.3), 0 10px 24px rgba(0,0,0,0.36);
   --campus-shadow-lg: 0 6px 16px rgba(0,0,0,0.34), 0 24px 56px rgba(0,0,0,0.42);
@@ -295,4 +304,14 @@ body {
   background-color: var(--neon-cyan) !important;
   color: #000 !important;
   font-weight: bold;
+}
+
+/* Classroom Analytics' Reports tab "Print / Save as PDF" (window.print()) -
+   hides the whole app shell (navbar, tabs, sidebars) and prints only the
+   #classroom-report-print block, so the PDF is a clean report, not a
+   screenshot of the whole page. */
+@media print {
+  body * { visibility: hidden; }
+  #classroom-report-print, #classroom-report-print * { visibility: visible; }
+  #classroom-report-print { position: absolute; left: 0; top: 0; width: 100%; }
 }

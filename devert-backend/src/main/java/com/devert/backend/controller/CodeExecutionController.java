@@ -116,7 +116,7 @@ public class CodeExecutionController {
         }
         try {
             Map<String, Object> result = gradingService.gradeSubmission(
-                uid, request.getProblemId(), request.getLanguage(), request.getCode()
+                uid, request.getProblemId(), request.getLanguage(), request.getCode(), request.isSuppressReward()
             );
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {

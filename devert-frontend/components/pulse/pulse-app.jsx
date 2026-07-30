@@ -20,7 +20,6 @@ import {
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "@/context/AuthContext";
 import { writeNotification } from "@/components/notification-bell";
-import { ECONOMY as COINS, loadEconomy, logCoinTransaction } from "@/lib/economy";
 import { EnterHqModal } from "@/components/enter-hq-modal";
 import { useIsWindowed, useOverlayClass, usePositionClass } from "@/components/window/is-windowed";
 
@@ -218,7 +217,7 @@ function CreatePostModal({ user, userData, onClose, existing, onSaved }) {
             </div>
             <p className="font-mono text-sm text-neon-green">request sent!</p>
             <p className="font-mono text-xs text-white/35 leading-relaxed max-w-xs">
-              Your post is under admin review. It'll appear in the feed once approved - usually within a few hours.
+              Your post is under admin review. It&apos;ll appear in the feed once approved - usually within a few hours.
             </p>
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
               onClick={onClose}
@@ -269,7 +268,7 @@ function CreatePostModal({ user, userData, onClose, existing, onSaved }) {
           {isEditing && existing?.imageUrl && (
             <div className="relative mx-5 mb-3 rounded-xl overflow-hidden">
               <img src={existing.imageUrl} alt="" className="w-full max-h-64 object-cover opacity-80" />
-              <p className="absolute bottom-2 left-2 font-mono text-[9px] text-white/70 bg-black/60 px-2 py-1 rounded">image can't be changed on edit</p>
+              <p className="absolute bottom-2 left-2 font-mono text-[9px] text-white/70 bg-black/60 px-2 py-1 rounded">image can&apos;t be changed on edit</p>
             </div>
           )}
           {!isEditing && imagePreviews.length > 0 && (
@@ -407,13 +406,15 @@ function CommentsDrawer({ post, user, userData, onClose, onCommented }) {
       const newComment = { postId: post.id, uid: user.uid, handle: userData?.handle || user.email, photoURL: user.photoURL || "", text: text.trim(), createdAt: null };
       batch.set(cRef, { ...newComment, createdAt: serverTimestamp() });
       batch.update(doc(db, "pulse_posts", post.id), { commentCount: increment(1) });
+      // No coin grant here anymore - Pulse engagement (likes/comments/saves)
+      // no longer grants XP/Coins (platform policy: only Daily Learning,
+      // Programming, and CS Core reward). totalCommentsReceived is still a
+      // pure engagement counter, unrelated to currency.
       if (post.uid !== user.uid) {
-        batch.set(doc(db, "user_earnings", post.uid), { pulseCoins: increment(COINS.PER_COMMENT), totalCoins: increment(COINS.PER_COMMENT) }, { merge: true });
         batch.update(doc(db, "users", post.uid), { totalCommentsReceived: increment(1) });
       }
       await batch.commit();
       if (post.uid !== user.uid) {
-        logCoinTransaction(post.uid, "comment_received", COINS.PER_COMMENT);
         writeNotification(post.uid, {
           type: "comment",
           title: `@${userData?.handle || "someone"} commented on your post`,
@@ -641,7 +642,7 @@ function MediaPreview({ post }) {
   return null;
 }
 
-function PostCard({ post, user, userData, liked, saved, isFollowing, followBusy, isReposted, repostBusy, onLike, onSave, onComment, onToggleFollow, onToggleRepost, onEdit, onDelete, onGuestAction, autoOpenDetail }) {
+function PostCard({ post, user, userData, liked, likeBusy, saved, saveBusy, isFollowing, followBusy, isReposted, repostBusy, onLike, onSave, onComment, onToggleFollow, onToggleRepost, onEdit, onDelete, onGuestAction, autoOpenDetail }) {
   const router = useRouter();
   const [showComments, setShowComments] = useState(false);
   const [showDetail,   setShowDetail]   = useState(false);
@@ -701,7 +702,7 @@ function PostCard({ post, user, userData, liked, saved, isFollowing, followBusy,
   };
 
   const handleLike = async () => {
-    if (requireAuth()) return;
+    if (requireAuth() || likeBusy) return;
     const next = !localLiked;
     setLocalLiked(next);
     setLocalLikes(c => c + (next ? 1 : -1));
@@ -741,8 +742,8 @@ function PostCard({ post, user, userData, liked, saved, isFollowing, followBusy,
 
   const actionsBar = (
     <div className="px-4 pb-4 pt-1 flex items-center gap-5 border-t border-white/4 flex-shrink-0">
-      <motion.button whileTap={{ scale: 0.85 }} onClick={handleLike}
-        className="flex items-center gap-1.5 transition-all"
+      <motion.button whileTap={{ scale: 0.85 }} onClick={handleLike} disabled={likeBusy}
+        className="flex items-center gap-1.5 transition-all disabled:opacity-50"
         style={{ color: localLiked ? "#FF5050" : "rgba(255,255,255,0.35)" }}>
         <Heart size={17} fill={localLiked ? "#FF5050" : "none"} />
         <span className="font-mono text-[11px]">{localLikes}</span>
@@ -772,8 +773,8 @@ function PostCard({ post, user, userData, liked, saved, isFollowing, followBusy,
         <span className="font-mono text-[10px]">{copied ? "copied!" : "share"}</span>
       </motion.button>
 
-      <motion.button whileTap={{ scale: 0.85 }} onClick={() => { if (!requireAuth()) onSave(post); }}
-        className="ml-auto transition-all"
+      <motion.button whileTap={{ scale: 0.85 }} onClick={() => { if (!requireAuth() && !saveBusy) onSave(post); }} disabled={saveBusy}
+        className="ml-auto transition-all disabled:opacity-50"
         style={{ color: saved ? "#00FFFF" : "rgba(255,255,255,0.35)" }}>
         {saved ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
       </motion.button>
@@ -858,13 +859,6 @@ function PostCard({ post, user, userData, liked, saved, isFollowing, followBusy,
         <div className="flex-1" />
         {actionsBar}
       </motion.div>
-
-      {/* Coins earned hint - only for post author */}
-      {user && post.uid === user.uid && (post.likeCount > 0 || post.commentCount > 0 || post.saveCount > 0) && (
-        <p className="font-mono text-[9px] text-white/20 text-center -mt-1 mb-1">
-          ≈ {((post.likeCount||0)*COINS.PER_LIKE + (post.commentCount||0)*COINS.PER_COMMENT + (post.saveCount||0)*COINS.PER_SAVE).toLocaleString()} coins earned from this post
-        </p>
-      )}
 
       <AnimatePresence>
         {showDetail && (
@@ -986,7 +980,9 @@ export function PulseApp() {
   const [hasMore,     setHasMore]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [likedIds,   setLikedIds]   = useState(new Set());
+  const [likeBusyId, setLikeBusyId] = useState(null);
   const [savedIds,   setSavedIds]   = useState(new Set());
+  const [saveBusyId, setSaveBusyId] = useState(null);
   const [followingIds, setFollowingIds] = useState(new Set());
   const [followBusyId, setFollowBusyId] = useState(null);
   const [repostedIds, setRepostedIds] = useState(new Set());
@@ -996,7 +992,6 @@ export function PulseApp() {
   const [editingPost, setEditingPost] = useState(null);
   const [deletingId,  setDeletingId]  = useState(null);
   const [guestPromptOpen, setGuestPromptOpen] = useState(false);
-  const [, setEconomyTick] = useState(0); // re-render once loadEconomy() hydrates the shared ECONOMY object
 
   // Realtime feed - only approved posts, newest first. New posts (or admin
   // approvals) reflect for every connected user without a manual refresh.
@@ -1008,7 +1003,6 @@ export function PulseApp() {
       if (snap.docs.length < PAGE_SIZE) setHasMore(false);
       setLoading(false);
     }, err => { console.error(err); setLoading(false); });
-    loadEconomy().then(() => setEconomyTick(t => t + 1));
     return unsub;
   }, []);
 
@@ -1044,7 +1038,18 @@ export function PulseApp() {
     : feedPosts;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Cleared on logout, not just left stale - PulseApp isn't remounted
+      // across a same-tab logout/login (no `key` prop, no redirect), so
+      // without this a signed-out-then-different-account session kept
+      // rendering the PREVIOUS account's liked/saved/following/reposted
+      // state over the same shared feed, until this Promise.all below
+      // happened to resolve for the new account (or forever, if it failed
+      // and only logged to console).
+      setLikedIds(new Set()); setSavedIds(new Set());
+      setFollowingIds(new Set()); setRepostedIds(new Set());
+      return;
+    }
     // Load liked + saved + following + reposted
     Promise.all([
       getDocs(query(collection(db, "pulse_likes"), where("uid", "==", user.uid))),
@@ -1179,20 +1184,12 @@ export function PulseApp() {
         totalRepostsReceived:  increment(-(post.repostCount || 0)),
       });
 
-      // Claw back coins earned from this post's engagement, clamped so the
-      // author's balance never goes negative (e.g. some already withdrawn).
-      const earned = (post.likeCount || 0) * COINS.PER_LIKE + (post.commentCount || 0) * COINS.PER_COMMENT + (post.saveCount || 0) * COINS.PER_SAVE;
-      if (earned > 0) {
-        const earningsSnap = await getDoc(doc(db, "user_earnings", user.uid));
-        const currentCoins = earningsSnap.exists() ? (earningsSnap.data().pulseCoins || 0) : 0;
-        const clawback = Math.min(earned, currentCoins);
-        if (clawback > 0) {
-          batch.update(doc(db, "user_earnings", user.uid), {
-            pulseCoins: increment(-clawback),
-            totalCoins: increment(-clawback),
-          });
-        }
-      }
+      // No coin clawback here anymore - Pulse engagement no longer grants
+      // coins at all (see handleLike/handleSave/handleSend), so there's
+      // nothing to claw back on delete regardless of this post's engagement
+      // counts. Any already-granted historical coins from before this
+      // change are reconciled once by the separate reward-cleanup migration,
+      // not by this ongoing per-delete code path.
 
       await batch.commit();
       setPosts(prev => prev.filter(p => p.id !== post.id));
@@ -1204,54 +1201,63 @@ export function PulseApp() {
     }
   };
 
+  // Guarded the same way handleToggleFollow/handleToggleRepost already are
+  // below (a per-post busy id checked at entry and cleared in finally) - a
+  // rapid double-tap used to be able to fire two independent batch.commit()s
+  // before the first one's likedIds/savedIds update landed, each applying
+  // its own increment and (before Pulse stopped granting rewards) each
+  // crediting the author's coin balance a second time.
   const handleLike = async (post) => {
-    if (!user) return;
+    if (!user || likeBusyId) return;
     const likeId = `${post.id}_${user.uid}`;
     const isLiked = likedIds.has(post.id);
-    const batch = writeBatch(db);
-    if (isLiked) {
-      batch.delete(doc(db, "pulse_likes", likeId));
-      batch.update(doc(db, "pulse_posts", post.id), { likeCount: increment(-1) });
-      if (post.uid !== user.uid) {
-        batch.set(doc(db, "user_earnings", post.uid), { pulseCoins: increment(-COINS.PER_LIKE), totalCoins: increment(-COINS.PER_LIKE) }, { merge: true });
-        batch.update(doc(db, "users", post.uid), { totalLikesReceived: increment(-1) });
+    setLikeBusyId(post.id);
+    try {
+      const batch = writeBatch(db);
+      // No coin grant here anymore - Pulse engagement no longer grants
+      // XP/Coins (platform policy: only Daily Learning, Programming, and CS
+      // Core reward). totalLikesReceived is still a pure engagement counter.
+      if (isLiked) {
+        batch.delete(doc(db, "pulse_likes", likeId));
+        batch.update(doc(db, "pulse_posts", post.id), { likeCount: increment(-1) });
+        if (post.uid !== user.uid) batch.update(doc(db, "users", post.uid), { totalLikesReceived: increment(-1) });
+      } else {
+        batch.set(doc(db, "pulse_likes", likeId), { postId: post.id, uid: user.uid, likedAt: serverTimestamp() });
+        batch.update(doc(db, "pulse_posts", post.id), { likeCount: increment(1) });
+        if (post.uid !== user.uid) batch.update(doc(db, "users", post.uid), { totalLikesReceived: increment(1) });
       }
-    } else {
-      batch.set(doc(db, "pulse_likes", likeId), { postId: post.id, uid: user.uid, likedAt: serverTimestamp() });
-      batch.update(doc(db, "pulse_posts", post.id), { likeCount: increment(1) });
-      if (post.uid !== user.uid) {
-        batch.set(doc(db, "user_earnings", post.uid), { pulseCoins: increment(COINS.PER_LIKE), totalCoins: increment(COINS.PER_LIKE) }, { merge: true });
-        batch.update(doc(db, "users", post.uid), { totalLikesReceived: increment(1) });
+      await batch.commit();
+      if (!isLiked && post.uid !== user.uid) {
+        writeNotification(post.uid, {
+          type: "like",
+          title: `@${userData?.handle || "someone"} liked your post`,
+          body: post.caption?.slice(0, 60) || "Your Pulse post got a like.",
+          ctaHref: "/pulse",
+          ctaLabel: "view pulse",
+        });
       }
+      setLikedIds(prev => { const n = new Set(prev); isLiked ? n.delete(post.id) : n.add(post.id); return n; });
+    } finally {
+      setLikeBusyId(null);
     }
-    await batch.commit();
-    if (!isLiked && post.uid !== user.uid) {
-      logCoinTransaction(post.uid, "like_received", COINS.PER_LIKE);
-      writeNotification(post.uid, {
-        type: "like",
-        title: `@${userData?.handle || "someone"} liked your post`,
-        body: post.caption?.slice(0, 60) || "Your Pulse post got a like.",
-        ctaHref: "/pulse",
-        ctaLabel: "view pulse",
-      });
-    }
-    setLikedIds(prev => { const n = new Set(prev); isLiked ? n.delete(post.id) : n.add(post.id); return n; });
   };
 
   const handleSave = async (post) => {
     if (!user) { window.location.href = "/login?next=/pulse"; return; }
+    if (saveBusyId) return;
     const isSaved = savedIds.has(post.id);
-    const batch = writeBatch(db);
-    batch.set(doc(db, "pulse_saves", user.uid), { saved: isSaved ? arrayRemove(post.id) : arrayUnion(post.id) }, { merge: true });
-    batch.update(doc(db, "pulse_posts", post.id), { saveCount: increment(isSaved ? -1 : 1) });
-    if (post.uid !== user.uid) {
-      batch.update(doc(db, "users", post.uid), { totalSavesReceived: increment(isSaved ? -1 : 1) });
-      if (!isSaved)
-        batch.set(doc(db, "user_earnings", post.uid), { pulseCoins: increment(COINS.PER_SAVE), totalCoins: increment(COINS.PER_SAVE) }, { merge: true });
+    setSaveBusyId(post.id);
+    try {
+      const batch = writeBatch(db);
+      batch.set(doc(db, "pulse_saves", user.uid), { saved: isSaved ? arrayRemove(post.id) : arrayUnion(post.id) }, { merge: true });
+      batch.update(doc(db, "pulse_posts", post.id), { saveCount: increment(isSaved ? -1 : 1) });
+      // No coin grant here anymore - see handleLike's comment above.
+      if (post.uid !== user.uid) batch.update(doc(db, "users", post.uid), { totalSavesReceived: increment(isSaved ? -1 : 1) });
+      await batch.commit();
+      setSavedIds(prev => { const n = new Set(prev); isSaved ? n.delete(post.id) : n.add(post.id); return n; });
+    } finally {
+      setSaveBusyId(null);
     }
-    await batch.commit();
-    if (!isSaved && post.uid !== user.uid) logCoinTransaction(post.uid, "save_received", COINS.PER_SAVE);
-    setSavedIds(prev => { const n = new Set(prev); isSaved ? n.delete(post.id) : n.add(post.id); return n; });
   };
 
   return (
@@ -1318,7 +1324,9 @@ export function PulseApp() {
                     user={user}
                     userData={userData}
                     liked={likedIds.has(post.id)}
+                    likeBusy={likeBusyId === post.id}
                     saved={savedIds.has(post.id)}
+                    saveBusy={saveBusyId === post.id}
                     isFollowing={followingIds.has(post.uid)}
                     followBusy={followBusyId === post.uid}
                     isReposted={repostedIds.has(post.id)}

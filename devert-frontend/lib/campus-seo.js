@@ -78,6 +78,19 @@ export async function campusInstitutionForSlug(slug) {
   return fetchInstitution(slug).catch(() => null);
 }
 
+// Manage's own static routes (app/campus/[slug]/manage/**) are real,
+// bookmarkable/refreshable pages for the SAME reason the public sections
+// above are, but they're private admin tooling, not marketing surfaces -
+// noindex/nofollow, no OpenGraph/JSON-LD, and no dependency on
+// CAMPUS_SECTIONS (which sitemap.ts iterates to build the public sitemap -
+// these must never end up there).
+export function buildManageMetadata(inst, label) {
+  return {
+    title: `${label} - Manage | ${inst?.name || "Campus"}`,
+    robots: { index: false, follow: false },
+  };
+}
+
 const SITE = "https://devert.in";
 
 // One shared Metadata builder for all 7 routes - only the section key and

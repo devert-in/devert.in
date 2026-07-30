@@ -374,9 +374,9 @@ function ResultModal({ result, onClose }) {
           <h2 className="font-sans text-2xl font-bold mb-2" style={{ color: won ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
             {won ? "MATCH WON" : result.status === "timeout" ? "TIME'S UP" : "FORFEITED"}
           </h2>
-          {won && (
-            <p className="font-mono text-lg mb-1" style={{ color: "#00FF41" }}>+{result.xp} XP</p>
-          )}
+          {/* Arena tracks wins/streak but grants no XP/Coins/Score (platform
+              policy: only Daily Learning, Programming, and CS Core reward) -
+              no XP figure here, since none is actually credited. */}
           <p className="font-mono text-xs text-white/30 mb-6">
             {won ? `${result.challenge} completed.` : "Better luck next time. Practice makes perfect."}
           </p>
@@ -398,6 +398,17 @@ export function ArenaApp({ initialTab }) {
   const windowed = useIsWindowed();
   const { user, refreshProfile } = useAuth();
   const [arenaTab, setArenaTab] = useState(["solo", "contests"].includes(initialTab) ? initialTab : "solo");
+  // app/arena/page.jsx already reads ?tab= on initial load, but switching
+  // tabs here never wrote it back - a refresh mid-session always dropped
+  // back to whatever ?tab= happened to be at load time (usually "solo"),
+  // discarding the tab actually being viewed. Bypasses Next's router
+  // (replaceState directly) for the same reason campus-app.jsx's own
+  // tab-sync effect does - this is just keeping the address bar in sync,
+  // not a real navigation.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.history.replaceState(null, "", `/arena?tab=${arenaTab}`);
+  }, [arenaTab]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [challenges,  setChallenges]  = useState([]);
   const [loadingLB,   setLoadingLB]   = useState(true);

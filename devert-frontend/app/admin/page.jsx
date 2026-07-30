@@ -1,8 +1,8 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Terminal, Users, Target, Zap, Swords, Shield,
@@ -11,13 +11,14 @@ import {
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
-  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy,
+  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload,
 } from "lucide-react";
 import {
   db, auth
 } from "@/lib/firebase";
 import { writeNotification } from "@/components/notification-bell";
 import PortfoliosPanel from "@/components/admin/portfolios-panel";
+import { LessonConceptField } from "@/components/admin/lesson-concept-field";
 import Dropdown from "@/components/dropdown";
 import { DEFAULT_TIERS } from "@/lib/ranks";
 import { DEFAULT_ECONOMY } from "@/lib/economy";
@@ -26,7 +27,7 @@ import {
   CONTEST_STATUSES, blankContestForm, blankContestQuestionForm, CONTEST_CSV_HELP,
   downloadContestCsvTemplate, csvRowsToContestQuestions, parseCSV,
 } from "@/lib/contests";
-import { CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, CODELAB_LANGUAGES, fetchPublishedProblems } from "@/lib/codelab";
+import { CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, CODELAB_LANGUAGES, COMPANY_TAG_SUGGESTIONS, fetchPublishedProblems } from "@/lib/codelab";
 import {
   COMPANY_QUESTION_DIFFICULTIES, COMPANY_QUESTION_CSV_HELP,
   downloadCompanyQuestionCsvTemplate, csvRowsToCompanyQuestions,
@@ -44,12 +45,19 @@ import {
   fetchOpportunities, saveOpportunity, deleteOpportunity, notifyNewOpportunity,
   OPPORTUNITY_TYPES, WORK_MODES, DIFFICULTIES as OPP_DIFFICULTIES,
 } from "@/lib/opportunities";
-import { StringListField } from "@/components/campus/campus-daily-learning-editor";
+import { StringListField, McqListField } from "@/components/campus/campus-daily-learning-editor";
+import {
+  GatePapersPanel, GateSubjectsPanel, GatePyqPanel, GateTestsPanel,
+  GateFormulaPanel, GateResourcesPanel, GateLessonImportPanel,
+} from "@/components/admin/gate-panel";
+import { fetchAptitudeTopics, saveAptitudeTopic } from "@/lib/aptitude";
+import { withVersionSnapshot } from "@/lib/contentVersioning";
 import { LanguageLogo } from "@/components/campus/language-logo";
 import { subjectIcon } from "@/components/campus/campus-cscore";
 import {
   collection, query, orderBy, where, getDocs, addDoc, deleteDoc,
-  doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch
+  doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch, runTransaction,
+  getCountFromServer, getAggregateFromServer, sum,
 } from "firebase/firestore";
 
 const ADMIN_EMAIL = "devert.contact@gmail.com";
@@ -579,6 +587,19 @@ function InstitutionsPanel() {
   };
   useEffect(() => { load(); }, []);
 
+  // Keeps studentCount live without disturbing the rest of `load()`'s
+  // behavior (admin resolution, loading state, manual refresh-after-mutation
+  // call sites below) - this panel used to only ever see the count as of
+  // whatever it looked like on the last full load(), going stale the moment
+  // another admin session approved/imported students elsewhere.
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "institutions"), snap => {
+      const countById = new Map(snap.docs.map(d => [d.id, d.data().studentCount]));
+      setInstitutions(prev => prev.map(inst => countById.has(inst.id) ? { ...inst, studentCount: countById.get(inst.id) } : inst));
+    });
+    return unsub;
+  }, []);
+
   const handleRemoveAdmin = async (institutionId, uid) => {
     setWorking(p => ({ ...p, [`${institutionId}_${uid}`]: true }));
     try {
@@ -796,27 +817,39 @@ function UsersPanel() {
     }));
   };
 
+  // Previously computed newXP as an absolute value from stale local React
+  // state (u.xp), then set() it directly - a second admin action (or a
+  // student's own concurrent XP-earning write) landing between this read and
+  // write was silently clobbered, and there was no audit trail anywhere of
+  // who granted what/when. Now uses increment() (atomic server-side, no
+  // read-modify-write race) and records the grant in the same central
+  // reward_grants ledger every other reward path writes to, with
+  // grantedBy set to the acting admin - so a student's Reward Timeline
+  // correctly shows manual admin adjustments alongside their other rewards.
   const handleXP = async (uid, sign) => {
     const u = users.find(u => u.uid === uid);
     if (!u) return;
-    const delta  = parseInt(xpDelta[uid]) || 100;
-    const newXP  = Math.max(0, (u.xp || 0) + sign * delta);
+    const delta = parseInt(xpDelta[uid]) || 100;
+    const signedDelta = sign * delta;
     setWorking(p => ({ ...p, [`xp-${uid}`]: true }));
     try {
-      await updateDoc(doc(db, "users", uid), { xp: newXP });
-      setUsers(prev => prev.map(x => x.uid === uid ? { ...x, xp: newXP } : x));
+      // A unique id per grant, not a stable activity key - unlike every other
+      // ledger entry (meant to dedupe a repeatable event), a manual admin
+      // grant is deliberately NOT idempotent: an admin clicking +XP twice
+      // means two separate, intended grants.
+      const ledgerId = doc(collection(db, "reward_grants")).id;
+      await runTransaction(db, async (tx) => {
+        tx.update(doc(db, "users", uid), { xp: increment(signedDelta) });
+        tx.set(doc(db, "reward_grants", ledgerId), {
+          uid, activityType: "admin_manual", activityId: ledgerId,
+          xp: signedDelta, coins: 0, score: 0,
+          sourceModule: "admin_manual", grantedAt: serverTimestamp(),
+          grantedBy: auth.currentUser?.uid || "admin", status: "granted",
+        });
+      });
+      setUsers(prev => prev.map(x => x.uid === uid ? { ...x, xp: Math.max(0, (x.xp || 0) + signedDelta) } : x));
     } catch (e) { console.error(e); }
     finally { setWorking(p => ({ ...p, [`xp-${uid}`]: false })); }
-  };
-
-  const handleSuspend = async (u) => {
-    const next = !u.suspended;
-    setWorking(p => ({ ...p, [`sus-${u.uid}`]: true }));
-    try {
-      await updateDoc(doc(db, "users", u.uid), { suspended: next });
-      setUsers(prev => prev.map(x => x.uid === u.uid ? { ...x, suspended: next } : x));
-    } catch (e) { console.error(e); }
-    finally { setWorking(p => ({ ...p, [`sus-${u.uid}`]: false })); }
   };
 
   return (
@@ -839,12 +872,6 @@ function UsersPanel() {
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/2 transition-colors text-left"
               >
                 <span className="font-mono text-xs text-white flex-shrink-0">@{u.handle}</span>
-                {u.suspended && (
-                  <span className="font-mono text-[9px] px-1.5 py-0.5 rounded flex-shrink-0"
-                    style={{ color: "#FF3B3B", background: "rgba(255,59,59,0.1)", border: "1px solid rgba(255,59,59,0.3)" }}>
-                    SUSPENDED
-                  </span>
-                )}
                 <span className="font-mono text-[10px] text-white/35 truncate flex-1">{u.email}</span>
                 <span className="font-mono text-xs text-neon-cyan flex-shrink-0">{(u.xp || 0).toLocaleString()} XP</span>
                 <span className="font-mono text-[9px] flex-shrink-0" style={{ color: u.tier?.color || "#666" }}>{u.tier?.name || "RECRUIT"}</span>
@@ -924,17 +951,6 @@ function UsersPanel() {
                         >
                           <ExternalLink size={9} /> view profile
                         </a>
-                        <button
-                          onClick={() => handleSuspend(u)}
-                          disabled={working[`sus-${u.uid}`]}
-                          className="font-mono text-[10px] px-2.5 py-1 transition-colors disabled:opacity-50 border"
-                          style={u.suspended
-                            ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.25)", background: "rgba(0,255,65,0.06)" }
-                            : { color: "#FF3B3B", borderColor: "rgba(255,59,59,0.25)", background: "rgba(255,59,59,0.06)" }
-                          }
-                        >
-                          {working[`sus-${u.uid}`] ? "..." : u.suspended ? "restore" : "suspend"}
-                        </button>
                       </div>
                     </div>
                   </motion.div>
@@ -1399,7 +1415,7 @@ function OpportunitiesPanel() {
               <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-36" />
             </div>
           </div>
-          <p className="font-mono text-[10px] text-white/20">Note: no push/email notification pipeline exists yet - "Publish &amp; Notify" sends an in-app notification only.</p>
+          <p className="font-mono text-[10px] text-white/20">Note: no push/email notification pipeline exists yet - &quot;Publish &amp; Notify&quot; sends an in-app notification only.</p>
 
           <div className="flex gap-2 pt-1">
             <button onClick={() => handleSave(false)} disabled={saving || !form.title.trim() || !form.registrationUrl.trim()}
@@ -1953,11 +1969,32 @@ function PayoutsPanel() {
 
   useEffect(() => { load(); }, []);
 
+  // Re-checks AND decrements the user's real, live pulseCoins balance as
+  // part of approval itself, inside a transaction - payout_requests.create's
+  // own balance check (firestore.rules) only bounds a single create against
+  // whatever the balance happened to be at that moment, and a raw client
+  // write bypassing the Wallet page's own decrement-at-request-time
+  // transaction could create multiple pending requests all claiming the
+  // same, never-actually-reserved balance. Re-validating and decrementing
+  // here, right before marking a request approved, means approving two such
+  // duplicates for the same real balance can only ever pay out once - the
+  // second approval's live re-read sees the already-decremented balance and
+  // is correctly refused, instead of both silently succeeding and doubling
+  // (or worse) the real INR paid out for one real coin balance.
   const handleApprove = async (req) => {
     if (!confirm(`Approve ₹${(req.inrAmount || 0).toFixed(2)} payout to @${req.handle}?`)) return;
     setWorking(p => ({ ...p, [req.id]: true }));
     try {
-      await updateDoc(doc(db, "payout_requests", req.id), { status: "approved", processedAt: serverTimestamp() });
+      await runTransaction(db, async (tx) => {
+        const earningsRef = doc(db, "user_earnings", req.uid);
+        const earningsSnap = await tx.get(earningsRef);
+        const liveCoins = earningsSnap.exists() ? (earningsSnap.data().pulseCoins || 0) : 0;
+        if (liveCoins < req.coins) {
+          throw new Error(`${req.handle}'s current balance (${liveCoins} coins) is less than this request's ${req.coins} coins - likely already paid out via a duplicate request. Refusing to approve.`);
+        }
+        tx.update(earningsRef, { pulseCoins: increment(-req.coins) });
+        tx.update(doc(db, "payout_requests", req.id), { status: "approved", processedAt: serverTimestamp() });
+      });
       writeNotification(req.uid, {
         type: "payout",
         title: `Payout of ₹${(req.inrAmount || 0).toFixed(2)} approved`,
@@ -1967,17 +2004,34 @@ function PayoutsPanel() {
       });
       notifyPayoutStatus(req, "approved");
       load();
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); alert(e.message || "Failed to approve payout."); }
     finally { setWorking(p => ({ ...p, [req.id]: false })); }
   };
 
+  // Transactional and idempotent on the request's OWN status, same reasoning
+  // as handleApprove above - two admins (or two tabs, or a double-click)
+  // rejecting the same request used to both refund req.coins unconditionally,
+  // with no check that the request hadn't already been processed. Re-reading
+  // the request doc live and only refunding while it's still genuinely
+  // 'pending' closes that double-refund; it does NOT retroactively prove the
+  // coins were really deducted at creation time in the first place (that
+  // gap is the payout_requests architecture limitation flagged in the
+  // sign-off report, not something a single-request-idempotency fix can
+  // close on its own).
   const handleReject = async (req) => {
     const reason = prompt("Rejection reason (optional):");
     if (reason === null) return;
     setWorking(p => ({ ...p, [req.id]: true }));
     try {
-      await updateDoc(doc(db, "user_earnings", req.uid), { pulseCoins: increment(req.coins) });
-      await updateDoc(doc(db, "payout_requests", req.id), { status: "rejected", note: reason || "", processedAt: serverTimestamp() });
+      await runTransaction(db, async (tx) => {
+        const reqRef = doc(db, "payout_requests", req.id);
+        const reqSnap = await tx.get(reqRef);
+        if (!reqSnap.exists() || reqSnap.data().status !== "pending") {
+          throw new Error("This request is no longer pending (already processed elsewhere) - refusing to refund again.");
+        }
+        tx.update(doc(db, "user_earnings", req.uid), { pulseCoins: increment(req.coins) });
+        tx.update(reqRef, { status: "rejected", note: reason || "", processedAt: serverTimestamp() });
+      });
       writeNotification(req.uid, {
         type: "rejection",
         title: `Payout request rejected`,
@@ -1987,7 +2041,7 @@ function PayoutsPanel() {
       });
       notifyPayoutStatus(req, "rejected");
       load();
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); alert(e.message || "Failed to reject payout."); }
     finally { setWorking(p => ({ ...p, [req.id]: false })); }
   };
 
@@ -2368,25 +2422,31 @@ function StatsPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Previously fetched EVERY user document just to derive a count, a sum,
+    // and a top-5 - fine at a few hundred users, a real and growing cost
+    // once the platform has thousands. All three are now computed server-
+    // side: totalUsers/totalXP via Firestore's count()/sum() aggregation
+    // (no documents transferred at all), topBuilders via a proper indexed
+    // top-5 query instead of client-side sort-then-slice over the full set.
     const load = async () => {
-      const [usersSnap, postsSnap, missionsSnap, broadcastsSnap, payoutsSnap] = await Promise.allSettled([
-        getDocs(collection(db, "users")),
-        getDocs(collection(db, "pulse_posts")),
-        getDocs(query(collection(db, "missions"), where("status", "==", "OPEN"))),
-        getDocs(collection(db, "broadcasts")),
-        getDocs(query(collection(db, "payout_requests"), where("status", "==", "pending"))),
+      const usersCol = collection(db, "users");
+      const [userCountSnap, xpSumSnap, topBuildersSnap, postsSnap, missionsSnap, broadcastsSnap, payoutsSnap] = await Promise.allSettled([
+        getCountFromServer(usersCol),
+        getAggregateFromServer(usersCol, { total: sum("xp") }),
+        getDocs(query(usersCol, orderBy("xp", "desc"), limit(5))),
+        getCountFromServer(collection(db, "pulse_posts")),
+        getCountFromServer(query(collection(db, "missions"), where("status", "==", "OPEN"))),
+        getCountFromServer(collection(db, "broadcasts")),
+        getCountFromServer(query(collection(db, "payout_requests"), where("status", "==", "pending"))),
       ]);
-      const users = usersSnap.status === "fulfilled" ? usersSnap.value.docs.map(d => d.data()) : [];
-      const totalXP = users.reduce((sum, u) => sum + (u.xp || 0), 0);
-      const topBuilders = [...users].sort((a, b) => (b.xp || 0) - (a.xp || 0)).slice(0, 5);
       setStats({
-        totalUsers:     users.length,
-        totalXP,
-        topBuilders,
-        pulsePosts:     postsSnap.status === "fulfilled"      ? postsSnap.value.size      : 0,
-        openMissions:   missionsSnap.status === "fulfilled"   ? missionsSnap.value.size   : 0,
-        broadcasts:     broadcastsSnap.status === "fulfilled" ? broadcastsSnap.value.size : 0,
-        pendingPayouts: payoutsSnap.status === "fulfilled"    ? payoutsSnap.value.size    : 0,
+        totalUsers:     userCountSnap.status === "fulfilled"    ? userCountSnap.value.data().count : 0,
+        totalXP:        xpSumSnap.status === "fulfilled"        ? (xpSumSnap.value.data().total || 0) : 0,
+        topBuilders:    topBuildersSnap.status === "fulfilled"  ? topBuildersSnap.value.docs.map(d => d.data()) : [],
+        pulsePosts:     postsSnap.status === "fulfilled"        ? postsSnap.value.data().count      : 0,
+        openMissions:   missionsSnap.status === "fulfilled"     ? missionsSnap.value.data().count   : 0,
+        broadcasts:     broadcastsSnap.status === "fulfilled"   ? broadcastsSnap.value.data().count : 0,
+        pendingPayouts: payoutsSnap.status === "fulfilled"      ? payoutsSnap.value.data().count    : 0,
       });
       setLoading(false);
     };
@@ -2625,7 +2685,7 @@ function LearningPanel() {
   return (
     <div className="space-y-4">
       <p className="font-mono text-[10px] text-white/18">
-        Course -&gt; Module -&gt; Task(+Quiz). Tasks unlock sequentially for learners - Task 2 stays locked until Task 1's quiz is passed.
+        Course -&gt; Module -&gt; Task(+Quiz). Tasks unlock sequentially for learners - Task 2 stays locked until Task 1&apos;s quiz is passed.
       </p>
 
       {courses.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no courses yet</p>}
@@ -3124,6 +3184,133 @@ function AptitudePanel() {
   );
 }
 
+// ── Aptitude topic lesson-content editor ──────────────────────────────────────
+// Adds the Programming/CS Core-style lesson layer (concept/keyPoints/mcqs/
+// etc.) ON TOP OF topics already created by AptitudePanel above (category/
+// name/description + their practice-question subcollection, both untouched
+// here) - editor-only, no "create topic" here on purpose, since that stays
+// AptitudePanel's job. Mirrors ProgrammingTopicsPanel's form shape exactly
+// (same StringListField/McqListField reuse), minus codeExample (not
+// applicable to aptitude topics) and practiceProblemIds (aptitude topics
+// already have their OWN practice-question subcollection, not CodeLab
+// problem references).
+function blankAptitudeTopicContent() {
+  return {
+    difficulty: "Beginner", estimatedMinutes: 20,
+    whatYoullLearn: [], prerequisites: [], concept: "", keyPoints: [],
+    commonMistakes: [], interviewTips: [], realWorldApplications: [],
+    mcqs: [], goingDeeper: "", assignment: "", xpReward: 15, coinReward: 5,
+  };
+}
+
+function AptitudeTopicsPanel() {
+  const [topics, setTopics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(blankAptitudeTopicContent());
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    fetchAptitudeTopics({ includeUnpublished: true }).then(setTopics).catch(console.error).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const startEdit = (t) => {
+    setEditingId(t.id);
+    setForm({ ...blankAptitudeTopicContent(), ...t, status: t.status || "published" });
+  };
+
+  const handleSave = async () => {
+    if (!editingId) return;
+    setSaving(true);
+    try {
+      await saveAptitudeTopic(editingId, form);
+      setEditingId(null);
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const grouped = APTITUDE_CATEGORIES.map(cat => ({ cat, items: topics.filter(t => t.category === cat) }));
+
+  return (
+    <div className="space-y-4">
+      <p className="font-mono text-[11px] text-white/40">
+        Adds lesson content (concept, key points, quiz, rewards) to topics already created above. Editing an existing topic only - use the ADD TOPIC form above to create a brand new one first.
+      </p>
+
+      {editingId && (
+        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <h4 className="font-mono text-sm" style={{ color: "#00FFFF" }}>Editing: {topics.find(t => t.id === editingId)?.name}</h4>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
+              <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={["Beginner", "Intermediate", "Advanced"]} className="w-full" />
+            </div>
+            <Input label="EST. MINUTES" type="number" value={form.estimatedMinutes} onChange={v => setForm(p => ({ ...p, estimatedMinutes: Number(v) || 0 }))} />
+            <div>
+              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">STATUS</p>
+              <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-full" />
+            </div>
+          </div>
+          <StringListField label="WHAT YOU'LL LEARN" items={form.whatYoullLearn} onChange={v => setForm(p => ({ ...p, whatYoullLearn: v }))} />
+          <StringListField label="PREREQUISITES" items={form.prerequisites} onChange={v => setForm(p => ({ ...p, prerequisites: v }))} />
+          <LessonConceptField value={form.concept} onChange={v => setForm(p => ({ ...p, concept: v }))} />
+          <StringListField label="KEY POINTS" items={form.keyPoints} onChange={v => setForm(p => ({ ...p, keyPoints: v }))} />
+          <StringListField label="COMMON MISTAKES" items={form.commonMistakes} onChange={v => setForm(p => ({ ...p, commonMistakes: v }))} />
+          <StringListField label="INTERVIEW TIPS" items={form.interviewTips} onChange={v => setForm(p => ({ ...p, interviewTips: v }))} />
+          <StringListField label="REAL-WORLD APPLICATIONS" items={form.realWorldApplications} onChange={v => setForm(p => ({ ...p, realWorldApplications: v }))} />
+          <McqListField items={form.mcqs} onChange={v => setForm(p => ({ ...p, mcqs: v }))} />
+          <Textarea label="GOING DEEPER (optional)" value={form.goingDeeper} onChange={v => setForm(p => ({ ...p, goingDeeper: v }))} rows={4} />
+          <Textarea label="ASSIGNMENT" value={form.assignment} onChange={v => setForm(p => ({ ...p, assignment: v }))} rows={2} />
+          <div className="grid grid-cols-2 gap-2.5">
+            <Input label="XP REWARD" type="number" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: Number(v) || 0 }))} />
+            <Input label="COIN REWARD" type="number" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: Number(v) || 0 }))} />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving} className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button onClick={() => setEditingId(null)} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="font-mono text-xs text-white/30">Loading...</p>
+      ) : (
+        <div className="space-y-4">
+          {grouped.map(({ cat, items }) => items.length > 0 && (
+            <div key={cat}>
+              <p className="font-mono text-[10px] text-white/25 tracking-widest mb-1.5">{cat.toUpperCase()}</p>
+              <div className="space-y-1.5">
+                {items.map(t => (
+                  <div key={t.id} className="flex items-center gap-3 p-2.5 rounded flex-wrap"
+                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="flex-1 min-w-0"><span className="font-mono text-xs text-white/80">{t.name}</span></div>
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                      style={{ background: t.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: t.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
+                      {(t.status || "published").toUpperCase()}
+                    </span>
+                    {!(t.concept?.trim() || t.keyPoints?.length) && (
+                      <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO CONTENT</span>
+                    )}
+                    <button onClick={() => startEdit(t)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FFD700" }}>
+                      <Pencil size={11} /> Edit Content
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Company Prep panel ────────────────────────────────────────────────────────
 // Company -> Round -> Category -> Question, global DeVert-authored content
 // (lib/companyPrep.js has the shared fetchers/CSV helpers the student side
@@ -3137,9 +3324,32 @@ function blankCompanyPrepForm() {
   return { name: "", logo: "", description: "", website: "", eligibility: "", ctc: "", hiringOverview: "", difficulty: "Medium", resources: "" };
 }
 function blankRoundForm() {
-  return { name: "", description: "", duration: "", passingMarks: "", instructions: "" };
+  return {
+    name: "", description: "", duration: "", passingMarks: "", instructions: "",
+    whatTheyEvaluate: "", format: "", eliminationCriteria: "", prepStrategy: "", commonMistakes: "",
+  };
 }
 function blankCategoryForm() { return { name: "" }; }
+function blankCategoryLessonForm() {
+  return { whatYoullLearn: [], concept: "", keyPoints: [], commonMistakes: [], interviewTips: [] };
+}
+function blankRoadmapDay(dayNumber) { return { day: dayNumber, title: "", focus: "", tasksText: "" }; }
+function blankInterviewExperienceForm() {
+  return { studentName: "", year: "", role: "", difficulty: "Medium", roundsFaced: "", questionsAsked: "", tips: "" };
+}
+function blankMockInterviewForm() { return { name: "", type: "technical", timeLimitMinutes: 30 }; }
+
+// "Title | URL | Type" per line, one resource per line - backward
+// compatible with a company authored before this structured shape existed
+// (a line with no "|" separator is treated as a bare URL, matching the old
+// one-URL-per-line format exactly).
+function parseResourcesText(text) {
+  return text.split("\n").map(l => l.trim()).filter(Boolean).map(line => {
+    const parts = line.split("|").map(p => p.trim());
+    if (parts.length === 1) return { title: "Resource", url: parts[0], type: "link" };
+    return { title: parts[0] || "Resource", url: parts[1] || "", type: parts[2] || "link" };
+  }).filter(r => r.url);
+}
 function blankCompanyQuestionForm() {
   return { question: "", options: ["", "", "", ""], correctIndex: 0, difficulty: "Medium", marks: "", explanation: "", tags: "" };
 }
@@ -3234,7 +3444,7 @@ function ProgrammingLanguagesPanel() {
             placeholder="Enterprise backend systems, Android development, banking software." rows={2} />
           <div className="flex items-center gap-3">
             <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
-            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-40" />
+            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-40" />
           </div>
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={saving || !form.name.trim()}
@@ -3292,6 +3502,7 @@ function blankProgrammingTopicForm() {
     whatYoullLearn: [], prerequisites: [], concept: "", keyPoints: [],
     commonMistakes: [], interviewTips: [], realWorldApplications: [],
     codeExample: { language: "java", code: "" },
+    mcqs: [], goingDeeper: "",
     assignment: "", xpReward: 25, coinReward: 10,
     practiceProblemIds: [],
   };
@@ -3369,14 +3580,13 @@ function ProgrammingTopicsPanel({ langId, langName, onBack }) {
             <Input label="EST. MINUTES" type="number" value={form.estimatedMinutes} onChange={v => setForm(p => ({ ...p, estimatedMinutes: Number(v) || 0 }))} />
           </div>
           <div className="flex items-center gap-3">
-            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS (published = visible in roadmap; content below can still be empty = shows "coming soon")</p>
-            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-40" />
+            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS (published = visible in roadmap; content below can still be empty = shows &quot;coming soon&quot;)</p>
+            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-40" />
           </div>
 
           <StringListField label="WHAT YOU'LL LEARN" items={form.whatYoullLearn} onChange={v => setForm(p => ({ ...p, whatYoullLearn: v }))} placeholder="How arrays store elements in contiguous memory" />
           <StringListField label="PREREQUISITES" items={form.prerequisites} onChange={v => setForm(p => ({ ...p, prerequisites: v }))} placeholder="Variables & Data Types" />
-          <Textarea label="CONCEPT / LEARNING MATERIAL" value={form.concept} onChange={v => setForm(p => ({ ...p, concept: v }))} rows={6}
-            placeholder="Explain the concept in prose. Indented lines render as code blocks, '- ' lines render as a bulleted list." />
+          <LessonConceptField value={form.concept} onChange={v => setForm(p => ({ ...p, concept: v }))} />
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">CODE EXAMPLE LANGUAGE</p>
@@ -3391,6 +3601,10 @@ function ProgrammingTopicsPanel({ langId, langName, onBack }) {
           <StringListField label="COMMON MISTAKES" items={form.commonMistakes} onChange={v => setForm(p => ({ ...p, commonMistakes: v }))} />
           <StringListField label="INTERVIEW TIPS" items={form.interviewTips} onChange={v => setForm(p => ({ ...p, interviewTips: v }))} />
           <StringListField label="REAL-WORLD APPLICATIONS" items={form.realWorldApplications} onChange={v => setForm(p => ({ ...p, realWorldApplications: v }))} />
+          <McqListField items={form.mcqs} onChange={v => setForm(p => ({ ...p, mcqs: v }))} />
+          <Textarea label="GOING DEEPER (optional - advanced-learner content, shown collapsed below the main lesson)"
+            value={form.goingDeeper} onChange={v => setForm(p => ({ ...p, goingDeeper: v }))} rows={4}
+            placeholder="Denser, more technical detail for students who want to go beyond the beginner explanation above." />
           <Textarea label="ASSIGNMENT" value={form.assignment} onChange={v => setForm(p => ({ ...p, assignment: v }))} rows={2} />
           <Input label="PRACTICE PROBLEM IDS (comma-separated CodeLab problem IDs)" value={practiceIdsText} onChange={setPracticeIdsText} placeholder="0Iwq5sfiExGtB62k6fOd, ..." />
           <div className="grid grid-cols-2 gap-2.5">
@@ -3517,7 +3731,7 @@ function CsCoreSubjectsPanel() {
             placeholder="Underpins process scheduling, memory management, and file systems in every real system." rows={2} />
           <div className="flex items-center gap-3">
             <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
-            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-40" />
+            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-40" />
           </div>
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={saving || !form.name.trim()}
@@ -3576,6 +3790,7 @@ function blankCsCoreTopicForm() {
     whatYoullLearn: [], prerequisites: [], concept: "", keyPoints: [],
     commonMistakes: [], interviewTips: [], realWorldApplications: [],
     codeExample: { language: "java", code: "" },
+    mcqs: [], goingDeeper: "",
     assignment: "", xpReward: 25, coinReward: 10,
     practiceProblemIds: [],
   };
@@ -3651,14 +3866,13 @@ function CsCoreTopicsPanel({ subjectId, subjectName, onBack }) {
             <Input label="EST. MINUTES" type="number" value={form.estimatedMinutes} onChange={v => setForm(p => ({ ...p, estimatedMinutes: Number(v) || 0 }))} />
           </div>
           <div className="flex items-center gap-3">
-            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS (published = visible in roadmap; content below can still be empty = shows "coming soon")</p>
-            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published"]} className="w-40" />
+            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS (published = visible in roadmap; content below can still be empty = shows &quot;coming soon&quot;)</p>
+            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-40" />
           </div>
 
           <StringListField label="WHAT YOU'LL LEARN" items={form.whatYoullLearn} onChange={v => setForm(p => ({ ...p, whatYoullLearn: v }))} />
           <StringListField label="PREREQUISITES" items={form.prerequisites} onChange={v => setForm(p => ({ ...p, prerequisites: v }))} />
-          <Textarea label="CONCEPT / LEARNING MATERIAL" value={form.concept} onChange={v => setForm(p => ({ ...p, concept: v }))} rows={6}
-            placeholder="Explain the concept in prose. Indented lines render as code blocks, '- ' lines render as a bulleted list." />
+          <LessonConceptField value={form.concept} onChange={v => setForm(p => ({ ...p, concept: v }))} />
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">CODE EXAMPLE LANGUAGE</p>
@@ -3673,6 +3887,10 @@ function CsCoreTopicsPanel({ subjectId, subjectName, onBack }) {
           <StringListField label="COMMON MISTAKES" items={form.commonMistakes} onChange={v => setForm(p => ({ ...p, commonMistakes: v }))} />
           <StringListField label="INTERVIEW TIPS" items={form.interviewTips} onChange={v => setForm(p => ({ ...p, interviewTips: v }))} />
           <StringListField label="REAL-WORLD APPLICATIONS" items={form.realWorldApplications} onChange={v => setForm(p => ({ ...p, realWorldApplications: v }))} />
+          <McqListField items={form.mcqs} onChange={v => setForm(p => ({ ...p, mcqs: v }))} />
+          <Textarea label="GOING DEEPER (optional - advanced-learner content, shown collapsed below the main lesson)"
+            value={form.goingDeeper} onChange={v => setForm(p => ({ ...p, goingDeeper: v }))} rows={4}
+            placeholder="Denser, more technical detail for students who want to go beyond the beginner explanation above." />
           <Textarea label="ASSIGNMENT" value={form.assignment} onChange={v => setForm(p => ({ ...p, assignment: v }))} rows={2} />
           <Input label="PRACTICE PROBLEM IDS (comma-separated CodeLab problem IDs)" value={practiceIdsText} onChange={setPracticeIdsText} />
           <div className="grid grid-cols-2 gap-2.5">
@@ -3730,6 +3948,7 @@ function CompanyPrepPanel() {
   const [loading, setLoading] = useState(true);
   const [expandedCompany, setExpandedCompany] = useState(null);
   const [form, setForm] = useState(blankCompanyPrepForm());
+  const [roadmapDays, setRoadmapDays] = useState([]);
   const [saving, setSaving] = useState(false);
   const [formFeedback, setFormFeedback] = useState(null);
   const [rowFeedback, setRowFeedback] = useState({});
@@ -3757,13 +3976,15 @@ function CompanyPrepPanel() {
         ctc: form.ctc.trim(),
         hiringOverview: form.hiringOverview.trim(),
         difficulty: form.difficulty,
-        resources: form.resources.split("\n").map(s => s.trim()).filter(Boolean),
+        resources: parseResourcesText(form.resources),
+        prepRoadmap: roadmapDays.map(d => ({ day: d.day, title: d.title.trim(), focus: d.focus.trim(), tasks: d.tasksText.split("\n").map(t => t.trim()).filter(Boolean) })).filter(d => d.title),
         status: "draft",
         order: companies.length,
         createdAt: serverTimestamp(),
       });
       const name = form.name.trim();
       setForm(blankCompanyPrepForm());
+      setRoadmapDays([]);
       setFormFeedback({ type: "success", text: `"${name}" added as a draft - publish it from the row below once its rounds/questions are ready.` });
       logAdminActivity("added company prep entry", name);
       load();
@@ -3840,7 +4061,30 @@ function CompanyPrepPanel() {
         </div>
         <Textarea label="ELIGIBILITY" value={form.eligibility} onChange={v => setForm(p => ({ ...p, eligibility: v }))} rows={2} placeholder="60% or 6 CGPA across all stages, no standing backlogs, max 2-year gap..." />
         <Textarea label="HIRING PROCESS OVERVIEW" value={form.hiringOverview} onChange={v => setForm(p => ({ ...p, hiringOverview: v }))} rows={3} placeholder="Communication Assessment -> Aptitude -> Technical -> HR Interview..." />
-        <Textarea label="RESOURCES (one link per line, optional)" value={form.resources} onChange={v => setForm(p => ({ ...p, resources: v }))} rows={2} placeholder="https://youtu.be/..." />
+        <Textarea label="RESOURCES (one per line: Title | URL | Type - Type optional, e.g. pdf/video/article)"
+          value={form.resources} onChange={v => setForm(p => ({ ...p, resources: v }))} rows={2}
+          placeholder="Company Prep Sheet | https://... | pdf" />
+
+        <div className="border border-dashed border-white/10 rounded-lg p-3 space-y-2.5">
+          <p className="font-mono text-[9px] text-neon-purple tracking-wider">PREP ROADMAP (optional, day-by-day)</p>
+          {roadmapDays.map((d, i) => (
+            <div key={i} className="border border-white/8 rounded p-2.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] text-white/40">DAY {d.day}</span>
+                <button onClick={() => setRoadmapDays(days => days.filter((_, j) => j !== i))} className="text-white/25 hover:text-red-400 transition-colors"><Trash2 size={11} /></button>
+              </div>
+              <Input label="TITLE" value={d.title} onChange={v => setRoadmapDays(days => days.map((day, j) => j === i ? { ...day, title: v } : day))} placeholder="Java + Spring Boot Revision" />
+              <Textarea label="FOCUS (one-line summary, optional)" value={d.focus} onChange={v => setRoadmapDays(days => days.map((day, j) => j === i ? { ...day, focus: v } : day))} rows={1} />
+              <Textarea label="TASKS (one per line)" value={d.tasksText} onChange={v => setRoadmapDays(days => days.map((day, j) => j === i ? { ...day, tasksText: v } : day))} rows={3}
+                placeholder={"Revise OOP + Collections\nSolve 5 REST API questions\nMock interview practice"} />
+            </div>
+          ))}
+          <button onClick={() => setRoadmapDays(days => [...days, blankRoadmapDay(days.length + 1)])}
+            className="w-full font-mono text-[10px] py-1.5 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/8 transition-colors rounded">
+            <Plus size={11} className="inline mr-1" /> add day
+          </button>
+        </div>
+
         <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleAddCompany} disabled={saving}
           className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
           <Plus size={12} className="inline mr-1" /> {saving ? "adding..." : "add company"}
@@ -3880,6 +4124,11 @@ function CompanyPrepRow({ company, expanded, onToggle, onDelete, onTogglePublish
         duration: roundForm.duration.trim(),
         passingMarks: roundForm.passingMarks.trim(),
         instructions: roundForm.instructions.trim(),
+        whatTheyEvaluate: roundForm.whatTheyEvaluate.trim(),
+        format: roundForm.format.trim(),
+        eliminationCriteria: roundForm.eliminationCriteria.trim(),
+        prepStrategy: roundForm.prepStrategy.trim(),
+        commonMistakes: roundForm.commonMistakes.trim(),
         order: (rounds || []).length,
         createdAt: serverTimestamp(),
       });
@@ -3952,6 +4201,11 @@ function CompanyPrepRow({ company, expanded, onToggle, onDelete, onTogglePublish
                   <Input label="PASSING MARKS (optional)" value={roundForm.passingMarks} onChange={v => setRoundForm(p => ({ ...p, passingMarks: v }))} placeholder="60%" />
                 </div>
                 <Textarea label="INSTRUCTIONS (optional)" value={roundForm.instructions} onChange={v => setRoundForm(p => ({ ...p, instructions: v }))} rows={2} placeholder="No negative marking..." />
+                <Textarea label="WHAT THEY EVALUATE (optional)" value={roundForm.whatTheyEvaluate} onChange={v => setRoundForm(p => ({ ...p, whatTheyEvaluate: v }))} rows={2} placeholder="Logical thinking, code correctness under time pressure..." />
+                <Textarea label="FORMAT (optional)" value={roundForm.format} onChange={v => setRoundForm(p => ({ ...p, format: v }))} rows={2} placeholder="2 coding questions, 60 minutes, any language..." />
+                <Textarea label="ELIMINATION CRITERIA (optional)" value={roundForm.eliminationCriteria} onChange={v => setRoundForm(p => ({ ...p, eliminationCriteria: v }))} rows={2} placeholder="Must pass at least 1 of 2 questions to advance..." />
+                <Textarea label="HOW TO PREPARE (optional)" value={roundForm.prepStrategy} onChange={v => setRoundForm(p => ({ ...p, prepStrategy: v }))} rows={2} placeholder="Practice medium-difficulty array/string problems..." />
+                <Textarea label="COMMON MISTAKES (optional)" value={roundForm.commonMistakes} onChange={v => setRoundForm(p => ({ ...p, commonMistakes: v }))} rows={2} placeholder="Not asking clarifying questions before coding..." />
                 <button onClick={handleAddRound} disabled={savingRound}
                   className="w-full font-mono text-xs py-2 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
                   {savingRound ? "saving..." : "add round"}
@@ -3962,10 +4216,170 @@ function CompanyPrepRow({ company, expanded, onToggle, onDelete, onTogglePublish
                   </p>
                 )}
               </div>
+
+              <div className="pt-2 border-t border-white/6">
+                <p className="font-mono text-[9px] text-blue-400/70 tracking-wider mb-2">INTERVIEW EXPERIENCES</p>
+                <CompanyInterviewExperiencesEditor companyId={company.id} />
+              </div>
+              <div className="pt-2 border-t border-white/6">
+                <p className="font-mono text-[9px] text-yellow-400/70 tracking-wider mb-2">MOCK INTERVIEWS</p>
+                <CompanyMockInterviewsEditor companyId={company.id} rounds={rounds || []} />
+              </div>
             </>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Admin-curated interview experiences (see lib/companyPrep.js's header
+// comment - genuine student submission is a real follow-up feature, not
+// this pass). Flat add/list/delete, matching the category-add simplicity
+// elsewhere in this panel.
+function CompanyInterviewExperiencesEditor({ companyId }) {
+  const [experiences, setExperiences] = useState(null);
+  const [form, setForm] = useState(blankInterviewExperienceForm());
+  const [saving, setSaving] = useState(false);
+
+  const experiencesRef = collection(db, "companies", companyId, "interviewExperiences");
+  const load = () => {
+    getDocs(query(experiencesRef, orderBy("order", "asc"))).then(snap => setExperiences(snap.docs.map(d => ({ id: d.id, ...d.data() })))).catch(console.error);
+  };
+  useEffect(() => { load(); }, [companyId]);
+
+  const handleAdd = async () => {
+    if (!form.tips.trim() && !form.questionsAsked.trim()) return;
+    setSaving(true);
+    try {
+      await addDoc(experiencesRef, { ...form, order: (experiences || []).length, submittedAt: serverTimestamp() });
+      setForm(blankInterviewExperienceForm());
+      load();
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+  const handleDelete = async (id) => { await deleteDoc(doc(experiencesRef, id)); load(); };
+
+  return (
+    <div className="space-y-2">
+      {(experiences || []).map(e => (
+        <div key={e.id} className="flex items-center gap-2 border border-white/6 rounded px-2 py-1.5">
+          <span className="font-mono text-[11px] text-white/60 flex-1 truncate">{e.studentName || "Anonymous"} - {e.role || "?"}</span>
+          <button onClick={() => handleDelete(e.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={10} /></button>
+        </div>
+      ))}
+      <div className="border border-dashed border-white/10 rounded-lg p-3 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Input label="STUDENT NAME (optional)" value={form.studentName} onChange={v => setForm(p => ({ ...p, studentName: v }))} />
+          <Input label="YEAR" value={form.year} onChange={v => setForm(p => ({ ...p, year: v }))} placeholder="2026" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Input label="ROLE" value={form.role} onChange={v => setForm(p => ({ ...p, role: v }))} placeholder="Software Engineer Trainee" />
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+            <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={COMPANY_QUESTION_DIFFICULTIES} className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]" />
+          </div>
+        </div>
+        <Textarea label="ROUNDS FACED" value={form.roundsFaced} onChange={v => setForm(p => ({ ...p, roundsFaced: v }))} rows={2} placeholder="Technical screening, coding round, HR" />
+        <Textarea label="QUESTIONS ASKED" value={form.questionsAsked} onChange={v => setForm(p => ({ ...p, questionsAsked: v }))} rows={2} />
+        <Textarea label="TIPS" value={form.tips} onChange={v => setForm(p => ({ ...p, tips: v }))} rows={2} />
+        <button onClick={handleAdd} disabled={saving} className="w-full font-mono text-xs py-2 text-neon-blue border border-blue-400/30 hover:bg-blue-400/8 transition-colors disabled:opacity-50 rounded">
+          {saving ? "saving..." : "add experience"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Mock interview configs - references existing (roundId, categoryId) pairs
+// (checkbox multi-select below), pulling their real questions live at
+// runtime (see fetchMockInterviewQuestions) rather than duplicating them.
+function CompanyMockInterviewsEditor({ companyId, rounds }) {
+  const [mockInterviews, setMockInterviews] = useState(null);
+  const [categoriesByRound, setCategoriesByRound] = useState({});
+  const [form, setForm] = useState(blankMockInterviewForm());
+  const [selectedRefs, setSelectedRefs] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  const mockRef = collection(db, "companies", companyId, "mockInterviews");
+  const load = () => {
+    getDocs(query(mockRef, orderBy("order", "asc"))).then(snap => setMockInterviews(snap.docs.map(d => ({ id: d.id, ...d.data() })))).catch(console.error);
+  };
+  useEffect(() => { load(); }, [companyId]);
+
+  useEffect(() => {
+    Promise.all((rounds || []).map(r =>
+      getDocs(query(collection(db, "companies", companyId, "rounds", r.id, "categories"), orderBy("order", "asc")))
+        .then(snap => [r.id, snap.docs.map(d => ({ id: d.id, ...d.data() }))])
+    )).then(pairs => setCategoriesByRound(Object.fromEntries(pairs))).catch(console.error);
+  }, [companyId, rounds]);
+
+  const toggleRef = (roundId, categoryId) => {
+    setSelectedRefs(prev => {
+      const key = `${roundId}_${categoryId}`;
+      const exists = prev.some(r => `${r.roundId}_${r.categoryId}` === key);
+      return exists ? prev.filter(r => `${r.roundId}_${r.categoryId}` !== key) : [...prev, { roundId, categoryId }];
+    });
+  };
+
+  const handleAdd = async () => {
+    if (!form.name.trim() || selectedRefs.length === 0) return;
+    setSaving(true);
+    try {
+      await addDoc(mockRef, {
+        name: form.name.trim(), type: form.type, timeLimitMinutes: Number(form.timeLimitMinutes) || 30,
+        categoryRefs: selectedRefs, order: (mockInterviews || []).length, createdAt: serverTimestamp(),
+      });
+      setForm(blankMockInterviewForm());
+      setSelectedRefs([]);
+      load();
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+  const handleDelete = async (id) => { await deleteDoc(doc(mockRef, id)); load(); };
+
+  return (
+    <div className="space-y-2">
+      {(mockInterviews || []).map(m => (
+        <div key={m.id} className="flex items-center gap-2 border border-white/6 rounded px-2 py-1.5">
+          <span className="font-mono text-[11px] text-white/60 flex-1 truncate">{m.name} ({m.type}, {m.timeLimitMinutes}m, {m.categoryRefs?.length || 0} categories)</span>
+          <button onClick={() => handleDelete(m.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={10} /></button>
+        </div>
+      ))}
+      <div className="border border-dashed border-white/10 rounded-lg p-3 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Full Technical Mock" />
+          <Input label="TIME LIMIT (minutes)" type="number" value={form.timeLimitMinutes} onChange={v => setForm(p => ({ ...p, timeLimitMinutes: v }))} />
+        </div>
+        <div>
+          <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">TYPE</p>
+          <Dropdown value={form.type} onChange={v => setForm(p => ({ ...p, type: v }))} options={["technical", "hr", "coding"]} className="w-full"
+            buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]" />
+        </div>
+        <p className="font-mono text-[10px] text-white/28 tracking-widest">CATEGORIES TO INCLUDE</p>
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {(rounds || []).map(r => (
+            <div key={r.id}>
+              <p className="font-mono text-[9px] text-white/30 mt-1">{r.name}</p>
+              {(categoriesByRound[r.id] || []).map(c => {
+                const checked = selectedRefs.some(ref => ref.roundId === r.id && ref.categoryId === c.id);
+                return (
+                  <button key={c.id} onClick={() => toggleRef(r.id, c.id)} className="w-full flex items-center gap-2 px-2 py-1 text-left">
+                    <span className="w-3.5 h-3.5 rounded flex-shrink-0 flex items-center justify-center" style={{ border: `1px solid ${checked ? "#00FF41" : "rgba(255,255,255,0.2)"}`, background: checked ? "#00FF41" : "transparent" }}>
+                      {checked && <Check size={9} className="text-black" />}
+                    </span>
+                    <span className="font-mono text-[10.5px] text-white/60">{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <button onClick={handleAdd} disabled={saving || selectedRefs.length === 0} className="w-full font-mono text-xs py-2 text-neon-yellow border border-yellow-400/30 hover:bg-yellow-400/8 transition-colors disabled:opacity-50 rounded">
+          {saving ? "saving..." : "add mock interview"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -4070,8 +4484,28 @@ function CompanyPrepCategoryRow({ companyId, roundId, category, expanded, onTogg
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [editingLesson, setEditingLesson] = useState(false);
+  const [lessonForm, setLessonForm] = useState(() => ({ ...blankCategoryLessonForm(), ...category }));
+  const [savingLesson, setSavingLesson] = useState(false);
+  const [lessonFeedback, setLessonFeedback] = useState(null);
 
   const questionsRef = collection(db, "companies", companyId, "rounds", roundId, "categories", category.id, "questions");
+  const categoryRef = doc(db, "companies", companyId, "rounds", roundId, "categories", category.id);
+
+  const handleSaveLesson = async () => {
+    setSavingLesson(true);
+    setLessonFeedback(null);
+    try {
+      await setDoc(categoryRef, {
+        whatYoullLearn: lessonForm.whatYoullLearn, concept: lessonForm.concept.trim(),
+        keyPoints: lessonForm.keyPoints, commonMistakes: lessonForm.commonMistakes, interviewTips: lessonForm.interviewTips,
+      }, { merge: true });
+      setLessonFeedback({ type: "success", text: "Lesson content saved." });
+    } catch (e) {
+      console.error(e);
+      setLessonFeedback({ type: "error", text: e.message || "Failed to save - check console." });
+    } finally { setSavingLesson(false); }
+  };
 
   const loadQuestions = () => {
     getDocs(query(questionsRef, orderBy("order", "asc")))
@@ -4162,6 +4596,26 @@ function CompanyPrepCategoryRow({ companyId, roundId, category, expanded, onTogg
 
       {expanded && (
         <div className="px-3 pb-3 space-y-2 border-t border-white/6 pt-2">
+          <button onClick={() => setEditingLesson(o => !o)}
+            className="font-mono text-[10px] text-neon-cyan/70 hover:text-neon-cyan transition-colors">
+            {editingLesson ? "hide lesson content editor" : (category.concept?.trim() ? "edit lesson content" : "+ add lesson content (turns this category into a topic)")}
+          </button>
+          {editingLesson && (
+            <div className="border border-dashed border-white/10 rounded-lg p-3 space-y-2.5">
+              <StringListField label="WHAT YOU'LL LEARN" items={lessonForm.whatYoullLearn} onChange={v => setLessonForm(p => ({ ...p, whatYoullLearn: v }))} />
+              <LessonConceptField value={lessonForm.concept} onChange={v => setLessonForm(p => ({ ...p, concept: v }))} rows={12} />
+              <StringListField label="KEY POINTS" items={lessonForm.keyPoints} onChange={v => setLessonForm(p => ({ ...p, keyPoints: v }))} />
+              <StringListField label="COMMON MISTAKES" items={lessonForm.commonMistakes} onChange={v => setLessonForm(p => ({ ...p, commonMistakes: v }))} />
+              <StringListField label="INTERVIEW TIPS" items={lessonForm.interviewTips} onChange={v => setLessonForm(p => ({ ...p, interviewTips: v }))} />
+              <button onClick={handleSaveLesson} disabled={savingLesson}
+                className="w-full font-mono text-xs py-2 text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/8 transition-colors disabled:opacity-50 rounded">
+                {savingLesson ? "saving..." : "save lesson content"}
+              </button>
+              {lessonFeedback && (
+                <p className="font-mono text-[10px]" style={{ color: lessonFeedback.type === "success" ? "#00FF41" : "#FF5050" }}>{lessonFeedback.text}</p>
+              )}
+            </div>
+          )}
           {questions === null ? (
             <p className="font-mono text-[10px] text-white/20">loading questions...</p>
           ) : (
@@ -4763,11 +5217,10 @@ function ContestsPanel() {
           <Input label="CONTEST START" type="datetime-local" value={form.contestStart} onChange={v => setForm(p => ({ ...p, contestStart: v }))} />
           <Input label="CONTEST END" type="datetime-local" value={form.contestEnd} onChange={v => setForm(p => ({ ...p, contestEnd: v }))} />
         </div>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Input label="DURATION (minutes)" value={form.durationMinutes} onChange={v => setForm(p => ({ ...p, durationMinutes: v }))} placeholder="60" />
-          <Input label="PRIZE XP" value={form.prizeXp} onChange={v => setForm(p => ({ ...p, prizeXp: v }))} placeholder="100" />
-          <Input label="PRIZE COINS" value={form.prizeCoins} onChange={v => setForm(p => ({ ...p, prizeCoins: v }))} placeholder="50" />
-        </div>
+        <Input label="DURATION (minutes)" value={form.durationMinutes} onChange={v => setForm(p => ({ ...p, durationMinutes: v }))} placeholder="60" />
+        <p className="font-mono text-[9px] text-white/25 tracking-wider">
+          CONTESTS NO LONGER GRANT PLATFORM XP/COINS (ONLY DAILY LEARNING, PROGRAMMING, AND CS CORE DO) - DESCRIBE ANY REAL PRIZE BELOW
+        </p>
         <Input label="PRIZE TEXT (optional)" value={form.prizeText} onChange={v => setForm(p => ({ ...p, prizeText: v }))} placeholder="Top 3 get DeVert merch" />
         <div>
           <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
@@ -4798,13 +5251,36 @@ function ContestsPanel() {
 const CODELAB_STATUSES = [
   { v: "draft",     c: "rgba(255,255,255,0.4)" },
   { v: "published", c: "#00FF41" },
+  { v: "archived",  c: "#FF9500" },
 ];
 
 function blankProblemForm() {
   return {
-    title: "", category: CODELAB_CATEGORIES[0], difficulty: "Easy", tags: "",
+    title: "", category: CODELAB_CATEGORIES[0], difficulty: "Easy", tags: "", companies: "",
     statement: "", constraints: "", examplesText: "", hints: "",
     estimatedTime: "15", xpReward: "50", coinReward: "20", status: "draft",
+  };
+}
+
+// "Which companies ask this problem" - purely admin-authored metadata, no
+// automatic/inferred tagging anywhere. Editable after creation too (see
+// handleSaveCompanies below), same as extrasForm/simpleForm, since almost
+// every existing problem predates this field and needs retroactive tagging.
+function companiesFormFromProblem(problem) {
+  return { companies: (problem?.companies || []).join(", ") };
+}
+
+// Competitive-programming-style structure layered on top of the original
+// statement/constraints/examplesText (never replaces them) - Input Format/
+// Output Format/Edge Cases render as their own labeled sections on the
+// student view (see campus-practice.jsx) when present, and are silently
+// skipped for any problem that doesn't have them yet, so this is fully
+// backward compatible with all 441 pre-existing problems.
+function structureFormFromProblem(problem) {
+  return {
+    inputFormat: problem?.inputFormat || "",
+    outputFormat: problem?.outputFormat || "",
+    edgeCases: problem?.edgeCases || "",
   };
 }
 
@@ -4822,6 +5298,23 @@ function extrasFormFromProblem(problem) {
     const s = problem?.solutions?.[k];
     form[k] = { title: s?.title || "", explanation: s?.explanation || "", timeComplexity: s?.timeComplexity || "", spaceComplexity: s?.spaceComplexity || "" };
   });
+  return form;
+}
+
+// The "teach it like a beginner" layer - purely additive on top of the
+// original statement/constraints/examplesText/hiddenTests (never touches
+// those), rendered as a callout ABOVE the statement on the student view
+// (see campus-practice.jsx). visualWalkthrough is stored as an ordered
+// array of steps (one per line here, same newline-split convention as
+// `hints`), everything else is free-form prose.
+const SIMPLE_EXPLANATION_FIELDS = [
+  "simpleExplanation", "realWorldAnalogy", "dryRun", "bruteForceIntuition",
+  "optimizedIntuition", "timeComplexityPlain", "spaceComplexityPlain", "interviewTip", "keyObservation",
+];
+function simpleFormFromProblem(problem) {
+  const form = {};
+  SIMPLE_EXPLANATION_FIELDS.forEach(f => { form[f] = problem?.[f] || ""; });
+  form.visualWalkthrough = (problem?.visualWalkthrough || []).join("\n");
   return form;
 }
 
@@ -4890,6 +5383,15 @@ function CodingProblemsPanel() {
   const [extrasForm, setExtrasForm] = useState(null);
   const [savingExtras, setSavingExtras] = useState(false);
 
+  const [simpleForm, setSimpleForm] = useState(null);
+  const [savingSimple, setSavingSimple] = useState(false);
+
+  const [companiesForm, setCompaniesForm] = useState(null);
+  const [savingCompanies, setSavingCompanies] = useState(false);
+
+  const [structureForm, setStructureForm] = useState(null);
+  const [savingStructure, setSavingStructure] = useState(false);
+
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -4918,7 +5420,35 @@ function CodingProblemsPanel() {
     setExpanded(problemId);
     setCsvText(""); setCsvResult(null); setSampleForm(blankTestForm()); setHiddenForm(blankTestForm());
     setExtrasForm(extrasFormFromProblem(problems.find(p => p.id === problemId)));
+    setSimpleForm(simpleFormFromProblem(problems.find(p => p.id === problemId)));
+    setCompaniesForm(companiesFormFromProblem(problems.find(p => p.id === problemId)));
+    setStructureForm(structureFormFromProblem(problems.find(p => p.id === problemId)));
     if (!sampleTests[problemId]) loadTests(problemId);
+  };
+
+  const handleSaveCompanies = async (problemId) => {
+    setSavingCompanies(true);
+    try {
+      const companies = companiesForm.companies.split(",").map(t => t.trim()).filter(Boolean);
+      await updateDoc(doc(db, "problems", problemId), { companies });
+      logAdminActivity("updated problem companies", problems.find(p => p.id === problemId)?.title || "");
+      load();
+    } catch (e) { console.error(e); }
+    finally { setSavingCompanies(false); }
+  };
+
+  const handleSaveStructure = async (problemId) => {
+    setSavingStructure(true);
+    try {
+      await updateDoc(doc(db, "problems", problemId), {
+        inputFormat: structureForm.inputFormat.trim(),
+        outputFormat: structureForm.outputFormat.trim(),
+        edgeCases: structureForm.edgeCases.trim(),
+      });
+      logAdminActivity("updated problem structure (input/output format, edge cases)", problems.find(p => p.id === problemId)?.title || "");
+      load();
+    } catch (e) { console.error(e); }
+    finally { setSavingStructure(false); }
   };
 
   const handleSaveExtras = async (problemId) => {
@@ -4943,6 +5473,24 @@ function CodingProblemsPanel() {
     finally { setSavingExtras(false); }
   };
 
+  // `problems` (loaded via the list query above) already holds every field
+  // of the current doc client-side, so the version snapshot needs no extra
+  // read - unlike lib/programming.js/lib/csCore.js's saveTopic, which fetch
+  // fresh since topics aren't preloaded in bulk the same way.
+  const handleSaveSimple = async (problemId) => {
+    setSavingSimple(true);
+    try {
+      const existing = problems.find(p => p.id === problemId);
+      const patch = {};
+      SIMPLE_EXPLANATION_FIELDS.forEach(f => { patch[f] = simpleForm[f].trim(); });
+      patch.visualWalkthrough = simpleForm.visualWalkthrough.split("\n").map(s => s.trim()).filter(Boolean);
+      await updateDoc(doc(db, "problems", problemId), { ...withVersionSnapshot(existing), ...patch });
+      logAdminActivity("updated problem simple explanation", existing?.title || "");
+      load();
+    } catch (e) { console.error(e); }
+    finally { setSavingSimple(false); }
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim() || !form.statement.trim()) return setError("Title and problem statement are required.");
     setSaving(true); setError("");
@@ -4950,6 +5498,7 @@ function CodingProblemsPanel() {
       await addDoc(collection(db, "problems"), {
         title: form.title.trim(), category: form.category, difficulty: form.difficulty,
         tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+        companies: form.companies.split(",").map(t => t.trim()).filter(Boolean),
         statement: form.statement.trim(), constraints: form.constraints.trim(),
         examplesText: form.examplesText.trim(),
         hints: form.hints.split("\n").map(h => h.trim()).filter(Boolean),
@@ -5060,6 +5609,9 @@ function CodingProblemsPanel() {
                     {problem.status === "published" && (
                       <button onClick={() => handleSetStatus(problem.id, "draft")} className="font-mono text-[10px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:bg-white/5 transition-colors">unpublish</button>
                     )}
+                    {problem.status !== "archived" && (
+                      <button onClick={() => handleSetStatus(problem.id, "archived")} className="font-mono text-[10px] px-2.5 py-1 rounded border border-white/10 text-white/40 hover:bg-white/5 transition-colors">archive</button>
+                    )}
                     <button onClick={() => handleDelete(problem.id, problem.title)} className="font-mono text-[10px] px-2.5 py-1 rounded border border-red-500/25 text-red-400/70 hover:bg-red-500/8 transition-colors ml-auto">delete</button>
                   </div>
 
@@ -5165,6 +5717,90 @@ function CodingProblemsPanel() {
                       </button>
                     </div>
                   )}
+
+                  {/* "Which companies ask this" - purely admin-authored, editable for
+                      a problem already created (almost every problem predates this
+                      field) - see companiesFormFromProblem/handleSaveCompanies above.
+                      Never auto-populated or inferred; COMPANY_TAG_SUGGESTIONS is
+                      autocomplete help only, not a claim about any specific problem. */}
+                  {companiesForm && (
+                    <div className="border border-dashed border-neon-gold/25 rounded-lg p-3 space-y-3">
+                      <p className="font-mono text-[9px] text-neon-gold tracking-widest">COMPANIES (shown as &quot;Asked in...&quot; on the student card + powers the Companies filter)</p>
+                      <Input label="COMPANIES (comma separated)" value={companiesForm.companies}
+                        onChange={v => setCompaniesForm(p => ({ ...p, companies: v }))}
+                        placeholder="Amazon, Google, Microsoft"
+                        hint={`Suggestions: ${COMPANY_TAG_SUGGESTIONS.join(", ")}`} />
+                      <button onClick={() => handleSaveCompanies(problem.id)} disabled={savingCompanies}
+                        className="w-full font-mono text-xs py-2 text-neon-gold border border-neon-gold/30 hover:bg-neon-gold/8 transition-colors disabled:opacity-50">
+                        {savingCompanies ? "saving..." : "save companies"}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Competitive-programming structure layered on top of the
+                      original statement (never replaces it) - optional, and
+                      each section only renders on the student view if
+                      actually filled in (see campus-practice.jsx). Expected
+                      Complexity isn't editable here - it already surfaces
+                      straight from whatever's set in Video & Solutions above. */}
+                  {structureForm && (
+                    <div className="border border-dashed border-neon-cyan/25 rounded-lg p-3 space-y-3">
+                      <p className="font-mono text-[9px] text-neon-cyan tracking-widest">INPUT / OUTPUT FORMAT &amp; EDGE CASES (optional, shown as their own sections on the student view)</p>
+                      <Textarea label="INPUT FORMAT" value={structureForm.inputFormat} rows={2}
+                        onChange={v => setStructureForm(p => ({ ...p, inputFormat: v }))}
+                        placeholder="First line: n. Second line: n space-separated integers." />
+                      <Textarea label="OUTPUT FORMAT" value={structureForm.outputFormat} rows={2}
+                        onChange={v => setStructureForm(p => ({ ...p, outputFormat: v }))}
+                        placeholder="A single integer - the answer." />
+                      <Textarea label="EDGE CASES TO CONSIDER" value={structureForm.edgeCases} rows={2}
+                        onChange={v => setStructureForm(p => ({ ...p, edgeCases: v }))}
+                        placeholder="n = 1, all elements equal, already sorted input." />
+                      <button onClick={() => handleSaveStructure(problem.id)} disabled={savingStructure}
+                        className="w-full font-mono text-xs py-2 text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/8 transition-colors disabled:opacity-50">
+                        {savingStructure ? "saving..." : "save structure"}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* "Teach it like a beginner" layer - purely additive on top of
+                      statement/constraints/examplesText/hiddenTests above (never
+                      edits those), rendered as a callout ABOVE the original
+                      statement on the student view - see campus-practice.jsx. */}
+                  {simpleForm && (
+                    <div className="border border-dashed border-neon-purple/25 rounded-lg p-3 space-y-3">
+                      <p className="font-mono text-[9px] text-neon-purple tracking-widest">SIMPLE EXPLANATION (shown above the statement on the student view - never changes the statement itself)</p>
+                      <Textarea label="SIMPLE EXPLANATION" value={simpleForm.simpleExplanation} rows={3}
+                        onChange={v => setSimpleForm(p => ({ ...p, simpleExplanation: v }))}
+                        placeholder="Explain the problem in plain, beginner-friendly language before the technical statement." />
+                      <Textarea label="REAL-WORLD ANALOGY" value={simpleForm.realWorldAnalogy} rows={3}
+                        onChange={v => setSimpleForm(p => ({ ...p, realWorldAnalogy: v }))}
+                        placeholder="A relatable everyday story that maps directly onto this problem." />
+                      <Textarea label="VISUAL WALKTHROUGH (one step per line)" value={simpleForm.visualWalkthrough} rows={4}
+                        onChange={v => setSimpleForm(p => ({ ...p, visualWalkthrough: v }))}
+                        placeholder={"Step 1: ...\nStep 2: ...\nStep 3: ..."} />
+                      <Textarea label="DRY RUN" value={simpleForm.dryRun} rows={3}
+                        onChange={v => setSimpleForm(p => ({ ...p, dryRun: v }))}
+                        placeholder="Trace through one worked example input, value by value." />
+                      <Textarea label="BRUTE FORCE INTUITION" value={simpleForm.bruteForceIntuition} rows={2}
+                        onChange={v => setSimpleForm(p => ({ ...p, bruteForceIntuition: v }))} />
+                      <Textarea label="OPTIMIZED INTUITION" value={simpleForm.optimizedIntuition} rows={2}
+                        onChange={v => setSimpleForm(p => ({ ...p, optimizedIntuition: v }))} />
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        <Textarea label="TIME COMPLEXITY (plain language)" value={simpleForm.timeComplexityPlain} rows={2}
+                          onChange={v => setSimpleForm(p => ({ ...p, timeComplexityPlain: v }))} />
+                        <Textarea label="SPACE COMPLEXITY (plain language)" value={simpleForm.spaceComplexityPlain} rows={2}
+                          onChange={v => setSimpleForm(p => ({ ...p, spaceComplexityPlain: v }))} />
+                      </div>
+                      <Textarea label="INTERVIEW TIP" value={simpleForm.interviewTip} rows={2}
+                        onChange={v => setSimpleForm(p => ({ ...p, interviewTip: v }))} />
+                      <Textarea label="KEY OBSERVATION" value={simpleForm.keyObservation} rows={2}
+                        onChange={v => setSimpleForm(p => ({ ...p, keyObservation: v }))} />
+                      <button onClick={() => handleSaveSimple(problem.id)} disabled={savingSimple}
+                        className="w-full font-mono text-xs py-2 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/8 transition-colors disabled:opacity-50">
+                        {savingSimple ? "saving..." : "save simple explanation"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -5201,6 +5837,8 @@ function CodingProblemsPanel() {
           </div>
           <Input label="TAGS (comma separated)" value={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="Array, Hash Map" />
         </div>
+        <Input label="COMPANIES (comma separated, optional)" value={form.companies} onChange={v => setForm(p => ({ ...p, companies: v }))}
+          placeholder="Amazon, Google, Microsoft" hint={`e.g. ${COMPANY_TAG_SUGGESTIONS.slice(0, 6).join(", ")}...`} />
         <div className="grid sm:grid-cols-3 gap-3">
           <Input label="ESTIMATED TIME (min)" value={form.estimatedTime} onChange={v => setForm(p => ({ ...p, estimatedTime: v }))} placeholder="15" />
           <Input label="XP REWARD" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: v }))} placeholder="50" />
@@ -5286,9 +5924,23 @@ function HackathonsPanel() {
     finally { setSaving(false); }
   };
 
+  // Also cleans up every registration/submission doc for this hackathon -
+  // both collections use docId `${slug}_${uid}`, so leaving them behind
+  // after a delete meant a LATER hackathon reusing the same slug would
+  // resurrect old, unrelated students' registrations/submissions as if they
+  // belonged to the new event.
   const handleDelete = async (id) => {
     if (!confirm(`Delete hackathon "${id}"?`)) return;
-    await deleteDoc(doc(db, "hackathons", id));
+    const [regSnap, subSnap] = await Promise.all([
+      getDocs(query(collection(db, "hackathon_registrations"), where("hackathonSlug", "==", id))),
+      getDocs(query(collection(db, "hackathon_submissions"), where("hackathonSlug", "==", id))),
+    ]);
+    const refs = [...regSnap.docs.map(d => d.ref), ...subSnap.docs.map(d => d.ref), doc(db, "hackathons", id)];
+    for (let i = 0; i < refs.length; i += 450) {
+      const batch = writeBatch(db);
+      refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
     load();
   };
 
@@ -5855,7 +6507,7 @@ function RanksPanel() {
   return (
     <div className="space-y-4">
       <p className="font-mono text-[10px] text-white/18">
-        Edits the /ranks ladder display (color, requirement text, perks). XP thresholds that assign a user's tier are fixed in code and not changed here.
+        Edits the /ranks ladder display (color, requirement text, perks). XP thresholds that assign a user&apos;s tier are fixed in code and not changed here.
       </p>
       <div className="space-y-3">
         {tiers.map((t, i) => (
@@ -6004,12 +6656,29 @@ function AdminCommandPalette({ onClose, onNavigate }) {
   );
 }
 
-export default function AdminPage() {
+function AdminPageInner() {
   const { user, loading, isAdmin, adminChecked, logout } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("moderation");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const fromUrl = searchParams.get("tab");
+    return ADMIN_TABS.some(t => t.key === fromUrl) ? fromUrl : "moderation";
+  });
   const [pendingCount, setPendingCount] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Refreshing the admin panel used to always drop back to Moderation,
+  // discarding whichever tab (Overview/Content/Community/Challenges/
+  // Economy/Ops) the admin was actually working in - a real cost on the
+  // single busiest internal screen. Bypasses Next.js's router (replaceState
+  // directly) for the same reason campus-app.jsx's own tab-sync effect
+  // does: updating the URL shouldn't trigger a navigation/re-render, just
+  // keep the address bar (and a refresh) in sync with client state.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = `/admin?tab=${activeTab}`;
+    window.history.replaceState(null, "", url);
+  }, [activeTab]);
 
   // Live pending-moderation count, shown as a badge on the tab and a banner
   // on Overview - this is the number admins care about above everything else.
@@ -6211,6 +6880,9 @@ export default function AdminPage() {
                 <Section title="APTITUDE & REASONING" icon={ListChecks} color="#00FFFF">
                   <AptitudePanel />
                 </Section>
+                <Section title="APTITUDE - TOPIC LESSON CONTENT" icon={GraduationCap} color="#00FFFF">
+                  <AptitudeTopicsPanel />
+                </Section>
                 <Section title="COMPANY PREP" icon={Briefcase} color="#FF9500">
                   <CompanyPrepPanel />
                 </Section>
@@ -6219,6 +6891,33 @@ export default function AdminPage() {
                 </Section>
                 <Section title="CS CORE SUBJECTS" icon={BrainCircuit} color="#A78BFA">
                   <CsCoreSubjectsPanel />
+                </Section>
+                {/* GATE - seven sections inside the existing CONTENT tab rather than
+                    a new top-level admin tab, per CLAUDE.md. Papers comes first
+                    because everything else below is paper-scoped and nothing can be
+                    authored until a paper exists (one click, from the official
+                    transcribed syllabus). Bulk Lesson Import sits directly after the
+                    per-topic editor it scales up, so the two are found together. */}
+                <Section title="GATE PAPERS & SYLLABUS SEEDING" icon={GraduationCap} color="#00E5A0">
+                  <GatePapersPanel />
+                </Section>
+                <Section title="GATE SUBJECTS & LESSON CONTENT" icon={Layers} color="#00E5A0">
+                  <GateSubjectsPanel />
+                </Section>
+                <Section title="GATE BULK LESSON IMPORT" icon={Upload} color="#00E5A0">
+                  <GateLessonImportPanel />
+                </Section>
+                <Section title="GATE PREVIOUS YEAR QUESTIONS" icon={ListChecks} color="#00E5A0">
+                  <GatePyqPanel />
+                </Section>
+                <Section title="GATE TESTS & MOCKS" icon={ClipboardList} color="#00E5A0">
+                  <GateTestsPanel />
+                </Section>
+                <Section title="GATE FORMULA BOOK" icon={BookOpen} color="#00E5A0">
+                  <GateFormulaPanel />
+                </Section>
+                <Section title="GATE RESOURCES & ANNOUNCEMENTS" icon={Megaphone} color="#00E5A0">
+                  <GateResourcesPanel />
                 </Section>
                 <Section title="INTEL FEED" icon={Radio} color="#C77DFF">
                   <IntelPanel />
@@ -6266,5 +6965,16 @@ export default function AdminPage() {
         )}
       </AnimatePresence>
     </main>
+  );
+}
+
+// useSearchParams() requires a Suspense boundary during static-export
+// prerendering - same pattern as campus-app.jsx's own top-level
+// useSearchParams() usage.
+export default function AdminPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPageInner />
+    </Suspense>
   );
 }

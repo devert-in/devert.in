@@ -27,7 +27,23 @@ export const CAMPUS = {
   blueTint: "var(--campus-blue-tint)",
   purple: "var(--campus-purple)",
   purpleTint: "var(--campus-purple-tint)",
+  // Fixed dark chrome, deliberately NOT theme-inverting - see globals.css's
+  // own comment. Use for anything meant to stay a dark block with white text
+  // regardless of light/dark toggle (primary buttons, hero banners, the
+  // sidebar logo badge) - CAMPUS.ink is a foreground token and will invert.
+  chromeBg: "var(--campus-chrome-bg)",
+  chromeFg: "var(--campus-chrome-fg)",
   shadow: "var(--campus-shadow)",
   shadowHover: "var(--campus-shadow-hover)",
   shadowLg: "var(--campus-shadow-lg)",
 };
+
+// Fixed literal hex, deliberately NOT CAMPUS.* var() references - an
+// institution's heroAccentColor is a brand color stored as a plain hex
+// string in Firestore and rendered on public-facing banners that must look
+// the same regardless of the viewer's light/dark toggle, unlike every other
+// CAMPUS token above. Matches the platform's documented neon accent palette
+// (see CLAUDE.md's Design System section) - the one shared source for it,
+// so campus-branding.jsx's preset swatches don't drift from that palette as
+// independently copy-pasted literals.
+export const NEON_ACCENT_HEX = ["#00FF41", "#00FFFF", "#FF9500", "#C77DFF", "#FFD700", "#3B82F6"];

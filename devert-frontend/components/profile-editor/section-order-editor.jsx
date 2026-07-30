@@ -23,7 +23,7 @@ export default function SectionOrderEditor({ order, hidden, onChange }) {
   return (
     <div>
       <SectionHeader title="section order & visibility" />
-      <p className="font-mono text-[10px] text-white/25 mb-3">// controls the order sections appear in on your public portfolio, and lets you hide ones you're not ready to show</p>
+      <p className="font-mono text-[10px] text-white/25 mb-3">// controls the order sections appear in on your public portfolio, and lets you hide ones you&apos;re not ready to show</p>
       <div className="space-y-1.5">
         {order.map((key, i) => {
           const meta = SECTION_META[key];

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, Download } from "lucide-react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { CAMPUS } from "@/lib/campus-theme";
@@ -64,10 +64,10 @@ export function CampusProgressBar({ pct, color = CAMPUS.teal }) {
   );
 }
 
-export function CampusStat({ label, value, color }) {
+export function CampusStat({ label, value, color, hint }) {
   return (
     <CampusCard className="p-3.5">
-      <span className="block text-[10px] font-mono tracking-wide mb-1.5" style={{ color: CAMPUS.inkFaint }}>{label.toUpperCase()}</span>
+      <span className="block text-[10px] font-mono tracking-wide mb-1.5" style={{ color: CAMPUS.inkFaint }} title={hint || undefined}>{label.toUpperCase()}</span>
       <span className="block font-mono text-xl font-bold" style={{ color: color || CAMPUS.ink }}>{value}</span>
     </CampusCard>
   );
@@ -129,7 +129,7 @@ export function CampusEmptyState({ icon: Icon, title, description, action, secon
 }
 
 const CAMPUS_BUTTON_VARIANTS = {
-  primary:   { background: CAMPUS.ink, color: "#fff" },
+  primary:   { background: CAMPUS.chromeBg, color: CAMPUS.chromeFg },
   secondary: { background: CAMPUS.surface, color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` },
   ghost:     { background: "transparent", color: CAMPUS.teal },
   danger:    { background: CAMPUS.badTint, color: CAMPUS.bad },
@@ -158,6 +158,58 @@ export function CampusButton({ variant = "primary", size = "md", rounded = "lg",
       {Icon && <Icon size={size === "sm" ? 12 : 14} />}
       {children}
     </button>
+  );
+}
+
+// A single "Download" button that expands into CSV/Excel/PDF choices,
+// backed by lib/campusReports.js's generic exporter - used everywhere a
+// report can be downloaded (Command Center, Manage > Students, contest
+// dashboards) instead of each spot hand-rolling its own export button.
+// `getReport` is called lazily (only once a format is actually picked), so
+// opening the menu itself never fires a Firestore read - only confirming a
+// format does. lib/campusReports is dynamically imported here so pages that
+// never touch a Download button don't pull jspdf/xlsx into their bundle.
+export function ReportDownloadButton({ label = "Download", getReport, size = "md", variant = "secondary" }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const handle = async (format) => {
+    setOpen(false);
+    setBusy(true);
+    setError("");
+    try {
+      const [{ downloadReport }, report] = await Promise.all([import("@/lib/campusReports"), getReport()]);
+      await downloadReport(report, format);
+    } catch (e) {
+      setError(e?.message || "Failed to generate report.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="relative inline-block">
+      <CampusButton variant={variant} size={size} icon={Download} disabled={busy} onClick={() => setOpen(o => !o)}>
+        {busy ? "Preparing..." : label}
+      </CampusButton>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} className="fixed inset-0 z-10" />
+          <div className="absolute right-0 mt-1 z-20 rounded-lg overflow-hidden min-w-[120px]"
+            style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
+            {[["csv", "CSV"], ["excel", "Excel"], ["pdf", "PDF"]].map(([fmt, fmtLabel]) => (
+              <button key={fmt} onClick={() => handle(fmt)}
+                className="block w-full text-left px-4 py-2 text-[12px] font-semibold transition-colors"
+                style={{ color: CAMPUS.ink }}>
+                {fmtLabel}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {error && <p className="absolute right-0 top-full mt-1 text-[10.5px] whitespace-nowrap" style={{ color: CAMPUS.bad }}>{error}</p>}
+    </div>
   );
 }
 

@@ -4,22 +4,31 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { GraduationCap, BookOpen, ClipboardCheck, Trophy, Users, ArrowUpRight, Building2 } from "lucide-react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
 import { fetchPublishedContests, bucketContests } from "@/lib/contests";
+import { fetchInstitutions } from "@/lib/institutions";
 
 // Real numbers only - same convention as platform-stats.jsx (institutions +
 // active contests, not a fabricated "10,000+ students" line). Two cheap
-// collection reads, not the N-institution fan-out the actual Campus
-// directory does for its own per-college student counts.
+// reads, not the N-institution fan-out the actual Campus directory does for
+// its own per-college student counts. fetchInstitutions() (not a raw
+// getDocs(collection(db,"institutions"))) is required here, not just
+// tidier - a bare unfiltered institutions query was emulator-confirmed to
+// actually return a private institution's full document (name,
+// contactEmail, etc.) to an anonymous visitor despite firestore.rules'
+// per-document accessMode check, for reasons specific to an unconstrained
+// list() with no where() clause at all. fetchInstitutions() already
+// structurally excludes private/inactive institutions via its own
+// where("accessMode","in",[...]) filter, which is safe under list mode
+// (verified elsewhere this session) - reuse it rather than re-deriving a
+// second, differently-shaped query for the same collection.
 function useCampusStats() {
   const [stats, setStats] = useState(null);
   useEffect(() => {
     Promise.allSettled([
-      getDocs(collection(db, "institutions")),
+      fetchInstitutions(),
       fetchPublishedContests(),
     ]).then(([instRes, contestsRes]) => {
-      const institutions = instRes.status === "fulfilled" ? instRes.value.size : 0;
+      const institutions = instRes.status === "fulfilled" ? instRes.value.length : 0;
       const contests = contestsRes.status === "fulfilled" ? contestsRes.value : [];
       const bucketed = bucketContests(contests);
       setStats({ institutions, activeContests: bucketed.live.length + bucketed.upcoming.length });

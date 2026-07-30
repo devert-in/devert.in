@@ -20,7 +20,12 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
             .allowedOriginPatterns(allowedOrigins.split(","))
-            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+            // PATCH added for AdminAccountController's status/permissions
+            // endpoints - without it, the browser's CORS preflight silently
+            // rejects the actual PATCH request (surfaces as a generic
+            // "Failed to fetch", not a proper HTTP error, since the request
+            // never actually reaches the server).
+            .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
             .allowedHeaders("*");
     }
 }

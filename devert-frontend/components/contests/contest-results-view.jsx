@@ -5,7 +5,7 @@ import { ArrowLeft, Medal } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchContest, fetchContestQuestions, fetchContestAnswerKeys, fetchMySubmission,
-  gradeSubmission, computeRewards, persistGrading, fetchLeaderboard, fetchMyRank, contestPhase,
+  gradeSubmission, persistGrading, fetchLeaderboard, fetchMyRank, contestPhase,
 } from "@/lib/contests";
 import { useIsWindowed } from "@/components/window/is-windowed";
 
@@ -62,9 +62,8 @@ export function ContestResultsView({ contestId, onBack, onLogin }) {
               fetchContestQuestions(contestId), fetchContestAnswerKeys(contestId),
             ]);
             const result = gradeSubmission(questions, answerKeys, sub.answers);
-            const rewards = computeRewards(c, result.accuracyRatio);
-            await persistGrading(contestId, user.uid, result, rewards);
-            sub = { ...sub, graded: true, ...result, ...rewards };
+            await persistGrading(contestId, user.uid, result);
+            sub = { ...sub, graded: true, ...result };
             refreshProfile?.();
             setLeaderboard(await fetchLeaderboard(contestId).catch(() => []));
           } catch (e) { console.error(e); }
@@ -114,16 +113,15 @@ export function ContestResultsView({ contestId, onBack, onLogin }) {
             )}
             {user && mySubmission?.graded && (
               <div className="terminal-window mb-6">
-                <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div className="p-5 grid grid-cols-3 gap-4 text-center">
                   <Stat label="RANK" value={myRank ? `#${myRank}` : "-"} color="#FFD700" />
                   <Stat label="SCORE" value={`${mySubmission.score}/${mySubmission.maxScore}`} />
                   <Stat label="ACCURACY" value={`${mySubmission.accuracy}%`} color="#00FF41" />
-                  <Stat label="XP / COINS" value={`+${mySubmission.xpEarned} / +${mySubmission.coinsEarned}`} color="#FFD700" />
                 </div>
               </div>
             )}
             {user && !mySubmission && !grading && (
-              <p className="font-mono text-xs text-white/25 text-center mb-6">You didn't submit an attempt for this contest.</p>
+              <p className="font-mono text-xs text-white/25 text-center mb-6">You didn&apos;t submit an attempt for this contest.</p>
             )}
             {!user && (
               <p className="font-mono text-xs text-white/25 text-center mb-6">

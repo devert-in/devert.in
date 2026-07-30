@@ -5,7 +5,7 @@
 import { db } from "@/lib/firebase";
 import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
-  serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove,
+  serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove, writeBatch,
 } from "firebase/firestore";
 import { writeNotification } from "@/components/notification-bell";
 
@@ -39,7 +39,17 @@ export async function saveOpportunity(id, data) {
   await setDoc(doc(db, "opportunities", id), { updatedAt: serverTimestamp(), ...data }, { merge: true });
 }
 
+// Also scrubs this id out of every user's opportunity_saves.saved array -
+// without this, a deleted opportunity's id lived on in that array forever
+// (nothing ever re-validates saved ids against the live catalog), growing
+// without bound across the whole platform, not just Campus students.
 export async function deleteOpportunity(id) {
+  const savesSnap = await getDocs(query(collection(db, "opportunity_saves"), where("saved", "array-contains", id)));
+  for (let i = 0; i < savesSnap.docs.length; i += 450) {
+    const batch = writeBatch(db);
+    savesSnap.docs.slice(i, i + 450).forEach(d => batch.update(d.ref, { saved: arrayRemove(id) }));
+    await batch.commit();
+  }
   await deleteDoc(doc(db, "opportunities", id));
 }
 

@@ -20,9 +20,12 @@ import com.google.cloud.firestore.SetOptions;
 // Runs entirely server-side: reads hidden test cases via the admin SDK (bypassing
 // Firestore rules - this is the ONLY code path that ever reads them), grades by running
 // each test through CodeExecutionService and comparing output itself, then writes the
-// submission and awards XP/coins. The client never sees hidden test content and never
-// has a legal path to write a submission or its own grade - see firestore.rules's
-// codelab_submissions/hiddenTests rules for the other half of this trust boundary.
+// submission/progress/completion record. Neither DSA Practice/CodeLab nor Arena grants
+// XP/Coins/Score (platform policy: only Daily Learning, Programming, and CS Core do) -
+// this class only ever writes completion tracking (solved map, streak, arenaWins), never
+// a reward. The client never sees hidden test content and never has a legal path to
+// write a submission or its own grade - see firestore.rules's codelab_submissions/
+// hiddenTests rules for the other half of this trust boundary.
 @Service
 public class GradingService {
 
@@ -32,7 +35,7 @@ public class GradingService {
     @Autowired
     private CodeExecutionService codeExecutionService;
 
-    public Map<String, Object> gradeSubmission(String uid, String problemId, String language, String code) throws Exception {
+    public Map<String, Object> gradeSubmission(String uid, String problemId, String language, String code, boolean suppressReward) throws Exception {
         if (db == null) {
             throw new IllegalStateException("CodeLab isn't configured yet (missing FIREBASE_SERVICE_ACCOUNT_JSON).");
         }
@@ -51,8 +54,14 @@ public class GradingService {
         ProblemGradeResult grade = runProblemTests(problemRef, language, code);
 
         boolean accepted = grade.accepted;
-        long xpReward = problem.contains("xpReward") ? problem.getLong("xpReward") : 0;
-        long coinReward = problem.contains("coinReward") ? problem.getLong("coinReward") : 0;
+        // DSA Practice/CodeLab grants no XP/Coins/Score at all (platform policy: only
+        // Daily Learning, Programming, and CS Core reward) - xpReward/coinReward are
+        // hardcoded to 0 regardless of the problem's own authored xpReward/coinReward
+        // fields or the (now-vestigial, always-0-effect) suppressReward flag.
+        // solvedProblems/problemsSolvedCount/streak/submission history are all still
+        // fully tracked below - only the reward amounts are gone.
+        long xpReward = 0;
+        long coinReward = 0;
 
         DocumentReference progressRef = db.collection("user_codelab_progress").document(uid);
         DocumentReference userRef = db.collection("users").document(uid);
@@ -148,13 +157,15 @@ public class GradingService {
             if (accepted) problemUpdate.put("acceptedSubmissions", FieldValue.increment(1));
             transaction.set(problemRef, problemUpdate, SetOptions.merge());
 
-            if (xpEarned > 0 || coinsEarned > 0 || (accepted && !alreadySolved) || newStreak != null) {
+            // No xp/score/credits/coins writes here anymore (CodeLab grants no
+            // reward) - only progress/completion tracking survives: the
+            // denormalized problemsSolvedCount (so a "Top Solvers" leaderboard can
+            // query users/{uid} directly - user_codelab_progress itself stays
+            // owner-only readable) and the streak/lastSolvedDate carried over from
+            // before. No reward_grants ledger entry either - there is nothing to
+            // audit once nothing is granted.
+            if ((accepted && !alreadySolved) || newStreak != null) {
                 Map<String, Object> userUpdate = new HashMap<>();
-                if (xpEarned > 0) userUpdate.put("xp", FieldValue.increment(xpEarned));
-                if (coinsEarned > 0) userUpdate.put("credits", FieldValue.increment(coinsEarned));
-                // Denormalized onto the public users doc (like arenaWins/contestXp) so a
-                // "Top Solvers" leaderboard can query it directly - user_codelab_progress
-                // itself stays owner-only readable, same privacy default as Aptitude.
                 if (accepted && !alreadySolved) userUpdate.put("problemsSolvedCount", FieldValue.increment(1));
                 if (newStreak != null) { userUpdate.put("streak", newStreak); userUpdate.put("lastSolvedDate", today); }
                 transaction.set(userRef, userUpdate, SetOptions.merge());
@@ -233,8 +244,11 @@ public class GradingService {
             return result;
         }
 
-        long xpBase = match.contains("xpBase") ? match.getLong("xpBase") : 0;
-        long xpEarned = xpBase + speedBonus(xpBase, elapsedSeconds, timeLimitSeconds);
+        // Arena grants no XP/Coins/Score (platform policy: only Daily Learning,
+        // Programming, and CS Core reward) - xpEarned is always 0 in every
+        // response/doc field below, not a computed-but-uncredited number, so no
+        // frontend surface can end up displaying a reward that was never granted.
+        long xpEarned = 0;
         DocumentReference userRef = db.collection("users").document(uid);
 
         // Transaction re-reads the match's status fresh, so two near-simultaneous
@@ -260,8 +274,10 @@ public class GradingService {
             matchUpdate.put("xpEarned", xpEarned);
             transaction.set(matchRef, matchUpdate, SetOptions.merge());
 
+            // Only arenaWins (a completion counter) is tracked here now - no
+            // xp/score increment and no reward_grants ledger entry, since Arena
+            // grants nothing to credit or audit.
             Map<String, Object> userUpdate = new HashMap<>();
-            userUpdate.put("xp", FieldValue.increment(xpEarned));
             userUpdate.put("arenaWins", FieldValue.increment(1));
             transaction.set(userRef, userUpdate, SetOptions.merge());
 
@@ -273,15 +289,6 @@ public class GradingService {
             out.put("runtimeMs", grade.maxTimeMs);
             return out;
         }).get();
-    }
-
-    // Up to +30% of the challenge's base XP, scaled linearly by how much of the time
-    // limit was left unused - transparent and simple rather than a curve, since this is
-    // shown back to the player as part of their result.
-    private long speedBonus(long xpBase, long elapsedSeconds, long timeLimitSeconds) {
-        if (timeLimitSeconds <= 0) return 0;
-        double remainingFraction = Math.max(0, (double) (timeLimitSeconds - elapsedSeconds) / timeLimitSeconds);
-        return Math.round(xpBase * 0.3 * remainingFraction);
     }
 
     // Shared grading core: runs every sample + hidden test for a problem and

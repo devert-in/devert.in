@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, XCircle, Lock, GraduationCap, Zap, Coins, BookOpen } from "lucide-react";
+import { CheckCircle2, XCircle, Lock, GraduationCap, BookOpen } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, orderBy, doc, getDoc, updateDoc, setDoc, increment, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
-import { logCoinTransaction } from "@/lib/economy";
-import { fetchCourseTree, flattenTasks, getTaskStatus, getCurrentTask, courseProgressPct } from "@/lib/learning";
+import { fetchCourseTree, flattenTasks, getTaskStatus, getCurrentTask, courseProgressPct, completeTask } from "@/lib/learning";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusProgressBar, CampusGoogleButton, CampusSkeleton, CampusEmptyState } from "@/components/campus/campus-ui";
 
@@ -24,7 +23,7 @@ function SignInPrompt({ message }) {
     <CampusCard className="p-7 text-center max-w-sm mx-auto">
       <h3 className="text-[16px] font-semibold mb-2" style={{ color: CAMPUS.ink }}>Sign in to continue</h3>
       <p className="text-[13px] mb-5" style={{ color: CAMPUS.inkSoft }}>{message}</p>
-      <CampusGoogleButton style={{ background: CAMPUS.ink, color: "#fff" }} />
+      <CampusGoogleButton style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }} />
     </CampusCard>
   );
 }
@@ -137,6 +136,8 @@ function CampusLessonViewer({ courseId, onBrowseCourses, onEnrolled }) {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState(null); // { type: "info" | "error", message }
+  const [justRewarded, setJustRewarded] = useState(false);
 
   useEffect(() => {
     if (courseId === "__catalog__") { setLoading(false); return; }
@@ -205,29 +206,31 @@ function CampusLessonViewer({ courseId, onBrowseCourses, onEnrolled }) {
   const handleSubmit = async () => {
     if (submitting || !allAnswered) return;
     setSubmitting(true);
+    setSubmitNotice(null);
     try {
       let correct = 0;
       quiz.forEach(q => { if (answers[q.id] === q.correctIndex) correct++; });
       const passed = quiz.length === 0 || correct === quiz.length;
-      setResult({ score: correct, total: quiz.length, passed });
 
       if (passed && !alreadyCompleted) {
-        await updateDoc(doc(db, "users", user.uid), { xp: increment(task.xpReward || 0) });
-        if (task.coinReward > 0) {
-          await setDoc(doc(db, "user_earnings", user.uid), {
-            pulseCoins: increment(task.coinReward),
-            totalCoins: increment(task.coinReward),
-          }, { merge: true });
-          logCoinTransaction(user.uid, "task_completed", task.coinReward);
-        }
-        await setDoc(doc(db, "user_learning", user.uid), {
-          enrolledCourseId: courseId,
-          completedTaskIds: arrayUnion(taskId),
-          [`quizAttempts.${taskId}`]: { score: correct, total: quiz.length, passed: true, answeredAt: serverTimestamp() },
-        }, { merge: true });
+        const freshlyCompleted = await completeTask({
+          uid: user.uid, courseId, taskId,
+          quizScore: correct, quizTotal: quiz.length,
+        });
         setProgress(prev => ({ ...prev, completedTaskIds: [...(prev?.completedTaskIds || []), taskId] }));
+        setJustRewarded(freshlyCompleted);
+        if (!freshlyCompleted) {
+          setSubmitNotice({ type: "info", message: "You have already completed this activity." });
+        }
       }
-    } catch (e) { console.error(e); }
+      // Only set once any write above has actually confirmed - previously
+      // this was set before the writes even started, so a failed write still
+      // showed "passed" until a refresh revealed nothing had saved.
+      setResult({ score: correct, total: quiz.length, passed });
+    } catch (e) {
+      console.error(e);
+      setSubmitNotice({ type: "error", message: "Couldn't submit - check your connection and try again." });
+    }
     finally { setSubmitting(false); }
   };
 
@@ -260,10 +263,6 @@ function CampusLessonViewer({ courseId, onBrowseCourses, onEnrolled }) {
 
       <CampusCard className="p-5">
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{task.lessonBody}</p>
-        <div className="flex items-center gap-4 mt-5 pt-4" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-          <span className="flex items-center gap-1.5 text-[10px]" style={{ color: CAMPUS.teal }}><Zap size={11} /> +{task.xpReward} XP</span>
-          <span className="flex items-center gap-1.5 text-[10px]" style={{ color: CAMPUS.good }}><Coins size={11} /> +{task.coinReward} coins</span>
-        </div>
       </CampusCard>
 
       {quiz.length > 0 && (
@@ -290,6 +289,9 @@ function CampusLessonViewer({ courseId, onBrowseCourses, onEnrolled }) {
                     </div>
                   </div>
                 ))}
+                {submitNotice?.type === "error" && (
+                  <p className="text-[11px]" style={{ color: CAMPUS.bad }}>{submitNotice.message}</p>
+                )}
                 <motion.button whileHover={allAnswered ? { scale: 1.01 } : {}} whileTap={allAnswered ? { scale: 0.98 } : {}}
                   onClick={handleSubmit} disabled={!allAnswered || submitting}
                   className="w-full text-sm font-semibold py-3 rounded-xl transition-all disabled:opacity-40"
@@ -303,10 +305,10 @@ function CampusLessonViewer({ courseId, onBrowseCourses, onEnrolled }) {
                   <>
                     <CheckCircle2 size={32} className="mx-auto mb-3" style={{ color: CAMPUS.good }} />
                     <p className="text-sm mb-1" style={{ color: CAMPUS.good }}>
-                      {alreadyCompleted ? "Already completed" : `Passed! ${result.score}/${result.total}`}
+                      {justRewarded ? `Passed! ${result.score}/${result.total}` : "Already completed"}
                     </p>
-                    {!alreadyCompleted && (
-                      <p className="text-xs mb-5" style={{ color: CAMPUS.inkFaint }}>+{task.xpReward} XP · +{task.coinReward} coins earned</p>
+                    {submitNotice?.type === "info" && (
+                      <p className="text-xs mb-5" style={{ color: CAMPUS.inkFaint }}>{submitNotice.message}</p>
                     )}
                     {nextTask ? (
                       <button onClick={() => goToTask(nextTask.id)} className="text-xs font-semibold px-5 py-2.5 rounded-lg transition-colors"

@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Zap, Coins, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle } from "lucide-react";
+import { CheckCircle2, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchContest, fetchContestQuestions, fetchContestAnswerKeys, fetchMyRegistration,
   fetchMySubmission, registerForContest, submitContestAnswers, contestPhase,
-  gradeSubmission, computeRewards, persistGrading, fetchLeaderboard, fetchMyRank,
+  gradeSubmission, persistGrading, fetchLeaderboard, fetchMyRank,
   getContestSettings, isSettingReleased, isAnswerCorrect,
 } from "@/lib/contests";
-import { seededShuffle } from "@/lib/contestRandom";
+import { seededShuffle } from "@/lib/quizRandom";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusBreadcrumb, CampusButton, CampusSkeleton, CampusEmptyState, CampusTable } from "@/components/campus/campus-ui";
 
 // Native, light-themed port of components/contests/{attempt,details,results}-view.jsx
 // for DeVert Campus - reuses every read/write/grading/shuffle function from
-// lib/contests.js + lib/contestRandom.js verbatim (all pure or Firestore-only,
+// lib/contests.js + lib/quizRandom.js verbatim (all pure or Firestore-only,
 // zero dark-theme coupling - see the port research). Only the JSX chrome
 // changes. Never redirects to devert.in for auth - shows the same inline
 // CampusGoogleButton "sign in to continue" pattern used elsewhere in Campus,
@@ -51,7 +51,7 @@ function SignInPrompt({ message }) {
     <CampusCard className="p-7 text-center max-w-sm mx-auto">
       <h3 className="text-[16px] font-semibold mb-2" style={{ color: CAMPUS.ink }}>Sign in to continue</h3>
       <p className="text-[13px] mb-5" style={{ color: CAMPUS.inkSoft }}>{message}</p>
-      <CampusGoogleButton style={{ background: CAMPUS.ink, color: "#fff" }} />
+      <CampusGoogleButton style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }} />
     </CampusCard>
   );
 }
@@ -234,11 +234,11 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
           <Stat label="PARTICIPANTS" value={contest.participantCount || 0} />
           <Stat label="QUESTIONS" value={contest.questionCount || 0} />
         </div>
-        <div className="flex items-center gap-4 text-xs pt-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-          {contest.prizeXp > 0 && <span className="flex items-center gap-1" style={{ color: CAMPUS.good }}><Zap size={12} /> {contest.prizeXp} XP</span>}
-          {contest.prizeCoins > 0 && <span className="flex items-center gap-1" style={{ color: CAMPUS.gold }}><Coins size={12} /> {contest.prizeCoins} coins</span>}
-          {contest.prizeText && <span style={{ color: CAMPUS.inkFaint }}>{contest.prizeText}</span>}
-        </div>
+        {contest.prizeText && (
+          <div className="flex items-center gap-4 text-xs pt-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+            <span style={{ color: CAMPUS.inkFaint }}>{contest.prizeText}</span>
+          </div>
+        )}
       </CampusCard>
 
       {!user ? (
@@ -776,9 +776,8 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
             setGrading(true);
             try {
               const result = gradeSubmission(qs, keys, sub.answers);
-              const rewards = computeRewards(c, result.accuracyRatio);
-              await persistGrading(contestId, user.uid, result, rewards);
-              sub = { ...sub, graded: true, ...result, ...rewards };
+              await persistGrading(contestId, user.uid, result);
+              sub = { ...sub, graded: true, ...result };
               refreshProfile?.();
               setLeaderboard(await fetchLeaderboard(contestId).catch(() => []));
             } catch (e) { console.error(e); }
@@ -851,11 +850,10 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
           {user && mySubmission?.graded && (
             scoreReleased ? (
               <CampusCard className="p-5 mb-6">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <ResultStat label="RANK" value={myRank ? `#${myRank}` : "-"} color={CAMPUS.gold} />
                   <ResultStat label="SCORE" value={`${mySubmission.score}/${mySubmission.maxScore}`} />
                   <ResultStat label="ACCURACY" value={`${mySubmission.accuracy}%`} color={CAMPUS.good} />
-                  <ResultStat label="XP / COINS" value={`+${mySubmission.xpEarned} / +${mySubmission.coinsEarned}`} color={CAMPUS.gold} />
                 </div>
               </CampusCard>
             ) : (

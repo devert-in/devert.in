@@ -7,7 +7,7 @@ import {
   fetchContest, fetchContestQuestions, fetchMyRegistration, fetchMySubmission,
   submitContestAnswers, contestPhase,
 } from "@/lib/contests";
-import { seededShuffle } from "@/lib/contestRandom";
+import { seededShuffle } from "@/lib/quizRandom";
 import { useIsWindowed } from "@/components/window/is-windowed";
 
 function toDate(v) {

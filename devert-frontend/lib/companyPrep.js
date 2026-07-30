@@ -52,6 +52,78 @@ export async function fetchCategoryQuestions(companyId, roundId, categoryId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// ── interview experiences (admin-curated, v1) ───────────────────────────────
+// Read-only from the student side by design - genuine student-submitted
+// experiences are a real follow-up feature, not built here (see the
+// reward-integrity-epic-style plan this was scoped from). Same read gate as
+// categories (isCompanyPublished), write is isAdmin()-only.
+
+export async function fetchCompanyInterviewExperiences(companyId) {
+  const snap = await getDocs(query(collection(db, "companies", companyId, "interviewExperiences"), orderBy("order", "asc")));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// ── mock interviews (admin-configured, timed, assembled from existing categories) ──
+// A mock interview doesn't duplicate questions - it references existing
+// (roundId, categoryId) pairs and pulls their real questions live, so
+// editing/adding a question in the source category automatically flows into
+// any mock interview that references it, no re-authoring needed.
+
+export async function fetchCompanyMockInterviews(companyId) {
+  const snap = await getDocs(query(collection(db, "companies", companyId, "mockInterviews"), orderBy("order", "asc")));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchMockInterviewQuestions(companyId, mockInterview) {
+  const perCategory = await Promise.all(
+    (mockInterview.categoryRefs || []).map(({ roundId, categoryId }) => fetchCategoryQuestions(companyId, roundId, categoryId))
+  );
+  return perCategory.flat();
+}
+
+export async function recordMockInterviewAttempt(uid, companyId, mockInterviewId, { score, total }) {
+  await setDoc(doc(db, "user_companyPrep", uid), {
+    mockInterviewAttempts: { [mockInterviewId]: { companyId, score, total, completedAt: new Date() } },
+  }, { merge: true });
+}
+
+// ── self-assessment checklist (Resume / Communication / Confidence, etc.) ──
+// Deliberately separate from the computed, real-signal readiness score below
+// - these are subjective, self-reported checkboxes with no underlying
+// platform data to verify them against, so they're never blended into the
+// one honest, derived technical-readiness percentage.
+
+export async function setCompanySelfAssessment(uid, companyId, item, checked) {
+  await setDoc(doc(db, "user_companyPrep", uid), {
+    selfAssessment: { [companyId]: { [item]: checked } },
+  }, { merge: true });
+}
+
+// Every question across every round/category of a company - used only for
+// the readiness score below (a single upfront cost when the overview loads,
+// acceptable at this vault's real size: tens to low hundreds of questions
+// per company, not thousands).
+export async function fetchAllCompanyQuestions(companyId, rounds) {
+  const perRound = await Promise.all(rounds.map(async (r) => {
+    const categories = await fetchRoundCategories(companyId, r.id);
+    const perCategory = await Promise.all(categories.map(c => fetchCategoryQuestions(companyId, r.id, c.id)));
+    return perCategory.flat();
+  }));
+  return perRound.flat();
+}
+
+// ── readiness score (computed client-side, real signals only) ──────────────
+// Per-category accuracy/attempted-coverage across every question the student
+// has actually attempted in this company's vault, averaged across categories
+// that have at least one attempt - NOT a fabricated aggregate blending in
+// untracked things like "resume quality" (see setCompanySelfAssessment above
+// for that, kept visually separate on the overview screen).
+export function companyReadinessScore(allQuestions, solvedMap) {
+  if (!allQuestions.length) return null;
+  const solvedCount = allQuestions.filter(q => solvedMap?.[q.id]).length;
+  return Math.round((solvedCount / allQuestions.length) * 100);
+}
+
 // ── per-user progress (solved / bookmarked) ────────────────────────────────
 // Flat maps keyed by questionId - same shape as user_codelab_progress's
 // solvedProblems. Firestore auto-IDs are globally unique across the whole

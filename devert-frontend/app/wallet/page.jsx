@@ -10,10 +10,13 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
-  doc, getDoc, collection, query, where,
-  orderBy, getDocs, addDoc, serverTimestamp, writeBatch, increment, runTransaction,
+  doc, onSnapshot, collection, query, where,
+  orderBy, getDocs, addDoc, serverTimestamp, increment, runTransaction,
 } from "firebase/firestore";
 import { ECONOMY as COINS, loadEconomy, logCoinTransaction } from "@/lib/economy";
+import { fetchWeeklyLeaderboardSettings } from "@/lib/institutions";
+
+const CONVERSION_LOCKED_MESSAGE = "Reward conversion is temporarily locked until this week's leaderboard is finalized by your campus administrator.";
 
 function StatCard({ label, value, sub, color = "#00FFFF" }) {
   return (
@@ -52,6 +55,7 @@ export default function WalletPage() {
   // XP conversion
   const [converting, setConverting] = useState(false);
   const [converted,  setConverted]  = useState(false);
+  const [cError,     setCError]     = useState("");
 
   // Payout form
   const [method,   setMethod]  = useState("upi");
@@ -64,14 +68,30 @@ export default function WalletPage() {
   const [pSaving,  setPSaving] = useState(false);
   const [pSuccess, setPSuccess] = useState(false);
   const [transactions, setTransactions] = useState([]);
+  // Only ever true for a student on a campus with an active weekly-lock
+  // policy - a general platform user with no institutionId has no weekly
+  // leaderboard concept at all, so their conversions are never gated.
+  const [conversionLocked, setConversionLocked] = useState(false);
 
+  // earnings (Coins) and userData (XP) are LIVE subscriptions, not one-time
+  // getDoc()s - this is the one page whose entire purpose is showing an
+  // accurate balance, so a reward landing (Daily Learning, CodeLab, a
+  // contest grade) while the tab is already open must update the displayed
+  // number immediately, the same way quick-stats-row.jsx/campus-app.jsx's
+  // Overview already do for the identical documents, instead of only
+  // refreshing on a manual reload.
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.push("/login?next=/wallet"); return; }
 
+    const unsubEarnings = onSnapshot(doc(db, "user_earnings", user.uid), snap => {
+      setEarnings(snap.exists() ? snap.data() : { pulseCoins: 0, totalCoins: 0 });
+    }, () => setEarnings({ pulseCoins: 0, totalCoins: 0 }));
+    const unsubUser = onSnapshot(doc(db, "users", user.uid), snap => {
+      setUserData(snap.exists() ? snap.data() : {});
+    }, () => setUserData({}));
+
     Promise.all([
-      getDoc(doc(db, "user_earnings", user.uid)),
-      getDoc(doc(db, "users",         user.uid)),
       getDocs(query(
         collection(db, "payout_requests"),
         where("uid", "==", user.uid),
@@ -82,9 +102,7 @@ export default function WalletPage() {
       getDocs(query(collection(db, "coin_transactions"), where("uid", "==", user.uid))),
       loadEconomy(),
     ])
-      .then(([earnSnap, userSnap, reqSnap, txSnap]) => {
-        setEarnings(earnSnap.exists() ? earnSnap.data() : { pulseCoins: 0, totalCoins: 0 });
-        setUserData(userSnap.exists() ? userSnap.data() : {});
+      .then(([reqSnap, txSnap]) => {
         setRequests(reqSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setTransactions(
           txSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -93,27 +111,46 @@ export default function WalletPage() {
       })
       .catch(console.error)
       .finally(() => setPageLoad(false));
+
+    return () => { unsubEarnings(); unsubUser(); };
   }, [user, authLoading]);
 
-  const handleConvertXP = async () => {
-    if (!user || !userData) return;
-    const xp       = userData.xp || 0;
-    const gainable = Math.min(Math.floor(xp / COINS.XP_PER_COIN), 5000);
-    if (gainable < 1) return;
+  useEffect(() => {
+    if (!userData?.institutionId) { setConversionLocked(false); return; }
+    fetchWeeklyLeaderboardSettings(userData.institutionId)
+      .then(s => setConversionLocked(s.rewardConversionLocked !== false))
+      .catch(() => setConversionLocked(false));
+  }, [userData?.institutionId]);
 
+  // runTransaction, not a blind writeBatch off stale `userData.xp` React
+  // state - two tabs (or a double-click) both computing `gainable` from the
+  // same stale xp value and both committing would double-convert the same
+  // XP into coins, minting real withdrawable balance from nothing. Re-reads
+  // xp live, inside the transaction, immediately before deciding how much to
+  // grant - the same pattern handlePayoutRequest below already uses for its
+  // own coin balance.
+  const handleConvertXP = async () => {
+    if (!user) return;
+    setCError("");
+    if (conversionLocked) { setCError(CONVERSION_LOCKED_MESSAGE); return; }
     setConverting(true);
+    let gainable = 0;
     try {
-      const batch = writeBatch(db);
-      batch.set(doc(db, "user_earnings", user.uid), {
-        pulseCoins: increment(gainable),
-        totalCoins: increment(gainable),
-      }, { merge: true });
-      batch.update(doc(db, "users", user.uid), {
-        xp: increment(-(gainable * COINS.XP_PER_COIN)),
+      await runTransaction(db, async (tx) => {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await tx.get(userRef);
+        const liveXp = userSnap.exists() ? (userSnap.data().xp || 0) : 0;
+        gainable = Math.min(Math.floor(liveXp / COINS.XP_PER_COIN), 5000);
+        if (gainable < 1) return;
+        tx.set(doc(db, "user_earnings", user.uid), {
+          pulseCoins: increment(gainable),
+          totalCoins: increment(gainable),
+        }, { merge: true });
+        tx.update(userRef, { xp: increment(-(gainable * COINS.XP_PER_COIN)) });
       });
-      await batch.commit();
+      if (gainable < 1) return;
       logCoinTransaction(user.uid, "xp_convert", gainable);
-      setUserData(p  => ({ ...p, xp: xp - gainable * COINS.XP_PER_COIN }));
+      setUserData(p  => ({ ...p, xp: (p?.xp || 0) - gainable * COINS.XP_PER_COIN }));
       setEarnings(p  => ({
         pulseCoins: (p?.pulseCoins || 0) + gainable,
         totalCoins: (p?.totalCoins || 0) + gainable,
@@ -127,6 +164,7 @@ export default function WalletPage() {
 
   const handlePayoutRequest = async () => {
     setPError("");
+    if (conversionLocked) return setPError(CONVERSION_LOCKED_MESSAGE);
     const coinAmt = parseInt(coins);
     if (!coinAmt || coinAmt < COINS.MIN_PAYOUT)
       return setPError(`Minimum payout is ${COINS.MIN_PAYOUT.toLocaleString()} coins (₹${(COINS.MIN_PAYOUT / COINS.COINS_PER_INR).toFixed(2)}).`);
@@ -318,9 +356,14 @@ export default function WalletPage() {
                 You have <span style={{ color: "#00FF41" }}>{xp.toLocaleString()} XP</span> → convert{" "}
                 <span style={{ color: "#FF9500" }}>{convertable.toLocaleString()} coins</span> ({convertable * COINS.XP_PER_COIN} XP used).
               </p>
+              {conversionLocked && (
+                <p className="font-mono text-[10.5px] text-orange-400/80 mb-3 flex items-center gap-1.5">
+                  <Clock size={11} /> {CONVERSION_LOCKED_MESSAGE}
+                </p>
+              )}
               <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                 onClick={handleConvertXP}
-                disabled={converting || converted}
+                disabled={converting || converted || conversionLocked}
                 className="w-full font-mono text-xs py-2.5 border transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                 style={converted
                   ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
@@ -333,6 +376,7 @@ export default function WalletPage() {
                   <><TrendingUp size={12} /> convert {convertable.toLocaleString()} XP → {convertable} coins</>
                 )}
               </motion.button>
+              {cError && !conversionLocked && <p className="font-mono text-[10px] text-red-400 mt-2">{cError}</p>}
             </div>
           </motion.div>
         )}
@@ -367,7 +411,7 @@ export default function WalletPage() {
                     className="text-center py-6">
                     <CheckCircle size={28} className="mx-auto mb-3" style={{ color: "#00FF41" }} />
                     <p className="font-mono text-sm text-neon-green mb-1">Request submitted!</p>
-                    <p className="font-mono text-[10px] text-white/30">We'll process it within 3–5 business days.</p>
+                    <p className="font-mono text-[10px] text-white/30">We&apos;ll process it within 3–5 business days.</p>
                   </motion.div>
                 ) : (
                   <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -458,10 +502,15 @@ export default function WalletPage() {
                       </div>
                     )}
 
+                    {conversionLocked && (
+                      <p className="font-mono text-[10.5px] text-orange-400/80 flex items-center gap-1.5">
+                        <Clock size={11} /> {CONVERSION_LOCKED_MESSAGE}
+                      </p>
+                    )}
                     {pError && <p className="font-mono text-[10px] text-red-400">{pError}</p>}
 
                     <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                      onClick={handlePayoutRequest} disabled={pSaving}
+                      onClick={handlePayoutRequest} disabled={pSaving || conversionLocked}
                       className="w-full font-mono text-xs py-3 border transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                       style={{ color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)", background: "rgba(0,255,255,0.04)" }}
                     >

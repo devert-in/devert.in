@@ -30,6 +30,39 @@ service cloud.firestore {
         : fallback;
     }
 
+    // DeVert Campus - Principal/HOD/Faculty-Class-Teacher hierarchy.
+    // institutions/{id}/roleAssignments/{uid} is a SEPARATE collection from
+    // admins/{uid} below (see that collection's own write rule - isAdmin()-
+    // only, no client write path at all, since every account here is
+    // created/managed exclusively by devert-backend's AdminAccountService).
+    // Keeping it separate means a narrowly-scoped HOD/Faculty role can never
+    // accidentally inherit isInstitutionAdmin()'s blanket rights just by
+    // existing, the way it would if this lived inside admins/{uid} (which
+    // grants full institution rights at ~20+ call sites throughout this
+    // file). `status == 'active'` here is what makes disabling an account
+    // (AdminAccountService's setStatus) take effect immediately, even
+    // mid-session, not just on that account's next sign-in.
+    function hasRoleAssignment(institutionId, uid) {
+      return institutionId != '' && isAuth()
+        && exists(/databases/$(database)/documents/institutions/$(institutionId)/roleAssignments/$(uid))
+        && get(/databases/$(database)/documents/institutions/$(institutionId)/roleAssignments/$(uid)).data.status == 'active';
+    }
+    function myRoleAssignment(institutionId, uid) {
+      return get(/databases/$(database)/documents/institutions/$(institutionId)/roleAssignments/$(uid)).data;
+    }
+    // Principal has identical breadth to an Institution Admin - folded
+    // directly into isInstitutionAdmin() below as one more disjunct, so
+    // every one of that function's ~20 existing call sites (contests,
+    // dailyLearning, classrooms, settings, students, questionBank...) covers
+    // Principal too with zero edits. HOD/Faculty get their own much
+    // narrower helpers instead (isHodOfDepartment/isFacultyOfClassroom
+    // below) - added only at the specific new call sites that need them,
+    // never folded into this blanket check.
+    function isPrincipal(institutionId) {
+      return hasRoleAssignment(institutionId, request.auth.uid)
+        && myRoleAssignment(institutionId, request.auth.uid).roleKey == 'principal';
+    }
+
     // DeVert Campus - institution-scoped roles, checked the same way as isAdmin()
     // but against a Firestore membership doc instead of a custom claim (claims are
     // a single global flag on this project - not tenant-scoped, so institution
@@ -42,11 +75,62 @@ service cloud.firestore {
     // on whatever value is being written, so this must fail closed on empty
     // input rather than crash the whole write.
     function isInstitutionAdmin(institutionId) {
-      return institutionId != '' && isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/admins/$(request.auth.uid));
+      return institutionId != '' && isAuth() && (
+        exists(/databases/$(database)/documents/institutions/$(institutionId)/admins/$(request.auth.uid))
+        || isPrincipal(institutionId)
+      );
     }
     function isApprovedStudent(institutionId) {
       return isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid))
         && get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    // HOD/Faculty-Class-Teacher - narrow, single-scope counterparts to
+    // isPrincipal() above. Unlike Principal, these are NEVER folded into
+    // isInstitutionAdmin() - they only ever appear as their own additional
+    // disjunct at the specific rules that need department/classroom
+    // scoping (students/{uid}, classrooms/{classroomId}, dailyLearning/
+    // {itemId} below, plus the isHodOfStudent/isFacultyOfStudent read-only
+    // variants next to isAdminOfStudent further down), so a department- or
+    // classroom-scoped role can never accidentally reach anything outside
+    // its own scope through some OTHER call site that only meant to grant
+    // full institution admins access.
+    function isHodOfDepartment(institutionId, department) {
+      return department != '' && hasRoleAssignment(institutionId, request.auth.uid)
+        && myRoleAssignment(institutionId, request.auth.uid).roleKey == 'hod'
+        && myRoleAssignment(institutionId, request.auth.uid).scope.get('department', '') == department;
+    }
+    function isFacultyOfClassroom(institutionId, classroomId) {
+      return classroomId != '' && hasRoleAssignment(institutionId, request.auth.uid)
+        && myRoleAssignment(institutionId, request.auth.uid).roleKey == 'facultyClassTeacher'
+        && myRoleAssignment(institutionId, request.auth.uid).scope.get('classroomId', '') == classroomId;
+    }
+
+    // Same fallback shape as economyVal() above - system/rolePermissionDefaults
+    // (seeded by scripts/seed-role-permission-defaults.mjs, mirrored in
+    // devert-frontend/lib/permissions.js) holds each role's default granted
+    // permissions; a missing doc fails to `false` (nothing granted) rather
+    // than throwing, so a not-yet-seeded permission never accidentally opens
+    // a write up.
+    function rolePermissionDefault(roleKey, key) {
+      return exists(/databases/$(database)/documents/system/rolePermissionDefaults)
+        ? get(/databases/$(database)/documents/system/rolePermissionDefaults).data.get(roleKey, {}).get(key, false)
+        : false;
+    }
+    // Effective permission = this admin's own explicit override if present,
+    // else their role's configured default - "new role = configuration, not
+    // redesign": a future role needs one new key in system/
+    // rolePermissionDefaults, nothing here. Deliberately layered onto only
+    // the specific mutating actions/reads named in the spec (see each call
+    // site's own comment), not retrofitted onto every institution-scoped
+    // rule in this file - scope (department/classroom) match is the real
+    // security boundary these roles need; a missing hasPermission() grant
+    // just means the client hides the control (lib/campusPermissions.js),
+    // not a second security boundary layered onto every single field.
+    function hasPermission(institutionId, uid, key) {
+      return hasRoleAssignment(institutionId, uid)
+        && myRoleAssignment(institutionId, uid).get('permissionOverrides', {})
+             .get(key, rolePermissionDefault(myRoleAssignment(institutionId, uid).roleKey, key));
     }
 
     // Resolves which institution (if any) a student uid belongs to, purely
@@ -85,6 +169,48 @@ service cloud.firestore {
         && isInstitutionAdmin(studentInstitutionId(uid))
         && exists(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid))
         && get(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid)).data.status in ['approved', 'suspended'];
+    }
+    // Mirror of isAdminOfStudent() above, for the two new narrower roles -
+    // same exploit guard (a fabricated roster relationship alone is never
+    // enough; the roster doc must genuinely exist in approved/suspended
+    // state) and same read-only intent (Student Analytics Dashboard access),
+    // just scoped to one department/classroom instead of the whole
+    // institution. Added as additional disjuncts alongside every existing
+    // isAdminOfStudent() call site below, never a replacement for it.
+    function isHodOfStudent(uid) {
+      return studentInstitutionId(uid) != ''
+        && exists(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid))
+        && get(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid)).data.status in ['approved', 'suspended']
+        && isHodOfDepartment(studentInstitutionId(uid), get(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid)).data.get('department', ''));
+    }
+    function isFacultyOfStudent(uid) {
+      return studentInstitutionId(uid) != ''
+        && exists(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid))
+        && get(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid)).data.status in ['approved', 'suspended']
+        && isFacultyOfClassroom(studentInstitutionId(uid), get(/databases/$(database)/documents/institutions/$(studentInstitutionId(uid))/students/$(uid)).data.get('classroomId', ''));
+    }
+
+    // Classroom-level module access (Manage -> a module's own tab -> Manage
+    // Access - see lib/institutions.js's MODULES/isModuleEnabledForClassroom).
+    // Fails OPEN (enabled) whenever there's nothing to scope against - no
+    // classroomId on the user's profile, or the classroom doc doesn't exist -
+    // matching the client's own default ("no data to scope" -> allowed), not
+    // a stricter server-side default. Only enforced here for modules whose
+    // write path is a real, institution-scoped client Firestore write
+    // (Contests, Daily Learning) - Programming/CS Core/DSA/Company Vault are
+    // global, publicly-readable catalogs with no institution-level read gate
+    // at all today (see programmingLanguages/csCoreSubjects/problems/companies
+    // above), so classroom access for those four is a navigation-level
+    // control in the client, not a new content boundary to enforce here.
+    function myClassroomId(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        ? get(/databases/$(database)/documents/users/$(uid)).data.get('classroomId', '')
+        : '';
+    }
+    function isModuleEnabledForUser(uid, institutionId, moduleKey) {
+      return myClassroomId(uid) == ''
+        || !exists(/databases/$(database)/documents/institutions/$(institutionId)/classrooms/$(myClassroomId(uid)))
+        || get(/databases/$(database)/documents/institutions/$(institutionId)/classrooms/$(myClassroomId(uid))).data.get('moduleAccess', {}).get(moduleKey, true) != false;
     }
 
     // Campus Entry's canonical academic fields - must exactly mirror
@@ -144,13 +270,47 @@ service cloud.firestore {
         || (request.resource.data.get(field, 0) - resource.data.get(field, 0)) <= 2000;
     }
 
+    // Score is the permanent academic-performance metric (separate from XP,
+    // which is spendable/convertible - see lib/rewards.js) - it must NEVER
+    // decrease from an owner write (no wallet operation, conversion, or
+    // client bug can ever claw it back), on top of the same per-write delta
+    // cap xp/credits already get.
+    function selfScoreWriteSane(field) {
+      return !(field in request.resource.data.diff(resource.data).affectedKeys())
+        || (request.resource.data.get(field, 0) >= resource.data.get(field, 0)
+          && (request.resource.data.get(field, 0) - resource.data.get(field, 0)) <= 2000);
+    }
+
+    // Same bounded-shared-counter shape as pulse_posts'/contests' own
+    // engagement counters below - exactly one of these fields touched, by
+    // exactly ±1 - so a liker/commenter/saver/viewer/sharer/repost-er can
+    // credit someone ELSE's users/{uid} counter without being able to set it
+    // (or several at once) to an arbitrary value.
+    function boundedUserCounterWrite(field) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([field])
+        && (request.resource.data.get(field, 0) - resource.data.get(field, 0)) in [-1, 0, 1];
+    }
+
     // Users - public read (profiles are sharable); only owner/admin can write
     // Any auth user may update these specific aggregate counters only - each
     // is bumped by whoever performs the interaction (follow, like, comment,
     // save, share) on someone else's account/post, one field per write.
     match /users/{uid} {
       allow read:   if true;
-      allow create: if isOwner(uid);
+      // Create-time validation - a bare isOwner(uid) let a first write to
+      // this path set ANY value, including a forged xp/credits balance or a
+      // self-assigned institution membership that never went through
+      // approveStudent's workflow. Mirrors the update rule's own protections:
+      // xp/credits must start at exactly 0 (matches AuthContext.js's real
+      // creation payload), and none of the seven institution-membership
+      // fields may be present at all - those only ever get set later via the
+      // isInstitutionAdmin()-gated update branch below.
+      allow create: if isOwner(uid)
+        && request.resource.data.get('xp', 0) == 0
+        && request.resource.data.get('credits', 0) == 0
+        && !request.resource.data.keys().hasAny(
+          ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId']
+        );
       // Campus membership fields (institutionId/institutionSlug/department/year/
       // section/rollNumber/campusFullName) are deliberately excluded from the
       // owner's normal profile-edit branch below - a student forging their own
@@ -161,15 +321,34 @@ service cloud.firestore {
       // or that specific institution's own admin (approving/reassigning this
       // student, or correcting their identity) may ever touch these seven
       // fields, and only all at once (never mixed with any other field).
+      // Every quantity-like stat an owner can legitimately self-report (per
+      // real call sites: contests.js's persistGrading writes contestXp/
+      // contestCoins/contestsParticipated alongside xp/credits;
+      // aptitude-section.jsx writes streak; shipyard writes ships; admin
+      // revocation writes arenaWins) gets the SAME bounded-delta protection
+      // xp/credits already had - closes the gap where an owner could smuggle
+      // an unbounded write to any OTHER field through in the same write that
+      // legitimately touches xp. problemsSolvedCount is deliberately
+      // EXCLUDED from self-write entirely (not just delta-bounded): it has
+      // no legitimate client write path at all - it's written only by
+      // GradingService.java via the Admin SDK, which bypasses these rules -
+      // so any owner write touching it is forged, full stop.
       allow update: if (isOwner(uid) && selfWriteDeltaSane('xp') && selfWriteDeltaSane('credits')
+          && selfScoreWriteSane('score')
+          && selfWriteDeltaSane('contestXp') && selfWriteDeltaSane('contestCoins')
+          && selfWriteDeltaSane('contestsParticipated') && selfWriteDeltaSane('arenaWins')
+          && selfWriteDeltaSane('streak') && selfWriteDeltaSane('ships')
+          && !('problemsSolvedCount' in request.resource.data.diff(resource.data).affectedKeys())
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
             ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId']
           )) || isAdmin()
-        || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'followersCount', 'pulsePostsCount',
-          'totalLikesReceived', 'totalCommentsReceived', 'totalSavesReceived', 'totalSharesReceived',
-          'totalViewsReceived', 'totalRepostsReceived', 'totalRepostsMade', 'profileViews',
-        ]))
+        || (isAuth() && (
+          boundedUserCounterWrite('followersCount') || boundedUserCounterWrite('pulsePostsCount')
+          || boundedUserCounterWrite('totalLikesReceived') || boundedUserCounterWrite('totalCommentsReceived')
+          || boundedUserCounterWrite('totalSavesReceived') || boundedUserCounterWrite('totalSharesReceived')
+          || boundedUserCounterWrite('totalViewsReceived') || boundedUserCounterWrite('totalRepostsReceived')
+          || boundedUserCounterWrite('totalRepostsMade') || boundedUserCounterWrite('profileViews')
+        ))
         // Checks isInstitutionAdmin against BOTH the new institutionId being
         // written AND the old one already on the doc - approveStudent needs
         // the former (new value "mrcet", old "" for a first-time approval),
@@ -179,9 +358,34 @@ service cloud.firestore {
         // a removal could never satisfy this branch at all - the admin doing
         // the removing administers the institution the student is LEAVING,
         // not any institution the (now blank) new value could name.
+        // exists(institutions/{id}/students/{uid}) is required on top of
+        // isInstitutionAdmin() - without it, ANY institution admin could
+        // write these fields for a completely unrelated uid who never
+        // joined their institution at all (users/{uid} is a single GLOBAL
+        // collection, not path-scoped by institutionId like every other
+        // campus rule, so isInstitutionAdmin() alone doesn't prove the
+        // target uid has any real relationship to that institution).
+        // Emulator-confirmed exploit this closed: an institution-A admin
+        // rewriting a DIFFERENT institution's approved student's
+        // institutionId to "A" (severing them from their real institution,
+        // forging their academic identity), then adding them to institution
+        // A's own roster to satisfy isAdminOfStudent() and read that
+        // student's real coin/earnings/progress data - all with zero
+        // consent and no real join-request ever happening. Requiring the
+        // roster doc to already exist means the write can only ever be a
+        // consequence of a genuine prior requestToJoin() (self-serve,
+        // isOwner-only) or an existing membership being cleared - never a
+        // fabricated relationship, since institutions/{id}/students/{uid}'s
+        // own create rule no longer lets an admin conjure a roster doc for
+        // an arbitrary uid either (see that rule).
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
           ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId']
-        ) && (isInstitutionAdmin(request.resource.data.institutionId) || isInstitutionAdmin(resource.data.get('institutionId', ''))));
+        ) && (
+          (isInstitutionAdmin(request.resource.data.institutionId)
+            && exists(/databases/$(database)/documents/institutions/$(request.resource.data.institutionId)/students/$(uid)))
+          || (isInstitutionAdmin(resource.data.get('institutionId', ''))
+            && exists(/databases/$(database)/documents/institutions/$(resource.data.get('institutionId', ''))/students/$(uid)))
+        ));
       allow delete: if isAdmin();
     }
 
@@ -190,7 +394,8 @@ service cloud.firestore {
     // sharable-profile reasons and was otherwise exposing email to every
     // visitor of a public Dev Card. Owner/admin only, both directions.
     match /users_private/{uid} {
-      allow read, write: if isOwner(uid) || isAdmin();
+      allow read: if isOwner(uid) || isAdmin() || isAdminOfStudent(uid) || isHodOfStudent(uid) || isFacultyOfStudent(uid);
+      allow write: if isOwner(uid) || isAdmin();
     }
 
     // Follows - anyone can read; only follower can create/delete their own follow
@@ -321,7 +526,9 @@ service cloud.firestore {
     match /hackathon_registrations/{docId} {
       allow read:   if true;
       allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
-      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+      // isAdmin() added - deleting a whole hackathon needs to clean up every
+      // registration doc for it, not just let each student delete their own.
+      allow delete: if isAdmin() || (isAuth() && resource.data.uid == request.auth.uid);
     }
 
     // Broadcast stream registrations - auth create own, read own
@@ -435,13 +642,14 @@ service cloud.firestore {
     //   (b) Payout withdrawal: pulseCoins may only DECREASE (reserved/spent
     //       at request time - see payout_requests below), never below 0;
     //       totalCoins (lifetime-earned) never moves.
-    // A non-owner may ONLY credit pulseCoins+totalCoins together, by the same
-    // amount, and that amount must equal a live, admin-configured
-    // per-like/comment/save rate - this is what lets a liker/commenter/saver's
-    // client credit the POST AUTHOR's balance without being able to set
-    // anyone's balance to an arbitrary number.
+    // Pulse engagement (likes/comments/saves) no longer grants coins at all
+    // (platform policy: only Daily Learning, Programming, and CS Core
+    // reward) - the non-owner PER_LIKE/PER_COMMENT/PER_SAVE crediting
+    // disjunct that used to let a liker/commenter/saver's client credit the
+    // POST AUTHOR's balance is removed. Only the owner branch remains (their
+    // own reward grants from an allowed module, or spending via Wallet).
     match /user_earnings/{uid} {
-      allow read:  if isOwner(uid) || isAdmin();
+      allow read:  if isOwner(uid) || isAdmin() || isAdminOfStudent(uid) || isHodOfStudent(uid) || isFacultyOfStudent(uid);
       allow create, update: if isAdmin() || (
         isOwner(uid)
         && request.resource.data.keys().hasOnly(['pulseCoins', 'totalCoins'])
@@ -458,24 +666,43 @@ service cloud.firestore {
             && request.resource.data.pulseCoins <= priorEarnings('pulseCoins')
           )
         )
-      ) || (
-        isAuth()
-        && request.resource.data.keys().hasOnly(['pulseCoins', 'totalCoins'])
-        && request.resource.data.keys().size() == 2
-        && (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == (request.resource.data.totalCoins - priorEarnings('totalCoins'))
-        && (
-          (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == economyVal('PER_LIKE', 10)
-          || (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == -economyVal('PER_LIKE', 10)
-          || (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == economyVal('PER_COMMENT', 25)
-          || (request.resource.data.pulseCoins - priorEarnings('pulseCoins')) == economyVal('PER_SAVE', 15)
-        )
       );
     }
 
-    // Payout requests - owner creates/reads own; admin manages all
+    // Payout requests - owner creates/reads own; admin manages all.
+    // app/wallet/page.jsx's real flow bundles this create with a
+    // user_earnings.pulseCoins decrement inside one runTransaction, but
+    // rules evaluate each write independently - that client-side bundling is
+    // a convention, not a boundary, so a direct addDoc() here bypassing the
+    // decrement entirely would otherwise pass with any `coins` value. This
+    // cross-document check requires the requested `coins` to never exceed
+    // the requester's OWN real, current pulseCoins balance (read as of this
+    // transaction's consistent snapshot, which for the legitimate flow above
+    // is the pre-decrement balance - already >= coinAmt by the same
+    // constraint the client itself enforces before writing).
     match /payout_requests/{requestId} {
-      allow read:           if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow create:         if isAuth() && request.resource.data.uid == request.auth.uid;
+      // isAdmin() is a genuinely separate top-level disjunct, not nested
+      // inside isAuth() && (...) - Firestore's list-safety analysis denies
+      // the WHOLE list() query otherwise (emulator-confirmed: a platform
+      // admin's own Admin > Payouts panel - getDocs(query(collection(db,
+      // "payout_requests"), orderBy(...))), no where clause - silently
+      // returned zero results with this nested elsewhere in this file,
+      // despite the admin genuinely satisfying isAdmin()). Same fix applied
+      // to every other read rule below with this shape.
+      allow read:           if isAdmin() || (isAuth() && resource.data.uid == request.auth.uid);
+      allow create:         if isAuth() && request.resource.data.uid == request.auth.uid
+        // status must start 'pending' - without this, a direct addDoc()
+        // bypassing the Wallet page's UI could self-forge a request that
+        // already reads as admin-approved (no review ever happened, and
+        // it wouldn't even have the processedAt timestamp a real approval
+        // sets, but nothing enforced the state machine at write time).
+        && request.resource.data.status == 'pending'
+        && request.resource.data.coins is number && request.resource.data.coins > 0
+        && request.resource.data.coins <= (
+          exists(/databases/$(database)/documents/user_earnings/$(request.auth.uid))
+            ? get(/databases/$(database)/documents/user_earnings/$(request.auth.uid)).data.get('pulseCoins', 0)
+            : 0
+        );
       allow update, delete: if isAdmin();
     }
 
@@ -488,16 +715,32 @@ service cloud.firestore {
     // Notifications - per-user targeted (targetUid), so reads are scoped to
     // the recipient or admin, not public - these can carry real INR payout
     // amounts and rejection reasons. 'all' is the one broadcast value meant
-    // for every signed-in user (platform announcements). Any auth user can
-    // create (for platform events - likes/comments/follows/etc. notifying
-    // someone else); admin manages the rest.
+    // for every signed-in user (platform announcements) - broadcasts are
+    // admin-only (payout/rejection/approval/promo are all genuinely
+    // admin-triggered per their real call sites in app/admin/page.jsx and
+    // lib/opportunities.js). A non-admin may only create an INDIVIDUAL
+    // notification (never 'all'), self-attributed via `fromUid` (see
+    // components/notification-bell.jsx's writeNotification, which stamps
+    // this from auth.currentUser), and only for the real self-service event
+    // types that actually fire this way (like/comment/follow/repost) - never
+    // impersonating an admin-only type such as "payout"/"approval".
     match /notifications/{notifId} {
-      allow read: if isAuth() && (
+      // isAdmin() as a top-level disjunct, matching this file's established
+      // convention elsewhere - directly emulator-verified this specific rule
+      // (pure resource.data field comparisons, no nested get()/exists()
+      // calls) does NOT actually exhibit the list()-breaking behavior seen
+      // on isAdminOfStudent-style rules, so this is cheap defense-in-depth/
+      // consistency, not a confirmed live bug fix.
+      allow read: if isAdmin() || (isAuth() && (
         resource.data.targetUid == request.auth.uid
         || resource.data.targetUid == 'all'
-        || isAdmin()
+      ));
+      allow create: if isAdmin() || (
+        isAuth()
+        && request.resource.data.targetUid != 'all'
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.type in ['like', 'comment', 'follow', 'repost']
       );
-      allow create:         if isAuth();
       allow update, delete: if isAdmin();
     }
 
@@ -514,7 +757,9 @@ service cloud.firestore {
     // ELSE's uid must be a known received-engagement type at the matching
     // live rate, so a forged ledger entry can't misrepresent what happened.
     match /coin_transactions/{txId} {
-      allow read:   if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      // isAdmin() as a separate top-level disjunct - see payout_requests
+      // above for why nesting it inside isAuth() && (...) breaks list().
+      allow read:   if isAdmin() || (isAuth() && (resource.data.uid == request.auth.uid || isAdminOfStudent(resource.data.uid) || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid)));
       allow create: if isAuth()
         && request.resource.data.amount is number
         && request.resource.data.type is string
@@ -524,6 +769,72 @@ service cloud.firestore {
           || (request.resource.data.type == 'comment_received' && request.resource.data.amount == economyVal('PER_COMMENT', 25))
           || (request.resource.data.type == 'save_received'    && request.resource.data.amount == economyVal('PER_SAVE', 15))
         );
+    }
+
+    // Central reward ledger (lib/rewards.js) - one immutable doc per
+    // (uid, activityType, activityId), the single source of truth for "was
+    // this specific reward already granted" across every module (Daily
+    // Learning, Programming, CS Core, DSA, Contests, admin manual grants)
+    // and the data source for the Student Analytics Dashboard's reward
+    // timeline. Deliberately create-only from clients - this is the real
+    // trust-boundary backstop: even if grantRewards()'s own app-level
+    // idempotency check somewhere has a bug and fires twice for the same
+    // (uid, activityType, activityId), the SECOND attempt is a write against
+    // a doc that already exists, which Firestore classifies as an `update`,
+    // not a `create` - rejected outright since only `create` is allowed here.
+    // Reversal (duplicate-cleanup / conversion-reversal migrations) only
+    // ever happens via the Admin SDK in scripts/, which bypasses these rules
+    // entirely - never via a client update, so no client update path exists
+    // for the ordinary reward flow (isAdmin() keeps a manual-fix escape
+    // hatch through the admin console, matching this file's convention
+    // elsewhere of admin-can-always-fix, e.g. payout_requests below).
+    match /reward_grants/{gid} {
+      // gid.split('_')[0] establishes ownership from the DOC ID alone, not
+      // resource.data - critical because isAlreadyGranted() (lib/rewards.js)
+      // calls get() specifically to check whether a reward DOESN'T exist yet
+      // (the common case, checked on every fresh activity). A non-existent
+      // doc makes `resource` null, so any earlier version of this rule that
+      // dereferenced resource.data.uid unconditionally would throw on that
+      // read and deny it outright - breaking every first-time reward check
+      // with a permission-denied error instead of a clean "not found". A
+      // Firebase Auth uid never contains '_', so split('_')[0] safely
+      // isolates it regardless of how many underscores follow in
+      // activityType/activityId (unlike the create rule's gid check below,
+      // which needs the exact full reassembly, not just the first token).
+      // Both an owner check AND the original resource.data.uid check are
+      // kept, in this exact order - list()-safety analysis (the query in
+      // fetchRewardTimeline is where("uid","==",X)) only manages to prove
+      // this whole rule safe when resource.data.uid == request.auth.uid
+      // appears as its own branch correlated with that query's field filter;
+      // replacing it outright with the path-based check (however logically
+      // equivalent for get()) broke that correlation and made the list()
+      // safety prover choke on the later isAdminOfStudent branch instead
+      // (verified empirically against the emulator, not assumed). Placing
+      // gid.split('_')[0] FIRST is what actually fixes the reported bug: for
+      // an owner's get() on a NOT-YET-existing doc (isAlreadyGranted()'s
+      // core case), this branch alone evaluates true and short-circuits the
+      // `||` before ever reaching resource.data.uid on a null resource.
+      allow read: if isAdmin()
+        || (isAuth() && gid.split('_')[0] == request.auth.uid)
+        || (isAuth() && resource.data.uid == request.auth.uid)
+        || isAdminOfStudent(resource.data.uid) || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid);
+      // gid must equal rewardLedgerId(uid, activityType, activityId) exactly
+      // (string concatenation, not a split - activityType/activityId can
+      // themselves contain underscores, e.g. "daily_learning_problem" or
+      // "{slug}_{date}_{problemId}", so splitting on '_' would misparse) -
+      // without this, the create rule only bounded the CLAIMED xp/coins/
+      // score to <=2000 with no check that gid corresponds to the payload's
+      // own activityType/activityId at all, letting a student create a doc
+      // under any gid shape they like.
+      allow create: if isAdmin() || (
+        isOwner(request.resource.data.uid)
+        && gid == request.auth.uid + '_' + request.resource.data.activityType + '_' + request.resource.data.activityId
+        && request.resource.data.status == 'granted'
+        && request.resource.data.get('xp', 0) is number && request.resource.data.get('xp', 0) >= 0 && request.resource.data.get('xp', 0) <= 2000
+        && request.resource.data.get('coins', 0) is number && request.resource.data.get('coins', 0) >= 0 && request.resource.data.get('coins', 0) <= 2000
+        && request.resource.data.get('score', 0) is number && request.resource.data.get('score', 0) >= 0 && request.resource.data.get('score', 0) <= 2000
+      );
+      allow update, delete: if isAdmin();
     }
 
     // Learning ecosystem - Course -> Module -> Task(+Quiz) hierarchy.
@@ -551,8 +862,17 @@ service cloud.firestore {
     // Aptitude & Reasoning - Topic -> Question bank, admin-authored, publicly
     // readable, no sequential unlock (unlike Learning tasks - any topic, any
     // order, unlimited re-attempts is the whole point of a practice bank).
+    // Read gated on status (matching programmingLanguages/csCoreSubjects'
+    // published-only-for-non-admin pattern) now that topics can carry a real
+    // lesson-content layer (concept/keyPoints/mcqs/etc, see
+    // AptitudeTopicsPanel) authored progressively as drafts - previously
+    // unconditional `if true` leaked in-progress authoring to every visitor.
+    // Every topic already created via the existing admin form is written
+    // with status:"published" at creation time, so this is a no-op for
+    // existing content - see lib/aptitude.js's fetchAptitudeTopics for the
+    // matching required query-side where("status",...) filter.
     match /aptitude_topics/{topicId} {
-      allow read:  if true;
+      allow read:  if resource.data.get('status', 'draft') == 'published' || isAdmin();
       allow write: if isAdmin();
       match /questions/{questionId} {
         allow read: if true;
@@ -612,11 +932,37 @@ service cloud.firestore {
           }
         }
       }
+
+      // Admin-curated interview experiences (see lib/companyPrep.js's header
+      // comment - genuine student submission is a real follow-up feature, not
+      // built here) and admin-configured mock interviews (reference existing
+      // round/category ids, pull their real questions live - see
+      // fetchMockInterviewQuestions). Same read gate as rounds/categories,
+      // write is admin-only for both - no student write path exists.
+      match /interviewExperiences/{experienceId} {
+        allow read:  if isAdmin() || isCompanyPublished(companyId);
+        allow write: if isAdmin();
+      }
+      match /mockInterviews/{mockInterviewId} {
+        allow read:  if isAdmin() || isCompanyPublished(companyId);
+        allow write: if isAdmin();
+      }
     }
 
     // Per-user aptitude practice progress - owner or admin only.
+    // completedTopicIds.hasAll(...) makes the owner's own array monotonic -
+    // once a topicId is in there, it can never be removed (only added to) -
+    // same guard as programming_progress/cscore_progress, needed now that
+    // completeAptitudeTopic (lib/aptitude.js) can grant XP/coins here:
+    // without it, arrayRemove-ing a completed id and re-triggering
+    // completion would re-earn that topic's reward indefinitely. Scoped to
+    // only fire when completedTopicIds is actually present on the existing
+    // doc, so the pre-existing attempted/topicStats/bookmarks-only writes
+    // (which never touch this field) are completely unaffected.
     match /user_aptitude_progress/{uid} {
-      allow read, write: if isOwner(uid) || isAdmin();
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isAdmin() || (isOwner(uid)
+        && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
     }
 
     // Contest Platform - scheduled, ranked, multi-question events. Admin-authored,
@@ -638,8 +984,19 @@ service cloud.firestore {
     // rights isAdmin() has today, scoped to contests actually tagged with their
     // institution - see isContestInstitutionAdmin() above.
     match /contests/{contestId} {
+      // isInstitutionAdmin(resource.data.get(...)) here, NOT
+      // isContestInstitutionAdmin(contestId) - that helper re-fetches this
+      // exact document via a fresh get() (needed for the questions/answerKeys
+      // subcollections below, where `resource` isn't the parent contest), but
+      // doing that against the SAME document already being evaluated breaks
+      // list() queries outright (verified against the emulator - Manage ->
+      // Contests' admin-facing fetchInstitutionContests(institutionId) query
+      // errored for every institution admin, not just denied). resource.data
+      // is already the document being evaluated - no extra read needed, and
+      // it stays query-provable since institutionId is exactly what
+      // fetchInstitutionContests already filters on.
       allow read: if isAdmin()
-        || isContestInstitutionAdmin(contestId)
+        || isInstitutionAdmin(resource.data.get('institutionId', ''))
         || (resource != null && resource.data.status == 'published'
           && (!('institutionId' in resource.data) || isApprovedStudent(resource.data.institutionId)));
       allow create: if isAdmin()
@@ -681,7 +1038,8 @@ service cloud.firestore {
       match /registrations/{uid} {
         allow read:   if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId);
         allow create: if isOwner(uid) && isApprovedForContest(contestId) && request.resource.data.registeredAt != null
-          && request.time <= get(/databases/$(database)/documents/contests/$(contestId)).data.registrationEnd;
+          && request.time <= get(/databases/$(database)/documents/contests/$(contestId)).data.registrationEnd
+          && (contestInstitutionId(contestId) == '' || isModuleEnabledForUser(uid, contestInstitutionId(contestId), 'contests'));
         allow delete: if isOwner(uid) || isAdmin();
       }
 
@@ -759,7 +1117,9 @@ service cloud.firestore {
     }
 
     match /codelab_submissions/{submissionId} {
-      allow read:  if isAuth() && (resource.data.uid == request.auth.uid || isAdmin() || isAdminOfStudent(resource.data.uid));
+      // isAdmin() as a separate top-level disjunct - see payout_requests
+      // above for why nesting it inside isAuth() && (...) breaks list().
+      allow read:  if isAdmin() || (isAuth() && (resource.data.uid == request.auth.uid || isAdminOfStudent(resource.data.uid) || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid)));
       allow write: if isAdmin();
     }
 
@@ -769,15 +1129,76 @@ service cloud.firestore {
     // submission; the owner-write path exists only so future client-side
     // preference writes (if any) have somewhere sane to land.
     match /user_codelab_progress/{uid} {
-      allow read:  if isOwner(uid) || isAdmin() || isAdminOfStudent(uid);
-      allow write: if isOwner(uid) || isAdmin();
+      allow read:  if isOwner(uid) || isAdmin() || isAdminOfStudent(uid) || isHodOfStudent(uid) || isFacultyOfStudent(uid);
+      // solvedProblems is monotonic for the owner's own write - once a
+      // problemId key is set, the owner can never remove it (only add more).
+      // Without this, a student could delete their own solvedProblems.{id}
+      // entry client-side, then resubmit already-accepted code; the backend's
+      // grading transaction (GradingService.java) reads alreadySolved=false
+      // and re-credits xp/score/coins/problemsSolvedCount indefinitely.
+      allow write: if isAdmin() || (isOwner(uid)
+        && (resource == null || !('solvedProblems' in resource.data)
+            || resource.data.solvedProblems.keys().toSet()
+                 .difference(request.resource.data.get('solvedProblems', {}).keys().toSet()).size() == 0));
+    }
+
+    // Per-student, per-problem DSA study metadata (favorite/bookmark/review-
+    // later/needs-revision/confidence/personal rating/notes/tags/revision
+    // schedule) - purely personal organization, never touches solvedProblems
+    // or any reward/coin/XP field, so there's no economic bound to enforce
+    // here (unlike reward_grants/user_earnings above). docId is
+    // `${uid}_${problemId}`; a Firestore auto-generated problemId never
+    // contains '_', so the full-string equality check below (same idiom as
+    // reward_grants' gid check, stricter than dailyLearningLog's split()[0])
+    // ties the doc ID itself to both the auth uid AND the payload's own uid/
+    // problemId fields.
+    //
+    // The read rule's `resource.data.uid == request.auth.uid` disjunct looks
+    // redundant with the docId split check right above it, but it is NOT:
+    // Firestore's list()-safety static analyzer only skips evaluating a
+    // later nested-get()-based branch (isAdminOfStudent here) when it can
+    // prove every earlier branch is a plain field comparison correlated with
+    // the query's own where("uid","==",...) filter. A path/doc-ID-derived
+    // check alone doesn't give it that proof and the analyzer throws a "Null
+    // value error" on list() even though every individual get() looked fine
+    // in testing - this exact regression already happened once on
+    // reward_grants (see above); the fix there was to ADD this field-based
+    // branch back, not remove the docId one. Verified directly via a
+    // uid-filtered list() query in test/firestore-rules.test.mjs, not assumed.
+    match /problem_notes/{docId} {
+      allow read: if isAdmin()
+        || (isAuth() && docId.split('_')[0] == request.auth.uid)
+        || (isAuth() && resource.data.uid == request.auth.uid)
+        || isAdminOfStudent(resource.data.uid) || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid);
+      allow write: if isAdmin() || (
+        isAuth()
+        && isOwner(request.resource.data.uid)
+        && docId == request.auth.uid + '_' + request.resource.data.problemId
+        && request.resource.data.get('notes', '') is string && request.resource.data.get('notes', '').size() <= 2000
+        && request.resource.data.get('tags', []).size() <= 20
+        && request.resource.data.get('personalRating', 0) is number
+        && request.resource.data.get('personalRating', 0) >= 0 && request.resource.data.get('personalRating', 0) <= 5
+      );
+    }
+
+    // One doc per (uid, date) - real activity/engagement tracking (see
+    // lib/activity.js for why this is a daily rollup, not a raw event log).
+    // Same owner-write/admin-or-campus-admin-read shape as the progress
+    // collections above; docId is `${uid}_${date}` (date is YYYY-MM-DD, no
+    // underscores in it), so split('_')[0] cleanly isolates uid the same way
+    // programming_progress/cscore_progress already do.
+    match /user_activity_daily/{activityId} {
+      // isAdmin() as a separate top-level disjunct - see payout_requests
+      // above for why nesting it inside isAuth() && (...) breaks list().
+      allow read:  if isAdmin() || (isAuth() && (activityId.split('_')[0] == request.auth.uid || isAdminOfStudent(activityId.split('_')[0]) || isHodOfStudent(activityId.split('_')[0]) || isFacultyOfStudent(activityId.split('_')[0])));
+      allow write: if isAuth() && activityId.split('_')[0] == request.auth.uid;
     }
 
     // Per-user Company Prep progress (solved/bookmarked question ids, flat
     // maps keyed by questionId - same shape as user_codelab_progress's
     // solvedProblems) - same owner/platform-admin/campus-admin-read shape.
     match /user_companyPrep/{uid} {
-      allow read:  if isOwner(uid) || isAdmin() || isAdminOfStudent(uid);
+      allow read:  if isOwner(uid) || isAdmin() || isAdminOfStudent(uid) || isHodOfStudent(uid) || isFacultyOfStudent(uid);
       allow write: if isOwner(uid) || isAdmin();
     }
 
@@ -804,8 +1225,21 @@ service cloud.firestore {
     // doc id, XP/coins awarded client-side the same way Daily Learning's
     // submitDayCompletion() already does (see lib/programming.js).
     match /programming_progress/{progressId} {
-      allow read:  if isAuth() && (progressId.split('_')[0] == request.auth.uid || isAdminOfStudent(progressId.split('_')[0]));
-      allow write: if isAuth() && progressId.split('_')[0] == request.auth.uid;
+      // isAdmin() on read too - the discovery query deleteLanguage's own
+      // cleanup needs to run (list every progress doc for a deleted global
+      // language, across every institution) can't rely on isAdminOfStudent,
+      // which only ever resolves true for that student's OWN institution
+      // admin, not a platform admin managing global content.
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      // isAdmin() (not isAdminOfStudent) - a platform admin deleting a whole
+      // language from Manage Programming needs to clean up every student's
+      // progress doc for it, across every institution, not just their own.
+      // completedTopicIds.hasAll(...) makes the owner's own array monotonic -
+      // once a topicId is in there, the owner can never remove it (only add
+      // more) - without this, arrayRemove-ing a completed id and re-triggering
+      // completeTopic() re-earns that topic's reward indefinitely.
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
+        && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
     }
 
     // CS Core - identical shape/authority to programmingLanguages above
@@ -822,8 +1256,245 @@ service cloud.firestore {
     }
 
     match /cscore_progress/{progressId} {
-      allow read:  if isAuth() && (progressId.split('_')[0] == request.auth.uid || isAdminOfStudent(progressId.split('_')[0]));
-      allow write: if isAuth() && progressId.split('_')[0] == request.auth.uid;
+      // isAdmin() on read too - same reasoning as programming_progress above,
+      // deleteSubject's own cleanup discovery query needs it.
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      // isAdmin() (not isAdminOfStudent) - same reasoning as
+      // programming_progress above: deleting a whole subject needs to clean
+      // up every student's progress doc for it, across every institution.
+      // completedTopicIds.hasAll(...) - same monotonicity guard as
+      // programming_progress, closing the identical reward-replay exploit.
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
+        && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
+    }
+
+    // ── GATE preparation module ────────────────────────────────────────────────
+    // A GLOBAL, admin-authored catalog three levels deep
+    // (gatePapers/{paperId}/subjects/{subjectId}/topics/{topicId}) - same
+    // authority shape as programmingLanguages/csCoreSubjects above, one level
+    // deeper. The extra level is what lets a new GATE paper be added without a
+    // schema change; see lib/gate.js's header.
+    //
+    // Published content is world-readable (matching the problems/companies/
+    // programmingLanguages precedent), drafts are admin-only so in-progress
+    // authoring never leaks. IMPORTANT: every non-admin list() against any of
+    // these collections MUST carry a matching where("status","==","published")
+    // filter - see lib/programming.js's fetchLanguages comment for why an
+    // unfiltered query plus client-side filtering fails with permission-denied
+    // for every real student rather than silently returning less.
+    match /gatePapers/{paperId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+
+      match /subjects/{subjectId} {
+        allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+        allow write: if isAdmin();
+
+        match /topics/{topicId} {
+          allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+          allow write: if isAdmin();
+        }
+      }
+    }
+
+    // Previous-year questions are STUDY MATERIAL, so a published one carries its
+    // full worked solution inline and is readable outright. That is the correct
+    // boundary for this content and not an oversight: a student working through a
+    // past paper topic by topic is meant to be able to check the solution, and
+    // hiding it behind an attempt would make the bank worse at its job. The
+    // timed, answers-hidden version of the same material is a gate_tests
+    // document, which IS gated (see below). lib/gatePyq.js's header states the
+    // same split.
+    match /gate_pyqs/{pyqId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // A test's questions carry NO answer data (see lib/gateTests.js's
+    // buildQuestionDoc/buildAnswerKeyDoc split) - everything that would give the
+    // answer away lives in the sibling answerKeys subcollection, gated below.
+    function isGateTestPublished(testId) {
+      return exists(/databases/$(database)/documents/gate_tests/$(testId))
+        && get(/databases/$(database)/documents/gate_tests/$(testId)).data.get('status', 'draft') == 'published';
+    }
+    // "Has this user already submitted this test." The path is fully determined
+    // by request.auth.uid and the {testId} wildcard - no reliance on
+    // resource.data - which is exactly what makes it provable for a list() query
+    // over the answerKeys collection, not just a single get(). A testId is a
+    // Firestore auto-ID and never contains '_', so the concatenation below can't
+    // be confused by a testId that looks like another uid's attempt.
+    function hasSubmittedGateTest(testId) {
+      return isAuth()
+        && exists(/databases/$(database)/documents/gate_attempts/$(request.auth.uid + '_' + testId))
+        && get(/databases/$(database)/documents/gate_attempts/$(request.auth.uid + '_' + testId)).data.get('submitted', false) == true;
+    }
+
+    match /gate_tests/{testId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+
+      match /questions/{questionId} {
+        allow read:  if isAdmin() || isGateTestPublished(testId);
+        allow write: if isAdmin();
+      }
+
+      // THE trust boundary of the testing engine: a student may read a test's
+      // answer keys only AFTER their own attempt is marked submitted. Solutions
+      // being unavailable mid-attempt is enforced here, in the database - not by
+      // the interface choosing not to fetch them. That is why
+      // lib/gateTests.js's submitAndGrade must write the submission BEFORE it
+      // reads the keys, and why grading can honestly be done client-side at all.
+      match /answerKeys/{questionId} {
+        allow read:  if isAdmin() || hasSubmittedGateTest(testId);
+        allow write: if isAdmin();
+      }
+
+      // An answer-free score summary per student, written in the same
+      // transaction as the grading, existing purely so leaderboards are possible
+      // without exposing attempt documents (which contain the student's actual
+      // answers). Signed-in read is therefore safe: nothing here can reconstruct
+      // an answer.
+      //
+      // Create-only for the owner, never update - the same one-shot shape
+      // reward_grants uses. A second write is rejected as an update against an
+      // existing document, so a score can't be revised upward after the fact.
+      // score/maxScore are bounded as a coarse sanity cap the same way a contest
+      // submission's are; rules cannot sum a test's marks to verify exactly
+      // (that needs a Cloud Function - the same standing limitation documented
+      // for the coin economy).
+      match /results/{uid} {
+        allow read: if isAuth();
+        allow create: if isAdmin() || (isOwner(uid)
+          && request.resource.data.uid == uid
+          && request.resource.data.maxScore is number
+          && request.resource.data.maxScore > 0
+          && request.resource.data.maxScore <= 1000
+          && request.resource.data.score is number
+          && request.resource.data.score <= request.resource.data.maxScore
+          && request.resource.data.get('accuracy', 0) is number
+          && request.resource.data.get('accuracy', 0) >= 0
+          && request.resource.data.get('accuracy', 0) <= 100
+          && request.resource.data.get('timeTakenSeconds', 0) is number
+          && request.resource.data.get('timeTakenSeconds', 0) >= 0
+          // Display-only denormalized fields, size-capped so this can't be used
+          // as free storage or to inject a wall of text into a leaderboard row.
+          && request.resource.data.get('handle', '') is string && request.resource.data.get('handle', '').size() <= 64
+          && request.resource.data.get('campusFullName', '') is string && request.resource.data.get('campusFullName', '').size() <= 128
+          && request.resource.data.get('rollNumber', '') is string && request.resource.data.get('rollNumber', '').size() <= 64
+          && request.resource.data.get('department', '') is string && request.resource.data.get('department', '').size() <= 128
+          && request.resource.data.get('section', '') is string && request.resource.data.get('section', '').size() <= 32);
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    match /gate_formulas/{formulaId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+    }
+    match /gate_resources/{resourceId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+    }
+    match /gate_announcements/{announcementId} {
+      allow read:  if (resource != null && resource.data.get('status', 'draft') == 'published') || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Per-user GATE progress - one doc per (uid, paperId), id `${uid}_${paperId}`.
+    // A paperId may contain a hyphen ("cs-da") but never an underscore, so
+    // split('_')[0] cleanly isolates the uid, exactly as programming_progress
+    // and cscore_progress already do.
+    //
+    // completedTopicIds.hasAll(...) makes the owner's own array monotonic: once
+    // a topicId is in there the owner can never remove it, only add. Without
+    // this, arrayRemove-ing a completed id and re-triggering completeTopic()
+    // would re-earn that topic's XP/coins indefinitely - the identical
+    // reward-replay exploit closed on the other two progress collections.
+    // isAdmin() (not isAdminOfStudent) on write because deleting a whole
+    // paper/subject must clean up every student's progress doc for it across
+    // every institution (see lib/gate.js's deletePaper/scrubCompletedTopicIds).
+    match /gate_progress/{progressId} {
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid
+        || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
+        && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
+    }
+
+    // Daily GATE plan - one doc per (uid, paperId, date), id
+    // `${uid}_${paperId}_${date}`. Same self-reported-completion trust boundary
+    // as dailyLearningLog.
+    //
+    // `rewarded` is one-way: once true it can never be set back to false. That
+    // is the whole guard against replaying a day's XP/coins by un-ticking the
+    // flag and calling completeDay() again. reward_grants' create-only ledger is
+    // the second, independent backstop (activityId is `${paperId}_${date}`, so
+    // a repeat grant for the same day is rejected there too).
+    match /gate_daily/{dailyId} {
+      allow read:  if isAdmin() || (isAuth() && (dailyId.split('_')[0] == request.auth.uid
+        || isAdminOfStudent(dailyId.split('_')[0]) || isHodOfStudent(dailyId.split('_')[0]) || isFacultyOfStudent(dailyId.split('_')[0])));
+      allow write: if isAdmin() || (isAuth() && dailyId.split('_')[0] == request.auth.uid
+        && (resource == null || resource.data.get('rewarded', false) == false || request.resource.data.get('rewarded', false) == true));
+    }
+
+    // Test attempts contain the student's own answers, so they are OWNER-ONLY -
+    // never readable by other students. Leaderboards read the answer-free
+    // gate_tests/{testId}/results/{uid} summary instead.
+    //
+    // The read rule is FIELD-based (resource.data.uid), not doc-ID-derived,
+    // because lib/gateTests.js's fetchMyAttempts is a real list() query filtered
+    // on where("uid","==",uid) - and Firestore's list()-safety analyzer needs a
+    // plain field comparison correlated with that filter to prove the query
+    // safe. A path-derived check alone throws a "Null value error" on list();
+    // this is the exact regression documented on reward_grants and problem_notes
+    // above, and the fix is the same. Writes keep the stricter doc-ID check,
+    // since every write is to a known id.
+    //
+    // `graded` is one-way and the grading write is bounded: a graded attempt can
+    // never be un-graded and re-scored, and score can never exceed maxScore.
+    // maxScore itself is written honestly at grading time from the real, readable
+    // question set - a coarse cap rather than independent verification, the same
+    // acknowledged trade-off as contest submissions above.
+    match /gate_attempts/{attemptId} {
+      allow read:  if isAdmin()
+        || (isAuth() && resource.data.uid == request.auth.uid)
+        || (isAuth() && attemptId.split('_')[0] == request.auth.uid)
+        || isAdminOfStudent(resource.data.uid) || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid);
+      allow create: if isAdmin() || (isAuth() && attemptId.split('_')[0] == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.get('submitted', false) == false
+        && request.resource.data.get('graded', false) == false
+        && !('score' in request.resource.data));
+      allow update: if isAdmin() || (isAuth() && attemptId.split('_')[0] == request.auth.uid
+        && resource.data.uid == request.auth.uid
+        && resource.data.get('graded', false) == false
+        && (!('score' in request.resource.data)
+          || (request.resource.data.score is number
+            && request.resource.data.maxScore is number
+            && request.resource.data.maxScore > 0
+            && request.resource.data.maxScore <= 1000
+            && request.resource.data.score <= request.resource.data.maxScore)));
+      allow delete: if isAdmin();
+    }
+
+    // Per-user PYQ practice history and per-topic accuracy rollups - id
+    // `${uid}_${paperId}`, same shape as gate_progress. Nothing here is
+    // reward-bearing (practice grants no XP/coins - only topic completion and
+    // Daily GATE do), so there is no economic bound to enforce, only ownership.
+    match /gate_pyq_progress/{progressId} {
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid
+        || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid);
+    }
+
+    // Bookmarks, the auto-populated mistake notebook, and personal per-topic
+    // notes - id `${uid}_${paperId}`. Strictly private: a student's own record of
+    // what they get wrong is not something a classmate should be able to read,
+    // and unlike the progress collections there is no campus-admin reporting
+    // need that justifies widening it, so campus staff are deliberately NOT
+    // granted read access here.
+    match /gate_notes/{notesId} {
+      allow read:  if isAdmin() || (isAuth() && notesId.split('_')[0] == request.auth.uid);
+      allow write: if isAdmin() || (isAuth() && notesId.split('_')[0] == request.auth.uid);
     }
 
     // DeVert Campus - each institution (college) is its own tenant, isolated from
@@ -846,15 +1517,22 @@ service cloud.firestore {
         || isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
       // Institution admins (Training & Placement Cell) may self-serve edit
       // their own campus's public branding - name/shortName/description/
-      // tagline/banner/logo/accent color - but nothing else on this doc (accessMode,
-      // status, studentCount, contact info, etc. stay platform-isAdmin()-only).
+      // tagline/banner/logo/accent color - plus studentCount (the Directory's
+      // public "N students" stat, kept live by approveStudent/suspendStudent/
+      // removeStudentFromInstitution/bulkAssignByRollNumber in
+      // lib/institutions.js) - but nothing else on this doc (accessMode,
+      // status, contact info, etc. stay platform-isAdmin()-only).
       // affectedKeys().hasOnly(...) makes this atomic: a write that touches
       // even one field outside the allow-list is rejected outright, not
-      // partially applied.
+      // partially applied. studentCount is trusted-admin-only (not a student
+      // self-write), so it only needs a basic non-negative-integer sanity
+      // check, not a bounded-delta pattern - a bulk roll-number import can
+      // legitimately jump it by more than 1 in one write.
       allow update: if isAdmin()
         || (isInstitutionAdmin(institutionId)
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'shortName', 'description', 'tagline', 'bannerUrl', 'logoUrl', 'heroAccentColor']));
+                 .hasOnly(['name', 'shortName', 'description', 'tagline', 'bannerUrl', 'logoUrl', 'heroAccentColor', 'studentCount'])
+            && request.resource.data.studentCount is int && request.resource.data.studentCount >= 0);
       allow create, delete: if isAdmin();
 
       // Institution-admin membership (placement officer / faculty / dept admin /
@@ -862,6 +1540,61 @@ service cloud.firestore {
       match /admins/{uid} {
         allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
         allow write: if isAdmin();
+      }
+
+      // Principal/HOD/Faculty-Class-Teacher accounts - a SEPARATE collection
+      // from admins/{uid} above (see isPrincipal()/isHodOfDepartment()/
+      // isFacultyOfClassroom() at the top of this file for why). Write is
+      // isAdmin()-only - i.e. no legitimate CLIENT write path exists at all;
+      // every account here is created/disabled/reset/re-permissioned
+      // exclusively through devert-backend's AdminAccountService (Admin SDK,
+      // bypassing these rules entirely, same trust boundary GradingService
+      // already established for hidden test cases). A signed-in HOD may also
+      // read their own department's OTHER role-assignment docs (e.g. seeing
+      // which Faculty/Class Teachers are assigned in their own department in
+      // the Manage Admins-equivalent view a future HOD dashboard might add) -
+      // never another department's.
+      match /roleAssignments/{uid} {
+        allow read: if isOwner(uid) || isInstitutionAdmin(institutionId) || isAdmin()
+          || isHodOfDepartment(institutionId, resource.data.get('scope', {}).get('department', ''));
+        allow write: if isAdmin();
+      }
+
+      // Department-as-entity - a small fixed enum (lib/institutions.js's
+      // DEPARTMENTS, ~10 per institution), seeded eagerly by
+      // ensureDepartments()/createInstitution(), unlike classrooms' lazy
+      // per-combination creation. `hodUid` is never client-writable from
+      // ANY branch below - only AdminAccountService sets it, transactionally
+      // with the matching roleAssignments write, so it can never point at a
+      // uid with no real active HOD roleAssignment backing it. An HOD may
+      // self-serve edit their OWN department's free-text `description` only
+      // (nothing else, and only with the departments.manage permission) -
+      // every other field (including hodUid) stays admin-only.
+      match /departments/{departmentKey} {
+        allow read: if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
+          || hasRoleAssignment(institutionId, request.auth.uid);
+        allow create, delete: if isAdmin();
+        allow update: if isInstitutionAdmin(institutionId) || isAdmin()
+          || (isHodOfDepartment(institutionId, departmentKey)
+              && hasPermission(institutionId, request.auth.uid, 'departments.manage')
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description']));
+      }
+
+      // Audit trail for every AdminAccountService action (create/disable/
+      // reset-password/permission-change) - institution-scoped, NOT the
+      // existing global admin_activity_log above (that one is isAdmin()-only
+      // both directions; reusing it for institution-scoped roles would mean
+      // either a cross-tenant read leak or re-deriving the same
+      // resource-field gymnastics payout_requests/reward_grants already show
+      // scars from - a path-scoped subcollection sidesteps all of that for
+      // free, same as every other institution-scoped collection here).
+      // create-only from a client's perspective (the backend uses Admin SDK
+      // and bypasses this anyway) - immutable once written, matching
+      // reward_grants'/leaderboardSnapshots' own create-only-history pattern.
+      match /adminActivityLog/{logId} {
+        allow read: if isInstitutionAdmin(institutionId) || isAdmin();
+        allow create: if isAdmin();
+        allow update, delete: if isAdmin();
       }
 
       // One doc per student = BOTH the join request and the roster record, so
@@ -872,7 +1605,17 @@ service cloud.firestore {
       // transition status or assign academic fields - mirrors pulse_posts'
       // owner-creates/admin-transitions shape.
       match /students/{uid} {
-        allow read:   if isOwner(uid) || isInstitutionAdmin(institutionId) || isAdmin();
+        // HOD/Faculty read access is scope-matched against the roster doc's
+        // OWN department/classroomId (never the caller's claimed scope) and
+        // additionally requires the students.view permission - see
+        // hasPermission()'s own comment for why this one read (named
+        // explicitly in the spec) is permission-gated while most reads in
+        // this file aren't: scope match is the real security boundary here,
+        // students.view is the one place the spec asked for finer control
+        // on top of it.
+        allow read:   if isOwner(uid) || isInstitutionAdmin(institutionId) || isAdmin()
+          || (isHodOfDepartment(institutionId, resource.data.get('department', '')) && hasPermission(institutionId, request.auth.uid, 'students.view'))
+          || (isFacultyOfClassroom(institutionId, resource.data.get('classroomId', '')) && hasPermission(institutionId, request.auth.uid, 'students.view'));
         // Self-serve submission (student creates their own pending doc) is
         // accepted for every access mode now - "invite_only" no longer blocks
         // this at the rules level. The distinction lives entirely in the
@@ -897,14 +1640,39 @@ service cloud.firestore {
             && isValidDepartment(request.resource.data.get('department', ''))
             && isValidYear(request.resource.data.get('year', ''))
             && request.resource.data.get('section', '').matches('^[A-Z]$'))
-          || isInstitutionAdmin(institutionId) || isAdmin();
+          // isInstitutionAdmin() deliberately removed from create - no
+          // legitimate code path ever creates a fresh roster doc as an
+          // admin (approveStudent/bulkAssignByRollNumber/updateStudentIdentity
+          // all only ever update an EXISTING doc the student themselves
+          // created via requestToJoin). Leaving it in let an institution
+          // admin fabricate an "approved" roster entry for ANY uid who never
+          // asked to join, with no consent - and chained with the
+          // users/{uid} institution-membership branch below, let them then
+          // read that uid's private coin/earnings/progress data outright.
+          || isAdmin();
         // Update stays admin-only (institution admin or platform admin) -
         // this is also what enforces the Roll Number Lock: a student can
         // CREATE their identity submission once, but can never update it
         // themselves afterward. Admin edits after approval go through
         // updateStudentIdentity() (lib/institutions.js), which appends to
         // identityAuditLog in the same write.
-        allow update, delete: if isInstitutionAdmin(institutionId) || isAdmin();
+        //
+        // HOD/Faculty may EDIT a student already in their own scope (per
+        // scope match on the roster doc's CURRENT department/classroomId,
+        // same isHodOfDepartment/isFacultyOfClassroom pattern as read above,
+        // plus students.edit) but may never use this to relocate a student
+        // OUT of that scope - the written department/classroomId must equal
+        // what it already was. Delete stays admin-only - permanently
+        // removing institution membership is a bigger action than the
+        // spec's "Edit Students" permission covers for either role.
+        allow update: if isInstitutionAdmin(institutionId) || isAdmin()
+          || (isHodOfDepartment(institutionId, resource.data.get('department', ''))
+              && request.resource.data.get('department', '') == resource.data.get('department', '')
+              && hasPermission(institutionId, request.auth.uid, 'students.edit'))
+          || (isFacultyOfClassroom(institutionId, resource.data.get('classroomId', ''))
+              && request.resource.data.get('classroomId', '') == resource.data.get('classroomId', '')
+              && hasPermission(institutionId, request.auth.uid, 'students.edit'));
+        allow delete: if isInstitutionAdmin(institutionId) || isAdmin();
       }
 
       // Duplicate-roll-number guard for requestToJoin/updateStudentIdentity
@@ -933,8 +1701,24 @@ service cloud.firestore {
       // read their own classroom's metadata (name shown in the UI, e.g.
       // "III Year - CSE(AI&ML) - A").
       match /classrooms/{classroomId} {
-        allow read: if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
-        allow create, update: if isInstitutionAdmin(institutionId) || isAdmin();
+        allow read: if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
+          || isHodOfDepartment(institutionId, resource.data.get('department', '')) || isFacultyOfClassroom(institutionId, classroomId);
+        allow create: if isInstitutionAdmin(institutionId) || isAdmin();
+        // HOD/Faculty updates are bounded to moduleAccess/leaderboardVisibility
+        // only (affectedKeys().hasOnly(...), same bounded-write idiom used
+        // throughout this file) - department/year/section/createdAt/
+        // classTeacherUid stay admin-only (classTeacherUid specifically is
+        // only ever set by AdminAccountService, transactionally with the
+        // matching roleAssignments write - see that collection's own
+        // comment). An HOD may touch any classroom in their OWN department;
+        // Faculty only their OWN single assigned classroom.
+        allow update: if isInstitutionAdmin(institutionId) || isAdmin()
+          || (isHodOfDepartment(institutionId, resource.data.get('department', ''))
+              && hasPermission(institutionId, request.auth.uid, 'classrooms.manage')
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moduleAccess', 'leaderboardVisibility']))
+          || (isFacultyOfClassroom(institutionId, classroomId)
+              && hasPermission(institutionId, request.auth.uid, 'classrooms.manage')
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moduleAccess', 'leaderboardVisibility']));
       }
 
       // Institution-wide settings docs (currently just "leaderboard" - see
@@ -947,12 +1731,50 @@ service cloud.firestore {
         allow write: if isInstitutionAdmin(institutionId) || isAdmin();
       }
 
+      // Immutable weekly leaderboard snapshots (lib/institutions.js's
+      // announceWeeklyLeaderboard) - approved students read their own
+      // campus's frozen weekly rankings; only that institution's own admin
+      // (or platform isAdmin()) may create one, and never update/delete -
+      // once announced, a snapshot is a historical record, not a live
+      // document to be edited.
+      match /leaderboardSnapshots/{weekId} {
+        allow read:   if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        allow create: if isInstitutionAdmin(institutionId) || isAdmin();
+        allow update, delete: if isAdmin();
+      }
+
       // Admin-authored content, visible only to that institution's own approved
       // students and admins - unlike courses/aptitude_topics (public read), Campus
       // content is the whole reason institutions get isolated workspaces.
+      // scopeDepartment/scopeClassroomId are optional (absent = institution-
+      // wide, same "optional field, broadest default" idiom contests'
+      // institutionId field already uses) - they let an HOD/Faculty publish
+      // scoped to their own department/classroom without touching the
+      // institution-wide catalog admins/Principal manage.
       match /dailyLearning/{itemId} {
-        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
-        allow write: if isInstitutionAdmin(institutionId) || isAdmin();
+        allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
+          || isHodOfDepartment(institutionId, resource.data.get('scopeDepartment', '')) || isFacultyOfClassroom(institutionId, resource.data.get('scopeClassroomId', ''));
+        // create/update only - delete stays admin-only below (deliberately
+        // NOT combined into one `allow write`: request.resource is null on a
+        // delete, and dereferencing request.resource.data on that throws in
+        // rules, which would deny the WHOLE expression this is OR'd into -
+        // same failure mode this file's reward_grants comment already
+        // documents - so these two new HOD/Faculty branches must never be
+        // evaluated on a delete at all).
+        //
+        // The existing resource's own scope must already match the caller's
+        // scope too (not just the incoming write) - an HOD/Faculty can
+        // create a new scoped item or edit one already in their scope, but
+        // can never "adopt" an existing institution-wide or other-scope item
+        // by simply relabeling its scope field in the same write.
+        allow create, update: if isInstitutionAdmin(institutionId) || isAdmin()
+          || (isHodOfDepartment(institutionId, request.resource.data.get('scopeDepartment', ''))
+              && (resource == null || resource.data.get('scopeDepartment', '') == request.resource.data.get('scopeDepartment', ''))
+              && hasPermission(institutionId, request.auth.uid, 'dailyLearning.publish'))
+          || (isFacultyOfClassroom(institutionId, request.resource.data.get('scopeClassroomId', ''))
+              && (resource == null || resource.data.get('scopeClassroomId', '') == request.resource.data.get('scopeClassroomId', ''))
+              && hasPermission(institutionId, request.auth.uid, 'dailyLearning.publish'));
+        allow delete: if isInstitutionAdmin(institutionId) || isAdmin();
       }
 
       // A student's own per-day completion record (mcq answers/score,
@@ -963,8 +1785,72 @@ service cloud.firestore {
       // shape as the rest of this Daily Learning feature.
       match /dailyLearningLog/{logId} {
         allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+        // completedAt is monotonic for a student's own write: once set, that
+        // exact write is what submitDayCompletion's transaction checks to
+        // decide "already rewarded" - without this, a student could call the
+        // Firestore SDK directly to delete/change their own completedAt and
+        // resubmit through the normal UI to replay the day's xp/score/coins
+        // reward indefinitely. Institution admins/platform admins are exempt
+        // (legitimate corrections), not the owner.
+        //
+        // logId.split('_')[0] == request.auth.uid ties the doc ID itself to
+        // the caller, matching programming_progress/cscore_progress/
+        // user_activity_daily's identical pattern - without it, isOwner()
+        // only checked the PAYLOAD's uid field, not which uid's log slot was
+        // actually being targeted, letting one approved student write into
+        // ANY other student's institutions/{id}/dailyLearningLog/{victim}_{date}
+        // doc (payload uid spoofed to their own) - pre-setting completedAt to
+        // silently deny the victim's real future reward, or, once set,
+        // overwriting mcqAnswers/mcqScore/displayName/rollNumber under the
+        // victim's slot. xpEarned/coinEarned are also now bounded (matching
+        // reward_grants' own 2000 ceiling) - previously a student's own
+        // legitimate write could set these to anything, forging the day
+        // leaderboard's sort key and the institution's Classroom Analytics.
         allow write: if isInstitutionAdmin(institutionId) || isAdmin() ||
-          (isApprovedStudent(institutionId) && isOwner(request.resource.data.uid));
+          (isApprovedStudent(institutionId) && isOwner(request.resource.data.uid)
+            && logId.split('_')[0] == request.auth.uid
+            && isModuleEnabledForUser(request.resource.data.uid, institutionId, 'dailyLearning')
+            && (resource == null || !('completedAt' in resource.data) || request.resource.data.completedAt == resource.data.completedAt)
+            && request.resource.data.get('xpEarned', 0) is number && request.resource.data.get('xpEarned', 0) >= 0 && request.resource.data.get('xpEarned', 0) <= 2000
+            && request.resource.data.get('coinEarned', 0) is number && request.resource.data.get('coinEarned', 0) >= 0 && request.resource.data.get('coinEarned', 0) <= 2000);
+      }
+
+      // New tracks within Daily Learning (Aptitude Series first - see
+      // lib/dailyLearning.js's TRACK_CATALOG/trackPaths) live in their own
+      // namespaced subtree instead of the legacy dailyLearning/
+      // dailyLearningLog collections above - that keeps every existing DSA
+      // item/log doc ID (a bare calendar date, and {uid}_{date} respectively)
+      // completely untouched, so a second calendar-paced track can never
+      // collide with a DSA item/log sharing the same real date. Same read/
+      // write shape as dailyLearning/dailyLearningLog above (including the
+      // HOD/Faculty scoped-publish disjuncts and the monotonic-completedAt/
+      // bounded-xp-coin log write), just parameterized by trackId instead of
+      // a fixed top-level collection name - still gated on the dailyLearning
+      // module (a track within Daily Learning, not a separate toggleable
+      // module).
+      match /learningTracks/{trackId} {
+        match /items/{date} {
+          allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
+            || isHodOfDepartment(institutionId, resource.data.get('scopeDepartment', '')) || isFacultyOfClassroom(institutionId, resource.data.get('scopeClassroomId', ''));
+          allow create, update: if isInstitutionAdmin(institutionId) || isAdmin()
+            || (isHodOfDepartment(institutionId, request.resource.data.get('scopeDepartment', ''))
+                && (resource == null || resource.data.get('scopeDepartment', '') == request.resource.data.get('scopeDepartment', ''))
+                && hasPermission(institutionId, request.auth.uid, 'dailyLearning.publish'))
+            || (isFacultyOfClassroom(institutionId, request.resource.data.get('scopeClassroomId', ''))
+                && (resource == null || resource.data.get('scopeClassroomId', '') == request.resource.data.get('scopeClassroomId', ''))
+                && hasPermission(institutionId, request.auth.uid, 'dailyLearning.publish'));
+          allow delete: if isInstitutionAdmin(institutionId) || isAdmin();
+        }
+        match /logs/{logId} {
+          allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin();
+          allow write: if isInstitutionAdmin(institutionId) || isAdmin() ||
+            (isApprovedStudent(institutionId) && isOwner(request.resource.data.uid)
+              && logId.split('_')[0] == request.auth.uid
+              && isModuleEnabledForUser(request.resource.data.uid, institutionId, 'dailyLearning')
+              && (resource == null || !('completedAt' in resource.data) || request.resource.data.completedAt == resource.data.completedAt)
+              && request.resource.data.get('xpEarned', 0) is number && request.resource.data.get('xpEarned', 0) >= 0 && request.resource.data.get('xpEarned', 0) <= 2000
+              && request.resource.data.get('coinEarned', 0) is number && request.resource.data.get('coinEarned', 0) >= 0 && request.resource.data.get('coinEarned', 0) <= 2000);
+        }
       }
 
       // Institution-local hide list for global, platform-owned content

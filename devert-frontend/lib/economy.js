@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc, getDocs, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
 
 export const DEFAULT_ECONOMY = {
   PER_LIKE:      10,
@@ -35,4 +35,24 @@ export function logCoinTransaction(uid, type, amount) {
   addDoc(collection(db, "coin_transactions"), {
     uid, type, amount, createdAt: serverTimestamp(),
   }).catch(() => {});
+}
+
+// Real per-event timestamps since a given date, for one student - the
+// Classroom Analytics "Active" signal's broadest source: this log already
+// covers Daily Learning completions, Programming topic completions, and CS
+// Core topic completions (see logCoinTransaction's callers), so a single
+// query here catches activity across three modules at once instead of
+// querying each separately. Needs its own uid+createdAt composite index
+// (the Wallet page's own query deliberately avoids one - see that file's
+// comment - this is the one caller where it's worth provisioning). Does NOT
+// cover CodeLab/DSA solves (GradingService.java never writes here) or
+// Contest rewards (lib/contests.js never calls logCoinTransaction) - those
+// need their own signals (see lib/codelab.js's fetchSubmissionDatesForUser).
+export async function fetchTransactionDatesForUser(uid, sinceDate) {
+  const snap = await getDocs(query(
+    collection(db, "coin_transactions"),
+    where("uid", "==", uid),
+    where("createdAt", ">=", Timestamp.fromDate(sinceDate)),
+  ));
+  return snap.docs.map(d => d.data().createdAt?.toDate?.()).filter(Boolean);
 }

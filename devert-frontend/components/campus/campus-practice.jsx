@@ -7,18 +7,47 @@ import {
   Play, Send, RotateCcw, Copy, Lightbulb, CheckCircle2, CircleDot, XCircle, Monitor, Code2,
   Search, Eye, EyeOff, ChevronUp, ChevronDown, GripHorizontal, Terminal, History, PartyPopper,
   Coins, Flame, ArrowRight, RefreshCw, Clock, MemoryStick, ListChecks, Check, Youtube, AlertTriangle,
+  Star, Bookmark, Tag, MoreVertical, CalendarClock, StickyNote, Repeat, X, Gauge, Building2,
 } from "lucide-react";
 
 // Fallback labels only - a problem's own solutions.brute/better/optimal.title
 // (set by whoever authors it) always wins when present.
 const SOLUTION_APPROACHES = ["brute", "better", "optimal"];
 const SOLUTION_LABELS = { brute: "Brute Force", better: "Better", optimal: "Optimal" };
+
+// Whether this problem has ANY "teach it like a beginner" enrichment field
+// set (see admin/page.jsx's "SIMPLE EXPLANATION" panel) - none of these are
+// required, so most not-yet-enriched problems render none of this and fall
+// straight through to the original statement, unchanged.
+function hasSimpleExplanation(problem) {
+  return !!(problem.simpleExplanation || problem.realWorldAnalogy || problem.visualWalkthrough?.length
+    || problem.dryRun || problem.bruteForceIntuition || problem.optimizedIntuition
+    || problem.timeComplexityPlain || problem.spaceComplexityPlain || problem.interviewTip || problem.keyObservation);
+}
+
+function SimpleExplanationBlock({ title, text, icon: Icon }) {
+  return (
+    <div>
+      <p className="text-[10px] font-mono tracking-widest mb-1 flex items-center gap-1" style={{ color: CAMPUS.inkFaint }}>
+        {Icon && <Icon size={10} />} {title.toUpperCase()}
+      </p>
+      <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{text}</p>
+    </div>
+  );
+}
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchPublishedProblems, fetchProblem, fetchSampleTests, subscribeToCodelabProgress,
-  fetchAttemptedProblemIds, fetchProblemSubmissions, runCode, submitCode,
+  fetchAttemptedProblemIds, fetchProblemSubmissions, fetchAllSubmissionsForUser, runCode, submitCode,
+  fetchCodeDraft, saveCodeDraft, computeSubmissionStatsByProblem,
   acceptanceRate, CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, CODELAB_LANGUAGES, STARTER_CODE,
 } from "@/lib/codelab";
+import {
+  subscribeToProblemNotes, toggleFavorite, toggleBookmark, toggleReviewLater, toggleNeedsRevision,
+  setConfidence, setPersonalDifficulty, setPersonalRating, saveNotes, saveTags,
+  scheduleRevision, clearRevisionSchedule, isRevisionDue, formatRevisionLabel,
+  CONFIDENCE_LEVELS, SUGGESTED_TAGS, REVISION_PRESETS,
+} from "@/lib/problemNotes";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusBreadcrumb, CampusSkeleton, CampusEmptyState, CampusButton } from "@/components/campus/campus-ui";
 
@@ -75,12 +104,406 @@ export function SidebarFilterGroup({ label, options, value, onChange, horizontal
   );
 }
 
+// Same shape/behavior as SidebarFilterGroup (single-select, active/inactive
+// tint, horizontal-chip vs vertical-nav modes) but each option additionally
+// shows this student's solved/total for that category - computed client-side
+// from the `problems` array CampusPracticeList already fetches in full (see
+// lib/codelab.js's fetchPublishedProblems, no orderBy/limit) crossed with
+// the live `solvedIds` set, so this costs zero extra Firestore reads. Kept
+// separate from SidebarFilterGroup (rather than bolting counts onto it)
+// because that component is also used unchanged for the DIFFICULTY row here
+// and for both filter rows on campus-app.jsx's public/pre-auth practice
+// preview, where per-student progress doesn't apply.
+// Self-fetching (own fetchPublishedProblems + subscribeToCodelabProgress, same
+// pattern CampusPracticeList itself already uses) rather than taking
+// `problems`/`solvedIds` as props, specifically so this is a drop-in
+// replacement for `SidebarFilterGroup horizontal label="CATEGORY"` at EVERY
+// call site - including the two in campus-app.jsx (CampusWorkspace's own DSA
+// tab, which renders this row itself and passes `hideFilters` into
+// CampusPracticeList, and CampusGlobalSection's public/pre-auth preview) -
+// with zero prop-threading. This does mean a second, redundant
+// fetchPublishedProblems() call when both this and CampusPracticeList render
+// on the same page (as in the real DSA tab) - already an accepted tradeoff
+// in this file (see fetchPublishedProblems's own call sites), and cheap: a
+// single equality-filtered query over ~hundreds of docs, not a per-render
+// cost.
+export function CategoryFilterList({ value, onChange, horizontal = false }) {
+  const { user } = useAuth();
+  const [problems, setProblems] = useState([]);
+  const [solvedIds, setSolvedIds] = useState(new Set());
+
+  useEffect(() => {
+    fetchPublishedProblems().then(setProblems).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!user) { setSolvedIds(new Set()); return; }
+    return subscribeToCodelabProgress(user.uid, p => setSolvedIds(new Set(Object.keys(p.solvedProblems || {}))));
+  }, [user]);
+
+  const counts = useMemo(() => {
+    const map = {};
+    problems.forEach(p => {
+      const c = map[p.category] || { total: 0, solved: 0 };
+      c.total += 1;
+      if (solvedIds.has(p.id)) c.solved += 1;
+      map[p.category] = c;
+    });
+    return map;
+  }, [problems, solvedIds]);
+  const allTotal = problems.length;
+  const allSolved = problems.reduce((n, p) => n + (solvedIds.has(p.id) ? 1 : 0), 0);
+
+  return (
+    <div>
+      <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>CATEGORY</p>
+      <div className={`flex flex-wrap gap-1.5 ${horizontal ? "" : "lg:flex-col"}`}>
+        {["All", ...CODELAB_CATEGORIES].map(opt => {
+          const active = value === opt;
+          const c = opt === "All" ? { total: allTotal, solved: allSolved } : (counts[opt] || { total: 0, solved: 0 });
+          return (
+            <button key={opt} onClick={() => onChange(opt)}
+              className={`text-left text-[12.5px] px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${horizontal ? "border" : ""}`}
+              style={{
+                background: active ? CAMPUS.tealTint : (horizontal ? CAMPUS.paper : "transparent"),
+                color: active ? CAMPUS.teal : CAMPUS.inkSoft,
+                fontWeight: active ? 600 : 500,
+                borderColor: horizontal ? (active ? CAMPUS.teal : CAMPUS.line) : undefined,
+              }}>
+              {opt}
+              <span className="text-[10px] font-mono flex-shrink-0" style={{ color: active ? CAMPUS.teal : CAMPUS.inkFaint }}>
+                {c.total > 0 ? `${c.solved}/${c.total}` : "0"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const COMPANY_SHOW_MORE_STEP = 12;
+
+// "Which companies ask this problem" filter - same self-fetching, drop-in
+// shape as CategoryFilterList above, but the company LIST itself isn't a
+// fixed enum like CODELAB_CATEGORIES: it's derived from whatever admins have
+// actually tagged on `problems/{id}.companies` (see admin/page.jsx's
+// Companies editor), sorted by how many problems carry each tag. Renders
+// nothing at all until at least one problem has a real company tag - an
+// empty "Companies: All" row with nothing under it would be worse than no
+// row, and this is brand-new, 100% admin-authored metadata with zero
+// existing problems tagged on the day this shipped.
+export function CompanyFilterList({ value, onChange, horizontal = false }) {
+  const [problems, setProblems] = useState([]);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    fetchPublishedProblems().then(setProblems).catch(() => {});
+  }, []);
+
+  const counts = useMemo(() => {
+    const map = {};
+    problems.forEach(p => { (p.companies || []).forEach(c => { map[c] = (map[c] || 0) + 1; }); });
+    return map;
+  }, [problems]);
+  const companies = useMemo(() => Object.keys(counts).sort((a, b) => counts[b] - counts[a]), [counts]);
+
+  if (companies.length === 0) return null;
+  const visible = expanded ? companies : companies.slice(0, COMPANY_SHOW_MORE_STEP);
+
+  return (
+    <div>
+      <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>COMPANIES</p>
+      <div className={`flex flex-wrap gap-1.5 ${horizontal ? "" : "lg:flex-col"}`}>
+        {["All", ...visible].map(opt => {
+          const active = value === opt;
+          const count = opt === "All" ? problems.length : counts[opt];
+          return (
+            <button key={opt} onClick={() => onChange(opt)}
+              className={`text-left text-[12.5px] px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${horizontal ? "border" : ""}`}
+              style={{
+                background: active ? CAMPUS.tealTint : (horizontal ? CAMPUS.paper : "transparent"),
+                color: active ? CAMPUS.teal : CAMPUS.inkSoft,
+                fontWeight: active ? 600 : 500,
+                borderColor: horizontal ? (active ? CAMPUS.teal : CAMPUS.line) : undefined,
+              }}>
+              {opt}
+              <span className="text-[10px] font-mono flex-shrink-0" style={{ color: active ? CAMPUS.teal : CAMPUS.inkFaint }}>{count}</span>
+            </button>
+          );
+        })}
+        {!expanded && companies.length > COMPANY_SHOW_MORE_STEP && (
+          <button onClick={() => setExpanded(true)}
+            className={`text-[12.5px] px-3 py-2 rounded-lg transition-colors ${horizontal ? "border" : ""}`}
+            style={{ color: CAMPUS.inkFaint, borderColor: horizontal ? CAMPUS.line : undefined }}>
+            Show More ({companies.length - COMPANY_SHOW_MORE_STEP})
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Multi-select chip row (unlike SidebarFilterGroup's single-select) - any
+// number of these can be active at once, ANDed together in CampusPracticeList's
+// `filtered` computation. Every option here reads from data already loaded
+// client-side (notesMap, solvedIds) - no new query fires when a filter is
+// toggled.
+const STATUS_FILTER_OPTIONS = [
+  { key: "favorite", label: "Favorites", icon: Star, color: CAMPUS.gold },
+  { key: "bookmarked", label: "Bookmarked", icon: Bookmark, color: CAMPUS.blue },
+  { key: "needsRevision", label: "Needs Revision", icon: Repeat, color: CAMPUS.purple },
+  { key: "reviewLater", label: "Review Later", icon: CalendarClock, color: CAMPUS.warn },
+  { key: "hasNotes", label: "Has Notes", icon: StickyNote, color: CAMPUS.teal },
+  { key: "revisionDue", label: "Due For Revision", icon: AlertTriangle, color: CAMPUS.bad },
+  { key: "solved", label: "Solved", icon: CheckCircle2, color: CAMPUS.good },
+  { key: "unsolved", label: "Unsolved", icon: CircleDot, color: CAMPUS.inkFaint },
+];
+
+function matchesStatusFilter(key, note, solved) {
+  switch (key) {
+    case "favorite": return !!note.favorite;
+    case "bookmarked": return !!note.bookmarked;
+    case "needsRevision": return !!note.needsRevision;
+    case "reviewLater": return !!note.reviewLater;
+    case "hasNotes": return !!(note.notes && note.notes.trim());
+    case "revisionDue": return isRevisionDue(note);
+    case "solved": return solved;
+    case "unsolved": return !solved;
+    default: return true;
+  }
+}
+
+function StatusFilterChips({ active, onToggle }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {STATUS_FILTER_OPTIONS.map(opt => {
+        const isActive = active.has(opt.key);
+        return (
+          <button key={opt.key} onClick={() => onToggle(opt.key)}
+            className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors"
+            style={{
+              background: isActive ? `${opt.color}18` : CAMPUS.paper,
+              color: isActive ? opt.color : CAMPUS.inkSoft,
+              borderColor: isActive ? `${opt.color}40` : CAMPUS.line,
+            }}>
+            <opt.icon size={12} fill={isActive ? opt.color : "none"} /> {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const SORT_OPTIONS = [
+  { key: "default", label: "Default Order" },
+  { key: "difficulty_asc", label: "Difficulty: Easy → Hard" },
+  { key: "difficulty_desc", label: "Difficulty: Hard → Easy" },
+  { key: "favorite_first", label: "Favorites First" },
+  { key: "rating_desc", label: "My Rating: High → Low" },
+  { key: "attempts_desc", label: "Most Attempted" },
+  { key: "recent_solved", label: "Recently Solved" },
+];
+const DIFFICULTY_RANK = { Easy: 0, Medium: 1, Hard: 2 };
+
+// Plain in-memory re-sort of the already-filtered, already-fetched list -
+// same "small dataset, no new query" reasoning as CampusTable's
+// useSortableRows in campus-ui.jsx.
+function sortProblems(list, sortKey, notesMap, submissionStats) {
+  if (sortKey === "default") return list;
+  const withMeta = list.map(p => ({ p, note: notesMap[p.id] || {}, stats: submissionStats[p.id] }));
+  withMeta.sort((a, b) => {
+    switch (sortKey) {
+      case "difficulty_asc": return (DIFFICULTY_RANK[a.p.difficulty] ?? 1) - (DIFFICULTY_RANK[b.p.difficulty] ?? 1);
+      case "difficulty_desc": return (DIFFICULTY_RANK[b.p.difficulty] ?? 1) - (DIFFICULTY_RANK[a.p.difficulty] ?? 1);
+      case "favorite_first": return (b.note.favorite ? 1 : 0) - (a.note.favorite ? 1 : 0);
+      case "rating_desc": return (b.note.personalRating || 0) - (a.note.personalRating || 0);
+      case "attempts_desc": return (b.stats?.attempts || 0) - (a.stats?.attempts || 0);
+      case "recent_solved": return (b.stats?.lastAt || 0) - (a.stats?.lastAt || 0);
+      default: return 0;
+    }
+  });
+  return withMeta.map(x => x.p);
+}
+
+function MiniStars({ value, onChange, size = 12 }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(n => (
+        <button key={n} onClick={(e) => { e.stopPropagation(); onChange(n === value ? 0 : n); }} className="p-0 leading-none">
+          <Star size={size} fill={n <= value ? CAMPUS.gold : "none"} style={{ color: n <= value ? CAMPUS.gold : CAMPUS.inkFaint }} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const CONFIDENCE_COLOR = {
+  very_confident: CAMPUS.good, confident: CAMPUS.teal, average: CAMPUS.warn,
+  needs_practice: CAMPUS.gold, didnt_understand: CAMPUS.bad,
+};
+
+// The DSA card's "three-dot menu", built as a self-contained floating
+// popover (same absolute-positioned, framer-motion, click-outside-closes
+// shape as pulse-app.jsx's PostMenu) rather than a plain list of buttons -
+// every action here is a direct, optimistic-by-Firestore's-own-onSnapshot
+// write through lib/problemNotes.js (no local pending state to reconcile;
+// the live subscribeToProblemNotes listener in CampusPracticeList reflects
+// each write back into `note` on its own).
+//
+// Deliberately does NOT include "Mark Solved/Unsolved" or "Reset Progress":
+// user_codelab_progress.solvedProblems is a monotonic map by design (see
+// firestore.rules' own comment on that collection) - once a problemId key is
+// set, even the owner can never clear it client-side, specifically so a
+// student can't clear a solve and re-trigger reward logic. Exposing a menu
+// item that promises to do exactly that would either silently no-op or
+// require reopening that trust boundary, so it's left out rather than built
+// half-working.
+function ProblemStudyMenu({ problem, note, uid, onClose, onOpenProblem }) {
+  const ref = useRef(null);
+  const [notesDraft, setNotesDraft] = useState(note.notes || "");
+  const [tagInput, setTagInput] = useState("");
+
+  useEffect(() => {
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [onClose]);
+
+  const tags = note.tags || [];
+  const addTag = (raw) => {
+    const clean = raw.trim();
+    if (!clean || tags.includes(clean)) return;
+    saveTags(uid, problem.id, [...tags, clean]).catch(() => {});
+  };
+  const removeTag = (t) => saveTags(uid, problem.id, tags.filter(x => x !== t)).catch(() => {});
+  const revisionLabel = formatRevisionLabel(note);
+
+  const TOGGLES = [
+    { key: "favorite", icon: Star, label: "Favorite", active: !!note.favorite, color: CAMPUS.gold, onClick: () => toggleFavorite(uid, problem.id, !note.favorite) },
+    { key: "bookmarked", icon: Bookmark, label: "Save", active: !!note.bookmarked, color: CAMPUS.blue, onClick: () => toggleBookmark(uid, problem.id, !note.bookmarked) },
+    { key: "reviewLater", icon: CalendarClock, label: "Review", active: !!note.reviewLater, color: CAMPUS.warn, onClick: () => toggleReviewLater(uid, problem.id, !note.reviewLater) },
+    { key: "needsRevision", icon: Repeat, label: "Revise", active: !!note.needsRevision, color: CAMPUS.purple, onClick: () => toggleNeedsRevision(uid, problem.id, !note.needsRevision) },
+  ];
+
+  return (
+    <motion.div ref={ref} onClick={(e) => e.stopPropagation()}
+      initial={{ opacity: 0, scale: 0.96, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: -4 }}
+      transition={{ duration: 0.14 }}
+      className="absolute top-9 right-0 z-30 w-[268px] max-h-[75vh] overflow-y-auto rounded-xl p-3"
+      style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
+      <div className="flex items-start justify-between gap-2 mb-2.5">
+        <p className="text-[12px] font-semibold leading-snug" style={{ color: CAMPUS.ink }}>{problem.title}</p>
+        <button onClick={onClose} className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }}><X size={14} /></button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-1.5 mb-3">
+        {TOGGLES.map(a => (
+          <button key={a.key} onClick={a.onClick} title={a.label}
+            className="flex flex-col items-center gap-1 py-2 rounded-lg transition-colors"
+            style={{ background: a.active ? `${a.color}18` : CAMPUS.paper, color: a.active ? a.color : CAMPUS.inkFaint, border: `1px solid ${a.active ? `${a.color}40` : CAMPUS.line}` }}>
+            <a.icon size={14} fill={a.active ? a.color : "none"} />
+            <span className="text-[9px] font-semibold">{a.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>CONFIDENCE</p>
+      <div className="flex flex-wrap gap-1 mb-3">
+        {CONFIDENCE_LEVELS.map(c => {
+          const active = note.confidence === c.key;
+          const color = CONFIDENCE_COLOR[c.key];
+          return (
+            <button key={c.key} onClick={() => setConfidence(uid, problem.id, active ? null : c.key)}
+              className="text-[10px] font-semibold px-2 py-1 rounded-full transition-colors"
+              style={{ background: active ? `${color}18` : CAMPUS.paper, color: active ? color : CAMPUS.inkFaint, border: `1px solid ${active ? `${color}40` : CAMPUS.line}` }}>
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>YOUR DIFFICULTY</p>
+          <div className="flex gap-1">
+            {CODELAB_DIFFICULTIES.map(d => {
+              const active = note.personalDifficulty === d;
+              const color = DIFF_COLOR[d];
+              return (
+                <button key={d} onClick={() => setPersonalDifficulty(uid, problem.id, active ? null : d)}
+                  className="text-[10px] font-semibold w-6 h-6 rounded-full"
+                  style={{ background: active ? `${color}18` : CAMPUS.paper, color: active ? color : CAMPUS.inkFaint, border: `1px solid ${active ? `${color}40` : CAMPUS.line}` }}>
+                  {d[0]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="text-[9px] font-mono tracking-widest mb-1 text-right" style={{ color: CAMPUS.inkFaint }}>YOUR RATING</p>
+          <MiniStars value={note.personalRating || 0} onChange={(n) => setPersonalRating(uid, problem.id, n)} />
+        </div>
+      </div>
+
+      <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>NOTES</p>
+      <textarea value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)}
+        onBlur={() => { if (notesDraft !== (note.notes || "")) saveNotes(uid, problem.id, notesDraft).catch(() => {}); }}
+        placeholder="Sliding window trick, DP recurrence..." rows={2}
+        className="w-full text-[11px] rounded-lg p-2 mb-3 outline-none resize-none"
+        style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+
+      <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>TAGS</p>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          {tags.map(t => (
+            <span key={t} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
+              {t} <button onClick={() => removeTag(t)}><X size={9} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input value={tagInput} onChange={(e) => setTagInput(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); setTagInput(""); } }}
+        placeholder="Add a tag, press Enter" className="w-full text-[11px] rounded-lg px-2 py-1.5 mb-1.5 outline-none"
+        style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+      <div className="flex flex-wrap gap-1 mb-3">
+        {SUGGESTED_TAGS.filter(t => !tags.includes(t)).slice(0, 4).map(t => (
+          <button key={t} onClick={() => addTag(t)} className="text-[9.5px] font-medium px-1.5 py-0.5 rounded-full" style={{ color: CAMPUS.inkFaint, border: `1px solid ${CAMPUS.line}` }}>
+            + {t}
+          </button>
+        ))}
+      </div>
+
+      <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>REVISION SCHEDULE</p>
+      {revisionLabel && (
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[11px] font-semibold" style={{ color: CAMPUS.purple }}>Next: {revisionLabel}</span>
+          <button onClick={() => clearRevisionSchedule(uid, problem.id)} className="text-[10px]" style={{ color: CAMPUS.inkFaint }}>Clear</button>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1 mb-3">
+        {REVISION_PRESETS.map(r => (
+          <button key={r.label} onClick={() => scheduleRevision(uid, problem.id, r.days)}
+            className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{ color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      <button onClick={onOpenProblem} className="w-full text-[11.5px] font-semibold py-2 rounded-lg" style={{ background: CAMPUS.teal, color: "#fff" }}>
+        Open Problem
+      </button>
+    </motion.div>
+  );
+}
+
 function SignInPrompt({ message }) {
   return (
     <CampusCard className="p-7 text-center max-w-sm mx-auto">
       <h3 className="text-[16px] font-semibold mb-2" style={{ color: CAMPUS.ink }}>Sign in to continue</h3>
       <p className="text-[13px] mb-5" style={{ color: CAMPUS.inkSoft }}>{message}</p>
-      <CampusGoogleButton style={{ background: CAMPUS.ink, color: "#fff" }} />
+      <CampusGoogleButton style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }} />
     </CampusCard>
   );
 }
@@ -100,18 +523,25 @@ function SignInPrompt({ message }) {
 // button) instead of disappearing, so there's something to click to
 // restore them. Every real student-facing call site leaves these unset,
 // so hidden problems just vanish from `filtered` as if they never existed.
-export function CampusPracticeList({ onSelect, initialCategory, category: controlledCategory, difficulty: controlledDifficulty, hideFilters = false, adminMode = false, hiddenIds, onToggleHidden }) {
+export function CampusPracticeList({ onSelect, initialCategory, category: controlledCategory, difficulty: controlledDifficulty, company: controlledCompany, hideFilters = false, adminMode = false, hiddenIds, onToggleHidden }) {
   const { user } = useAuth();
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [categoryState, setCategoryState] = useState(initialCategory || "All");
   const [difficultyState, setDifficultyState] = useState("All");
+  const [companyState, setCompanyState] = useState("All");
   const [search, setSearch] = useState("");
   const [solvedIds, setSolvedIds] = useState(new Set());
   const [attemptedIds, setAttemptedIds] = useState(new Set());
+  const [notesMap, setNotesMap] = useState({});
+  const [submissionStats, setSubmissionStats] = useState({});
+  const [statusFilters, setStatusFilters] = useState(new Set());
+  const [sortKey, setSortKey] = useState("default");
+  const [openMenuId, setOpenMenuId] = useState(null);
   const category = controlledCategory ?? categoryState;
   const difficulty = controlledDifficulty ?? difficultyState;
+  const company = controlledCompany ?? companyState;
 
   const loadProblems = () => {
     setLoading(true); setError(false);
@@ -120,29 +550,53 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
   useEffect(loadProblems, []);
 
   useEffect(() => {
-    if (!user) { setSolvedIds(new Set()); setAttemptedIds(new Set()); return; }
+    if (!user) { setSolvedIds(new Set()); setAttemptedIds(new Set()); setNotesMap({}); setSubmissionStats({}); return; }
     // Live, not a one-time fetch - a problem solved in another tab (or just
     // now, in the problem view this list returns to) shows SOLVED here
     // immediately, with no remount/refresh needed to see it.
     const unsubscribe = subscribeToCodelabProgress(user.uid, p => setSolvedIds(new Set(Object.keys(p.solvedProblems || {}))));
+    // Same live-not-one-time reasoning for study-card metadata - a favorite/
+    // note/tag toggled from another tab (or this same card, re-rendered
+    // after its own write) reflects immediately.
+    const unsubscribeNotes = subscribeToProblemNotes(user.uid, setNotesMap);
     fetchAttemptedProblemIds(user.uid).then(setAttemptedIds).catch(() => {});
-    return unsubscribe;
+    // One-time - "attempts/last solved" only needs to reflect submissions
+    // made before this page load; a fresh submission during this session
+    // already flips `solved` live via the listener above, which is the part
+    // that actually gates UI behavior.
+    fetchAllSubmissionsForUser(user.uid).then(subs => setSubmissionStats(computeSubmissionStatsByProblem(subs))).catch(() => {});
+    return () => { unsubscribe(); unsubscribeNotes(); };
   }, [user]);
 
   const q = search.trim().toLowerCase();
-  const filtered = problems.filter(p =>
-    (adminMode || !hiddenIds?.has(p.id)) &&
-    (category === "All" || p.category === category) &&
-    (difficulty === "All" || p.difficulty === difficulty) &&
-    (!q || p.title?.toLowerCase().includes(q) || String(p.number ?? "").includes(q)));
+  const preSort = problems.filter(p => {
+    const note = notesMap[p.id] || {};
+    const solved = solvedIds.has(p.id);
+    return (adminMode || !hiddenIds?.has(p.id))
+      && (category === "All" || p.category === category)
+      && (difficulty === "All" || p.difficulty === difficulty)
+      && (company === "All" || (p.companies || []).includes(company))
+      && (!q || p.title?.toLowerCase().includes(q) || String(p.number ?? "").includes(q))
+      && Array.from(statusFilters).every(key => matchesStatusFilter(key, note, solved));
+  });
+  const filtered = sortProblems(preSort, sortKey, notesMap, submissionStats);
+
+  const toggleStatusFilter = (key) => {
+    setStatusFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <div className={hideFilters ? "" : "flex gap-6 flex-col lg:flex-row"}>
       {!hideFilters && (
         <aside className="lg:w-52 flex-shrink-0">
           <div className="flex flex-row lg:flex-col gap-5 lg:gap-6 lg:sticky lg:top-6">
-            <SidebarFilterGroup label="CATEGORY" options={["All", ...CODELAB_CATEGORIES]} value={category} onChange={setCategoryState} />
+            <CategoryFilterList value={category} onChange={setCategoryState} />
             <SidebarFilterGroup label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={difficulty} onChange={setDifficultyState} />
+            <CompanyFilterList value={company} onChange={setCompanyState} />
           </div>
         </aside>
       )}
@@ -158,6 +612,18 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
             style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}
           />
         </div>
+        {user && (
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <StatusFilterChips active={statusFilters} onToggle={toggleStatusFilter} />
+            </div>
+            <select value={sortKey} onChange={(e) => setSortKey(e.target.value)}
+              className="text-[11.5px] font-semibold px-2.5 py-1.5 rounded-lg outline-none flex-shrink-0"
+              style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+              {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </div>
+        )}
         {loading ? (
           <div className="grid sm:grid-cols-2 gap-3">
             {[0, 1, 2, 3].map(i => (
@@ -181,6 +647,14 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
               const solved = solvedIds.has(p.id);
               const attempted = !solved && attemptedIds.has(p.id);
               const hidden = adminMode && hiddenIds?.has(p.id);
+              const note = notesMap[p.id] || {};
+              const stats = submissionStats[p.id];
+              const revisionDue = isRevisionDue(note);
+              const revisionLabel = formatRevisionLabel(note);
+              const tags = note.tags || [];
+              const hasMeta = !hidden && (note.favorite || note.bookmarked || note.reviewLater || note.needsRevision
+                || revisionDue || note.notes?.trim() || note.confidence || note.personalRating > 0
+                || (note.personalDifficulty && note.personalDifficulty !== p.difficulty) || tags.length > 0);
               return (
                 <div key={p.id} className="relative">
                   {!hidden && solved && (
@@ -191,7 +665,7 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
                   )}
                   <button onClick={() => onSelect(p.id)} className="text-left w-full">
                     <CampusCard hover className="p-4 h-full" style={hidden ? { opacity: 0.5 } : (solved ? { borderColor: `${CAMPUS.good}50` } : undefined)}>
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap pr-16">
                         <CampusChip color={CAMPUS.inkFaint}>{p.category}</CampusChip>
                         <CampusChip color={DIFF_COLOR[p.difficulty] || CAMPUS.good}>{p.difficulty}</CampusChip>
                         {hidden && <CampusChip color={CAMPUS.bad} icon={EyeOff} className="ml-auto">HIDDEN</CampusChip>}
@@ -202,9 +676,33 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
                         {p.number != null && <span style={{ color: CAMPUS.inkFaint }}>{p.number}. </span>}
                         {p.title}
                       </b>
+                      {p.companies?.length > 0 && (
+                        <div className="flex items-center gap-1 mb-2 flex-wrap">
+                          <Building2 size={10} style={{ color: CAMPUS.inkFaint }} />
+                          <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>
+                            Asked in {p.companies.slice(0, 3).join(", ")}{p.companies.length > 3 ? ` +${p.companies.length - 3}` : ""}
+                          </span>
+                        </div>
+                      )}
+                      {hasMeta && (
+                        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                          {note.favorite && <CampusChip color={CAMPUS.gold} icon={Star}>FAVORITE</CampusChip>}
+                          {note.bookmarked && <CampusChip color={CAMPUS.blue} icon={Bookmark}>SAVED</CampusChip>}
+                          {revisionDue && <CampusChip color={CAMPUS.bad} icon={AlertTriangle}>REVISE {revisionLabel?.toUpperCase()}</CampusChip>}
+                          {!revisionDue && note.needsRevision && <CampusChip color={CAMPUS.purple} icon={Repeat}>NEEDS REVISION</CampusChip>}
+                          {!revisionDue && note.reviewLater && <CampusChip color={CAMPUS.warn} icon={CalendarClock}>REVIEW{revisionLabel ? ` ${revisionLabel.toUpperCase()}` : ""}</CampusChip>}
+                          {note.confidence && <CampusChip color={CONFIDENCE_COLOR[note.confidence]} icon={Gauge}>{CONFIDENCE_LEVELS.find(c => c.key === note.confidence)?.label?.toUpperCase()}</CampusChip>}
+                          {note.personalRating > 0 && <CampusChip color={CAMPUS.gold} icon={Star}>{note.personalRating}/5</CampusChip>}
+                          {note.personalDifficulty && note.personalDifficulty !== p.difficulty && <CampusChip color={DIFF_COLOR[note.personalDifficulty]}>YOU: {note.personalDifficulty.toUpperCase()}</CampusChip>}
+                          {note.notes?.trim() && <CampusChip color={CAMPUS.teal} icon={StickyNote}>NOTES</CampusChip>}
+                          {tags.slice(0, 2).map(t => <CampusChip key={t} color={CAMPUS.inkFaint} icon={Tag}>{t}</CampusChip>)}
+                          {tags.length > 2 && <CampusChip color={CAMPUS.inkFaint}>+{tags.length - 2}</CampusChip>}
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-[11px]" style={{ color: CAMPUS.inkFaint }}>
                         <span>~{p.estimatedTime || 15} min</span>
                         {rate !== null && <span>{rate}% acceptance</span>}
+                        {stats?.attempts > 0 && <span>{stats.attempts} attempt{stats.attempts === 1 ? "" : "s"}</span>}
                       </div>
                     </CampusCard>
                   </button>
@@ -214,6 +712,34 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
                       style={{ color: hidden ? CAMPUS.good : CAMPUS.bad, background: hidden ? CAMPUS.goodTint : CAMPUS.badTint }}>
                       {hidden ? <><Eye size={10} /> unhide</> : <><EyeOff size={10} /> hide</>}
                     </button>
+                  )}
+                  {!hidden && !adminMode && user && (
+                    <div className="absolute top-3 right-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => toggleFavorite(user.uid, p.id, !note.favorite)} title="Favorite"
+                          className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                          style={{ background: note.favorite ? CAMPUS.goldTint : CAMPUS.paper, color: note.favorite ? CAMPUS.gold : CAMPUS.inkFaint }}>
+                          <Star size={13} fill={note.favorite ? CAMPUS.gold : "none"} />
+                        </button>
+                        <button onClick={() => toggleBookmark(user.uid, p.id, !note.bookmarked)} title="Bookmark"
+                          className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                          style={{ background: note.bookmarked ? CAMPUS.blueTint : CAMPUS.paper, color: note.bookmarked ? CAMPUS.blue : CAMPUS.inkFaint }}>
+                          <Bookmark size={13} fill={note.bookmarked ? CAMPUS.blue : "none"} />
+                        </button>
+                        <button onClick={() => setOpenMenuId(openMenuId === p.id ? null : p.id)} title="More actions"
+                          className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                          style={{ background: openMenuId === p.id ? CAMPUS.tealTint : CAMPUS.paper, color: openMenuId === p.id ? CAMPUS.teal : CAMPUS.inkFaint }}>
+                          <MoreVertical size={13} />
+                        </button>
+                      </div>
+                      <AnimatePresence>
+                        {openMenuId === p.id && (
+                          <ProblemStudyMenu problem={p} note={note} uid={user.uid}
+                            onClose={() => setOpenMenuId(null)}
+                            onOpenProblem={() => { setOpenMenuId(null); onSelect(p.id); }} />
+                        )}
+                      </AnimatePresence>
+                    </div>
                   )}
                 </div>
               );
@@ -447,7 +973,7 @@ function CampusResultsPanel({
 // (not a fake simulation of separate server round-trips - it's one request,
 // grading everything at once) - purely a "here's what's happening" pacing
 // aid while that one call is in flight.
-const SUBMIT_STAGES = ["Submitting...", "Checking test cases...", "Running hidden test cases...", "Evaluating solution...", "Updating XP..."];
+const SUBMIT_STAGES = ["Submitting...", "Checking test cases...", "Running hidden test cases...", "Evaluating solution...", "Finalizing..."];
 
 function SubmitProgressLine({ stageIndex }) {
   return (
@@ -523,12 +1049,13 @@ function CodeLabSuccessDialog({ verdict, problemTitle, hasNext, onNext, onBackTo
               <div className="flex items-center justify-center gap-1.5 text-[13px] font-semibold mb-4" style={{ color: CAMPUS.good }}>
                 <CheckCircle2 size={14} /> All {verdict.testsTotal} test case{verdict.testsTotal === 1 ? "" : "s"} passed
               </div>
+              {/* DSA Practice tracks completion/streak but no longer grants XP/Coins
+                  (only Daily Learning, Programming, and CS Core do) - these three
+                  chips are all non-reward stats, never a claim of something earned. */}
               <div className="grid grid-cols-3 gap-2 mb-5">
-                <RewardChip icon={PartyPopper} label="XP" value={`+${verdict.xpEarned ?? 0}`} color={CAMPUS.gold} />
-                <RewardChip icon={Coins} label="COINS" value={`+${verdict.coinsEarned ?? 0}`} color={CAMPUS.gold} />
-                {verdict.streak != null
-                  ? <RewardChip icon={Flame} label="STREAK" value={`${verdict.streak}d`} color={CAMPUS.warn} />
-                  : <RewardChip icon={Clock} label="RUNTIME" value={`${verdict.runtimeMs ?? 0}ms`} color={CAMPUS.blue} />}
+                <RewardChip icon={Flame} label="STREAK" value={verdict.streak != null ? `${verdict.streak}d` : "-"} color={CAMPUS.warn} />
+                <RewardChip icon={Clock} label="RUNTIME" value={`${verdict.runtimeMs ?? 0}ms`} color={CAMPUS.blue} />
+                <RewardChip icon={MemoryStick} label="MEMORY" value={`${verdict.memoryKb ?? 0}KB`} color={CAMPUS.blue} />
               </div>
               <div className="flex flex-col gap-2">
                 {hasNext && (
@@ -584,7 +1111,7 @@ function CodeLabFailDialog({ verdict, onViewFailed, onRetry }) {
   );
 }
 
-export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabel = "Problems" }) {
+export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabel = "Problems", suppressReward = false }) {
   const { user } = useAuth();
 
   const [problem, setProblem] = useState(null);
@@ -602,6 +1129,10 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
   const [error, setError] = useState("");
   const [revealedHints, setRevealedHints] = useState(0);
   const [activeSolution, setActiveSolution] = useState(null);
+  // Defaults open - "story before theory" (see campus-cscore.jsx/
+  // campus-programming.jsx's identical framing) means this should be the
+  // first thing a student reads, not something buried behind a click.
+  const [showSimpleExplanation, setShowSimpleExplanation] = useState(true);
 
   // resultsView: null, or { kind: "run"|"submit", verdict?, items: [...] } -
   // one shape covers both Run's sample-test cards (with a real diff) and
@@ -609,6 +1140,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
   // TestCaseCard's own comment on why).
   const [resultsView, setResultsView] = useState(null);
   const [consoleText, setConsoleText] = useState("");
+  const [draftRestoredNotice, setDraftRestoredNotice] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelHeight, setPanelHeight] = useState(260);
   const [panelTab, setPanelTab] = useState("tests");
@@ -663,6 +1195,76 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
     setActiveSubmissionId(null); setHistoryItems(null); setRevealedHints(0); setActiveSolution(null);
   }, [problemId]);
 
+  // Restores unsubmitted code (any device, any session) instead of always
+  // starting from STARTER_CODE - the whole point of saveCodeDraft below.
+  // skipNextCodeSave is set synchronously here, before the async fetch below
+  // resolves, so the autosave effect doesn't immediately re-write back the
+  // exact draft it just restored as if it were a fresh edit.
+  const skipNextCodeSave = useRef(true);
+  useEffect(() => {
+    skipNextCodeSave.current = true;
+    if (!user || !problemId) {
+      setLanguage("java"); setCode(STARTER_CODE.java);
+      setConsoleText(""); setPanelOpen(false); setPanelTab("tests");
+      return;
+    }
+    let cancelled = false;
+    fetchCodeDraft(user.uid, problemId).then(draft => {
+      if (cancelled) return;
+      // Only a genuinely-edited draft counts as "restored" - a draft whose
+      // code is still exactly the untouched starter for its language isn't
+      // work the student would recognize as theirs coming back.
+      const isRealDraft = !!draft?.code && draft.code !== STARTER_CODE[draft.language || "java"];
+      if (draft?.code) { setLanguage(draft.language || "java"); setCode(draft.code); }
+      else { setLanguage("java"); setCode(STARTER_CODE.java); }
+      // Last execution output and expanded-panel state restore alongside the
+      // code itself - a draft with no saved panel state yet (an older draft
+      // from before these fields existed) falls back to today's defaults.
+      setConsoleText(draft?.consoleText || "");
+      setPanelOpen(!!draft?.panelOpen);
+      setPanelTab(draft?.panelTab || "tests");
+      if (isRealDraft) {
+        setDraftRestoredNotice(true);
+        setTimeout(() => setDraftRestoredNotice(false), 4000);
+      }
+    }).catch(() => {
+      if (cancelled) return;
+      setLanguage("java"); setCode(STARTER_CODE.java);
+      setConsoleText(""); setPanelOpen(false); setPanelTab("tests");
+    });
+    return () => { cancelled = true; };
+  }, [user, problemId]);
+
+  // Debounced periodic autosave - fires on every code/language/console-
+  // output/panel-state change except the one caused by the restore effect
+  // above. handleRun/handleSubmit below additionally save immediately (not
+  // debounced) before firing their real request, and the visibility/unload
+  // listeners below save immediately when the student switches tabs or
+  // leaves, so unsubmitted work is covered by more than just the
+  // idle-debounce window.
+  useEffect(() => {
+    if (skipNextCodeSave.current) { skipNextCodeSave.current = false; return; }
+    if (!user || !problemId) return;
+    const t = setTimeout(() => { saveCodeDraft(user.uid, problemId, { language, code, consoleText, panelOpen, panelTab }).catch(() => {}); }, 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, language, consoleText, panelOpen, panelTab]);
+
+  // "Save before leaving the page" / "save when switching tabs" - fires
+  // immediately (no debounce) rather than waiting on the idle timer above,
+  // since both events mean the debounce may never get a chance to fire.
+  useEffect(() => {
+    if (!user || !problemId) return;
+    const saveNow = () => { saveCodeDraft(user.uid, problemId, { language, code, consoleText, panelOpen, panelTab }).catch(() => {}); };
+    const onVisibility = () => { if (document.visibilityState === "hidden") saveNow(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", saveNow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", saveNow);
+    };
+  }, [user, problemId, language, code, consoleText, panelOpen, panelTab]);
+
   // Fetched once, used only to compute "Next Problem" - not shown as a list
   // here, so one fetch for the lifetime of this view is enough.
   useEffect(() => {
@@ -687,6 +1289,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
   };
 
   const handleRun = async () => {
+    if (user && problemId) saveCodeDraft(user.uid, problemId, { language, code }).catch(() => {});
     setRunning(true); setError(""); setPanelOpen(true); setPanelTab("tests");
     try {
       const results = await Promise.all(sampleTests.map(async (t, i) => {
@@ -705,6 +1308,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
   };
 
   const handleSubmit = async () => {
+    if (user && problemId) saveCodeDraft(user.uid, problemId, { language, code }).catch(() => {});
     setSubmitting(true); setError(""); setSubmitStageIndex(0); setPanelOpen(true); setPanelTab("tests");
     const stageTimer = setInterval(() => setSubmitStageIndex(i => Math.min(i + 1, SUBMIT_STAGES.length - 1)), 550);
     // Real request and a minimum display time for the staged text run
@@ -712,7 +1316,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
     // response doesn't skip straight past "Submitting..." to "Done!".
     const minDelay = new Promise(resolve => setTimeout(resolve, 550 * (SUBMIT_STAGES.length - 1)));
     try {
-      const [result] = await Promise.all([submitCode({ problemId, language, code }), minDelay]);
+      const [result] = await Promise.all([submitCode({ problemId, language, code, suppressReward }), minDelay]);
       const items = (result.testSummaries || []).map(t => ({ label: t.label, passed: t.passed, verdict: t.verdict }));
       setResultsView({ kind: "submit", verdict: result, items });
       setActiveSubmissionId(null);
@@ -823,7 +1427,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
                 {problem.videoUrl && (
                   <a href={problem.videoUrl} target="_blank" rel="noreferrer" title="Watch video explanation"
                     className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-                    style={{ color: "#E02424", border: "1px solid #E0242440", background: "#E0242410" }}>
+                    style={{ color: CAMPUS.bad, border: `1px solid ${CAMPUS.bad}40`, background: CAMPUS.badTint }}>
                     <Youtube size={13} /> Watch
                   </a>
                 )}
@@ -847,8 +1451,64 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
               </div>
             )}
 
+            {hasSimpleExplanation(problem) && (
+              <div className="rounded-lg mb-4 overflow-hidden" style={{ background: CAMPUS.goldTint, border: `1px solid ${CAMPUS.gold}40` }}>
+                <button onClick={() => setShowSimpleExplanation(o => !o)} className="w-full flex items-center gap-2 p-3.5 text-left">
+                  <Lightbulb size={14} style={{ color: CAMPUS.gold, flexShrink: 0 }} />
+                  <span className="text-[12.5px] font-semibold flex-1" style={{ color: CAMPUS.ink }}>Simple Explanation</span>
+                  {showSimpleExplanation ? <ChevronUp size={14} style={{ color: CAMPUS.inkFaint }} /> : <ChevronDown size={14} style={{ color: CAMPUS.inkFaint }} />}
+                </button>
+                {showSimpleExplanation && (
+                  <div className="px-3.5 pb-3.5 space-y-3">
+                    {problem.simpleExplanation && (
+                      <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{problem.simpleExplanation}</p>
+                    )}
+                    {problem.realWorldAnalogy && (
+                      <SimpleExplanationBlock title="Real-World Analogy" text={problem.realWorldAnalogy} />
+                    )}
+                    {problem.visualWalkthrough?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>VISUAL WALKTHROUGH</p>
+                        <div className="space-y-1.5">
+                          {problem.visualWalkthrough.map((step, i) => (
+                            <div key={i} className="flex items-start gap-2 text-xs" style={{ color: CAMPUS.inkSoft }}>
+                              <span className="font-mono font-semibold flex-shrink-0" style={{ color: CAMPUS.gold }}>{i + 1}.</span>
+                              <span className="whitespace-pre-wrap">{step}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {problem.dryRun && <SimpleExplanationBlock title="Dry Run" text={problem.dryRun} />}
+                    {problem.bruteForceIntuition && <SimpleExplanationBlock title="Brute Force Intuition" text={problem.bruteForceIntuition} />}
+                    {problem.optimizedIntuition && <SimpleExplanationBlock title="Optimized Intuition" text={problem.optimizedIntuition} />}
+                    {(problem.timeComplexityPlain || problem.spaceComplexityPlain) && (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {problem.timeComplexityPlain && <SimpleExplanationBlock title="Time Complexity" text={problem.timeComplexityPlain} icon={Clock} />}
+                        {problem.spaceComplexityPlain && <SimpleExplanationBlock title="Space Complexity" text={problem.spaceComplexityPlain} icon={MemoryStick} />}
+                      </div>
+                    )}
+                    {problem.keyObservation && <SimpleExplanationBlock title="Key Observation" text={problem.keyObservation} />}
+                    {problem.interviewTip && <SimpleExplanationBlock title="Interview Tip" text={problem.interviewTip} />}
+                  </div>
+                )}
+              </div>
+            )}
+
             <p className="text-xs leading-relaxed whitespace-pre-wrap mb-4" style={{ color: CAMPUS.inkSoft }}>{problem.statement}</p>
 
+            {problem.inputFormat && (
+              <div className="mb-4">
+                <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>INPUT FORMAT</p>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkFaint }}>{problem.inputFormat}</p>
+              </div>
+            )}
+            {problem.outputFormat && (
+              <div className="mb-4">
+                <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>OUTPUT FORMAT</p>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkFaint }}>{problem.outputFormat}</p>
+              </div>
+            )}
             {problem.constraints && (
               <div className="mb-4">
                 <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>CONSTRAINTS</p>
@@ -861,6 +1521,30 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
                 <pre className="text-xs whitespace-pre-wrap rounded-lg p-3" style={{ color: CAMPUS.inkFaint, background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>{problem.examplesText}</pre>
               </div>
             )}
+            {problem.edgeCases && (
+              <div className="mb-4">
+                <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>EDGE CASES TO CONSIDER</p>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkFaint }}>{problem.edgeCases}</p>
+              </div>
+            )}
+            {/* Sourced from the SAME solutions.optimal (falling back to better/
+                brute) an admin already writes in the Video & Solutions editor -
+                not a new fact, just a labeled, always-visible section for data
+                that previously only surfaced when a student expanded that
+                specific solution tab. */}
+            {(() => {
+              const best = problem.solutions?.optimal || problem.solutions?.better || problem.solutions?.brute;
+              if (!best?.timeComplexity && !best?.spaceComplexity) return null;
+              return (
+                <div className="mb-4">
+                  <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>EXPECTED COMPLEXITY</p>
+                  <div className="flex items-center gap-4 text-xs font-mono" style={{ color: CAMPUS.inkFaint }}>
+                    {best.timeComplexity && <span>Time: {best.timeComplexity}</span>}
+                    {best.spaceComplexity && <span>Space: {best.spaceComplexity}</span>}
+                  </div>
+                </div>
+              );
+            })()}
             {problem.hints?.length > 0 && (
               <div className="mb-2">
                 <p className="text-[9px] font-mono tracking-widest mb-1.5 flex items-center gap-1" style={{ color: CAMPUS.inkFaint }}><Lightbulb size={10} /> HINTS</p>
@@ -890,6 +1574,15 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
         {/* Editor */}
         <div className="w-full min-w-0 flex" style={isDesktop ? { flex: `1 1 calc(${100 - statementPct}% - 5px)` } : undefined}>
         <CampusCard className="w-full h-full flex flex-col">
+          <AnimatePresence>
+            {draftRestoredNotice && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-1.5 text-[11px] font-medium px-3 pt-2 flex-shrink-0 overflow-hidden"
+                style={{ color: CAMPUS.teal }}>
+                <History size={12} /> Draft restored successfully.
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className="flex items-center gap-2 p-3 flex-wrap flex-shrink-0" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
             <div className="flex items-center gap-1.5 flex-wrap">
               {CODELAB_LANGUAGES.map(l => {

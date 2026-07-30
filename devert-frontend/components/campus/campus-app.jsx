@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,22 +10,27 @@ import {
   ChevronRight, Users, ArrowUpRight, Medal, Code2, Briefcase, ChevronDown,
   UserCircle2, TrendingUp, X as CloseIcon, PanelLeftClose, PanelLeftOpen,
   Activity, Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
-  AlertTriangle, DoorOpen, CodeXml, BrainCircuit,
+  AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
-import { collection, query, where, orderBy, limit, getDocs, getCountFromServer } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs, getCountFromServer, doc, onSnapshot } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchInstitutions, fetchInstitution, fetchMyMembership, requestToJoin,
-  fetchMyInstitutionAdminRole, fetchApprovedStudents, toggleFavoriteInstitution, fetchAnnouncements, isAnnouncementActive,
+  fetchMyInstitutionAdminRole, toggleFavoriteInstitution, fetchAnnouncements, isAnnouncementActive,
   institutionInitials, DEPARTMENTS, YEARS,
-  fetchLeaderboardSettings, fetchClassroom, classroomKey, LEADERBOARD_METRICS,
+  fetchLeaderboardSettings, fetchClassroom, fetchClassrooms, classroomKey, LEADERBOARD_METRICS,
+  isModuleEnabledForClassroom,
+  fetchMyRoleAssignment, fetchRolePermissionDefaults,
 } from "@/lib/institutions";
+import { ROLE_CATALOG } from "@/lib/permissions";
+import { CampusPermissionsContext } from "@/lib/campusPermissions";
 import Dropdown from "@/components/dropdown";
-import { fetchInstitutionContests, fetchPublishedContests, contestPhase, bucketContests } from "@/lib/contests";
+import { fetchPublishedInstitutionContests, fetchPublishedContests, contestPhase, bucketContests } from "@/lib/contests";
 import { fetchCourseTree, flattenTasks, getCurrentTask, courseProgressPct } from "@/lib/learning";
 import { CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, fetchUserCodelabProgress, fetchPublishedProblems } from "@/lib/codelab";
+import { subscribeToProblemNotes, isRevisionDue } from "@/lib/problemNotes";
 import { CAMPUS } from "@/lib/campus-theme";
 import { slideUp, staggerContainer } from "@/lib/campus-motion";
 import {
@@ -33,36 +38,27 @@ import {
   CampusSkeleton, CampusEmptyState, CampusButton, CampusTable, CampusBackButton,
 } from "@/components/campus/campus-ui";
 import { CampusContestFlow } from "@/components/campus/campus-contests";
-import { CampusPracticeList, CampusProblemView, SidebarFilterGroup } from "@/components/campus/campus-practice";
+import { CampusPracticeList, CampusProblemView, SidebarFilterGroup, CategoryFilterList, CompanyFilterList } from "@/components/campus/campus-practice";
 import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
-import { CampusDailyLearningTab, CampusDailyAssessmentsTab, CampusDayLeaderboard } from "@/components/campus/campus-daily-learning";
+import { CampusDailyLearningLanding, CampusDailyAssessmentsTab, CampusDayLeaderboard } from "@/components/campus/campus-daily-learning";
 import { CampusProgrammingTab } from "@/components/campus/campus-programming";
 import { CampusCsCoreTab } from "@/components/campus/campus-cscore";
+import { CampusAptitudeTab } from "@/components/campus/campus-aptitude";
+import { CampusGateTab } from "@/components/campus/gate/gate-app";
 import { mondayOf, DOW_LABELS, todayISO, fetchWeekItems, fetchModuleConfig, fetchUserWeekLogs } from "@/lib/dailyLearning";
+import { pingActivity, PING_INTERVAL_MIN } from "@/lib/activity";
+import { useCampusBackHandler, popCampusBack, OVERLAY_BACK_DEPTH } from "@/lib/campusNav";
 import { fetchContentVisibility } from "@/lib/contentVisibility";
-import { CampusManage } from "@/components/campus/campus-manage";
-
-const TABS = [
-  { key: "dashboard",     label: "Overview",          icon: LayoutDashboard },
-  { key: "profile",       label: "Profile",           icon: IdCard },
-  { key: "learning",      label: "Daily Learning",    icon: BookOpen },
-  { key: "programming",   label: "Programming",       icon: CodeXml },
-  { key: "csCore",        label: "CS Core",           icon: BrainCircuit },
-  { key: "dsa",           label: "DSA",               icon: Code2 },
-  { key: "companyVault",  label: "Company Vault",     icon: Briefcase },
-  { key: "assessments",   label: "Assessments",       icon: ClipboardCheck },
-  { key: "contests",      label: "Contests",          icon: Trophy },
-  { key: "leaderboard",   label: "Leaderboard",       icon: BarChart3 },
-];
-
-// Bottom-nav on mobile only fits a handful of targets before it gets
-// cramped - the busiest tabs, matching what a student actually reaches for
-// daily. DSA keeps the slot the combined "Practice" tab used to hold;
-// Company Vault (like Profile/Assessments/Leaderboard/Manage) stays
-// reachable via the Overview quick-actions grid, the top bar avatar, or the
-// desktop rail instead of crowding the bottom nav further.
-const MOBILE_TABS = TABS.filter(t => ["dashboard", "learning", "dsa", "contests"].includes(t.key));
+import { CampusManage, SEGMENT_TO_MANAGE_TAB } from "@/components/campus/campus-manage";
+import { CampusAdminOverview } from "@/components/campus/campus-admin-overview";
+import { CampusStaffOverview } from "@/components/campus/campus-staff-overview";
+import { CampusHodDashboard } from "@/components/campus/campus-departments";
+import { CampusFacultyDashboard } from "@/components/campus/campus-classrooms";
+import { NAV_ITEMS, GROUP_ORDER, NAV_GROUP_LABELS } from "@/lib/campusNavConfig";
+import { CampusMobileDrawer } from "@/components/campus/campus-mobile-drawer";
+import { CampusStaffLogin } from "@/components/campus/campus-staff-login";
+import { CampusThemeProvider, useCampusTheme, CampusThemeToggle, CampusShell } from "@/components/campus/campus-theme-provider";
 
 // DeVert Campus is a deliberately separate "academic" surface - see the design
 // proposal shared with the team for why (Builder's OS's dark terminal theme is
@@ -81,32 +77,21 @@ const MOBILE_TABS = TABS.filter(t => ["dashboard", "learning", "dsa", "contests"
 // implementations living here (components/campus/campus-{contests,practice,
 // learning}.jsx), reusing the exact same lib/*.js data/grading/reward logic
 // the main dark app uses, not links out to it.
-const CampusThemeContext = createContext({ theme: "light", toggleTheme: () => {} });
-function useCampusTheme() { return useContext(CampusThemeContext); }
-
-function CampusThemeProvider({ children }) {
-  const [theme, setTheme] = useState("light");
-  useEffect(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("campus-theme") : null;
-    if (saved === "dark" || saved === "light") setTheme(saved);
-  }, []);
-  const toggleTheme = () => setTheme(t => {
-    const next = t === "light" ? "dark" : "light";
-    localStorage.setItem("campus-theme", next);
-    return next;
-  });
-  return <CampusThemeContext.Provider value={{ theme, toggleTheme }}>{children}</CampusThemeContext.Provider>;
-}
-
 // Contests/Learning/Practice are usable before picking a college at all
 // (none of the underlying data is institution-scoped), so they get their own
 // real top-level paths rather than living as view-state nested under
 // /campus - anything else after /campus is treated as an institution slug.
 const GLOBAL_SECTIONS = ["contests", "learning", "practice"];
 
+// Maps a login page's own URL segment to the roleKey lib/permissions.js's
+// ROLE_CATALOG uses - "faculty" is the public-facing/URL name for what the
+// data model calls "facultyClassTeacher" (Faculty and Class Teacher are one
+// unified role, not two - see lib/permissions.js's own comment).
+const STAFF_LOGIN_ROLE = { principal: "principal", hod: "hod", faculty: "facultyClassTeacher" };
+
 export function CampusApp({ initialTab }) {
   const pathname = usePathname();
-  const [first, second, third] = pathname.split("/").filter(Boolean).slice(1);
+  const [first, second, third, fourth] = pathname.split("/").filter(Boolean).slice(1);
 
   // key={first} forces a full remount whenever the section/college itself
   // changes (Contests -> Learning, or one college -> another) - without it,
@@ -122,43 +107,37 @@ export function CampusApp({ initialTab }) {
   } else if (GLOBAL_SECTIONS.includes(first)) {
     body = <CampusGlobalSection key={first} section={first} />;
   } else {
-    body = <CampusWorkspace key={first} slug={first} initialTab={initialTab} initialContestId={second === "contest" ? third : null} />;
+    // /campus/{slug}/principal|hod|faculty - dedicated, admin-provisioned-
+    // only login pages (see components/campus/campus-staff-login.jsx). These
+    // deliberately reuse this SAME router/CampusThemeProvider tree rather
+    // than a fourth parallel one - same reasoning as GLOBAL_SECTIONS above,
+    // just keyed on `second` instead of `first` since these are nested under
+    // one specific institution.
+    if (STAFF_LOGIN_ROLE[second] && !third) {
+      return <CampusThemeProvider><CampusStaffLogin slug={first} roleKey={STAFF_LOGIN_ROLE[second]} /></CampusThemeProvider>;
+    }
+
+    // /campus/{slug}/manage/{tabSegment}/{studentsSubView} - resolved back
+    // into (manage tab key, students sub-view) via the same segment table
+    // campus-manage.jsx's own URL-sync effect writes with, so a direct load,
+    // refresh, or shared link lands on the right tab instead of always
+    // defaulting to Students.
+    const isManage = second === "manage";
+    body = (
+      // CampusWorkspace reads ?problem=/?company= via useSearchParams() (see
+      // its practiceScreen/companyPrepScreen initializers) - Next's static
+      // export prerendering requires that behind a Suspense boundary, same
+      // as /campus/page.jsx's own top-level useSearchParams() usage.
+      <Suspense fallback={null}>
+        <CampusWorkspace key={first} slug={first} initialTab={initialTab}
+          initialContestId={second === "contest" ? third : null}
+          initialManageTab={isManage ? (SEGMENT_TO_MANAGE_TAB[third] || "students") : undefined}
+          initialManageStudentsView={isManage && fourth === "classrooms" ? "classrooms" : undefined} />
+      </Suspense>
+    );
   }
 
   return <CampusThemeProvider>{body}</CampusThemeProvider>;
-}
-
-function CampusThemeToggle({ className = "" }) {
-  const { theme, toggleTheme } = useCampusTheme();
-  return (
-    <button onClick={toggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${className}`}
-      style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
-      {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
-    </button>
-  );
-}
-
-// Every pre-workspace phase (checking/not-found/signed-out/join-form/pending/
-// rejected/suspended) renders through here - it's the one place a "wrong
-// college, let me pick another" or "just let me back out" escape hatch needs
-// to exist for all of them at once. Without it, landing here (e.g. clicking
-// the wrong institution card) was a dead end: no back button, no breadcrumb,
-// nothing but a theme toggle.
-function CampusShell({ children }) {
-  const { theme } = useCampusTheme();
-  return (
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }}
-      className="campus-theme relative flex items-center justify-center px-6">
-      <Link href="/campus"
-        className="absolute top-5 left-5 flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors hover:opacity-80"
-        style={{ color: CAMPUS.inkSoft }}>
-        <ArrowLeft size={14} /> Back to Campus
-      </Link>
-      <div className="absolute top-5 right-5"><CampusThemeToggle /></div>
-      {children}
-    </main>
-  );
 }
 
 function Centered({ children }) {
@@ -175,8 +154,12 @@ function Centered({ children }) {
 // back through a "Back" link each time - every item here is a real
 // destination, active-highlighted by whichever section/mode you're
 // actually in.
-function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }) {
-  const NavItem = ({ label, active, onClick }) => (
+// Hoisted out of CampusSidebarNavRail (react-hooks/static-components) - both
+// are self-contained, no closure over the rail's own props, so there's no
+// reason for either to be redefined - and thus remounted, losing any DOM
+// state like a hover/focus ring - on every parent re-render.
+function CampusNavItem({ label, active, onClick }) {
+  return (
     <button onClick={onClick}
       className="w-full text-left text-[13px] px-3 py-2 rounded-lg transition-colors"
       style={{
@@ -188,26 +171,31 @@ function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }
       {label}
     </button>
   );
-  const GroupLabel = ({ icon: Icon, children }) => (
+}
+function CampusNavGroupLabel({ icon: Icon, children }) {
+  return (
     <div className="flex items-center gap-1.5 mb-2 px-1">
       <Icon size={12} style={{ color: CAMPUS.inkFaint }} />
       <p className="text-[9px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{children}</p>
     </div>
   );
+}
+
+function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }) {
   return (
     <nav className="space-y-6">
       <div>
-        <GroupLabel icon={Code2}>PRACTICE</GroupLabel>
+        <CampusNavGroupLabel icon={Code2}>PRACTICE</CampusNavGroupLabel>
         <div className="space-y-1">
-          <NavItem label="DSA" active={section === "practice" && practiceMode === "coding"} onClick={() => onGoPractice("coding")} />
-          <NavItem label="Company Vault" active={section === "practice" && practiceMode === "companyPrep"} onClick={() => onGoPractice("companyPrep")} />
+          <CampusNavItem label="DSA" active={section === "practice" && practiceMode === "coding"} onClick={() => onGoPractice("coding")} />
+          <CampusNavItem label="Company Vault" active={section === "practice" && practiceMode === "companyPrep"} onClick={() => onGoPractice("companyPrep")} />
         </div>
       </div>
       <div>
-        <GroupLabel icon={BookOpen}>LEARNING</GroupLabel>
+        <CampusNavGroupLabel icon={BookOpen}>LEARNING</CampusNavGroupLabel>
         <div className="space-y-1">
-          <NavItem label="Daily Learning" active={section === "learning"} onClick={() => onGoRoute("/campus/learning")} />
-          <NavItem label="Contests" active={section === "contests"} onClick={() => onGoRoute("/campus/contests")} />
+          <CampusNavItem label="Daily Learning" active={section === "learning"} onClick={() => onGoRoute("/campus/learning")} />
+          <CampusNavItem label="Contests" active={section === "contests"} onClick={() => onGoRoute("/campus/contests")} />
         </div>
       </div>
     </nav>
@@ -225,6 +213,11 @@ function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }
 // active, so switching filters never makes this number jump around.
 function DsaProgressSummary({ user }) {
   const [state, setState] = useState({ loading: true, solved: 0, total: 0 });
+  // Study-card metadata (favorites/needs-revision/due) is a live subscription,
+  // not part of the Promise.all above - a toggle made on a card below this
+  // summary should update these counts immediately, same reasoning as
+  // CampusPracticeList's own subscribeToProblemNotes usage.
+  const [studyStats, setStudyStats] = useState({ favorites: 0, needsRevision: 0, due: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -237,8 +230,21 @@ function DsaProgressSummary({ user }) {
     return () => { cancelled = true; };
   }, [user]);
 
+  useEffect(() => {
+    if (!user) { setStudyStats({ favorites: 0, needsRevision: 0, due: 0 }); return; }
+    return subscribeToProblemNotes(user.uid, (map) => {
+      const notes = Object.values(map);
+      setStudyStats({
+        favorites: notes.filter(n => n.favorite).length,
+        needsRevision: notes.filter(n => n.needsRevision).length,
+        due: notes.filter(isRevisionDue).length,
+      });
+    });
+  }, [user]);
+
   if (state.loading || state.total === 0) return null;
   const pct = Math.round((state.solved / state.total) * 100);
+  const hasStudyStats = studyStats.favorites > 0 || studyStats.needsRevision > 0 || studyStats.due > 0;
 
   return (
     <div className="mb-5">
@@ -247,6 +253,25 @@ function DsaProgressSummary({ user }) {
         <span className="text-[11.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>{state.solved}/{state.total} solved</span>
       </div>
       <CampusProgressBar pct={pct} color={CAMPUS.teal} />
+      {hasStudyStats && (
+        <div className="flex items-center gap-4 mt-2.5 flex-wrap">
+          {studyStats.favorites > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: CAMPUS.gold }}>
+              <Star size={11} fill={CAMPUS.gold} /> {studyStats.favorites} favorite{studyStats.favorites === 1 ? "" : "s"}
+            </span>
+          )}
+          {studyStats.needsRevision > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: CAMPUS.purple }}>
+              <Repeat size={11} /> {studyStats.needsRevision} need{studyStats.needsRevision === 1 ? "s" : ""} revision
+            </span>
+          )}
+          {studyStats.due > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: CAMPUS.bad }}>
+              <AlertTriangle size={11} /> {studyStats.due} due for revision
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -557,7 +582,7 @@ function CampusLandingNav({ onOpenFlyout }) {
     <nav className="flex items-center gap-8 px-6 sm:px-10"
       style={{ height: 72, borderBottom: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface, position: "sticky", top: 0, zIndex: 30 }}>
       <div className="flex items-center gap-2.5 font-bold text-[17px] flex-shrink-0" style={{ color: CAMPUS.ink }}>
-        <span className="w-[30px] h-[30px] flex items-center justify-center font-mono text-[13px] font-bold flex-shrink-0" style={{ background: CAMPUS.ink, color: "#fff" }}>D</span>
+        <span className="w-[30px] h-[30px] flex items-center justify-center font-mono text-[13px] font-bold flex-shrink-0" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>D</span>
         DeVert Campus
       </div>
       <div className="hidden md:flex items-center gap-1 flex-1">
@@ -642,7 +667,7 @@ function CampusProfileFlyout({ open, onClose }) {
           </>
         ) : (
           <button onClick={async () => { await logout(); onClose(); }}
-            className="w-full text-[14.5px] font-bold py-3.5" style={{ background: CAMPUS.ink, color: "#fff" }}>
+            className="w-full text-[14.5px] font-bold py-3.5" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
             Sign out
           </button>
         )}
@@ -677,7 +702,6 @@ function CampusDirectory() {
   const { user } = useAuth();
   const router = useRouter();
   const [institutions, setInstitutions] = useState([]);
-  const [studentCounts, setStudentCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [upcomingContests, setUpcomingContests] = useState([]);
@@ -693,17 +717,15 @@ function CampusDirectory() {
     // collection). A cheap aggregate count, not a full download.
     getCountFromServer(collection(db, "users")).then(snap => setTotalDevertUsers(snap.data().count)).catch(() => setTotalDevertUsers(null));
 
-    fetchInstitutions().then(async (list) => {
-      setInstitutions(list);
-      // Real, computed counts - not the stale studentCount field on the doc
-      // (written once at creation, never incremented since).
-      const counts = {};
-      await Promise.all(list.map(async (inst) => {
-        try { counts[inst.id] = (await fetchApprovedStudents(inst.id)).length; }
-        catch { counts[inst.id] = null; }
-      }));
-      setStudentCounts(counts);
-    }).catch(console.error).finally(() => setLoading(false));
+    // studentCount now reads straight off the institution doc - it's kept
+    // live by approveStudent/suspendStudent/removeStudentFromInstitution/
+    // bulkAssignByRollNumber (lib/institutions.js), instead of the N parallel
+    // fetchApprovedStudentCount(inst.id) queries this used to fire, which
+    // were silently denied for every anonymous Directory visitor anyway
+    // (institutions/{id}/students read rule requires isOwner/isInstitutionAdmin/
+    // isAdmin - a random visitor satisfies none of those, so the "real"
+    // count was always null here despite looking like a working feature).
+    fetchInstitutions().then(setInstitutions).catch(console.error).finally(() => setLoading(false));
 
     fetchPublishedContests()
       .then(list => {
@@ -720,8 +742,8 @@ function CampusDirectory() {
     : institutions;
 
   const featured = useMemo(
-    () => [...institutions].sort((a, b) => (studentCounts[b.id] || 0) - (studentCounts[a.id] || 0)).slice(0, 3),
-    [institutions, studentCounts],
+    () => [...institutions].sort((a, b) => (b.studentCount || 0) - (a.studentCount || 0)).slice(0, 3),
+    [institutions],
   );
   const featuredIds = new Set(featured.map(i => i.id));
 
@@ -745,7 +767,15 @@ function CampusDirectory() {
     })),
   } : null;
 
-  const totalDepartments = institutions.reduce((s, i) => s + (i.departments?.length || 0), 0);
+  // Institution docs never carried a `departments` array (that was always
+  // the wrong shape - real department docs live in each institution's own
+  // `departments` subcollection, which this public/logged-out landing page
+  // has no read access to at all, by design - see firestore.rules'
+  // `departments` rule). But DEPARTMENTS is a small fixed enum every
+  // institution is seeded with identically (ensureDepartments()), so the
+  // true total is just that catalog size times how many institutions exist,
+  // computed entirely from data this page can already see.
+  const totalDepartments = institutions.length * DEPARTMENTS.length;
 
   return (
     <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp">
@@ -816,7 +846,7 @@ function CampusDirectory() {
         <div className="max-w-2xl flex items-stretch" style={{ border: `1px solid ${CAMPUS.line}` }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search your college by name, city, or state..."
             className="flex-1 text-[14px] px-4 py-3.5 outline-none bg-transparent" style={{ color: CAMPUS.ink }} />
-          <button className="px-6 text-[12.5px] font-bold flex-shrink-0" style={{ background: CAMPUS.ink, color: "#fff" }}>SEARCH</button>
+          <button className="px-6 text-[12.5px] font-bold flex-shrink-0" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>SEARCH</button>
         </div>
       </div>
 
@@ -841,7 +871,7 @@ function CampusDirectory() {
                 <SectionHeading icon={Flame} title="Featured Campuses" />
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 border-t border-l" style={{ borderColor: CAMPUS.line }}>
                   {featured.map((inst) => (
-                    <InstitutionCard key={inst.id} inst={inst} studentCount={studentCounts[inst.id]} featured />
+                    <InstitutionCard key={inst.id} inst={inst} studentCount={inst.studentCount ?? null} featured />
                   ))}
                 </div>
               </div>
@@ -854,7 +884,7 @@ function CampusDirectory() {
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 border-t border-l" style={{ borderColor: CAMPUS.line }}>
                   {filtered.filter(i => q || !featuredIds.has(i.id)).map((inst) => (
-                    <InstitutionCard key={inst.id} inst={inst} studentCount={studentCounts[inst.id]} />
+                    <InstitutionCard key={inst.id} inst={inst} studentCount={inst.studentCount ?? null} />
                   ))}
                 </div>
               )}
@@ -951,6 +981,7 @@ function CampusGlobalSection({ section }) {
   // for a client component, so this needs no separate sync effect.
   const [practiceCategory, setPracticeCategory] = useState(() => searchParams.get("category") || "All");
   const [practiceDifficulty, setPracticeDifficulty] = useState("All");
+  const [practiceCompany, setPracticeCompany] = useState("All");
   const [codelabStats, setCodelabStats] = useState(null);
 
   const loadContests = () => {
@@ -1024,15 +1055,16 @@ function CampusGlobalSection({ section }) {
               <>
                 {showPracticeFilters && (
                   <div className="flex gap-5 flex-wrap mb-6">
-                    <SidebarFilterGroup horizontal label="CATEGORY" options={["All", ...CODELAB_CATEGORIES]} value={practiceCategory} onChange={setPracticeCategory} />
+                    <CategoryFilterList horizontal value={practiceCategory} onChange={setPracticeCategory} />
                     <SidebarFilterGroup horizontal label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={practiceDifficulty} onChange={setPracticeDifficulty} />
+                    <CompanyFilterList horizontal value={practiceCompany} onChange={setPracticeCompany} />
                   </div>
                 )}
                 {practiceMode === "coding" ? (
                   practiceScreen.view === "problem"
                     ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })}
                         onSelectProblem={(id) => setPracticeScreen({ view: "problem", problemId: id })} backLabel="DSA" />
-                    : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty}
+                    : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty} company={practiceCompany}
                         onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
                 ) : (
                   <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen} />
@@ -1057,40 +1089,218 @@ function CampusGlobalSection({ section }) {
 const CAMPUS_PHASE = {
   CHECKING: "checking", NOT_FOUND: "not-found", SIGNED_OUT: "signed-out",
   NO_REQUEST: "no-request", PENDING: "pending", REJECTED: "rejected",
-  SUSPENDED: "suspended", ADMIN: "admin", APPROVED: "approved",
+  // STAFF covers Principal/HOD/Faculty-Class-Teacher uniformly - the *role*
+  // is a value inside this one phase (see staffScope below), exactly like
+  // ADMIN already covers every full Institution Admin uniformly regardless
+  // of the (purely cosmetic) admins/{uid}.role string.
+  SUSPENDED: "suspended", ADMIN: "admin", STAFF: "staff", APPROVED: "approved",
 };
 
-// Maps a workspace tab key to its real, statically-generated SEO route
-// segment (app/campus/[slug]/<segment>/page.jsx). Tabs with no entry here
-// (profile, manage) have no dedicated static page - they keep working
-// exactly as before, purely as a ?tab= client-state URL.
-const TAB_URL_SEGMENT = {
-  dashboard: "", learning: "daily-learning", dsa: "dsa", companyVault: "company-vault",
-  assessments: "assessments", contests: "contests", leaderboard: "leaderboard",
-};
-
-function CampusWorkspace({ slug, initialTab, initialContestId }) {
+function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab, initialManageStudentsView }) {
   const { theme } = useCampusTheme();
-  const { user, userData, adminChecked } = useAuth();
+  const { user, userData, adminChecked, logout } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [phase, setPhase] = useState(CAMPUS_PHASE.CHECKING);
   const [institution, setInstitution] = useState(null);
   const [membership, setMembership] = useState(null);
+  // Principal/HOD/Faculty-Class-Teacher membership - see Part D3's own
+  // comment on the phase-determination effect below for why this is read
+  // in the SAME Promise.all as membership/adminRole, never a second
+  // competing fetch.
+  const [staffRoleAssignment, setStaffRoleAssignment] = useState(null);
+  const [rolePermissionDefaults, setRolePermissionDefaults] = useState(null);
   const [tab, setTab] = useState(initialContestId ? "contests" : initialTab);
-  const [contestScreen, setContestScreen] = useState(
-    initialContestId ? { view: "details", contestId: initialContestId } : { view: "list" },
-  );
-  const [practiceScreen, setPracticeScreen] = useState({ view: "list" });
-  const [companyPrepScreen, setCompanyPrepScreen] = useState({ view: "list" });
-  const [practiceCategory, setPracticeCategory] = useState("All");
-  const [practiceDifficulty, setPracticeDifficulty] = useState("All");
+  // ?screen=attempt/results (read once, alongside initialContestId) - without
+  // this, refreshing mid-attempt or on a results screen always landed back
+  // on Details, since that URL used to be identical across all three states.
+  const [contestScreen, setContestScreen] = useState(() => {
+    if (!initialContestId) return { view: "list" };
+    const screenParam = searchParams.get("screen");
+    const view = screenParam === "attempt" || screenParam === "results" ? screenParam : "details";
+    return { view, contestId: initialContestId };
+  });
+  // Read once on mount from ?problem=/?company=&view= - the only way a
+  // refresh or shared link inside DSA/Company Vault can land back on the
+  // exact problem/company instead of always falling back to the tab's list
+  // view (a real reported bug: this state used to live in plain useState
+  // with nothing at all in the URL). Lazy initializers, not a reactive
+  // effect - searchParams is already synchronously available on first
+  // render, same precedent as CampusGlobalSection's practiceCategory below.
+  const [practiceScreen, setPracticeScreen] = useState(() => {
+    const problemId = searchParams.get("problem");
+    return problemId ? { view: "problem", problemId } : { view: "list" };
+  });
+  const [companyPrepScreen, setCompanyPrepScreen] = useState(() => {
+    const companyId = searchParams.get("company");
+    if (!companyId) return { view: "list" };
+    return searchParams.get("view") === "practice" ? { view: "practice", companyId } : { view: "company", companyId };
+  });
+  // Read once on mount, same as practiceScreen/companyPrepScreen above - a
+  // refresh mid-filter used to always drop back to "All" for all three,
+  // since nothing wrote them into the URL at all (see the tab-sync effect
+  // below, now extended to include them for the "dsa" tab's list view).
+  const [practiceCategory, setPracticeCategory] = useState(() => searchParams.get("category") || "All");
+  const [practiceDifficulty, setPracticeDifficulty] = useState(() => searchParams.get("difficulty") || "All");
+  const [practiceCompany, setPracticeCompany] = useState(() => searchParams.get("askedIn") || "All");
   const [contentVisibility, setContentVisibility] = useState({ hiddenProblemIds: [], hiddenCompanyIds: [] });
   const isInstAdmin = phase === CAMPUS_PHASE.ADMIN;
+  // null outside the STAFF phase - a differently-scoped view of the SAME
+  // nav/tab machinery every other identity already uses (see NAV_ITEMS'
+  // staffRoles field, isTabAllowed/hiddenTabKeys below), not a fourth shell.
+  // Memoized (not a plain ternary) so its object identity stays stable
+  // across renders where the underlying role/scope hasn't actually changed -
+  // otherwise every useMemo/useEffect below that depends on it would treat
+  // it as "changed" on every single render.
+  const staffScope = useMemo(() => (
+    phase === CAMPUS_PHASE.STAFF && staffRoleAssignment
+      ? { role: staffRoleAssignment.roleKey, department: staffRoleAssignment.scope?.department || null, classroomId: staffRoleAssignment.scope?.classroomId || null }
+      : null
+  ), [phase, staffRoleAssignment]);
+  // Merges this admin's own explicit overrides on top of their role's
+  // configured defaults - mirrors firestore.rules' hasPermission() exactly
+  // (override-if-present, else role default), computed once here rather
+  // than per-component. isInstAdmin bypasses this entirely at the point of
+  // use (useHasPermission) - it predates the granular system and must never
+  // regress while permissions roll out.
+  const permissionsCtxValue = useMemo(() => {
+    const defaults = (rolePermissionDefaults && staffRoleAssignment) ? (rolePermissionDefaults[staffRoleAssignment.roleKey] || {}) : {};
+    const overrides = staffRoleAssignment?.permissionOverrides || {};
+    const merged = { ...defaults, ...overrides };
+    return {
+      role: isInstAdmin ? "admin" : staffScope?.role || (phase === CAMPUS_PHASE.APPROVED ? "student" : null),
+      permissions: new Set(Object.keys(merged).filter(k => merged[k])),
+      isInstAdmin,
+    };
+  }, [isInstAdmin, staffScope, staffRoleAssignment, rolePermissionDefaults, phase]);
+
+  // Mobile hamburger drawer - lives here (not inside a standalone stateful
+  // component) since CampusTopBar's hamburger button and the drawer itself
+  // are distant siblings under this common parent, same pattern as
+  // useCampusExitGuard's dialog state below.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Lets the drawer command an already-mounted CampusManage into a specific
+  // sub-tab (e.g. its search result for "Manage -> Students") - see
+  // CampusManage's own jumpToManageTab handling in campus-manage.jsx.
+  const [manageJump, setManageJump] = useState(null);
+  const jumpNonceRef = useRef(0);
+
+  // Classroom-level module access (see NAV_ITEMS' moduleKey/lib/institutions.js's
+  // MODULES) - fetched once here, not per-tab, so every gated tab (and the
+  // nav rail/bottom nav deciding what to even show) reads the same value.
+  // undefined = still loading (content renders normally rather than
+  // flashing "Access Restricted" during the brief fetch); null = no
+  // classroom on file, which isModuleEnabledForClassroom already treats as
+  // "nothing to restrict" (default enabled). Admins are never gated - they
+  // need to see and manage every module regardless of what's configured.
+  const [myClassroom, setMyClassroom] = useState(undefined);
+  const myClassroomId = userData?.classroomId
+    || (userData?.department && userData?.year && userData?.section ? classroomKey(userData.year, userData.department, userData.section) : null);
+  useEffect(() => {
+    if (isInstAdmin || !myClassroomId) { setMyClassroom(null); return; }
+    fetchClassroom(slug, myClassroomId).then(setMyClassroom).catch(() => setMyClassroom(null));
+  }, [slug, myClassroomId, isInstAdmin]);
+
+  // Static export's generateMetadata only sets the browser tab title at
+  // build time, from whatever branding existed then - this keeps it live for
+  // the rest of the CURRENT session, so a branding save (which already
+  // updates `institution` in place, see onInstitutionUpdated above) is
+  // reflected in the tab title immediately, matching the sidebar/top bar.
+  useEffect(() => {
+    if (typeof document === "undefined" || !institution?.name) return;
+    document.title = `${institution.shortName || institution.name} | DeVert Campus`;
+  }, [institution?.name, institution?.shortName]);
+
+  // Overview/Profile's own "Coins" stat used to read users.credits - only
+  // ever incremented by contest rewards (lib/contests.js) - while Daily
+  // Learning/Programming/CS Core rewards all write user_earnings/{uid}.
+  // totalCoins instead, the same field Wallet and Classroom Analytics
+  // already correctly read. Live subscription (not a one-time fetch) so
+  // this stays in sync the instant any reward-granting action fires,
+  // without a refresh - fetched once here, not duplicated per tab.
+  const [totalCoins, setTotalCoins] = useState(null);
+  useEffect(() => {
+    if (!user?.uid) { setTotalCoins(null); return; }
+    return onSnapshot(doc(db, "user_earnings", user.uid), snap => {
+      setTotalCoins(snap.exists() ? (snap.data().totalCoins || 0) : 0);
+    }, () => setTotalCoins(0));
+  }, [user?.uid]);
+
+  // Chrome's back-forward cache can restore a fully frozen snapshot of this
+  // page - DOM, React fiber tree, and all - on a Back/Forward navigation,
+  // WITHOUT re-running any of this component's code from scratch. If that
+  // snapshot was frozen mid-transition, or from a stale history entry this
+  // exact URL never legitimately produces (e.g. the query-string
+  // "?tab=overview" shape used by an old, now-removed routing scheme), the
+  // resumed page can render a genuinely blank content area with no way for
+  // any of the state-sync logic above to ever run and correct it - nothing
+  // "reacts" to a bfcache restore the way it reacts to a real popstate.
+  // pageshow's `persisted` flag is the one reliable signal that this
+  // happened; forcing a real reload guarantees a fresh, correct mount
+  // instead of trusting whatever was frozen.
+  useEffect(() => {
+    const onPageShow = (e) => { if (e.persisted) window.location.reload(); };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
+  // Real activity/engagement tracking (lib/activity.js) - one ping on mount
+  // and one every PING_INTERVAL_MIN while the tab stays visible, so the
+  // Classroom Analytics Activity/Overview tabs have genuine "active today"
+  // data instead of a fabricated one. Skipped while the visibility check
+  // itself fails (backgrounded tab) so pingCount stays a meaningful estimate
+  // of actual engaged time, not just "the tab was open".
+  useEffect(() => {
+    if (phase !== CAMPUS_PHASE.APPROVED && phase !== CAMPUS_PHASE.ADMIN) return;
+    if (!user?.uid) return;
+    const uid = user.uid;
+    const sendPing = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      pingActivity(uid).catch(() => {});
+    };
+    sendPing();
+    const interval = setInterval(sendPing, PING_INTERVAL_MIN * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [phase, user?.uid]);
+
+  const isTabAllowed = (tabKey) => {
+    const item = NAV_ITEMS.find(i => i.key === tabKey);
+    if (item?.adminOnly) return isInstAdmin;
+    // staffRoles is Principal/HOD/Faculty's own gate - separate from
+    // adminOnly (isInstAdmin) and moduleKey (classroom-level student gating),
+    // since a staff-only nav destination (Departments, Manage-equivalent
+    // faculty views, etc.) shouldn't be reachable by ordinary students OR by
+    // a staff member holding the wrong one of the three roles.
+    if (item?.staffRoles) return isInstAdmin || (staffScope && item.staffRoles.includes(staffScope.role));
+    const moduleKey = item?.moduleKey;
+    // Principal/HOD/Faculty see every content module regardless of any one
+    // classroom's moduleAccess toggle - that toggle is a per-classroom
+    // student-facing gate (Manage Access), not a restriction on staff who
+    // need to see/manage the module in the first place, same reasoning as
+    // the existing isInstAdmin bypass right next to it.
+    if (!moduleKey || isInstAdmin || staffScope) return true;
+    if (myClassroom === undefined) return true; // still loading - don't flash a false restriction
+    return isModuleEnabledForClassroom(myClassroom, moduleKey);
+  };
+  // adminOnly/staffRoles items are hidden from the wrong identity regardless
+  // of myClassroom's loading state, since admin/staff status is already
+  // known synchronously - unlike moduleKey gating, there's no "flash of
+  // false restriction" risk to wait out.
+  const hiddenTabKeys = useMemo(() => {
+    const hidden = new Set();
+    for (const item of NAV_ITEMS) {
+      if (item.adminOnly) { if (!isInstAdmin) hidden.add(item.key); continue; }
+      if (item.staffRoles) { if (!isInstAdmin && !(staffScope && item.staffRoles.includes(staffScope.role))) hidden.add(item.key); continue; }
+      if (isInstAdmin || staffScope || myClassroom === undefined) continue;
+      if (item.moduleKey && !isModuleEnabledForClassroom(myClassroom, item.moduleKey)) hidden.add(item.key);
+    }
+    return hidden;
+  }, [myClassroom, isInstAdmin, staffScope]);
   // Only guards a real, rendered workspace - not the checking/pending/
   // signed-out screens above, which have nothing worth protecting against
   // an accidental Back press.
-  const exitGuard = useCampusExitGuard(phase === CAMPUS_PHASE.APPROVED || phase === CAMPUS_PHASE.ADMIN);
+  const exitGuard = useCampusExitGuard(phase === CAMPUS_PHASE.APPROVED || phase === CAMPUS_PHASE.ADMIN || phase === CAMPUS_PHASE.STAFF);
 
   // The ONLY check. Runs once per (slug, signed-in identity). Institution
   // existence, then membership/admin status, read in that order, exactly
@@ -1109,13 +1319,30 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
       if (!inst) { console.log(`[Auth Debug] Workspace phase: NOT_FOUND for slug ${slug}`); setPhase(CAMPUS_PHASE.NOT_FOUND); return; }
       if (!user) { console.log(`[Auth Debug] Workspace phase: SIGNED_OUT for slug ${slug}`); setPhase(CAMPUS_PHASE.SIGNED_OUT); return; }
 
-      const [m, adminRole] = await Promise.all([
+      const [m, adminRole, roleAssignment] = await Promise.all([
         fetchMyMembership(slug, user.uid).catch(() => null),
         fetchMyInstitutionAdminRole(slug, user.uid).catch(() => null),
+        fetchMyRoleAssignment(slug, user.uid).catch(() => null),
       ]);
       if (cancelled) return;
       setMembership(m);
+      setStaffRoleAssignment(roleAssignment);
       if (adminRole) { console.log(`[Auth Debug] Workspace phase: ADMIN for user ${user.uid}`); setPhase(CAMPUS_PHASE.ADMIN); return; }
+      if (roleAssignment) {
+        if (roleAssignment.status === "active") {
+          console.log(`[Auth Debug] Workspace phase: STAFF (${roleAssignment.roleKey}) for user ${user.uid}`);
+          // Small, rarely-changing config doc - fetched only once a real
+          // staff identity is confirmed, not on every visit regardless of
+          // role (isInstAdmin implicitly satisfies every permission, so
+          // Institution Admins never need this fetched at all).
+          fetchRolePermissionDefaults().then(d => { if (!cancelled) setRolePermissionDefaults(d || {}); }).catch(() => { if (!cancelled) setRolePermissionDefaults({}); });
+          setPhase(CAMPUS_PHASE.STAFF);
+        } else {
+          console.log(`[Auth Debug] Workspace phase: SUSPENDED (disabled staff account) for user ${user.uid}`);
+          setPhase(CAMPUS_PHASE.SUSPENDED);
+        }
+        return;
+      }
       if (!m) { console.log(`[Auth Debug] Workspace phase: NO_REQUEST for user ${user.uid}`); setPhase(CAMPUS_PHASE.NO_REQUEST); return; }
       const newPhase = m.status === "approved" ? CAMPUS_PHASE.APPROVED
         : m.status === "rejected" ? CAMPUS_PHASE.REJECTED
@@ -1126,6 +1353,24 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
     })();
     return () => { cancelled = true; };
   }, [slug, user, adminChecked]);
+
+  // Keeps membership's DISPLAY fields (rollNumber/department/year/section on
+  // ProfileTab/OverviewTab) live after the one-time phase-determination
+  // fetch above - that effect intentionally only re-runs on slug/user/
+  // adminChecked changes (phase transitions are deliberately not re-derived
+  // from a second competing fetch, see its own comment), so an admin's
+  // mid-session roster edit/reassignment previously left the visible badges
+  // showing the old values indefinitely, even though userData (used for
+  // gating elsewhere) already updates live. Deliberately does NOT touch
+  // `phase` - a live phase transition (e.g. a mid-session suspension) is a
+  // separate, bigger change out of scope here.
+  useEffect(() => {
+    if (!slug || !user) return;
+    const unsub = onSnapshot(doc(db, "institutions", slug, "students", user.uid), snap => {
+      setMembership(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+    });
+    return unsub;
+  }, [slug, user]);
 
   // The submit handlers already wrote the doc with status "pending" (or,
   // for a resubmission, are about to) - there's nothing left to fetch or
@@ -1142,26 +1387,62 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
     fetchContentVisibility(slug).then(setContentVisibility).catch(() => {});
   }, [slug, phase, isInstAdmin]);
 
-  // Keeps the URL in sync with the contest sub-screen, whatever put it
-  // there - Overview's "onOpenContest" shortcut or a row clicked inside the
-  // Contests tab's own list - so a real /campus/{slug}/contest/{id} link
-  // exists whenever a specific contest is open, and the plain tab URL
-  // otherwise. replace, not push - these are sub-states of one tab, not
-  // separate history entries worth stepping back through one at a time.
+  // Keeps the URL in sync with each tab's own sub-screen, whatever put it
+  // there - Overview's "onOpenContest" shortcut, a row clicked inside a
+  // tab's own list, or a direct problem/company link - so a refresh or a
+  // shared link lands back on the exact contest/problem/company instead of
+  // always falling back to the tab's plain list view. replace, not push -
+  // these are sub-states of one tab, not separate history entries worth
+  // stepping back through one at a time.
   useEffect(() => {
-    const segment = TAB_URL_SEGMENT[tab];
-    const url = tab === "contests" && contestScreen.view !== "list"
-      ? `/campus/${slug}/contest/${contestScreen.contestId}`
-      : segment !== undefined
-        ? `/campus/${slug}${segment ? `/${segment}` : ""}`
-        : `/campus/${slug}?tab=${tab}`;
-    
+    // Tabs whose child component already owns a deeper URL-sync effect of
+    // its own (NAV_ITEMS' ownUrl: true - "manage" has /manage/{tab}/
+    // {subView}, "programming"/"csCore"/"aptitude" their own lang(or
+    // subject)/topic URL, "learning" its own ?problem=, "assessments" its
+    // own ?test=/?problem=) are skipped entirely here. Since child effects
+    // run before parent effects, this one would otherwise fire second and
+    // clobber that more specific URL back down to a flat base path every
+    // time.
+    const navItem = NAV_ITEMS.find(i => i.key === tab);
+    if (navItem?.ownUrl) return;
+    const segment = navItem?.urlSegment;
+    const hasSegment = typeof segment === "string";
+    const basePath = hasSegment ? `/campus/${slug}${segment ? `/${segment}` : ""}` : `/campus/${slug}`;
+    const baseQuery = hasSegment ? "" : `?tab=${tab}`;
+
+    let url;
+    if (tab === "contests" && contestScreen.view !== "list") {
+      // attempt/results get their own ?screen= query param - previously
+      // details/attempt/results all produced the exact same URL, so a
+      // refresh mid-attempt (or on a results screen) always reloaded back
+      // into Details, silently discarding whatever screen was actually open.
+      const screenParam = contestScreen.view !== "details" ? `?screen=${contestScreen.view}` : "";
+      url = `/campus/${slug}/contest/${contestScreen.contestId}${screenParam}`;
+    } else if (tab === "dsa" && practiceScreen.view === "problem") {
+      url = `${basePath}?problem=${encodeURIComponent(practiceScreen.problemId)}`;
+    } else if (tab === "dsa") {
+      // List view - category/difficulty/askedIn used to never reach the URL
+      // at all, so refreshing mid-filter always silently reset back to
+      // "All" x3. Only appended when actually filtered, so the common
+      // unfiltered case still gets the same bare basePath as before.
+      const params = new URLSearchParams();
+      if (practiceCategory !== "All") params.set("category", practiceCategory);
+      if (practiceDifficulty !== "All") params.set("difficulty", practiceDifficulty);
+      if (practiceCompany !== "All") params.set("askedIn", practiceCompany);
+      const qs = params.toString();
+      url = qs ? `${basePath}?${qs}` : basePath;
+    } else if (tab === "companyVault" && companyPrepScreen.view !== "list") {
+      url = `${basePath}?company=${encodeURIComponent(companyPrepScreen.companyId)}${companyPrepScreen.view === "practice" ? "&view=practice" : ""}`;
+    } else {
+      url = `${basePath}${baseQuery}`;
+    }
+
     if (typeof window !== "undefined") {
       console.log(`[Auth Debug] Updating URL to ${url} via replaceState (bypassing Next.js router to prevent hard reload)`);
       window.history.replaceState(null, '', url);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, contestScreen, slug]);
+
+  }, [tab, contestScreen, practiceScreen, companyPrepScreen, slug, practiceCategory, practiceDifficulty, practiceCompany]);
 
   const goTab = (t) => {
     setTab(t);
@@ -1172,6 +1453,58 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
     setContestScreen({ view: "details", contestId });
     goTab("contests");
   };
+
+  // Switches to Manage AND tells it which sub-tab to land on, in one call -
+  // used by the mobile drawer's Admin section and its search results (e.g.
+  // typing "students"). See CampusManage's jumpToManageTab prop handling.
+  const jumpToManage = (manageTabKey) => {
+    goTab("manage");
+    setManageJump({ tab: manageTabKey, nonce: ++jumpNonceRef.current });
+  };
+
+  // Defense in depth against the content area's tab-switch below silently
+  // rendering nothing: it only has an explicit branch per real NAV_ITEMS
+  // key, so ANY unrecognized value - a stale bfcache-restored `tab`, a bad
+  // prop, a future typo - would otherwise fall through to a blank content
+  // pane with the nav rail still fully visible (a real, reported bug).
+  // Self-corrects to the workspace root instead of ever showing that blank
+  // state.
+  useEffect(() => {
+    if (!NAV_ITEMS.some(i => i.key === tab)) goTab("dashboard");
+  }, [tab]);
+
+  // Registers this workspace's own drill-downs with the shared Back-stack
+  // (see lib/campusNav.js) so the browser Back button - and the exit guard -
+  // step through them instead of immediately asking to leave Campus. Depth
+  // 2 (each tab's own sub-screen) always beats depth 1 (falling back to
+  // Overview) since popCampusBack() picks the highest registered depth.
+  // Practice/Company Vault/Contests keep their sub-state here (not inside a
+  // child component), so they register directly in this component.
+  useCampusBackHandler(2, tab === "dsa" && practiceScreen.view !== "list", () => setPracticeScreen({ view: "list" }));
+  // Company Vault is a real 3-level stack (list -> company -> practice), not
+  // a flat list<->detail toggle - "practice" steps up to "company" first,
+  // matching CampusCompanyPrepFlow's own onBack prop one level down.
+  useCampusBackHandler(2, tab === "companyVault" && companyPrepScreen.view !== "list", () => {
+    if (companyPrepScreen.view === "practice") setCompanyPrepScreen({ view: "company", companyId: companyPrepScreen.companyId });
+    else setCompanyPrepScreen({ view: "list" });
+  });
+  // Contests is a real 3-level stack (list -> details -> attempt/results),
+  // not a flat list<->detail toggle - attempt/results step back to details
+  // first, matching CampusContestFlow's own in-page onBack one level down
+  // (previously this jumped straight to "list", silently skipping Details).
+  useCampusBackHandler(2, tab === "contests" && contestScreen.view !== "list", () => {
+    if (contestScreen.view === "attempt" || contestScreen.view === "results") {
+      setContestScreen({ view: "details", contestId: contestScreen.contestId });
+    } else {
+      setContestScreen({ view: "list" });
+    }
+  });
+  useCampusBackHandler(1, tab !== "dashboard", () => goTab("dashboard"));
+  // The drawer is an overlay, not a mutually-exclusive tab state - it can
+  // be open at the same time as any of the drill-downs above, so it gets
+  // its own reserved depth (see lib/campusNav.js) instead of reusing 1/2,
+  // which would silently clobber whichever handler registered second.
+  useCampusBackHandler(OVERLAY_BACK_DEPTH, drawerOpen, () => setDrawerOpen(false));
 
   // Exactly one screen per phase. Nothing here re-derives or second-
   // guesses `phase` - it was already decided, once, by the effect above.
@@ -1189,7 +1522,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
           <p className="text-[13.5px] mb-5" style={{ color: CAMPUS.inkSoft }}>
             You&apos;ll need a DeVert account to request access to {institution.name}&apos;s Campus workspace.
           </p>
-          <CampusGoogleButton style={{ background: CAMPUS.ink, color: "#fff" }} />
+          <CampusGoogleButton style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }} />
           <p className="text-[11.5px] mt-3" style={{ color: CAMPUS.inkFaint }}>
             New to DeVert? Signing in with Google creates your account automatically - no separate signup needed.
           </p>
@@ -1201,10 +1534,10 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
     return (
       <CampusShell>
         {institution.accessMode === "invite_only" ? (
-          <CampusIdentityForm slug={slug} institution={institution} uid={user?.uid}
+          <CampusIdentityForm slug={slug} institution={institution} user={user}
             onSubmitted={handleJoinSubmitted} />
         ) : (
-          <JoinForm slug={slug} institution={institution} uid={user?.uid} userData={userData}
+          <JoinForm slug={slug} institution={institution} user={user} userData={userData}
             onSubmitted={handleJoinSubmitted} />
         )}
       </CampusShell>
@@ -1249,62 +1582,116 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
     );
   }
 
-  // Only CAMPUS_PHASE.APPROVED or CAMPUS_PHASE.ADMIN reach here.
+  // Only CAMPUS_PHASE.APPROVED, CAMPUS_PHASE.ADMIN, or CAMPUS_PHASE.STAFF
+  // reach here.
   return (
+    <CampusPermissionsContext.Provider value={permissionsCtxValue}>
     <div data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp flex flex-col lg:flex-row">
       <CampusExitConfirmDialog open={exitGuard.exitDialogOpen} institutionName={institution.name}
         onStay={exitGuard.stay} onLeave={exitGuard.leave} />
-      <CampusNavRail institution={institution} tab={tab} setTab={goTab} isInstAdmin={isInstAdmin}
-        onRequestExit={exitGuard.requestExit} />
+      <CampusNavRail institution={institution} tab={tab} setTab={goTab}
+        hiddenTabKeys={hiddenTabKeys} onRequestExit={exitGuard.requestExit} />
+      <CampusMobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}
+        institution={institution} tab={tab} goTab={goTab} isInstAdmin={isInstAdmin}
+        hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onRequestExit={exitGuard.requestExit}
+        themeToggle={<CampusThemeToggle />}
+        onSignOut={async () => { await logout(); router.push("/campus"); }} />
       <div className="flex-1 min-w-0 flex flex-col">
-        <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user?.uid} />
+        <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user?.uid}
+          onOpenDrawer={() => setDrawerOpen(true)} drawerOpen={drawerOpen} />
         <div className="flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-6 min-w-0">
-          {tab === "dashboard" && (
-            <OverviewTab slug={slug} userData={userData} membership={membership} isInstAdmin={isInstAdmin}
+          {NAV_ITEMS.find(i => i.key === tab)?.moduleKey && !isTabAllowed(tab) ? (
+            <ModuleAccessRestricted moduleLabel={NAV_ITEMS.find(i => i.key === tab)?.label || "This section"} onBack={() => goTab("dashboard")} />
+          ) : tab === "dashboard" && isInstAdmin ? (
+            <CampusAdminOverview slug={slug} institution={institution} onOpenContest={openContest} />
+          ) : tab === "dashboard" && staffScope?.role === "hod" ? (
+            <CampusHodDashboard institutionId={slug} department={staffScope.department} />
+          ) : tab === "dashboard" && staffScope?.role === "facultyClassTeacher" ? (
+            <CampusFacultyDashboard institutionId={slug} classroomId={staffScope.classroomId} />
+          ) : tab === "dashboard" && staffScope ? (
+            <CampusStaffOverview slug={slug} institution={institution} staffScope={staffScope} />
+          ) : tab === "dashboard" ? (
+            <OverviewTab slug={slug} userData={userData} totalCoins={totalCoins} membership={membership} isInstAdmin={isInstAdmin}
               onOpenContest={openContest} onContinueLearning={() => goTab("learning")}
               onBrowseDsa={() => goTab("dsa")} onBrowseCompanyVault={() => goTab("companyVault")}
               onBrowseLeaderboard={() => goTab("leaderboard")} onAssessments={() => goTab("assessments")}
-              onManage={() => goTab("manage")} />
+              onManage={() => goTab("manage")} onProgramming={() => goTab("programming")}
+              onCsCore={() => goTab("csCore")} onAptitude={() => goTab("aptitude")} />
+          ) : null}
+          {isTabAllowed("profile") && tab === "profile" && (
+            <ProfileTab userData={userData} totalCoins={totalCoins} membership={membership} institution={institution} isInstAdmin={isInstAdmin} staffScope={staffScope} />
           )}
-          {tab === "profile" && (
-            <ProfileTab userData={userData} membership={membership} institution={institution} isInstAdmin={isInstAdmin} />
-          )}
-          {tab === "learning" && <CampusDailyLearningTab slug={slug} />}
-          {tab === "programming" && <CampusProgrammingTab />}
-          {tab === "csCore" && <CampusCsCoreTab />}
-          {tab === "dsa" && (
+          {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} />}
+          {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab />}
+          {isTabAllowed("csCore") && tab === "csCore" && <CampusCsCoreTab />}
+          {isTabAllowed("aptitude") && tab === "aptitude" && <CampusAptitudeTab />}
+          {isTabAllowed("gate") && tab === "gate" && <CampusGateTab />}
+          {isTabAllowed("dsa") && tab === "dsa" && (
             <>
               {practiceScreen.view === "list" && (
                 <>
                   <DsaProgressSummary user={user} />
                   <div className="flex gap-5 flex-wrap mb-6">
-                    <SidebarFilterGroup horizontal label="CATEGORY" options={["All", ...CODELAB_CATEGORIES]} value={practiceCategory} onChange={setPracticeCategory} />
+                    <CategoryFilterList horizontal value={practiceCategory} onChange={setPracticeCategory} />
                     <SidebarFilterGroup horizontal label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={practiceDifficulty} onChange={setPracticeDifficulty} />
+                    <CompanyFilterList horizontal value={practiceCompany} onChange={setPracticeCompany} />
                   </div>
                 </>
               )}
               {practiceScreen.view === "problem"
                 ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} backLabel="DSA" />
-                : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty}
+                : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty} company={practiceCompany}
                     hiddenIds={new Set(contentVisibility.hiddenProblemIds)}
                     onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
               }
             </>
           )}
-          {tab === "companyVault" && (
+          {isTabAllowed("companyVault") && tab === "companyVault" && (
             <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen}
               hiddenIds={new Set(contentVisibility.hiddenCompanyIds)} />
           )}
-          {tab === "assessments" && <CampusDailyAssessmentsTab slug={slug} />}
-          {tab === "contests" && (
+          {isTabAllowed("assessments") && tab === "assessments" && <CampusDailyAssessmentsTab slug={slug} />}
+          {isTabAllowed("contests") && tab === "contests" && (
             <CampusContestsTabContent institutionId={slug} screen={contestScreen} setScreen={setContestScreen} />
           )}
-          {tab === "leaderboard" && <CampusLeaderboardTab slug={slug} myUid={user?.uid} />}
-          {tab === "manage" && isInstAdmin && <CampusManage institutionId={slug} institution={institution} />}
+          {tab === "leaderboard" && <CampusLeaderboardTab slug={slug} myUid={user?.uid} myClassroom={myClassroom} />}
+          {tab === "manage" && (
+            isInstAdmin
+              ? <CampusManage institutionId={slug} institution={institution}
+                  initialTab={initialManageTab} initialStudentsView={initialManageStudentsView}
+                  jumpToManageTab={manageJump}
+                  onInstitutionUpdated={(patch) => setInstitution(prev => ({ ...(prev || {}), ...patch }))} />
+              // Frontend gate only for the UI decision of what to render - the
+              // real authority is firestore.rules (every Manage write is
+              // isInstitutionAdmin()-gated there), so a non-admin hitting a
+              // /manage/* URL directly still can't actually write anything
+              // even if they saw this render; this just gives them an honest
+              // message instead of a blank panel.
+              : (
+                <CampusEmptyState icon={Lock} title="Access restricted"
+                  description="Manage is only available to this campus's own admins." />
+              )
+          )}
         </div>
       </div>
-      <CampusBottomNav tab={tab} setTab={goTab} />
+      <CampusBottomNav tab={tab} setTab={goTab} hiddenTabKeys={hiddenTabKeys} />
     </div>
+    </CampusPermissionsContext.Provider>
+  );
+}
+
+// Shown instead of a gated tab's real content when the signed-in student's
+// own classroom has this module disabled (Manage -> that module's own tab ->
+// Manage Access) - covers every way the tab could be reached, not just the
+// nav rail: a static SEO route (e.g. /campus/mrcet/dsa), a stale ?tab=dsa
+// link, or the mobile bottom nav all render this same check, since it lives
+// in the one place every tab's content is actually chosen (CampusWorkspace's
+// render), not in the nav components that merely link to it.
+function ModuleAccessRestricted({ moduleLabel, onBack }) {
+  return (
+    <CampusEmptyState icon={Lock} title="Access restricted"
+      description={`${moduleLabel} isn't enabled for your classroom right now. If you think this is a mistake, contact your campus admin.`}
+      action={<CampusButton variant="secondary" onClick={onBack}>Back to Overview</CampusButton>} />
   );
 }
 
@@ -1317,10 +1704,21 @@ function CampusWorkspace({ slug, initialTab, initialContestId }) {
 // "in reserve" ahead of wherever the user actually is: pushState on mount
 // adds it, and every popstate (a real Back press) immediately pushes another
 // one right back - since the URL never changes, nothing here ever actually
-// unmounts the workspace or loses tab/scroll state, it just re-arms the
-// guard and opens the dialog. Switching tabs never touches history at all
-// (see the tab-sync effect above, which uses replaceState), so this never
-// fires for in-workspace navigation - only for a real attempt to leave.
+// unmounts the workspace or loses tab/scroll state.
+//
+// CORRECTNESS-CRITICAL: tab switching (and Manage's own nested tab/
+// studentsView sync) only ever uses history.replaceState, never pushState -
+// so there are NO real intermediate history entries for a Back press to
+// consume on its way "up" through in-campus navigation. Every popstate,
+// however deep the user has drilled in, lands on this SAME one reserved
+// entry. Without the popCampusBack() check below, that meant the very FIRST
+// Back press anywhere inside Campus (Manage, Classrooms, Programming's
+// topic view, anywhere) incorrectly asked to leave instead of stepping back
+// one level - a real, repeatedly-reported bug. popCampusBack() (see
+// lib/campusNav.js) asks every currently-mounted non-root screen "do you
+// have a step back to take" first; only when NOTHING is registered (every
+// screen is already at its own shallowest view) does this actually show the
+// Leave Campus dialog.
 function useCampusExitGuard(active) {
   const router = useRouter();
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
@@ -1331,6 +1729,7 @@ function useCampusExitGuard(active) {
     window.history.pushState({ campusExitGuard: true }, "");
     const onPopState = () => {
       window.history.pushState({ campusExitGuard: true }, "");
+      if (popCampusBack()) return;
       pendingDestination.current = "/campus";
       setExitDialogOpen(true);
     };
@@ -1391,7 +1790,7 @@ function CampusExitConfirmDialog({ open, institutionName, onStay, onLeave }) {
               Leave {institutionName} Campus?
             </h3>
             <p id="campus-exit-desc" className="text-[13.5px] leading-relaxed mb-6" style={{ color: CAMPUS.inkSoft }}>
-              You're currently inside the <b style={{ color: CAMPUS.ink }}>{institutionName} Campus Workspace</b>. Are you sure you want to leave? You can always re-enter this campus later from the Campus section.
+              You&apos;re currently inside the <b style={{ color: CAMPUS.ink }}>{institutionName} Campus Workspace</b>. Are you sure you want to leave? You can always re-enter this campus later from the Campus section.
             </p>
             <div className="flex gap-2.5">
               <button ref={stayRef} onClick={onStay}
@@ -1412,15 +1811,6 @@ function CampusExitConfirmDialog({ open, institutionName, onStay, onLeave }) {
   );
 }
 
-// Groups TABS under unlabeled section breaks so the rail reads like a real
-// product's nav (not a flat list) - Overview/Profile stay ungrouped at top,
-// Manage is a separate admin-only group at the bottom (see render below).
-const NAV_GROUPS = [
-  { label: null,      keys: ["dashboard", "profile"] },
-  { label: "Learn",   keys: ["learning", "programming", "csCore", "dsa", "companyVault", "assessments"] },
-  { label: "Compete", keys: ["contests", "leaderboard"] },
-];
-
 // Hoisted to module scope (not defined inside CampusNavRail's render) so it
 // keeps a stable identity across re-renders instead of being torn down and
 // recreated on every parent render.
@@ -1440,7 +1830,7 @@ function NavItem({ item, tab, setTab, collapsed }) {
 // Desktop-only icon+label rail - hidden below lg, replaced by CampusBottomNav.
 // Collapsible (persisted like the theme toggle) so it can shrink to an
 // icon-only rail without losing the current tab.
-function CampusNavRail({ institution, tab, setTab, isInstAdmin, onRequestExit }) {
+function CampusNavRail({ institution, tab, setTab, hiddenTabKeys, onRequestExit }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -1474,20 +1864,20 @@ function CampusNavRail({ institution, tab, setTab, isInstAdmin, onRequestExit })
       </div>
 
       <nav className="flex flex-col gap-3 flex-1 overflow-y-auto">
-        {NAV_GROUPS.map((g, gi) => (
-          <div key={gi} className="flex flex-col gap-1">
-            {g.label && !collapsed && (
-              <span className="px-3 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{g.label.toUpperCase()}</span>
-            )}
-            {TABS.filter(t => g.keys.includes(t.key)).map(item => <NavItem key={item.key} item={item} tab={tab} setTab={setTab} collapsed={collapsed} />)}
-          </div>
-        ))}
-        {isInstAdmin && (
-          <div className="flex flex-col gap-1 mt-auto pt-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-            {!collapsed && <span className="px-3 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>ADMIN</span>}
-            <NavItem item={{ key: "manage", label: "Manage", icon: ShieldCheck }} tab={tab} setTab={setTab} collapsed={collapsed} />
-          </div>
-        )}
+        {GROUP_ORDER.map(groupKey => {
+          const items = NAV_ITEMS.filter(i => i.parentGroup === groupKey && i.desktopVisibility && !hiddenTabKeys?.has(i.key));
+          if (!items.length) return null;
+          const label = NAV_GROUP_LABELS[groupKey];
+          return (
+            <div key={groupKey} className={`flex flex-col gap-1 ${groupKey === "admin" ? "mt-auto pt-3" : ""}`}
+              style={groupKey === "admin" ? { borderTop: `1px solid ${CAMPUS.line}` } : undefined}>
+              {label && !collapsed && (
+                <span className="px-3 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{label.toUpperCase()}</span>
+              )}
+              {items.map(item => <NavItem key={item.key} item={item} tab={tab} setTab={setTab} collapsed={collapsed} />)}
+            </div>
+          );
+        })}
       </nav>
 
       <button onClick={toggleCollapsed}
@@ -1504,12 +1894,16 @@ function CampusNavRail({ institution, tab, setTab, isInstAdmin, onRequestExit })
 }
 
 // Fixed Material-style bottom nav, mobile only (lg:hidden) - the busiest
-// tabs only (see MOBILE_TABS); Profile/Manage stay reachable via the top bar.
-function CampusBottomNav({ tab, setTab }) {
+// tabs only (NAV_ITEMS entries with mobileVisibility "bottomNav"), always a
+// strict subset of what the hamburger drawer shows; everything else stays
+// reachable via the drawer instead of crowding the bottom nav further.
+const BOTTOM_NAV_ITEMS = NAV_ITEMS.filter(i => i.mobileVisibility === "bottomNav").sort((a, b) => a.order - b.order);
+
+function CampusBottomNav({ tab, setTab, hiddenTabKeys }) {
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 flex items-stretch"
       style={{ background: CAMPUS.surface, borderTop: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowHover }}>
-      {MOBILE_TABS.map(t => {
+      {BOTTOM_NAV_ITEMS.filter(t => !hiddenTabKeys?.has(t.key)).map(t => {
         const Icon = t.icon;
         const active = tab === t.key;
         return (
@@ -1633,10 +2027,15 @@ function CampusProfileMenu({ institution, slug, userData, uid, setTab }) {
   );
 }
 
-function CampusTopBar({ institution, userData, setTab, slug, uid }) {
+function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, drawerOpen }) {
   return (
     <header className="flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0"
       style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
+      <button onClick={onOpenDrawer} aria-label="Open navigation" aria-expanded={drawerOpen} aria-haspopup="dialog"
+        className="lg:hidden flex items-center justify-center flex-shrink-0 rounded-lg -ml-1.5"
+        style={{ width: 44, height: 44, color: CAMPUS.inkSoft }}>
+        <Menu size={20} />
+      </button>
       <div className="lg:hidden w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[12px] flex-shrink-0 overflow-hidden"
         style={institution.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.teal, color: "#fff" }}>
         {institution.logoUrl
@@ -1656,27 +2055,38 @@ function CampusTopBar({ institution, userData, setTab, slug, uid }) {
 // (renders nothing) rather than guessing if the roster hasn't loaded yet.
 function useMyInstitutionRank(slug, myUid) {
   const [rank, setRank] = useState(null);
+  // Live onSnapshot on the query itself, not a one-time getDocs - the Score
+  // stat right next to this in OverviewTab/ProfileTab already updates
+  // instantly (its own onSnapshot on users/{uid}), so Campus Rank staying
+  // frozen until a full reload was a jarring inconsistency inside the same
+  // small stat row, not just a minor staleness gap.
   useEffect(() => {
     if (!slug || !myUid) return;
-    getDocs(query(collection(db, "users"), where("institutionId", "==", slug), orderBy("xp", "desc"), limit(200)))
-      .then(snap => {
+    const unsub = onSnapshot(
+      query(collection(db, "users"), where("institutionId", "==", slug), orderBy("score", "desc"), limit(200)),
+      snap => {
         const idx = snap.docs.findIndex(d => d.id === myUid);
         setRank(idx === -1 ? null : idx + 1);
-      })
-      .catch(() => setRank(null));
+      },
+      () => setRank(null),
+    );
+    return unsub;
   }, [slug, myUid]);
   return rank;
 }
 
 // Real navigation shortcuts only - every entry routes to a tab that already
 // exists and already works, never a placeholder feature.
-function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onAssessments, onManage, isInstAdmin }) {
+function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onAssessments, onManage, onProgramming, onCsCore, onAptitude, isInstAdmin }) {
   const actions = [
+    { label: "Daily Learning", icon: BookOpen, onClick: onLearning },
+    { label: "Programming", icon: CodeXml, onClick: onProgramming },
+    { label: "CS Core", icon: BrainCircuit, onClick: onCsCore },
+    { label: "Aptitude", icon: Calculator, onClick: onAptitude },
     { label: "DSA", icon: Code2, onClick: onDsa },
     { label: "Company Vault", icon: Briefcase, onClick: onCompanyVault },
-    { label: "Leaderboard", icon: BarChart3, onClick: onLeaderboard },
-    { label: "Daily Learning", icon: BookOpen, onClick: onLearning },
     { label: "Assessments", icon: ClipboardCheck, onClick: onAssessments },
+    { label: "Leaderboard", icon: BarChart3, onClick: onLeaderboard },
     ...(isInstAdmin ? [{ label: "Manage", icon: ShieldCheck, onClick: onManage }] : []),
   ];
   return (
@@ -1691,7 +2101,7 @@ function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onA
   );
 }
 
-function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowseDsa, onBrowseCompanyVault, onBrowseLeaderboard, onAssessments, onManage }) {
+function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowseDsa, onBrowseCompanyVault, onBrowseLeaderboard, onAssessments, onManage, onProgramming, onCsCore, onAptitude }) {
   const rank = useMyInstitutionRank(slug, userData?.uid);
   const [contests, setContests] = useState([]);
   const [contestsLoading, setContestsLoading] = useState(true);
@@ -1700,8 +2110,8 @@ function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, o
   const [noticeItem, setNoticeItem] = useState(undefined); // undefined = loading, null = no weekly program
 
   useEffect(() => {
-    fetchInstitutionContests(slug)
-      .then(list => setContests(bucketContests(list.filter(c => c.status === "published")).upcoming.slice(0, 2)))
+    fetchPublishedInstitutionContests(slug)
+      .then(list => setContests(bucketContests(list).upcoming.slice(0, 2)))
       .catch(() => setContests([]))
       .finally(() => setContestsLoading(false));
   }, [slug]);
@@ -1729,15 +2139,21 @@ function OverviewTab({ slug, userData, membership, isInstAdmin, onOpenContest, o
         <CampusChip color={CAMPUS.teal}>{isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")}</CampusChip>
       </motion.div>
 
-      <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal} />
-        <CampusStat label="Coins" value={userData?.credits ?? 0} color={CAMPUS.gold} />
+      <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        <CampusStat label="Score" value={userData?.score ?? 0} color={CAMPUS.purple}
+          hint="Your permanent academic performance score. Never decreases and is never spent - this is what leaderboards and rankings are based on." />
+        <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal}
+          hint="Spendable reward points earned from learning activities. Convert XP to Coins in the Wallet - this can go down." />
+        <CampusStat label="Coins" value={totalCoins ?? 0} color={CAMPUS.gold}
+          hint="Your real wallet balance. Coins can be withdrawn as INR from the Wallet page." />
         <CampusStat label="Problems Solved" value={userData?.problemsSolvedCount ?? 0} color={CAMPUS.blue} />
-        <CampusStat label="Campus Rank" value={rank ? `#${rank}` : "-"} color={CAMPUS.purple} />
+        <CampusStat label="Campus Rank" value={rank ? `#${rank}` : "-"} color={CAMPUS.good}
+          hint="Your rank within this campus, based on Score." />
       </motion.div>
 
       <motion.div variants={slideUp}>
-        <QuickActionsRow onDsa={onBrowseDsa} onCompanyVault={onBrowseCompanyVault} onLeaderboard={onBrowseLeaderboard} onLearning={onContinueLearning} onAssessments={onAssessments} onManage={onManage} isInstAdmin={isInstAdmin} />
+        <QuickActionsRow onDsa={onBrowseDsa} onCompanyVault={onBrowseCompanyVault} onLeaderboard={onBrowseLeaderboard} onLearning={onContinueLearning} onAssessments={onAssessments} onManage={onManage}
+          onProgramming={onProgramming} onCsCore={onCsCore} onAptitude={onAptitude} isInstAdmin={isInstAdmin} />
       </motion.div>
 
       <motion.div variants={slideUp} className="grid md:grid-cols-2 gap-5 mb-6 items-stretch">
@@ -1825,7 +2241,7 @@ function ProfileRow({ icon: Icon, label, value }) {
   );
 }
 
-function ProfileTab({ userData, membership, institution, isInstAdmin }) {
+function ProfileTab({ userData, totalCoins, membership, institution, isInstAdmin, staffScope }) {
   return (
     <motion.div variants={staggerContainer} initial="hidden" animate="visible">
       <motion.div variants={slideUp} className="flex items-center gap-4 mb-6">
@@ -1837,14 +2253,20 @@ function ProfileTab({ userData, membership, institution, isInstAdmin }) {
           <h2 className="text-xl font-semibold truncate" style={{ color: CAMPUS.ink }}>{userData?.displayName || "Your Profile"}</h2>
           <p className="text-[13px]" style={{ color: CAMPUS.inkSoft }}>@{userData?.handle || "-"}</p>
           <span className="inline-block mt-1.5">
-            <CampusChip color={CAMPUS.teal}>{isInstAdmin ? "INSTITUTION ADMIN" : "STUDENT"}</CampusChip>
+            <CampusChip color={CAMPUS.teal}>
+              {isInstAdmin ? "INSTITUTION ADMIN" : staffScope ? (ROLE_CATALOG[staffScope.role]?.label || "STAFF").toUpperCase() : "STUDENT"}
+            </CampusChip>
           </span>
         </div>
       </motion.div>
 
-      <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal} />
-        <CampusStat label="Coins" value={userData?.credits ?? 0} />
+      <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        <CampusStat label="Score" value={userData?.score ?? 0} color={CAMPUS.purple}
+          hint="Your permanent academic performance score. Never decreases and is never spent - this is what leaderboards and rankings are based on." />
+        <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal}
+          hint="Spendable reward points earned from learning activities. Convert XP to Coins in the Wallet - this can go down." />
+        <CampusStat label="Coins" value={totalCoins ?? 0} color={CAMPUS.gold}
+          hint="Your real wallet balance. Coins can be withdrawn as INR from the Wallet page." />
         <CampusStat label="Year" value={membership?.year || "-"} />
         <CampusStat label="Section" value={membership?.section || "-"} />
       </motion.div>
@@ -1879,10 +2301,10 @@ const LEADERBOARD_SCOPE_LABELS = { section: "My Section", department: "My Depart
 // Daily Learning leaderboard (filterChips/CampusDayLeaderboard below) stays
 // campus-wide only, exactly as before - it was never asked to gain
 // class/department scoping, unlike the overall ranking metric.
-function CampusLeaderboardTab({ slug, myUid }) {
+function CampusLeaderboardTab({ slug, myUid, myClassroom }) {
   const { userData } = useAuth();
   const [settings, setSettings] = useState(null);
-  const [classroom, setClassroom] = useState(null);
+  const classroom = myClassroom;
   const [scope, setScope] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1892,16 +2314,8 @@ function CampusLeaderboardTab({ slug, myUid }) {
   useEffect(() => {
     fetchLeaderboardSettings(slug)
       .then(setSettings)
-      .catch(() => setSettings({ enabled: true, sectionEnabled: true, departmentEnabled: true, campusEnabled: true, rankingMetric: "xp" }));
+      .catch(() => setSettings({ enabled: true, sectionEnabled: true, departmentEnabled: true, campusEnabled: true, rankingMetric: "score" }));
   }, [slug]);
-
-  const myClassroomId = userData?.classroomId
-    || (userData?.department && userData?.year && userData?.section ? classroomKey(userData.year, userData.department, userData.section) : null);
-
-  useEffect(() => {
-    if (!myClassroomId) { setClassroom(null); return; }
-    fetchClassroom(slug, myClassroomId).then(setClassroom).catch(() => setClassroom(null));
-  }, [slug, myClassroomId]);
 
   const availableScopes = useMemo(() => {
     if (!settings || settings.enabled === false) return [];
@@ -1922,8 +2336,11 @@ function CampusLeaderboardTab({ slug, myUid }) {
     fetchWeekItems(slug, mondayOf()).then(setWeekItems).catch(() => setWeekItems([]));
   }, [slug]);
 
-  const metric = settings?.rankingMetric || "xp";
-  const metricLabel = LEADERBOARD_METRICS.find(m => m.key === metric)?.label || "XP";
+  const metric = settings?.rankingMetric || "score";
+  // "Score", not "XP" - LEADERBOARD_METRICS is score-only now, so falling
+  // back to a literal "XP" here could show that label while actually
+  // sorting/rendering the score field, if metric were ever anything else.
+  const metricLabel = LEADERBOARD_METRICS.find(m => m.key === metric)?.label || "Score";
 
   useEffect(() => {
     if (!scope) return;
@@ -1932,8 +2349,26 @@ function CampusLeaderboardTab({ slug, myUid }) {
     const filters = [where("institutionId", "==", slug)];
     if (scope === "section") filters.push(where("department", "==", userData.department), where("year", "==", userData.year), where("section", "==", userData.section));
     if (scope === "department") filters.push(where("department", "==", userData.department), where("year", "==", userData.year));
-    getDocs(query(col, ...filters, orderBy(metric, "desc"), limit(50)))
-      .then(snap => setRows(snap.docs.map((d, i) => ({ rank: i + 1, uid: d.id, ...d.data() }))))
+    Promise.all([
+      getDocs(query(col, ...filters, orderBy(metric, "desc"), limit(50))),
+      // department/campus merge students from MANY classrooms - a classroom
+      // that opted out of THIS scope's visibility (Manage > Leaderboards)
+      // must have its own students excluded from every OTHER classroom's
+      // view of that scope, not just hidden from its own students' tab list
+      // (availableScopes above only gates the viewer's OWN classroom).
+      // section never needs this: it's already exactly one classroom's own
+      // roster, so there's no other classroom's data to leak in the first
+      // place.
+      scope !== "section" ? fetchClassrooms(slug) : Promise.resolve([]),
+    ])
+      .then(([snap, classrooms]) => {
+        const visibilityByClassroomId = new Map(classrooms.map(c => [c.id, c.leaderboardVisibility || {}]));
+        const rows = snap.docs
+          .map(d => ({ uid: d.id, ...d.data() }))
+          .filter(r => !r.classroomId || visibilityByClassroomId.get(r.classroomId)?.[scope] !== false)
+          .map((r, i) => ({ ...r, rank: i + 1 }));
+        setRows(rows);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [scope, slug, metric, userData?.department, userData?.year, userData?.section]);
@@ -2048,8 +2483,8 @@ function CampusContestsTabContent({ institutionId, screen, setScreen }) {
 
   const load = () => {
     setLoading(true); setError(false);
-    fetchInstitutionContests(institutionId)
-      .then(list => setContests(list.filter(c => c.status === "published")))
+    fetchPublishedInstitutionContests(institutionId)
+      .then(setContests)
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   };
@@ -2065,7 +2500,7 @@ function CampusContestsTabContent({ institutionId, screen, setScreen }) {
 // submits via requestToJoin() as a "pending" roster doc, same as public
 // campuses - the institution's admin reviews and approves it exactly the
 // same way; only the client-side form and the lock/warning are different.
-function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
+function CampusIdentityForm({ slug, institution, user, onSubmitted }) {
   const [step, setStep] = useState("form"); // "form" | "review"
   const [name, setName] = useState("");
   const [rollNumber, setRollNumber] = useState("");
@@ -2081,7 +2516,7 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
     setError(""); setSubmitting(true);
     try {
       const payload = { name: name.trim(), rollNumber: rollNumber.trim(), department, year, section };
-      await requestToJoin(slug, uid, payload);
+      await requestToJoin(slug, user, payload);
       onSubmitted(payload);
     } catch (e) {
       setError(e.message || "Failed to submit.");
@@ -2100,7 +2535,7 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
           </p>
           <p className="text-[11.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
             Your Full Name, Roll Number, Department, Year, and Section become your official identity for
-            <b> {institution.name}</b> - they're also what places you in the right classroom. These are used
+            <b> {institution.name}</b> - they&apos;re also what places you in the right classroom. These are used
             for leaderboards, contest rankings, certificates, progress tracking, analytics, and campus reports.
             <b> After submission you cannot modify these details yourself</b> - only your Training &amp;
             Placement Cell can. Please verify everything carefully before continuing.
@@ -2123,7 +2558,7 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
         {error && <p className="text-[11.5px] mb-3" style={{ color: CAMPUS.bad }}>{error}</p>}
         <button onClick={handleConfirm} disabled={submitting}
           className="w-full text-[13px] font-semibold py-2.5 rounded-lg disabled:opacity-50"
-          style={{ background: CAMPUS.ink, color: "#fff" }}>
+          style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
           {submitting ? "Joining..." : "Confirm & Join Campus"}
         </button>
         <button onClick={() => setStep("form")} disabled={submitting}
@@ -2152,14 +2587,14 @@ function CampusIdentityForm({ slug, institution, uid, onSubmitted }) {
       </div>
       <button onClick={() => setStep("review")} disabled={!canReview}
         className="w-full mt-5 text-[13px] font-semibold py-2.5 rounded-lg disabled:opacity-50"
-        style={{ background: CAMPUS.ink, color: "#fff" }}>
+        style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
         Review
       </button>
     </CampusCard>
   );
 }
 
-function JoinForm({ slug, institution, uid, userData, onSubmitted }) {
+function JoinForm({ slug, institution, user, userData, onSubmitted }) {
   const [form, setForm] = useState({
     name: userData?.displayName || "", rollNumber: "", department: "", year: "", section: "", phone: "",
   });
@@ -2173,7 +2608,7 @@ function JoinForm({ slug, institution, uid, userData, onSubmitted }) {
     }
     setError(""); setSubmitting(true);
     try {
-      await requestToJoin(slug, uid, form);
+      await requestToJoin(slug, user, form);
       onSubmitted(form);
     } catch (e) {
       setError(e.message || "Failed to submit request.");
@@ -2201,7 +2636,7 @@ function JoinForm({ slug, institution, uid, userData, onSubmitted }) {
       {error && <p className="text-[11.5px] mt-3" style={{ color: CAMPUS.bad }}>{error}</p>}
       <button onClick={submit} disabled={submitting}
         className="w-full mt-5 text-[13px] font-semibold py-2.5 rounded-lg disabled:opacity-50"
-        style={{ background: CAMPUS.ink, color: "#fff" }}>
+        style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
         {submitting ? "Submitting..." : "Request access"}
       </button>
     </CampusCard>

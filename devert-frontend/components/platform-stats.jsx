@@ -50,7 +50,7 @@ export function PlatformStats() {
             // platform.stats --live
           </p>
           <h2 className="font-sans font-bold text-white tracking-tighter" style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)" }}>
-            NUMBERS <span className="text-neon-cyan">DON'T LIE</span>
+            NUMBERS <span className="text-neon-cyan">DON&apos;T LIE</span>
           </h2>
         </motion.div>
 

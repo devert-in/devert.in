@@ -2,6 +2,7 @@
 
 export const EDITOR_TABS = [
   { key: "identity",       label: "Identity" },
+  { key: "analytics",      label: "Analytics" },
   { key: "skills",         label: "Tech Stack" },
   { key: "experience",     label: "Experience" },
   { key: "education",      label: "Education" },

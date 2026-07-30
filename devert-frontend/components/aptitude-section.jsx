@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ListChecks, ChevronRight, ArrowLeft, Lock, Zap } from "lucide-react";
+import { motion } from "framer-motion";
+import { ListChecks, ChevronRight, ArrowLeft, Lock } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, updateDoc, increment, Timestamp, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, increment, Timestamp, arrayUnion, arrayRemove, runTransaction } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import {
   APTITUDE_CATEGORIES, fetchAptitudeTopics, fetchTopicQuestions,
@@ -12,9 +12,6 @@ import {
   detectWeakTopics,
 } from "@/lib/aptitude";
 import { QuestionWorkspace } from "@/components/aptitude/question-workspace";
-
-const DAILY_XP_CAP = 60;
-const XP_PER_CORRECT = 3;
 
 // Named wrapper so the (legitimate, event-driven) impure Date.now() reads
 // below don't trip the "impure call during render" lint rule, which can't
@@ -36,7 +33,6 @@ export function AptitudeSection() {
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState(null);
   const [answered, setAnswered] = useState(false);
-  const [xpToast, setXpToast] = useState(null);
   const [lastAttemptTimeSec, setLastAttemptTimeSec] = useState(null);
   const questionShownAt = useRef(null);
 
@@ -47,7 +43,7 @@ export function AptitudeSection() {
   useEffect(() => {
     if (!user) { setProgress(null); return; }
     getDoc(doc(db, "user_aptitude_progress", user.uid))
-      .then(snap => setProgress(snap.exists() ? snap.data() : { attempted: {}, topicStats: {}, dailyXp: {}, bookmarks: [] }))
+      .then(snap => setProgress(snap.exists() ? snap.data() : { attempted: {}, topicStats: {}, bookmarks: [] }))
       .catch(console.error);
   }, [user]);
 
@@ -63,6 +59,13 @@ export function AptitudeSection() {
 
   const currentQ = questions[qIndex];
 
+  // Aptitude/Grind grants no XP/Coins/Score at all (platform policy: only
+  // Daily Learning, Programming, and CS Core reward) - this only tracks
+  // attempt/accuracy progress and a pure consistency streak. `already`
+  // (has this question been correctly answered before) is decided from a
+  // live re-read inside one transaction, so a burst of near-simultaneous
+  // submits can't double-count the same question's first-correct-answer
+  // toward topicStats/streak.
   const handleSubmit = async () => {
     if (selected === null || !currentQ) return;
     setAnswered(true);
@@ -71,23 +74,51 @@ export function AptitudeSection() {
     setLastAttemptTimeSec(timeSec);
     if (!user) return;
 
-    const already = progress?.attempted?.[currentQ.id];
     const today = todayIST();
-    const todaysXp = progress?.dailyXp?.[today] || 0;
-    const awardXp = correct && !already && todaysXp < DAILY_XP_CAP ? XP_PER_CORRECT : 0;
-    const nextEntry = appendAttempt(already, { selectedIndex: selected, correct, timeSec, attemptedAt: Timestamp.now() });
+    const progressRef = doc(db, "user_aptitude_progress", user.uid);
+    const userRef = doc(db, "users", user.uid);
 
+    let already, isFirstCorrectToday, nextEntry;
     try {
-      await setDoc(doc(db, "user_aptitude_progress", user.uid), {
-        attempted: { [currentQ.id]: nextEntry },
-        topicStats: {
-          [activeTopic.id]: {
-            attempted: increment(already ? 0 : 1),
-            correct: increment(already ? 0 : (correct ? 1 : 0)),
+      await runTransaction(db, async (tx) => {
+        const progressSnap = await tx.get(progressRef);
+        const live = progressSnap.exists() ? progressSnap.data() : { attempted: {}, topicStats: {} };
+        already = live.attempted?.[currentQ.id];
+        isFirstCorrectToday = correct && !already;
+        nextEntry = appendAttempt(already, { selectedIndex: selected, correct, timeSec, attemptedAt: Timestamp.now() });
+
+        // Firestore requires every read before any write in a transaction -
+        // this second, conditional read must still happen before the writes
+        // below, even though whether it's needed at all depends on the
+        // first read's result.
+        const userSnap = isFirstCorrectToday ? await tx.get(userRef) : null;
+
+        tx.set(progressRef, {
+          attempted: { [currentQ.id]: nextEntry },
+          topicStats: {
+            [activeTopic.id]: {
+              attempted: increment(already ? 0 : 1),
+              correct: increment(already ? 0 : (correct ? 1 : 0)),
+            },
           },
-        },
-        ...(awardXp > 0 ? { dailyXp: { [today]: increment(awardXp) } } : {}),
-      }, { merge: true });
+        }, { merge: true });
+
+        if (isFirstCorrectToday) {
+          // Aptitude practice is Grind's main daily activity (the self-reported
+          // DSA/SystemDesign/Build daily challenge that used to drive `streak` was
+          // removed as redundant with Arena Solo Challenges/CodeLab) - so a first
+          // correct answer of the day keeps this pure consistency streak alive,
+          // same day/yesterday/reset logic, with no XP/coins attached to it.
+          const u = userSnap.exists() ? userSnap.data() : {};
+          const lastPracticed = u.lastSolvedDate || "";
+          const yesterday = new Date(nowMs() + 5.5 * 60 * 60 * 1000 - 86400000).toISOString().slice(0, 10);
+          let newStreak = u.streak || 0;
+          if (lastPracticed !== today) {
+            newStreak = lastPracticed === yesterday ? newStreak + 1 : 1;
+          }
+          tx.set(userRef, { streak: newStreak, lastSolvedDate: today }, { merge: true });
+        }
+      });
 
       // Global stat counters (solved-by / accuracy / avg-time), bounded by
       // firestore.rules to exactly one attempt's worth per write - only on
@@ -101,38 +132,16 @@ export function AptitudeSection() {
         }).catch(() => {});
       }
 
-      if (awardXp > 0) {
-        // Aptitude practice is now Grind's main daily activity (the self-reported
-        // DSA/SystemDesign/Build daily challenge that used to drive `streak` was removed
-        // as redundant with Arena Solo Challenges/CodeLab) - so a first correct answer of
-        // the day is what keeps the streak alive now, same day/yesterday/reset logic.
-        const userSnap = await getDoc(doc(db, "users", user.uid));
-        const u = userSnap.exists() ? userSnap.data() : {};
-        const lastPracticed = u.lastSolvedDate || "";
-        const yesterday = new Date(nowMs() + 5.5 * 60 * 60 * 1000 - 86400000).toISOString().slice(0, 10);
-        let newStreak = u.streak || 0;
-        if (lastPracticed !== today) {
-          newStreak = lastPracticed === yesterday ? newStreak + 1 : 1;
-        }
-        await setDoc(doc(db, "users", user.uid), {
-          xp: increment(awardXp), streak: newStreak, lastSolvedDate: today,
-        }, { merge: true });
-        setXpToast(awardXp);
-        setTimeout(() => setXpToast(null), 2000);
-      }
-
       setProgress(prev => {
         const next = {
           attempted: { ...(prev?.attempted || {}), [currentQ.id]: nextEntry },
           topicStats: { ...(prev?.topicStats || {}) },
-          dailyXp: { ...(prev?.dailyXp || {}) },
           bookmarks: prev?.bookmarks || [],
         };
         if (!already) {
           const s = next.topicStats[activeTopic.id] || { attempted: 0, correct: 0 };
           next.topicStats[activeTopic.id] = { attempted: s.attempted + 1, correct: s.correct + (correct ? 1 : 0) };
         }
-        if (awardXp > 0) next.dailyXp[today] = (next.dailyXp[today] || 0) + awardXp;
         return next;
       });
     } catch (e) { console.error(e); }
@@ -173,16 +182,6 @@ export function AptitudeSection() {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} className="mb-10">
       <p className="font-mono text-xs text-white/25 mb-4 tracking-wider">// aptitude_and_reasoning.bank</p>
-
-      <AnimatePresence>
-        {xpToast && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-50 font-mono text-xs px-4 py-2 rounded-full flex items-center gap-1.5 pointer-events-none"
-            style={{ background: "rgba(0,255,65,0.1)", border: "1px solid rgba(0,255,65,0.3)", color: "#00FF41" }}>
-            <Zap size={12} /> +{xpToast} XP
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="terminal-window overflow-hidden">
         <div className="terminal-header">
