@@ -37,6 +37,14 @@ test.beforeEach(async () => {
     await ctx.firestore().doc("system/economy").set({
       PER_LIKE: 10, PER_COMMENT: 25, PER_SAVE: 15,
     });
+    // Mirrors scripts/seed-role-permission-defaults.mjs - a small subset
+    // (just the keys the RBAC tests below actually exercise) is enough here;
+    // the full catalog lives in lib/permissions.js/that seed script.
+    await ctx.firestore().doc("system/rolePermissionDefaults").set({
+      principal: { "students.view": true, "students.edit": true, "dailyLearning.publish": true, "classrooms.manage": true },
+      hod: { "students.view": true, "students.edit": true, "dailyLearning.publish": true, "classrooms.manage": true },
+      facultyClassTeacher: { "students.view": true, "dailyLearning.publish": true, "classrooms.manage": true },
+    });
   });
 });
 
@@ -64,13 +72,16 @@ test("a non-owner cannot set another user's coin balance to an arbitrary value",
   await assertFails(victimEarnings.set({ pulseCoins: 999999999, totalCoins: 999999999 }));
 });
 
-test("a non-owner CAN credit exactly the configured per-like reward (the real like flow)", async () => {
+// Pulse's per-like/comment/save coin-crediting flow (a non-owner crediting
+// the POST AUTHOR's balance) was removed entirely - pulse-app.jsx no longer
+// writes to user_earnings at all for engagement, and this rule's non-owner
+// branch was removed to match. A non-owner can never write user_earnings
+// now, for any amount, matching/known-reward-rate or not.
+test("a non-owner can never credit user_earnings for any amount, known reward rate or not", async () => {
   const liker = testEnv.authenticatedContext("liker-uid");
   const authorEarnings = liker.firestore().doc("user_earnings/author-uid");
-  await assertSucceeds(authorEarnings.set({ pulseCoins: 10, totalCoins: 10 }, { merge: true }));
-});
+  await assertFails(authorEarnings.set({ pulseCoins: 10, totalCoins: 10 }, { merge: true }));
 
-test("a non-owner cannot credit an amount that doesn't match a known reward rate", async () => {
   const attacker = testEnv.authenticatedContext("attacker-uid");
   const victimEarnings = attacker.firestore().doc("user_earnings/victim-uid");
   await assertFails(victimEarnings.set({ pulseCoins: 12345, totalCoins: 12345 }, { merge: true }));
@@ -211,14 +222,25 @@ test("only a user with the admin custom claim can write system config", async ()
   await assertSucceeds(admin.firestore().doc("system/economy").set({ PER_LIKE: 999 }));
 });
 
-test("anyone can read aptitude topics/questions, only admin can write them", async () => {
+// Published aptitude topics (and their questions) are publicly readable;
+// only admin can write. Draft topics (the new lesson-content authoring
+// state - see the status-gate regression test elsewhere in this file) are
+// correctly hidden from a guest, not readable-by-default the way this test
+// used to assume before aptitude_topics gained a real draft/published
+// lifecycle.
+test("a published aptitude topic (and its questions) is publicly readable; a draft is not; only admin can write", async () => {
+  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
+  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages").set({ name: "Percentages", category: "Quantitative", status: "published" }));
+  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages/questions/q1").set({ question: "2+2?" }));
+
   const guest = testEnv.unauthenticatedContext();
   await assertSucceeds(guest.firestore().doc("aptitude_topics/percentages").get());
+  await assertSucceeds(guest.firestore().doc("aptitude_topics/percentages/questions/q1").get());
   await assertFails(guest.firestore().doc("aptitude_topics/percentages").set({ name: "hack" }));
 
-  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
-  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages").set({ name: "Percentages", category: "Quantitative" }));
-  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages/questions/q1").set({ question: "2+2?" }));
+  await assertSucceeds(admin.firestore().doc("aptitude_topics/draft-topic").set({ name: "Unpublished", category: "Quantitative", status: "draft" }));
+  await assertFails(guest.firestore().doc("aptitude_topics/draft-topic").get());
+  await assertSucceeds(admin.firestore().doc("aptitude_topics/draft-topic").get());
 });
 
 test("a signed-in user may bump an aptitude question's global stat counters by one attempt's worth, but not touch its content", async () => {
@@ -454,13 +476,17 @@ test("a user can only read/write their own codelab progress, not someone else's"
   await assertFails(other.firestore().doc("user_codelab_progress/owner-uid").get());
 });
 
-// Regression test for the isAdminOfStudent security fix: an institution
-// admin must NOT be able to read a stranger's global progress docs (for the
-// Student Analytics Dashboard) just because that stranger's own users/{uid}
-// doc happens to claim the admin's institutionId - the field alone is not
-// trustworthy (any institution admin can write it - see the users/{uid}
-// rule's institution-admin branch). Only a REAL approved roster entry
+// Regression test for the isAdminOfStudent security fix, now defended at TWO
+// layers: an institution admin must NOT be able to read a stranger's global
+// progress docs (for the Student Analytics Dashboard) just because that
+// stranger's own users/{uid} doc happens to claim the admin's institutionId -
+// the field alone is not trustworthy. Only a REAL approved roster entry
 // (institutions/{id}/students/{uid}.status == 'approved') should unlock it.
+// A SECOND, later hardening (see the users/{uid} update rule's own comment)
+// closed this even earlier: an admin can no longer even WRITE institutionId
+// onto an arbitrary uid's users/{uid} doc without a pre-existing roster
+// entry for that exact uid already existing - so the forged-field write
+// itself is now denied too, not just the subsequent read.
 test("an institution admin can only read a student's global progress docs if a real approved roster entry backs it - a forged users.institutionId alone is not enough", async () => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await seedInstitution(ctx, "mrcet");
@@ -474,18 +500,21 @@ test("an institution admin can only read a student's global progress docs if a r
   });
   const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
 
-  // The admin forges the victim's own users/{uid}.institutionId (a write the
-  // users/{uid} rule's institution-admin branch already permits) - without a
-  // matching real, approved institutions/mrcet/students/victim-uid doc, that
-  // alone must NOT unlock read access to the victim's progress.
-  await assertSucceeds(mrcetAdmin.firestore().doc("users/victim-uid").set({ institutionId: "mrcet" }, { merge: true }));
+  // Layer 1 (the newer hardening): with NO roster entry for victim-uid under
+  // mrcet at all, the admin can't even write institutionId onto the victim's
+  // profile in the first place - the write itself is denied.
+  await assertFails(mrcetAdmin.firestore().doc("users/victim-uid").set({ institutionId: "mrcet" }, { merge: true }));
   await assertFails(mrcetAdmin.firestore().doc("user_codelab_progress/victim-uid").get());
 
   // Once a real approved roster entry exists for that exact uid under this
-  // admin's own institution, read access is correctly granted.
+  // admin's own institution (simulating a genuine prior requestToJoin() +
+  // approveStudent()), the write is now reachable, AND read access is
+  // correctly granted via isAdminOfStudent - Layer 2 still holds even though
+  // Layer 1 no longer lets the exploit's setup happen at all.
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await ctx.firestore().doc("institutions/mrcet/students/victim-uid").set({ uid: "victim-uid", status: "approved" });
   });
+  await assertSucceeds(mrcetAdmin.firestore().doc("users/victim-uid").set({ institutionId: "mrcet" }, { merge: true }));
   await assertSucceeds(mrcetAdmin.firestore().doc("user_codelab_progress/victim-uid").get());
 });
 
@@ -624,6 +653,12 @@ test("a student can never set their own institutionId/department on their public
     await seedInstitution(ctx, "mrcet");
     await ctx.firestore().doc("users/student-uid").set({ handle: "student", xp: 0 });
     await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid" });
+    // The users/{uid} update rule's institution-admin branch now ALSO requires
+    // a real institutions/{id}/students/{uid} roster entry to already exist
+    // (closing a since-fixed exploit - see that rule's own comment) - so this
+    // admin write is only reachable at all once a genuine prior
+    // requestToJoin()/approveStudent() has happened, exactly like production.
+    await ctx.firestore().doc("institutions/mrcet/students/student-uid").set({ uid: "student-uid", status: "approved" });
   });
   const student = testEnv.authenticatedContext("student-uid");
   await assertFails(student.firestore().doc("users/student-uid").update({ institutionId: "mrcet" }));
@@ -872,4 +907,637 @@ test("institution settings (e.g. leaderboard config) are readable by that instit
   await assertSucceeds(mrcetAdmin.firestore().doc("institutions/mrcet/settings/leaderboard").set({
     enabled: true, sectionEnabled: true, departmentEnabled: true, campusEnabled: true, rankingMetric: "credits",
   }, { merge: true }));
+});
+
+// --- Central reward ledger (reward_grants) - the reward-integrity overhaul's
+// core trust boundary. Regression coverage for both the app-level idempotency
+// check it backstops (a second create attempt for an already-existing doc)
+// and the field-shape/ownership bounds a client create must satisfy.
+
+test("the owner can write their own reward ledger entry with a bounded, well-formed grant", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("reward_grants/owner-uid_daily_learning_day_mrcet_2026-07-24").set({
+    uid: "owner-uid", activityType: "daily_learning_day", activityId: "mrcet_2026-07-24",
+    xp: 50, coins: 20, score: 50, sourceModule: "daily_learning", status: "granted",
+  }));
+});
+
+test("a client cannot create a reward ledger entry for someone else's uid", async () => {
+  const attacker = testEnv.authenticatedContext("attacker-uid");
+  await assertFails(attacker.firestore().doc("reward_grants/victim-uid_daily_learning_day_mrcet_2026-07-24").set({
+    uid: "victim-uid", activityType: "daily_learning_day", activityId: "mrcet_2026-07-24",
+    xp: 50, coins: 20, score: 50, sourceModule: "daily_learning", status: "granted",
+  }));
+});
+
+test("a client cannot write a reward ledger entry with an out-of-bounds xp/coins amount", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertFails(owner.firestore().doc("reward_grants/owner-uid_admin_manual_forged").set({
+    uid: "owner-uid", activityType: "admin_manual", activityId: "forged",
+    xp: 999999, coins: 0, score: 0, sourceModule: "admin_manual", status: "granted",
+  }));
+});
+
+test("a repeat grant attempt for the same (uid, activityType, activityId) is rejected - the ledger's core duplicate-prevention backstop", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  const ledgerDoc = owner.firestore().doc("reward_grants/owner-uid_programming_topic_java_arrays");
+  await assertSucceeds(ledgerDoc.set({
+    uid: "owner-uid", activityType: "programming_topic", activityId: "java_arrays",
+    xp: 20, coins: 8, score: 20, sourceModule: "programming", status: "granted",
+  }));
+  // Same call again (simulating a caller bug that re-invoked grantRewards for
+  // an activity it should have already known was granted) - Firestore treats
+  // this second attempt as an `update` to an already-existing doc, and no
+  // update path is granted to a non-admin client, so it's denied outright
+  // regardless of whether the payload is identical or different.
+  await assertFails(ledgerDoc.set({
+    uid: "owner-uid", activityType: "programming_topic", activityId: "java_arrays",
+    xp: 20, coins: 8, score: 20, sourceModule: "programming", status: "granted",
+  }));
+});
+
+test("a client can never update or delete their own existing reward ledger entry", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("reward_grants/owner-uid_cscore_topic_os_deadlocks").set({
+      uid: "owner-uid", activityType: "cscore_topic", activityId: "os_deadlocks",
+      xp: 20, coins: 8, score: 20, sourceModule: "cscore", status: "granted",
+    });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertFails(owner.firestore().doc("reward_grants/owner-uid_cscore_topic_os_deadlocks").update({ xp: 5000 }));
+  await assertFails(owner.firestore().doc("reward_grants/owner-uid_cscore_topic_os_deadlocks").delete());
+});
+
+// Regression test for a real production bug: isAlreadyGranted() (lib/rewards.js)
+// calls get() specifically to check whether a reward does NOT exist yet -
+// the common case, hit on every single fresh activity (Daily Learning
+// problem solve, Programming/CS Core/Aptitude topic completion). An earlier
+// version of the read rule dereferenced resource.data.uid unconditionally,
+// which throws when the doc doesn't exist (resource == null), denying the
+// read outright with permission-denied instead of a clean "not found" -
+// this made the very first attempt at any reward-eligible activity look
+// completely dead in the UI, since the check that should return false
+// (not yet granted) errored out instead.
+test("a signed-in user can read their OWN reward ledger slot even when it does NOT exist yet - the isAlreadyGranted() check", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("reward_grants/owner-uid_daily_learning_problem_mrcet_2026-07-27_two-sum").get());
+});
+
+test("a signed-in user cannot read another uid's non-existent reward ledger slot either", async () => {
+  const stranger = testEnv.authenticatedContext("stranger-uid");
+  await assertFails(stranger.firestore().doc("reward_grants/owner-uid_daily_learning_problem_mrcet_2026-07-27_two-sum").get());
+});
+
+test("reward ledger reads are restricted to the owner, a real institution admin of that student, or platform admin", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+    await ctx.firestore().doc("users/owner-uid").set({ displayName: "Student", institutionId: "mrcet" });
+    await ctx.firestore().doc("reward_grants/owner-uid_daily_learning_day_mrcet_2026-07-24").set({
+      uid: "owner-uid", activityType: "daily_learning_day", activityId: "mrcet_2026-07-24",
+      xp: 50, coins: 20, score: 50, sourceModule: "daily_learning", status: "granted",
+    });
+  });
+
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("reward_grants/owner-uid_daily_learning_day_mrcet_2026-07-24").get());
+
+  const stranger = testEnv.authenticatedContext("stranger-uid");
+  await assertFails(stranger.firestore().doc("reward_grants/owner-uid_daily_learning_day_mrcet_2026-07-24").get());
+
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertSucceeds(mrcetAdmin.firestore().doc("reward_grants/owner-uid_daily_learning_day_mrcet_2026-07-24").get());
+
+  const platformAdmin = testEnv.authenticatedContext("platform-admin-uid", { admin: true });
+  await assertSucceeds(platformAdmin.firestore().doc("reward_grants/owner-uid_daily_learning_day_mrcet_2026-07-24").get());
+});
+
+test("platform admin can create, update, and delete any reward ledger entry (manual-grant and reversal escape hatch)", async () => {
+  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
+  const ledgerDoc = admin.firestore().doc("reward_grants/some-uid_admin_manual_grant1");
+  await assertSucceeds(ledgerDoc.set({
+    uid: "some-uid", activityType: "admin_manual", activityId: "grant1",
+    xp: 100, coins: 0, score: 0, sourceModule: "admin_manual", grantedBy: "admin-uid", status: "granted",
+  }));
+  await assertSucceeds(ledgerDoc.update({ status: "reversed" }));
+  await assertSucceeds(ledgerDoc.delete());
+});
+
+// Regression coverage for the Student Analytics Dashboard's Reward Timeline
+// (lib/studentAnalytics.js's fetchRewardTimeline) - a uid-filtered LIST
+// query, not a single get(), and this codebase has a documented quirk where
+// isAdmin()/isAdminOfStudent()-style rules can silently break list() safety
+// analysis if not structured carefully (see payout_requests/notifications'
+// own comments above) - this must be verified directly, not assumed.
+test("a uid-filtered list() query against reward_grants works correctly for the owner, a real institution admin of that student, and is empty (not denied) for a stranger", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+    await ctx.firestore().doc("users/owner-uid").set({ displayName: "Student", institutionId: "mrcet" });
+    await ctx.firestore().doc("reward_grants/owner-uid_daily_learning_day_mrcet_2026-07-24").set({
+      uid: "owner-uid", activityType: "daily_learning_day", activityId: "mrcet_2026-07-24",
+      xp: 50, coins: 20, score: 50, sourceModule: "daily_learning", status: "granted",
+    });
+  });
+
+  const timelineQuery = (ctx) => query(collection(ctx.firestore(), "reward_grants"), where("uid", "==", "owner-uid"));
+
+  const owner = testEnv.authenticatedContext("owner-uid");
+  const ownerSnap = await assertSucceeds(getDocs(timelineQuery(owner)));
+  assert.equal(ownerSnap.size, 1);
+
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  const adminSnap = await assertSucceeds(getDocs(timelineQuery(mrcetAdmin)));
+  assert.equal(adminSnap.size, 1);
+
+  // A stranger's query is scoped to a uid they have no claim over - Firestore
+  // denies the whole list() here (none of the OR branches can be proven safe
+  // for an arbitrary uid), which is the CORRECT, expected outcome (not a bug):
+  // the admin dashboard only ever queries its OWN admin's students, so a
+  // legitimate caller never hits this path in the first place.
+  const stranger = testEnv.authenticatedContext("stranger-uid");
+  await assertFails(getDocs(timelineQuery(stranger)));
+});
+
+// --- Daily Learning's per-student completion log (dailyLearningLog) - a
+// privilege-escalation gap found by audit: the write rule bound isOwner() to
+// the PAYLOAD's uid field but never to the doc ID itself (logId), unlike
+// every sibling composite-key collection (programming_progress,
+// cscore_progress, user_activity_daily). An approved student could target
+// ANY other student's log slot by uid substitution in the doc ID while
+// spoofing the payload's own uid field to pass isOwner() - pre-setting
+// completedAt to silently deny a victim's future real reward, or (once set)
+// overwriting mcqAnswers/mcqScore/displayName/rollNumber under the victim's
+// slot. Fixed by requiring logId.split('_')[0] == request.auth.uid, plus a
+// new bound on xpEarned/coinEarned matching reward_grants' own cap.
+
+test("an approved student can write their own dailyLearningLog slot", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("institutions/mrcet/dailyLearningLog/owner-uid_2026-07-24").set({
+    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+  }));
+});
+
+test("an approved student cannot write into ANOTHER student's dailyLearningLog slot, even by spoofing the payload's own uid field", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/students/attacker-uid").set({ uid: "attacker-uid", status: "approved" });
+  });
+  const attacker = testEnv.authenticatedContext("attacker-uid");
+  // Doc ID targets victim-uid's slot; payload uid is spoofed to the
+  // attacker's own uid to try to pass isOwner() - must still fail because
+  // logId's uid prefix doesn't match the caller.
+  await assertFails(attacker.firestore().doc("institutions/mrcet/dailyLearningLog/victim-uid_2026-07-24").set({
+    uid: "attacker-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+  }));
+});
+
+test("a student cannot forge an out-of-bounds xpEarned/coinEarned on their own dailyLearningLog slot", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertFails(owner.firestore().doc("institutions/mrcet/dailyLearningLog/owner-uid_2026-07-24").set({
+    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 999999, coinEarned: 20, completedAt: new Date(),
+  }));
+});
+
+test("a draft-only dailyLearningLog write (no xpEarned/coinEarned/completedAt yet) still succeeds for the owner", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("institutions/mrcet/dailyLearningLog/owner-uid_2026-07-24").set({
+    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    draftAnswers: { q1: 0 }, updatedAt: new Date(),
+  }, { merge: true }));
+});
+
+test("an institution admin can still write any student's dailyLearningLog slot (legitimate correction)", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+  });
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertSucceeds(mrcetAdmin.firestore().doc("institutions/mrcet/dailyLearningLog/owner-uid_2026-07-24").set({
+    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+  }));
+});
+
+// --- Multi-track Daily Learning (institutions/{id}/learningTracks/{trackId}/
+// {items,logs}) - every NEW track (Aptitude Series first) besides the
+// grandfathered "dsa" track lives here instead of in dailyLearning/
+// dailyLearningLog above (see lib/dailyLearning.js's trackPaths). Same read/
+// write shape as those two collections, just parameterized by trackId - these
+// tests mirror the dailyLearning/dailyLearningLog suites above 1:1, plus one
+// proving the whole reason for this design: a DSA item and an Aptitude item
+// sharing the exact same calendar date never collide, because they live in
+// entirely separate collections.
+
+test("daily learning items in a non-dsa track are invisible to non-members, visible to that college's approved students and admins", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/learningTracks/aptitude/items/2026-07-24").set({ title: "Percentages" });
+    await ctx.firestore().doc("institutions/mrcet/students/approved-uid").set({ uid: "approved-uid", status: "approved" });
+    await ctx.firestore().doc("institutions/mrcet/students/pending-uid").set({ uid: "pending-uid", status: "pending" });
+  });
+  const outsider = testEnv.authenticatedContext("outsider-uid");
+  await assertFails(outsider.firestore().doc("institutions/mrcet/learningTracks/aptitude/items/2026-07-24").get());
+
+  const pending = testEnv.authenticatedContext("pending-uid");
+  await assertFails(pending.firestore().doc("institutions/mrcet/learningTracks/aptitude/items/2026-07-24").get());
+
+  const approved = testEnv.authenticatedContext("approved-uid");
+  await assertSucceeds(approved.firestore().doc("institutions/mrcet/learningTracks/aptitude/items/2026-07-24").get());
+  await assertFails(approved.firestore().doc("institutions/mrcet/learningTracks/aptitude/items/2026-07-24").set({ title: "hacked" }));
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+  });
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertSucceeds(mrcetAdmin.firestore().doc("institutions/mrcet/learningTracks/aptitude/items/2026-07-24").set({ title: "Percentages, revised" }));
+});
+
+test("an approved student can write their own learningTracks log slot", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/owner-uid_2026-07-24").set({
+    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+  }));
+});
+
+test("an approved student cannot write into ANOTHER student's learningTracks log slot, even by spoofing the payload's own uid field", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/students/attacker-uid").set({ uid: "attacker-uid", status: "approved" });
+  });
+  const attacker = testEnv.authenticatedContext("attacker-uid");
+  await assertFails(attacker.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/victim-uid_2026-07-24").set({
+    uid: "attacker-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+  }));
+});
+
+test("a student cannot forge an out-of-bounds xpEarned/coinEarned on their own learningTracks log slot", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertFails(owner.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/owner-uid_2026-07-24").set({
+    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 999999, coinEarned: 20, completedAt: new Date(),
+  }));
+});
+
+test("completedAt is monotonic on a student's own learningTracks log slot - once set, they cannot silently change or clear it to replay a reward", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+    await ctx.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/owner-uid_2026-07-24").set({
+      uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+      xpEarned: 50, coinEarned: 20, completedAt: new Date("2026-07-24T10:00:00Z"),
+    });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertFails(owner.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/owner-uid_2026-07-24").set({
+    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 50, coinEarned: 20, completedAt: new Date("2026-07-25T10:00:00Z"),
+  }));
+});
+
+test("an institution admin can still write any student's learningTracks log slot (legitimate correction)", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+  });
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertSucceeds(mrcetAdmin.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/owner-uid_2026-07-24").set({
+    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+    xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+  }));
+});
+
+test("a DSA dailyLearning item and an Aptitude learningTracks item on the SAME calendar date coexist independently, with no collision", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/dailyLearning/2026-07-24").set({ title: "Binary Search Trees" });
+    await ctx.firestore().doc("institutions/mrcet/learningTracks/aptitude/items/2026-07-24").set({ title: "Percentages" });
+    await ctx.firestore().doc("institutions/mrcet/students/approved-uid").set({ uid: "approved-uid", status: "approved" });
+  });
+  const approved = testEnv.authenticatedContext("approved-uid");
+  const dsaDay = await approved.firestore().doc("institutions/mrcet/dailyLearning/2026-07-24").get();
+  const aptitudeDay = await approved.firestore().doc("institutions/mrcet/learningTracks/aptitude/items/2026-07-24").get();
+  assert.strictEqual(dsaDay.data().title, "Binary Search Trees");
+  assert.strictEqual(aptitudeDay.data().title, "Percentages");
+
+  // Same shape one level down: a student's completion log for the same date,
+  // in each track, are two entirely separate documents.
+  await approved.firestore().doc("institutions/mrcet/dailyLearningLog/approved-uid_2026-07-24").set({
+    uid: "approved-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson", xpEarned: 30, coinEarned: 10,
+  });
+  await approved.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/approved-uid_2026-07-24").set({
+    uid: "approved-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson", xpEarned: 40, coinEarned: 15,
+  });
+  const dsaLog = await approved.firestore().doc("institutions/mrcet/dailyLearningLog/approved-uid_2026-07-24").get();
+  const aptitudeLog = await approved.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/approved-uid_2026-07-24").get();
+  assert.strictEqual(dsaLog.data().xpEarned, 30);
+  assert.strictEqual(aptitudeLog.data().xpEarned, 40);
+});
+
+// --- Per-student DSA study-card metadata (problem_notes) - favorite/
+// bookmark/review-later/needs-revision/confidence/personal rating/notes/
+// tags/revision schedule. Purely personal organization (no reward/coin/XP
+// field involved), but ownership must still be airtight since it's writable
+// straight from the client with no backend in the path.
+
+test("a student can create and update their own problem_notes doc", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  const ref = owner.firestore().doc("problem_notes/owner-uid_problem123");
+  await assertSucceeds(ref.set({
+    uid: "owner-uid", problemId: "problem123", favorite: true, tags: ["Interview"], notes: "sliding window trick",
+  }));
+  await assertSucceeds(ref.set({ needsRevision: true }, { merge: true }));
+});
+
+test("a client cannot create a problem_notes doc for someone else's uid, even by matching the doc-ID prefix to the attacker's own uid", async () => {
+  const attacker = testEnv.authenticatedContext("attacker-uid");
+  await assertFails(attacker.firestore().doc("problem_notes/victim-uid_problem123").set({
+    uid: "victim-uid", problemId: "problem123", favorite: true,
+  }));
+  // Spoofing the payload's own uid field while keeping the attacker's real
+  // doc-ID prefix is caught by the docId == uid + '_' + problemId check.
+  await assertFails(attacker.firestore().doc("problem_notes/attacker-uid_problem123").set({
+    uid: "victim-uid", problemId: "problem123", favorite: true,
+  }));
+});
+
+test("a client cannot write an out-of-bounds personalRating, an oversized notes string, or too many tags", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertFails(owner.firestore().doc("problem_notes/owner-uid_problem123").set({
+    uid: "owner-uid", problemId: "problem123", personalRating: 99,
+  }));
+  await assertFails(owner.firestore().doc("problem_notes/owner-uid_problem123").set({
+    uid: "owner-uid", problemId: "problem123", notes: "x".repeat(2001),
+  }));
+  await assertFails(owner.firestore().doc("problem_notes/owner-uid_problem123").set({
+    uid: "owner-uid", problemId: "problem123", tags: Array.from({ length: 21 }, (_, i) => `tag${i}`),
+  }));
+});
+
+test("only the owner, that student's institution admin, or a platform admin can read a problem_notes doc", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedInstitution(ctx, "mrcet");
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+    await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
+    await ctx.firestore().doc("users/owner-uid").set({ displayName: "Student", institutionId: "mrcet" });
+    await ctx.firestore().doc("problem_notes/owner-uid_problem123").set({ uid: "owner-uid", problemId: "problem123", favorite: true });
+  });
+
+  const owner = testEnv.authenticatedContext("owner-uid");
+  await assertSucceeds(owner.firestore().doc("problem_notes/owner-uid_problem123").get());
+
+  const stranger = testEnv.authenticatedContext("stranger-uid");
+  await assertFails(stranger.firestore().doc("problem_notes/owner-uid_problem123").get());
+
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertSucceeds(mrcetAdmin.firestore().doc("problem_notes/owner-uid_problem123").get());
+
+  const platformAdmin = testEnv.authenticatedContext("platform-admin-uid", { admin: true });
+  await assertSucceeds(platformAdmin.firestore().doc("problem_notes/owner-uid_problem123").get());
+});
+
+// Same list()-safety shape as reward_grants above, and the same accepted
+// resolution: a uid-filtered list() query succeeds for the owner (and would
+// for that student's real institution admin), but Firestore denies the
+// WHOLE list() outright for a stranger scoped to a uid they have no claim
+// over - none of the OR branches can be statically proven safe for an
+// arbitrary uid, so the safety analyzer fails closed rather than silently
+// returning an empty page. This is the documented, accepted outcome for this
+// rule shape (see reward_grants' own list() test above) - no legitimate
+// caller ever queries someone else's problem_notes by uid in the first
+// place, so this never bites a real user.
+test("a uid-filtered list() query against problem_notes works for the owner, and is denied outright (not silently empty) for a stranger", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("users/owner-uid").set({ displayName: "Student", institutionId: "" });
+    await ctx.firestore().doc("problem_notes/owner-uid_problem123").set({ uid: "owner-uid", problemId: "problem123", favorite: true });
+    await ctx.firestore().doc("problem_notes/owner-uid_problem456").set({ uid: "owner-uid", problemId: "problem456", bookmarked: true });
+  });
+
+  const owner = testEnv.authenticatedContext("owner-uid");
+  const ownQuery = (ctx) => query(collection(ctx.firestore(), "problem_notes"), where("uid", "==", "owner-uid"));
+  const ownSnap = await assertSucceeds(getDocs(ownQuery(owner)));
+  assert.equal(ownSnap.size, 2);
+
+  const stranger = testEnv.authenticatedContext("stranger-uid");
+  await assertFails(getDocs(ownQuery(stranger)));
+});
+
+// aptitude_topics gained a real lesson-content layer (concept/keyPoints/mcqs/
+// etc, authored progressively as drafts) - read is now status-gated like
+// Programming/CS Core, instead of the old unconditional `if true`.
+test("aptitude_topics read is gated on published status for non-admins, same as Programming/CS Core", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("aptitude_topics/percentages").set({ category: "Quantitative", name: "Percentages", status: "draft" });
+  });
+  const student = testEnv.authenticatedContext("student-uid");
+  await assertFails(student.firestore().doc("aptitude_topics/percentages").get());
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("aptitude_topics/percentages").update({ status: "published" });
+  });
+  await assertSucceeds(student.firestore().doc("aptitude_topics/percentages").get());
+
+  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("aptitude_topics/percentages").update({ status: "draft" });
+  });
+  await assertSucceeds(admin.firestore().doc("aptitude_topics/percentages").get());
+});
+
+// user_aptitude_progress gained a monotonicity guard on completedTopicIds
+// now that completeAptitudeTopic (lib/aptitude.js) can grant XP/coins - once
+// a topicId is in there it can never be removed, same protection
+// programming_progress/cscore_progress already have. Pre-existing
+// attempted/topicStats/bookmarks writes (no completedTopicIds involved at
+// all) must remain completely unaffected.
+test("user_aptitude_progress.completedTopicIds is monotonic (can grow, never shrink), but unrelated fields are unaffected", async () => {
+  const owner = testEnv.authenticatedContext("owner-uid");
+  const progressDoc = owner.firestore().doc("user_aptitude_progress/owner-uid");
+
+  // Pre-existing practice-attempt writes (no completedTopicIds field at all
+  // yet) still work exactly as before.
+  await assertSucceeds(progressDoc.set({ attempted: { q1: { history: [], attempts: 1 } }, topicStats: {}, bookmarks: [] }, { merge: true }));
+
+  // First topic completion succeeds.
+  await assertSucceeds(progressDoc.set({ completedTopicIds: ["percentages"] }, { merge: true }));
+  // Adding a second completed topic (superset) still succeeds.
+  await assertSucceeds(progressDoc.set({ completedTopicIds: ["percentages", "profit-loss"] }, { merge: true }));
+  // Removing an already-completed topic id is rejected outright.
+  await assertFails(progressDoc.set({ completedTopicIds: ["percentages"] }, { merge: true }));
+  // A completely different, non-superset array is also rejected.
+  await assertFails(progressDoc.set({ completedTopicIds: ["profit-loss"] }, { merge: true }));
+
+  // Unrelated fields (topicStats) can still be freely updated without
+  // needing to also touch completedTopicIds at all.
+  await assertSucceeds(progressDoc.set({ topicStats: { percentages: { attempted: 5, correct: 4 } } }, { merge: true }));
+});
+
+// Company Vault gained two new admin-curated/configured subcollections
+// (interviewExperiences, mockInterviews) - same read gate as rounds/
+// categories (admin or a published company), write is admin-only for both,
+// no student write path exists for either.
+test("companies/{id}/interviewExperiences and mockInterviews follow the same published-gate read, admin-only write as rounds/categories", async () => {
+  const admin = testEnv.authenticatedContext("admin-uid", { admin: true });
+  await assertSucceeds(admin.firestore().doc("companies/knowvation").set({ name: "Knowvation Learnings", status: "draft" }));
+  await assertSucceeds(admin.firestore().doc("companies/knowvation/interviewExperiences/exp1").set({ studentName: "A. Student", tips: "Practice REST APIs" }));
+  await assertSucceeds(admin.firestore().doc("companies/knowvation/mockInterviews/mock1").set({ name: "Technical Mock", type: "technical", timeLimitMinutes: 30, categoryRefs: [] }));
+
+  const student = testEnv.authenticatedContext("student-uid");
+  // Draft company - hidden from a non-admin, same as its rounds/categories.
+  await assertFails(student.firestore().doc("companies/knowvation/interviewExperiences/exp1").get());
+  await assertFails(student.firestore().doc("companies/knowvation/mockInterviews/mock1").get());
+  await assertFails(student.firestore().doc("companies/knowvation/interviewExperiences/exp2").set({ tips: "hack" }));
+  await assertFails(student.firestore().doc("companies/knowvation/mockInterviews/mock2").set({ name: "hack" }));
+
+  await assertSucceeds(admin.firestore().doc("companies/knowvation").update({ status: "published" }));
+  await assertSucceeds(student.firestore().doc("companies/knowvation/interviewExperiences/exp1").get());
+  await assertSucceeds(student.firestore().doc("companies/knowvation/mockInterviews/mock1").get());
+  await assertFails(student.firestore().doc("companies/knowvation/interviewExperiences/exp1").set({ tips: "hacked" }));
+  await assertFails(student.firestore().doc("companies/knowvation/mockInterviews/mock1").set({ name: "hacked" }));
+});
+
+// ---------------------------------------------------------------------------
+// Principal / HOD / Faculty-Class-Teacher hierarchy (institutions/{id}/
+// roleAssignments/{uid}) - the newest and most security-critical addition to
+// this file. isInstitutionAdmin()/isPrincipal() give Principal identical
+// institution-wide breadth with zero new rules paths; isHodOfDepartment()/
+// isFacultyOfClassroom() are the genuinely new scope-matching mechanic.
+// ---------------------------------------------------------------------------
+
+test("a Principal has full institution-wide rights, same as an Institution Admin", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/roleAssignments/principal-uid").set({
+      uid: "principal-uid", institutionId: "mrcet", roleKey: "principal",
+      scope: { department: null, classroomId: null }, permissionOverrides: {}, status: "active",
+    });
+  });
+  const principal = testEnv.authenticatedContext("principal-uid");
+  // Same breadth an Institution Admin already has - dailyLearning authoring,
+  // reading any student, updating a classroom's identity fields.
+  await assertSucceeds(principal.firestore().doc("institutions/mrcet/dailyLearning/day1").set({ title: "Arrays 101" }));
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/students/any-student").set({ uid: "any-student", status: "approved", department: "CSE" });
+  });
+  await assertSucceeds(principal.firestore().doc("institutions/mrcet/students/any-student").get());
+  await assertSucceeds(principal.firestore().doc("institutions/mrcet/classrooms/iii-year-cse-a").set({ department: "CSE", year: "III Year", section: "A" }));
+});
+
+test("an HOD can read/write only their own department's students, denied for another department", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/roleAssignments/hod-cse-uid").set({
+      uid: "hod-cse-uid", institutionId: "mrcet", roleKey: "hod",
+      scope: { department: "CSE", classroomId: null }, permissionOverrides: {}, status: "active",
+    });
+    await ctx.firestore().doc("institutions/mrcet/students/cse-student").set({ uid: "cse-student", status: "approved", department: "CSE" });
+    await ctx.firestore().doc("institutions/mrcet/students/ece-student").set({ uid: "ece-student", status: "approved", department: "ECE" });
+  });
+  const hod = testEnv.authenticatedContext("hod-cse-uid");
+  await assertSucceeds(hod.firestore().doc("institutions/mrcet/students/cse-student").get());
+  await assertSucceeds(hod.firestore().doc("institutions/mrcet/students/cse-student").update({ phone: "9999999999" }));
+  // Another department entirely - denied both read and write.
+  await assertFails(hod.firestore().doc("institutions/mrcet/students/ece-student").get());
+  await assertFails(hod.firestore().doc("institutions/mrcet/students/ece-student").update({ phone: "8888888888" }));
+  // Cannot use an edit to relocate a student OUT of their own department.
+  await assertFails(hod.firestore().doc("institutions/mrcet/students/cse-student").update({ department: "ECE" }));
+});
+
+test("a Faculty/Class Teacher can read/write only their own classroom, denied for another classroom", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/roleAssignments/teacher-uid").set({
+      uid: "teacher-uid", institutionId: "mrcet", roleKey: "facultyClassTeacher",
+      scope: { department: null, classroomId: "iii-year-cse-a" }, permissionOverrides: {}, status: "active",
+    });
+    await ctx.firestore().doc("institutions/mrcet/students/my-student").set({ uid: "my-student", status: "approved", classroomId: "iii-year-cse-a" });
+    await ctx.firestore().doc("institutions/mrcet/students/other-student").set({ uid: "other-student", status: "approved", classroomId: "iii-year-cse-b" });
+    await ctx.firestore().doc("institutions/mrcet/classrooms/iii-year-cse-a").set({ department: "CSE", year: "III Year", section: "A" });
+  });
+  const teacher = testEnv.authenticatedContext("teacher-uid");
+  await assertSucceeds(teacher.firestore().doc("institutions/mrcet/students/my-student").get());
+  await assertFails(teacher.firestore().doc("institutions/mrcet/students/other-student").get());
+  // Faculty may toggle their own classroom's moduleAccess/leaderboardVisibility...
+  await assertSucceeds(teacher.firestore().doc("institutions/mrcet/classrooms/iii-year-cse-a").update({ moduleAccess: { dsa: false } }));
+  // ...but never identity fields, and never another classroom at all.
+  await assertFails(teacher.firestore().doc("institutions/mrcet/classrooms/iii-year-cse-a").update({ section: "Z" }));
+  await assertFails(teacher.firestore().doc("institutions/mrcet/classrooms/iii-year-cse-b").update({ moduleAccess: { dsa: false } }));
+});
+
+test("a disabled roleAssignment loses all elevated access immediately, even mid-session", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/roleAssignments/disabled-hod-uid").set({
+      uid: "disabled-hod-uid", institutionId: "mrcet", roleKey: "hod",
+      scope: { department: "CSE", classroomId: null }, permissionOverrides: {}, status: "disabled",
+    });
+    await ctx.firestore().doc("institutions/mrcet/students/cse-student2").set({ uid: "cse-student2", status: "approved", department: "CSE" });
+  });
+  const disabledHod = testEnv.authenticatedContext("disabled-hod-uid");
+  await assertFails(disabledHod.firestore().doc("institutions/mrcet/students/cse-student2").get());
+  await assertFails(disabledHod.firestore().doc("institutions/mrcet/dailyLearning/scoped-item").set({ scopeDepartment: "CSE" }));
+});
+
+test("a permission override can both revoke a role's default grant and grant something the role lacks by default", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    // hod's default template grants students.edit - override it OFF for this
+    // one HOD specifically.
+    await ctx.firestore().doc("institutions/mrcet/roleAssignments/restricted-hod-uid").set({
+      uid: "restricted-hod-uid", institutionId: "mrcet", roleKey: "hod",
+      scope: { department: "CSE", classroomId: null },
+      permissionOverrides: { "students.edit": false }, status: "active",
+    });
+    // facultyClassTeacher's default template has no students.edit at all -
+    // grant it via override for this one teacher specifically.
+    await ctx.firestore().doc("institutions/mrcet/roleAssignments/empowered-teacher-uid").set({
+      uid: "empowered-teacher-uid", institutionId: "mrcet", roleKey: "facultyClassTeacher",
+      scope: { department: null, classroomId: "iii-year-cse-a" },
+      permissionOverrides: { "students.edit": true }, status: "active",
+    });
+    await ctx.firestore().doc("institutions/mrcet/students/cse-student3").set({ uid: "cse-student3", status: "approved", department: "CSE", classroomId: "iii-year-cse-a" });
+  });
+  const restrictedHod = testEnv.authenticatedContext("restricted-hod-uid");
+  await assertFails(restrictedHod.firestore().doc("institutions/mrcet/students/cse-student3").update({ phone: "111" }));
+
+  const empoweredTeacher = testEnv.authenticatedContext("empowered-teacher-uid");
+  await assertSucceeds(empoweredTeacher.firestore().doc("institutions/mrcet/students/cse-student3").update({ phone: "222" }));
+});
+
+test("roleAssignments is never directly client-writable - not by the account itself, an institution admin, or anyone but devert-backend", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid", role: "faculty" });
+  });
+  const selfWrite = testEnv.authenticatedContext("sneaky-uid");
+  await assertFails(selfWrite.firestore().doc("institutions/mrcet/roleAssignments/sneaky-uid").set({
+    uid: "sneaky-uid", institutionId: "mrcet", roleKey: "principal", scope: { department: null, classroomId: null }, status: "active",
+  }));
+  const institutionAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertFails(institutionAdmin.firestore().doc("institutions/mrcet/roleAssignments/some-new-hod").set({
+    uid: "some-new-hod", institutionId: "mrcet", roleKey: "hod", scope: { department: "CSE", classroomId: null }, status: "active",
+  }));
 });

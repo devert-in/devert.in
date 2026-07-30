@@ -12,7 +12,7 @@ import {
 
 // Centralized language -> logo resolver. Every place in the app that shows
 // "this is language X" (Programming's cards/roadmap header, the
-// CodeExampleBlock editor header in campus-daily-learning.jsx, the admin
+// CodeExampleBlock editor header in lesson-blocks.jsx, the admin
 // language list) imports THIS instead of picking its own icon, so the same
 // brand mark is used everywhere and never drifts between call sites.
 //
@@ -71,6 +71,12 @@ export function LanguageLogo({ name, size = 18, className = "", style }) {
       </svg>
     );
   }
+  // Not a "component created during render" - languageIcon() is a pure
+  // lookup into a fixed table, always returning the SAME Lucide component
+  // reference for a given name, so React's reconciler sees a stable type
+  // across re-renders (only remounting if `name` itself actually changes,
+  // which is the correct, intended behavior).
   const Icon = languageIcon(name);
+  // eslint-disable-next-line react-hooks/static-components
   return <Icon size={size} className={className} style={style} />;
 }

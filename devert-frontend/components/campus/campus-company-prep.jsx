@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CheckCircle2, XCircle, Bookmark, BookmarkCheck, ExternalLink, Clock,
-  ChevronRight, ListChecks, Briefcase, Eye, EyeOff, AlertTriangle,
+  CheckCircle2, XCircle, Bookmark, BookmarkCheck, Clock,
+  ChevronRight, ChevronDown, ListChecks, Briefcase, Eye, EyeOff, AlertTriangle,
+  CalendarDays, Target, ShieldAlert, TrendingUp, Users, Timer, Sparkles,
+  Quote, Trophy, MessageSquareText, FileText,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchPublishedCompanies, fetchCompany, fetchCompanyRounds, fetchRoundCategories,
   fetchCategoryQuestions, fetchUserCompanyPrepProgress, markCompanyQuestionSolved,
   setCompanyQuestionBookmarked, recordCompanyQuestionAttempt, companyQuestionStats,
-  COMPANY_QUESTION_DIFFICULTIES,
+  COMPANY_QUESTION_DIFFICULTIES, fetchCompanyInterviewExperiences, fetchCompanyMockInterviews,
+  fetchMockInterviewQuestions, recordMockInterviewAttempt, setCompanySelfAssessment,
+  companyReadinessScore, fetchAllCompanyQuestions,
 } from "@/lib/companyPrep";
+import { ConceptRenderer, InfoListCard } from "@/components/campus/lesson-blocks";
+import { seededShuffle, buildQuizSeedKey } from "@/lib/quizRandom";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusBreadcrumb, CampusEmptyState, CampusSkeleton, CampusButton } from "@/components/campus/campus-ui";
 import Dropdown from "@/components/dropdown";
@@ -136,13 +142,21 @@ function splitIntoClauses(text) {
 // every company gets the same clear "here's the process" visual for free,
 // with no per-company text-parsing hacks.
 function HiringProcessFlow({ rounds }) {
+  const [expandedId, setExpandedId] = useState(null);
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-3 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
         <ListChecks size={12} />
         Rounds run in order below - clearing each is required to advance to the next.
       </div>
-      {rounds.map((r, i) => (
+      {rounds.map((r, i) => {
+        // whatTheyEvaluate/format/eliminationCriteria/prepStrategy/commonMistakes
+        // are the new, optional round-depth fields - a round authored before
+        // this existed just has description/duration, so the expand toggle
+        // only appears once there's genuinely something deeper to show.
+        const hasDepth = r.whatTheyEvaluate || r.format || r.eliminationCriteria || r.prepStrategy || r.commonMistakes;
+        const expanded = expandedId === r.id;
+        return (
         <div key={r.id} className="flex gap-3">
           <div className="flex flex-col items-center flex-shrink-0">
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11.5px] font-semibold"
@@ -159,16 +173,200 @@ function HiringProcessFlow({ rounds }) {
                   <Clock size={9} /> {r.duration}
                 </span>
               )}
+              {hasDepth && (
+                <button onClick={() => setExpandedId(expanded ? null : r.id)}
+                  className="inline-flex items-center gap-1 text-[10.5px] font-semibold" style={{ color: CAMPUS.teal }}>
+                  {expanded ? "less detail" : "what to expect"} <ChevronDown size={11} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                </button>
+              )}
             </div>
             {r.description && <p className="text-[12px] leading-relaxed mt-1" style={{ color: CAMPUS.inkSoft }}>{r.description}</p>}
+            {expanded && hasDepth && (
+              <div className="mt-3 space-y-2.5">
+                {r.whatTheyEvaluate && (
+                  <div className="flex items-start gap-2">
+                    <Target size={13} className="flex-shrink-0 mt-0.5" style={{ color: CAMPUS.teal }} />
+                    <p className="text-[12px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}><b style={{ color: CAMPUS.ink }}>What they evaluate: </b>{r.whatTheyEvaluate}</p>
+                  </div>
+                )}
+                {r.format && (
+                  <div className="flex items-start gap-2">
+                    <ListChecks size={13} className="flex-shrink-0 mt-0.5" style={{ color: CAMPUS.blue }} />
+                    <p className="text-[12px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}><b style={{ color: CAMPUS.ink }}>Format: </b>{r.format}</p>
+                  </div>
+                )}
+                {r.eliminationCriteria && (
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert size={13} className="flex-shrink-0 mt-0.5" style={{ color: CAMPUS.bad }} />
+                    <p className="text-[12px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}><b style={{ color: CAMPUS.ink }}>Elimination criteria: </b>{r.eliminationCriteria}</p>
+                  </div>
+                )}
+                {r.prepStrategy && (
+                  <div className="flex items-start gap-2">
+                    <TrendingUp size={13} className="flex-shrink-0 mt-0.5" style={{ color: CAMPUS.good }} />
+                    <p className="text-[12px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}><b style={{ color: CAMPUS.ink }}>How to prepare: </b>{r.prepStrategy}</p>
+                  </div>
+                )}
+                {r.commonMistakes && (
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" style={{ color: CAMPUS.warn }} />
+                    <p className="text-[12px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}><b style={{ color: CAMPUS.ink }}>Common mistakes: </b>{r.commonMistakes}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
+// Day-by-day prep roadmap (company.prepRoadmap[] - see lib/companyPrep.js's
+// header comment for the schema). Purely additive - a company authored
+// before this existed just has an empty/absent array, and this section
+// simply doesn't render.
+function PrepRoadmap({ roadmap }) {
+  const [expandedDay, setExpandedDay] = useState(roadmap[0]?.day ?? null);
+  return (
+    <CampusCard className="p-5 mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <CalendarDays size={14} style={{ color: CAMPUS.purple }} />
+        <p className="text-[9px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>PREP ROADMAP</p>
+      </div>
+      <div className="space-y-2">
+        {roadmap.map((d) => {
+          const expanded = expandedDay === d.day;
+          return (
+            <div key={d.day} className="rounded-lg" style={{ border: `1px solid ${CAMPUS.line}` }}>
+              <button onClick={() => setExpandedDay(expanded ? null : d.day)} className="w-full flex items-center justify-between gap-3 p-3 text-left">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded flex-shrink-0" style={{ background: CAMPUS.purpleTint, color: CAMPUS.purple }}>DAY {d.day}</span>
+                  <span className="text-[13px] font-medium truncate" style={{ color: CAMPUS.ink }}>{d.title}</span>
+                </div>
+                <ChevronDown size={14} style={{ color: CAMPUS.inkFaint, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }} />
+              </button>
+              {expanded && (
+                <div className="px-3 pb-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+                  {d.focus && <p className="text-[12px] mt-2.5 mb-2" style={{ color: CAMPUS.inkSoft }}>{d.focus}</p>}
+                  {d.tasks?.length > 0 && (
+                    <ul className="space-y-1.5">
+                      {d.tasks.map((t, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[12px]" style={{ color: CAMPUS.inkSoft }}>
+                          <span className="mt-1 w-1 h-1 rounded-full flex-shrink-0" style={{ background: CAMPUS.purple }} />
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </CampusCard>
+  );
+}
+
+// Interview experiences - admin-curated (see lib/companyPrep.js's header
+// comment: genuine student submission is a real follow-up feature, not
+// built here).
+function InterviewExperiences({ experiences }) {
+  if (experiences.length === 0) return null;
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Quote size={13} style={{ color: CAMPUS.blue }} />
+        <p className="text-[9px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>INTERVIEW EXPERIENCES</p>
+      </div>
+      <div className="space-y-3">
+        {experiences.map(e => (
+          <CampusCard key={e.id} className="p-4">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <b className="text-[13px]" style={{ color: CAMPUS.ink }}>{e.studentName || "A DeVert student"}</b>
+              {e.year && <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>· {e.year}</span>}
+              {e.role && <CampusChip color={CAMPUS.blue}>{e.role}</CampusChip>}
+              {e.difficulty && <CampusChip color={DIFF_COLOR[e.difficulty] || CAMPUS.good}>{e.difficulty}</CampusChip>}
+            </div>
+            {e.roundsFaced && (
+              <p className="text-[12px] mb-1.5" style={{ color: CAMPUS.inkSoft }}><b style={{ color: CAMPUS.ink }}>Rounds faced: </b>{e.roundsFaced}</p>
+            )}
+            {e.questionsAsked && (
+              <p className="text-[12px] mb-1.5" style={{ color: CAMPUS.inkSoft }}><b style={{ color: CAMPUS.ink }}>Questions asked: </b>{e.questionsAsked}</p>
+            )}
+            {e.tips && (
+              <p className="text-[12px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}><b style={{ color: CAMPUS.ink }}>Tips: </b>{e.tips}</p>
+            )}
+          </CampusCard>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Mock interview configs - each references existing (round, category) pairs
+// and pulls their questions live (see fetchMockInterviewQuestions).
+function MockInterviews({ mockInterviews, onStart }) {
+  if (mockInterviews.length === 0) return null;
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Users size={13} style={{ color: CAMPUS.gold }} />
+        <p className="text-[9px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>MOCK INTERVIEWS</p>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {mockInterviews.map(m => (
+          <CampusCard key={m.id} hover className="p-4 cursor-pointer" onClick={() => onStart(m)}>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <b className="text-[13.5px]" style={{ color: CAMPUS.ink }}>{m.name}</b>
+              <CampusChip color={CAMPUS.gold}>{m.type}</CampusChip>
+            </div>
+            <p className="text-[11.5px] flex items-center gap-1.5" style={{ color: CAMPUS.inkFaint }}>
+              <Timer size={11} /> {m.timeLimitMinutes} min timed
+            </p>
+          </CampusCard>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Readiness score - computed from real signals only (solved/total across
+// every question this student has attempted in this vault), never blended
+// with the separate, subjective self-assessment checklist below it.
+function ReadinessScore({ score, selfAssessment, onToggleSelfAssessment }) {
+  const SELF_ITEMS = ["Resume", "Communication", "Confidence"];
+  return (
+    <CampusCard className="p-4 mb-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Sparkles size={16} style={{ color: CAMPUS.gold }} />
+          <div>
+            <p className="text-[9px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>READINESS SCORE</p>
+            <p className="text-lg font-bold" style={{ color: CAMPUS.ink }}>{score == null ? "—" : `${score}%`}</p>
+          </div>
+        </div>
+        <p className="text-[11px] max-w-xs" style={{ color: CAMPUS.inkFaint }}>Based on how many of this company&apos;s practice questions you&apos;ve solved.</p>
+      </div>
+      <div className="flex items-center gap-4 mt-3 pt-3 flex-wrap" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+        <span className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>SELF-CHECK:</span>
+        {SELF_ITEMS.map(item => (
+          <button key={item} onClick={() => onToggleSelfAssessment(item)}
+            className="flex items-center gap-1.5 text-[12px]"
+            style={{ color: selfAssessment?.[item] ? CAMPUS.good : CAMPUS.inkFaint }}>
+            {selfAssessment?.[item] ? <CheckCircle2 size={13} /> : <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ border: `1.5px solid ${CAMPUS.inkFaint}` }} />}
+            {item}
+          </button>
+        ))}
+      </div>
+    </CampusCard>
+  );
+}
+
+export function CampusCompanyOverview({ companyId, onBack, onStartPractice, onStartMockInterview }) {
+  const { user } = useAuth();
   const [company, setCompany] = useState(null);
   const [rounds, setRounds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +375,11 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState(false);
+  const [expandedCategoryId, setExpandedCategoryId] = useState(null);
+  const [experiences, setExperiences] = useState([]);
+  const [mockInterviews, setMockInterviews] = useState([]);
+  const [readiness, setReadiness] = useState(null);
+  const [progress, setProgress] = useState({ solved: {}, selfAssessment: {} });
 
   const load = () => {
     setLoading(true); setError(false);
@@ -184,11 +387,28 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
       .then(([c, r]) => { setCompany(c); setRounds(r); setActiveRoundId(r[0]?.id || null); })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
+    fetchCompanyInterviewExperiences(companyId).then(setExperiences).catch(() => setExperiences([]));
+    fetchCompanyMockInterviews(companyId).then(setMockInterviews).catch(() => setMockInterviews([]));
   };
   useEffect(load, [companyId]);
 
+  useEffect(() => {
+    if (!user) return;
+    fetchUserCompanyPrepProgress(user.uid).then(p => setProgress({ solved: p.solved || {}, selfAssessment: p.selfAssessment?.[companyId] || {} })).catch(() => {});
+  }, [user, companyId]);
+
+  // Readiness score needs every question across every round/category - a
+  // single upfront aggregate fetch once rounds are known, not on every
+  // round switch (the round-picker below still lazily fetches per-round
+  // categories for browsing, unaffected by this).
+  useEffect(() => {
+    if (rounds.length === 0) { setReadiness(null); return; }
+    fetchAllCompanyQuestions(companyId, rounds).then(qs => setReadiness(companyReadinessScore(qs, progress.solved))).catch(() => setReadiness(null));
+  }, [companyId, rounds, progress.solved]);
+
   const loadCategories = () => {
     setCategoriesLoading(true); setCategoriesError(false);
+    setExpandedCategoryId(null);
     fetchRoundCategories(companyId, activeRoundId)
       .then(setCategories).catch(() => setCategoriesError(true)).finally(() => setCategoriesLoading(false));
   };
@@ -197,6 +417,13 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
     loadCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, activeRoundId]);
+
+  const handleToggleSelfAssessment = (item) => {
+    if (!user) return;
+    const next = !progress.selfAssessment?.[item];
+    setCompanySelfAssessment(user.uid, companyId, item, next).catch(console.error);
+    setProgress(p => ({ ...p, selfAssessment: { ...p.selfAssessment, [item]: next } }));
+  };
 
   if (loading) return <p className="text-[13px]" style={{ color: CAMPUS.inkFaint }}>Loading...</p>;
   if (error) {
@@ -229,6 +456,10 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
 
       {company.description && <p className="text-[13px] mb-5 leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{company.description}</p>}
 
+      <ReadinessScore score={readiness} selfAssessment={progress.selfAssessment} onToggleSelfAssessment={handleToggleSelfAssessment} />
+
+      {company.prepRoadmap?.length > 0 && <PrepRoadmap roadmap={company.prepRoadmap} />}
+
       {(company.eligibility || rounds.length > 0) && (
         <CampusCard className="p-5 mb-5 space-y-5">
           {company.eligibility && (
@@ -255,15 +486,28 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
 
       {company.resources?.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-6">
-          {company.resources.map((r, i) => (
-            <a key={i} href={r} target="_blank" rel="noreferrer"
-              className="text-[11.5px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
-              style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.teal }}>
-              <ExternalLink size={11} /> Resource {i + 1}
-            </a>
-          ))}
+          {company.resources.map((r, i) => {
+            // Backward-compatible: older companies may still have a plain
+            // array of URL strings (pre-dating the {title,url,type} shape) -
+            // both render the same way, just with a generic label for the
+            // legacy string form.
+            const isObj = typeof r === "object" && r !== null;
+            const url = isObj ? r.url : r;
+            const label = isObj ? (r.title || "Resource") : `Resource ${i + 1}`;
+            if (!url) return null;
+            return (
+              <a key={i} href={url} target="_blank" rel="noreferrer"
+                className="text-[11.5px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.teal }}>
+                <FileText size={11} /> {label}{isObj && r.type ? ` (${r.type})` : ""}
+              </a>
+            );
+          })}
         </div>
       )}
+
+      <InterviewExperiences experiences={experiences} />
+      <MockInterviews mockInterviews={mockInterviews} onStart={(m) => onStartMockInterview(m, company.name)} />
 
       {rounds.length === 0 ? (
         <CampusEmptyState icon={ListChecks} title="No rounds published yet" description="Check back soon." />
@@ -301,15 +545,49 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
           ) : categories.length === 0 ? (
             <CampusEmptyState size="sm" icon={ListChecks} title="No categories yet for this round" description="Check back soon." />
           ) : (
-            <div className="grid sm:grid-cols-2 gap-3">
-              {categories.map(cat => (
-                <button key={cat.id} onClick={() => onStartPractice(activeRoundId, cat.id, { companyName: company.name, roundName: activeRound?.name, categoryName: cat.name })} className="text-left">
-                  <CampusCard hover className="p-4 flex items-center justify-between gap-3">
-                    <span className="text-[13.5px] font-medium" style={{ color: CAMPUS.ink }}>{cat.name}</span>
-                    <ChevronRight size={15} style={{ color: CAMPUS.teal }} />
+            <div className="space-y-3">
+              {categories.map(cat => {
+                // A category doubles as a lightweight "topic" once it has
+                // lesson content (concept/keyPoints/etc, authored the same
+                // way Programming/CS Core/Aptitude topics are) - expand in
+                // place to read it before jumping into practice, rather than
+                // going straight to questions as before.
+                const hasLesson = cat.concept?.trim() || cat.keyPoints?.length;
+                const expanded = expandedCategoryId === cat.id;
+                return (
+                  <CampusCard key={cat.id} className="overflow-hidden">
+                    <button onClick={() => hasLesson ? setExpandedCategoryId(expanded ? null : cat.id) : onStartPractice(activeRoundId, cat.id, { companyName: company.name, roundName: activeRound?.name, categoryName: cat.name })}
+                      className="w-full flex items-center justify-between gap-3 p-4 text-left">
+                      <span className="text-[13.5px] font-medium" style={{ color: CAMPUS.ink }}>{cat.name}</span>
+                      {hasLesson
+                        ? <ChevronDown size={15} style={{ color: CAMPUS.inkFaint, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                        : <ChevronRight size={15} style={{ color: CAMPUS.teal }} />}
+                    </button>
+                    {expanded && hasLesson && (
+                      <div className="px-4 pb-4 space-y-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+                        {cat.whatYoullLearn?.length > 0 && (
+                          <InfoListCard icon={Target} title="What you'll learn" items={cat.whatYoullLearn} color={CAMPUS.teal} tint={CAMPUS.tealTint} />
+                        )}
+                        {cat.concept && (
+                          <div className="pt-3"><ConceptRenderer text={cat.concept} /></div>
+                        )}
+                        {cat.keyPoints?.length > 0 && (
+                          <InfoListCard icon={ListChecks} title="Key Points" items={cat.keyPoints} color={CAMPUS.gold} tint={CAMPUS.goldTint} checkItems />
+                        )}
+                        {cat.commonMistakes?.length > 0 && (
+                          <InfoListCard icon={AlertTriangle} title="Common Mistakes" items={cat.commonMistakes} color={CAMPUS.bad} tint={CAMPUS.badTint} />
+                        )}
+                        {cat.interviewTips?.length > 0 && (
+                          <InfoListCard icon={MessageSquareText} title="Interview Tips" items={cat.interviewTips} color={CAMPUS.warn} tint={CAMPUS.warnTint} />
+                        )}
+                        <CampusButton size="sm" onClick={() => onStartPractice(activeRoundId, cat.id, { companyName: company.name, roundName: activeRound?.name, categoryName: cat.name })}>
+                          Start Practice <ChevronRight size={13} />
+                        </CampusButton>
+                      </div>
+                    )}
                   </CampusCard>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -324,8 +602,16 @@ export function CampusCompanyOverview({ companyId, onBack, onStartPractice }) {
 // explanation) with no dependency on any other question's state, so the
 // runner below can render every question in the category as a plain
 // scrollable list instead of paging through them one at a time.
-function CompanyQuestionCard({ q, selected, submitted, solved, bookmarked, onSelect, onSubmit, onToggleBookmark, showUser }) {
+function CompanyQuestionCard({ q, seedKey, selected, submitted, solved, bookmarked, onSelect, onSubmit, onToggleBookmark, showUser }) {
   const stats = companyQuestionStats(q);
+  // Shuffled purely for display, deterministic per (student, question) - a
+  // refresh reproduces the same order. onSelect/onSubmit/grading downstream
+  // always deal in the ORIGINAL option index, never the shuffled position -
+  // the A/B/C/D label below is the only thing that reflects display order.
+  const shuffledOptions = useMemo(() => {
+    const order = seededShuffle((q.options || []).map((_, i) => i), seedKey);
+    return order.map(oi => ({ originalIndex: oi, text: q.options[oi] }));
+  }, [q.options, seedKey]);
   return (
     <CampusCard className="p-5">
       <div className="flex items-center justify-between gap-2 mb-4">
@@ -345,22 +631,22 @@ function CompanyQuestionCard({ q, selected, submitted, solved, bookmarked, onSel
       <p className="text-[14px] leading-relaxed mb-5 whitespace-pre-wrap" style={{ color: CAMPUS.ink }}>{q.question}</p>
 
       <div className="space-y-2 mb-5">
-        {q.options.map((opt, oi) => {
-          const isSelected = selected === oi;
-          const isCorrectOpt = oi === q.correctIndex;
+        {shuffledOptions.map((opt, pos) => {
+          const isSelected = selected === opt.originalIndex;
+          const isCorrectOpt = opt.originalIndex === q.correctIndex;
           let bg = CAMPUS.paper, border = CAMPUS.line, color = CAMPUS.inkSoft;
           if (submitted && isCorrectOpt) { bg = CAMPUS.goodTint; border = CAMPUS.good; color = CAMPUS.good; }
           else if (submitted && isSelected) { bg = CAMPUS.badTint; border = CAMPUS.bad; color = CAMPUS.bad; }
           else if (!submitted && isSelected) { bg = CAMPUS.tealTint; border = `${CAMPUS.teal}60`; color = CAMPUS.ink; }
           return (
-            <button key={oi} onClick={() => !submitted && onSelect(oi)} disabled={submitted}
+            <button key={opt.originalIndex} onClick={() => !submitted && onSelect(opt.originalIndex)} disabled={submitted}
               className="w-full flex items-center gap-2.5 px-4 py-3 rounded-lg text-left transition-colors disabled:cursor-default"
               style={{ background: bg, border: `1px solid ${border}` }}>
               <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                 style={{ border: `1.5px solid ${color}`, color }}>
-                {String.fromCharCode(65 + oi)}
+                {String.fromCharCode(65 + pos)}
               </span>
-              <span className="text-[13px] flex-1" style={{ color }}>{opt}</span>
+              <span className="text-[13px] flex-1" style={{ color }}>{opt.text}</span>
               {submitted && isCorrectOpt && <CheckCircle2 size={14} className="flex-shrink-0" style={{ color: CAMPUS.good }} />}
               {submitted && isSelected && !isCorrectOpt && <XCircle size={14} className="flex-shrink-0" style={{ color: CAMPUS.bad }} />}
             </button>
@@ -509,7 +795,7 @@ export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, co
           ) : (
             <div className="space-y-4">
               {filtered.map(qq => (
-                <CompanyQuestionCard key={qq.id} q={qq}
+                <CompanyQuestionCard key={qq.id} q={qq} seedKey={buildQuizSeedKey({ uid: user?.uid, scope: qq.id })}
                   selected={answers[qq.id] ?? null}
                   submitted={submittedIds.has(qq.id)}
                   solved={!!progress.solved?.[qq.id]}
@@ -533,6 +819,109 @@ export function CampusCompanyQuestionRunner({ companyId, roundId, categoryId, co
   );
 }
 
+// ---------------- Mock interview runner ----------------
+
+// A timed, sequential run through the questions pulled live from every
+// (round, category) pair the config references (see
+// fetchMockInterviewQuestions) - styled after Arena's timed-challenge
+// pattern, reusing CompanyQuestionCard's own per-question submit/explain UI
+// rather than a parallel implementation, just paged one at a time (not the
+// scrollable-list-of-all-questions shape CampusCompanyQuestionRunner uses)
+// to genuinely simulate a timed interview's one-question-at-a-time pressure.
+export function CampusMockInterviewRunner({ companyId, mockInterview, companyName, onBack, onBackToList }) {
+  const { user } = useAuth();
+  const [questions, setQuestions] = useState(null);
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [submittedIds, setSubmittedIds] = useState(() => new Set());
+  const [secondsLeft, setSecondsLeft] = useState(mockInterview.timeLimitMinutes * 60);
+  const [finished, setFinished] = useState(false);
+
+  useEffect(() => {
+    fetchMockInterviewQuestions(companyId, mockInterview).then(setQuestions).catch(() => setQuestions([]));
+  }, [companyId, mockInterview]);
+
+  useEffect(() => {
+    if (finished || questions === null) return;
+    const t = setInterval(() => {
+      setSecondsLeft(s => {
+        if (s <= 1) { clearInterval(t); setFinished(true); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [finished, questions]);
+
+  const score = questions?.filter(q => submittedIds.has(q.id) && answers[q.id] === q.correctIndex).length || 0;
+
+  useEffect(() => {
+    if (!finished || !user || !questions) return;
+    recordMockInterviewAttempt(user.uid, companyId, mockInterview.id, { score, total: questions.length }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+
+  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
+  const ss = String(secondsLeft % 60).padStart(2, "0");
+
+  if (questions === null) return <p className="text-[13px]" style={{ color: CAMPUS.inkFaint }}>Loading mock interview...</p>;
+  if (questions.length === 0) {
+    return (
+      <div className="max-w-2xl">
+        <CampusBreadcrumb items={[{ label: "Company Vault", onClick: onBackToList }, { label: companyName, onClick: onBack }, { label: mockInterview.name }]} />
+        <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="No questions configured" description="Ask your admin to attach categories to this mock interview." />
+      </div>
+    );
+  }
+
+  if (finished) {
+    return (
+      <div className="max-w-xl mx-auto text-center py-10">
+        <Trophy size={40} className="mx-auto mb-4" style={{ color: CAMPUS.gold }} />
+        <h2 className="text-xl font-bold mb-2" style={{ color: CAMPUS.ink }}>Mock Interview Complete</h2>
+        <p className="text-[14px] mb-6" style={{ color: CAMPUS.inkSoft }}>You scored {score} out of {questions.length}.</p>
+        <div className="flex items-center justify-center gap-3">
+          <CampusButton variant="secondary" onClick={onBack}>Back to {companyName}</CampusButton>
+          <CampusButton onClick={onBackToList}>Company Vault</CampusButton>
+        </div>
+      </div>
+    );
+  }
+
+  const qq = questions[index];
+  const submitted = submittedIds.has(qq.id);
+
+  return (
+    <div className="max-w-2xl">
+      <CampusBreadcrumb items={[{ label: "Company Vault", onClick: onBackToList }, { label: companyName, onClick: onBack }, { label: mockInterview.name }]} />
+      <div className="flex items-center justify-between mb-4">
+        <CampusChip color={CAMPUS.gold}>Question {index + 1} / {questions.length}</CampusChip>
+        <span className="flex items-center gap-1.5 text-[13px] font-mono font-bold" style={{ color: secondsLeft < 60 ? CAMPUS.bad : CAMPUS.ink }}>
+          <Timer size={13} /> {mm}:{ss}
+        </span>
+      </div>
+
+      <CompanyQuestionCard q={qq} seedKey={buildQuizSeedKey({ uid: user?.uid, scope: `mock:${mockInterview.id}:${qq.id}` })}
+        selected={answers[qq.id] ?? null}
+        submitted={submitted}
+        solved={false}
+        bookmarked={false}
+        showUser={false}
+        onSelect={(oi) => !submitted && setAnswers(a => ({ ...a, [qq.id]: oi }))}
+        onSubmit={() => setSubmittedIds(s => new Set(s).add(qq.id))}
+        onToggleBookmark={() => {}} />
+
+      <div className="flex justify-end mt-4">
+        <CampusButton disabled={!submitted} onClick={() => {
+          if (index + 1 < questions.length) setIndex(i => i + 1);
+          else setFinished(true);
+        }}>
+          {index + 1 < questions.length ? "Next Question" : "Finish"} <ChevronRight size={14} />
+        </CampusButton>
+      </div>
+    </div>
+  );
+}
+
 // ---------------- Orchestrator ----------------
 
 // Owns the list/company/practice screen transitions - same lifted
@@ -544,13 +933,21 @@ export function CampusCompanyPrepFlow({ screen, setScreen, adminMode = false, hi
     return (
       <CampusCompanyOverview companyId={screen.companyId}
         onBack={() => setScreen({ view: "list" })}
-        onStartPractice={(roundId, categoryId, names) => setScreen({ view: "practice", companyId: screen.companyId, roundId, categoryId, ...names })} />
+        onStartPractice={(roundId, categoryId, names) => setScreen({ view: "practice", companyId: screen.companyId, roundId, categoryId, ...names })}
+        onStartMockInterview={(mockInterview, companyName) => setScreen({ view: "mockInterview", companyId: screen.companyId, mockInterview, companyName })} />
     );
   }
   if (screen.view === "practice") {
     return (
       <CampusCompanyQuestionRunner companyId={screen.companyId} roundId={screen.roundId} categoryId={screen.categoryId}
         companyName={screen.companyName} roundName={screen.roundName} categoryName={screen.categoryName}
+        onBack={() => setScreen({ view: "company", companyId: screen.companyId })}
+        onBackToList={() => setScreen({ view: "list" })} />
+    );
+  }
+  if (screen.view === "mockInterview") {
+    return (
+      <CampusMockInterviewRunner companyId={screen.companyId} mockInterview={screen.mockInterview} companyName={screen.companyName}
         onBack={() => setScreen({ view: "company", companyId: screen.companyId })}
         onBackToList={() => setScreen({ view: "list" })} />
     );

@@ -1,27 +1,29 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CheckCircle2, Circle, Lock, BookOpen, Code2, Zap, Coins, ClipboardCheck,
+  CheckCircle2, XCircle, Circle, Lock, BookOpen, Code2, Zap, Coins, ClipboardCheck,
   ChevronRight, X as CloseIcon, Trophy, Medal, Target, AlertTriangle, Info,
-  Briefcase, ArrowRight, Lightbulb, Copy, ListChecks, Clock, Play, RotateCcw,
+  Briefcase, ArrowRight, Lightbulb, ListChecks, Clock, Pencil, Calculator,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProblem, fetchUserCodelabProgress, CODELAB_LANGUAGES, runCode } from "@/lib/codelab";
+import { fetchProblem, subscribeToCodelabProgress } from "@/lib/codelab";
 import {
   DOW_LABELS, DOW_ORDER, mondayOf, todayISO, fetchWeekItems, fetchLog,
-  fetchUserWeekLogs, submitDayCompletion, fetchDayLeaderboard, fetchWeekTests,
-  fetchModuleConfig,
+  fetchUserWeekLogs, submitDayCompletion, saveDraftProgress, fetchDayLeaderboard, fetchWeekTests,
+  fetchModuleConfig, grantDailyLearningProblemReward, TRACK_CATALOG, fetchTrackProgress,
 } from "@/lib/dailyLearning";
 import { CAMPUS } from "@/lib/campus-theme";
+import { shuffleQuizForAttempt, buildQuizSeedKey } from "@/lib/quizRandom";
 import {
   CampusCard, CampusChip, CampusTable, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton,
 } from "@/components/campus/campus-ui";
 import { CampusProblemView } from "@/components/campus/campus-practice";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
-import { LanguageLogo } from "@/components/campus/language-logo";
+import { useCampusBackHandler } from "@/lib/campusNav";
+import { LessonBody, InfoListCard, CodeExampleBlock } from "@/components/campus/lesson-blocks";
 
 // Institution-scoped Mon-Sat structured learning, backed by
 // institutions/{slug}/dailyLearning (see lib/dailyLearning.js for the
@@ -31,228 +33,24 @@ import { LanguageLogo } from "@/components/campus/language-logo";
 // while one that has real weekly content (MRCET) never shows the generic
 // catalog at all.
 
-const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 const DIFF_COLOR = { Easy: CAMPUS.good, Medium: CAMPUS.warn, Hard: CAMPUS.bad };
 
 function dayStatus(item, log) {
   if (item.date > todayISO()) return "locked";
-  if (log) return "done";
+  // completedAt specifically, not mere doc existence - a draft-only doc
+  // (saveDraftProgress writes readAt/draftAnswers well before a real
+  // submission) must still show as "open", not "done".
+  if (log?.completedAt) return "done";
   return "open";
 }
 
-// The lesson body (`item.concept`) is one freeform string, authored as
-// plain text in the editor's textarea - no markdown, no structured fields.
-// Splitting it back into prose/bullet-list/pseudocode blocks by indentation
-// and leading "- " turns it back into something readable without requiring
-// every existing lesson to be re-authored into a new schema first. Any
-// block that doesn't match cleanly just falls through to prose, exactly
-// like today - this never hides or loses content, only reformats it.
-function parseConceptBlocks(text) {
-  if (!text) return [];
-  const lines = text.split("\n");
-  const blocks = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (line.trim() === "") { i++; continue; }
-    if (/^\s{2,}\S/.test(line)) {
-      const codeLines = [];
-      while (i < lines.length && /^\s{2,}\S/.test(lines[i])) {
-        codeLines.push(lines[i].replace(/^ {2}/, ""));
-        i++;
-      }
-      blocks.push({ type: "code", text: codeLines.join("\n") });
-      continue;
-    }
-    if (/^\s*[-*]\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
-        i++;
-      }
-      blocks.push({ type: "list", items });
-      continue;
-    }
-    const proseLines = [];
-    while (i < lines.length && lines[i].trim() !== "" && !/^\s{2,}\S/.test(lines[i]) && !/^\s*[-*]\s+/.test(lines[i])) {
-      proseLines.push(lines[i]);
-      i++;
-    }
-    blocks.push({ type: "prose", text: proseLines.join("\n") });
-  }
-  return blocks;
-}
-
-export function ConceptRenderer({ text }) {
-  const blocks = useMemo(() => parseConceptBlocks(text), [text]);
-  return (
-    <div className="space-y-3">
-      {blocks.map((b, i) => {
-        if (b.type === "code") {
-          return (
-            <div key={i} className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
-              <div className="flex items-center justify-between px-3 py-1.5" style={{ background: CAMPUS.paper, borderBottom: `1px solid ${CAMPUS.line}` }}>
-                <span className="text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>PSEUDOCODE</span>
-                <button onClick={() => navigator.clipboard?.writeText(b.text)} style={{ color: CAMPUS.inkFaint }} title="Copy"><Copy size={11} /></button>
-              </div>
-              <pre className="text-[12px] font-mono p-3 overflow-x-auto" style={{ color: CAMPUS.inkSoft, background: CAMPUS.surface }}>{b.text}</pre>
-            </div>
-          );
-        }
-        if (b.type === "list") {
-          return (
-            <ul key={i} className="space-y-1.5 pl-1">
-              {b.items.map((it, j) => (
-                <li key={j} className="flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
-                  <span className="mt-[7px] w-1 h-1 rounded-full flex-shrink-0" style={{ background: CAMPUS.teal }} />
-                  {it}
-                </li>
-              ))}
-            </ul>
-          );
-        }
-        return <p key={i} className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{b.text}</p>;
-      })}
-    </div>
-  );
-}
-
-// One shape for every optional callout list (Learning Objectives,
-// Prerequisites, Key Points, Important Notes, Common Mistakes, Interview
-// Tips, Real-world Applications) - renders nothing at all when the admin
-// hasn't authored that section for this lesson, rather than an empty card.
-export function InfoListCard({ icon: Icon, title, items, color, tint, checkItems = false }) {
-  if (!items || items.length === 0) return null;
-  return (
-    <CampusCard className="p-4" style={{ border: `1px solid ${color}40`, background: tint }}>
-      <div className="flex items-center gap-2 mb-2.5">
-        <Icon size={14} style={{ color }} />
-        <span className="text-[12.5px] font-bold" style={{ color: CAMPUS.ink }}>{title}</span>
-      </div>
-      <ul className="space-y-1.5">
-        {items.map((it, i) => (
-          <li key={i} className="flex items-start gap-2 text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
-            {checkItems
-              ? <CheckCircle2 size={13} className="flex-shrink-0 mt-0.5" style={{ color }} />
-              : <span className="mt-[7px] w-1 h-1 rounded-full flex-shrink-0" style={{ background: color }} />}
-            {it}
-          </li>
-        ))}
-      </ul>
-    </CampusCard>
-  );
-}
-
-// Interactive when live execution is available (proxied through
-// devert-backend -> Judge0, same runCode() CodeLab's problem view uses), so a
-// lesson's example isn't just something to read - a student can edit it, run
-// it, and see real output without leaving the lesson. Falls back to the
-// original read-only view (+ the admin's own pre-authored expectedOutput, if
-// any) the moment a run actually fails - never a fabricated output, and
-// never a dead Run button left behind. `NEXT_PUBLIC_API_URL` unset (execution
-// not configured at all, e.g. local dev) skips straight to that fallback
-// instead of waiting for a doomed first click.
-export function CodeExampleBlock({ codeExample }) {
-  const [code, setCode] = useState(codeExample?.code || "");
-  const [running, setRunning] = useState(false);
-  const [output, setOutput] = useState(null);
-  const [unavailable, setUnavailable] = useState(!process.env.NEXT_PUBLIC_API_URL);
-
-  useEffect(() => {
-    setCode(codeExample?.code || "");
-    setOutput(null);
-    setUnavailable(!process.env.NEXT_PUBLIC_API_URL);
-  }, [codeExample?.code]);
-
-  if (!codeExample?.code) return null;
-  const lang = CODELAB_LANGUAGES.find(l => l.id === codeExample.language);
-  const dirty = code !== codeExample.code;
-
-  const handleRun = async () => {
-    setRunning(true);
-    try {
-      const result = await runCode({ language: codeExample.language, code, stdin: "" });
-      setOutput(result);
-    } catch {
-      setUnavailable(true);
-    } finally {
-      setRunning(false);
-    }
-  };
-  const handleReset = () => { setCode(codeExample.code); setOutput(null); };
-  const handleCopy = () => navigator.clipboard?.writeText(code);
-
-  if (unavailable) {
-    const lineCount = codeExample.code.split("\n").length;
-    return (
-      <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
-        <div className="flex items-center justify-between px-3 py-1.5" style={{ background: CAMPUS.paper, borderBottom: `1px solid ${CAMPUS.line}` }}>
-          <span className="flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide" style={{ color: CAMPUS.teal }}>
-            <LanguageLogo name={codeExample.language} size={12} />
-            {lang?.label || "CODE"}
-          </span>
-          <button onClick={handleCopy} className="flex items-center gap-1 text-[10px]" style={{ color: CAMPUS.inkFaint }} title="Copy">
-            <Copy size={11} /> copy
-          </button>
-        </div>
-        <div style={{ height: Math.max(80, Math.min(320, 40 + lineCount * 19)) }}>
-          <MonacoEditor
-            language={lang?.monacoId || "plaintext"}
-            theme="light"
-            value={codeExample.code}
-            options={{ readOnly: true, domReadOnly: true, fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true }}
-          />
-        </div>
-        {codeExample.expectedOutput && (
-          <div className="px-3 py-2.5" style={{ borderTop: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface }}>
-            <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>EXPECTED OUTPUT</p>
-            <pre className="text-[12px] font-mono whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{codeExample.expectedOutput}</pre>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  const lineCount = code.split("\n").length;
-  return (
-    <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
-      <div className="flex items-center justify-between px-3 py-1.5" style={{ background: CAMPUS.paper, borderBottom: `1px solid ${CAMPUS.line}` }}>
-        <span className="flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide" style={{ color: CAMPUS.teal }}>
-          <LanguageLogo name={codeExample.language} size={12} />
-          {lang?.label || "CODE"}
-        </span>
-        <div className="flex items-center gap-3">
-          {dirty && (
-            <button onClick={handleReset} className="flex items-center gap-1 text-[10px]" style={{ color: CAMPUS.inkFaint }} title="Reset to original">
-              <RotateCcw size={11} /> reset
-            </button>
-          )}
-          <button onClick={handleCopy} className="flex items-center gap-1 text-[10px]" style={{ color: CAMPUS.inkFaint }} title="Copy">
-            <Copy size={11} /> copy
-          </button>
-          <button onClick={handleRun} disabled={running} className="flex items-center gap-1 text-[10px] font-semibold disabled:opacity-50" style={{ color: CAMPUS.good }} title="Run">
-            <Play size={11} /> {running ? "running..." : "run"}
-          </button>
-        </div>
-      </div>
-      <div style={{ height: Math.max(80, Math.min(320, 40 + lineCount * 19)) }}>
-        <MonacoEditor
-          language={lang?.monacoId || "plaintext"}
-          theme="light"
-          value={code}
-          onChange={(v) => setCode(v ?? "")}
-          options={{ fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true }}
-        />
-      </div>
-      {output && (
-        <div className="px-3 py-2.5" style={{ borderTop: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface }}>
-          <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: output.stderr ? CAMPUS.bad : CAMPUS.good }}>OUTPUT</p>
-          <pre className="text-[12px] font-mono whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{output.stdout || output.stderr || "(no output)"}</pre>
-        </div>
-      )}
-    </div>
-  );
-}
+// The lesson body (`item.concept`) is one freeform string, and the parser +
+// renderers that turn it into prose/callouts/diagrams/checkpoints now live in
+// components/campus/lesson-blocks.jsx (+ lib/lessonBlocks.js), shared with
+// every other learning module. They were originally defined here, which meant
+// CS Core, Programming, Aptitude and Company Prep all imported their lesson
+// rendering out of the *Daily Learning* file - see that module's header for
+// the format itself.
 
 function NextLessonCard({ dayCompleted, nextItem, onGoToNext }) {
   if (!nextItem) return null;
@@ -272,9 +70,112 @@ function NextLessonCard({ dayCompleted, nextItem, onGoToNext }) {
   );
 }
 
+// ---------------- Landing page (track picker) ----------------
+
+// Not yet real TRACK_CATALOG entries - just a visual teaser so the landing
+// page matches the product spec's "Coming Soon" row. Deliberately static
+// (no Firestore doc, no click handler) since these tracks have no content
+// model yet; each becomes a real TRACK_CATALOG entry (see lib/dailyLearning.js)
+// the day it's actually built, at which point it moves out of this list.
+const COMING_SOON_TRACKS = [
+  { label: "GATE Prep Series", icon: Target },
+  { label: "Communication Series", icon: Lightbulb },
+  { label: "AI & ML Series", icon: Zap },
+];
+
+const TRACK_ICONS = { Code2, Calculator };
+
+function TrackProgressCard({ slug, track, onOpen }) {
+  const { user } = useAuth();
+  const [progress, setProgress] = useState(undefined); // undefined = loading
+
+  useEffect(() => {
+    if (!user) return;
+    fetchTrackProgress(slug, user.uid, track.key).then(setProgress).catch(() => setProgress(null));
+  }, [slug, user, track.key]);
+
+  const Icon = TRACK_ICONS[track.icon] || BookOpen;
+  const empty = progress && progress.totalCount === 0;
+
+  return (
+    <button onClick={() => onOpen(track.key)} className="w-full text-left">
+      <CampusCard hover className="p-5 flex items-center gap-4">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
+          <Icon size={20} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <b className="block text-[14.5px]" style={{ color: CAMPUS.ink }}>{track.label}</b>
+          {progress === undefined ? (
+            <CampusSkeleton variant="rect" height={14} className="mt-1.5 w-2/3" />
+          ) : empty ? (
+            <p className="text-[12px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>Coming soon for your batch</p>
+          ) : (
+            <p className="text-[12px] mt-0.5" style={{ color: CAMPUS.inkSoft }}>
+              Day {Math.max(1, progress?.currentDayIndex || 1)} &middot; {progress?.percentComplete || 0}% Complete
+            </p>
+          )}
+        </div>
+        <span className="flex items-center gap-1 text-[12px] font-semibold flex-shrink-0" style={{ color: CAMPUS.teal }}>
+          Continue <ArrowRight size={13} />
+        </span>
+      </CampusCard>
+    </button>
+  );
+}
+
+// The Daily Learning tab's real entry screen - one progress card per
+// TRACK_CATALOG series, routing into the existing CampusDailyLearningTab
+// (unmodified below) with an explicit trackId once a card is tapped. Reads
+// ?track= once on mount (a shared link/refresh mid-track lands back on that
+// track, not the picker) and registers depth 1 on the Back-button registry
+// (see lib/campusNav.js) so hardware/gesture Back steps out to the picker
+// before it ever reaches the "Leave Campus?" exit guard - one level shallower
+// than CampusDailyLearningWeek's own depth-2 problem-view drill-down.
+export function CampusDailyLearningLanding({ slug }) {
+  const searchParams = useSearchParams();
+  const [trackId, setTrackId] = useState(() => searchParams.get("track") || null);
+
+  useCampusBackHandler(1, trackId !== null, () => setTrackId(null));
+
+  useEffect(() => {
+    if (typeof window === "undefined" || trackId) return;
+    window.history.replaceState(null, "", `/campus/${slug}/daily-learning`);
+  }, [trackId, slug]);
+
+  if (trackId) {
+    return (
+      <div>
+        <CampusBackButton onClick={() => setTrackId(null)} label="All series" />
+        <div className="mt-3">
+          <CampusDailyLearningTab slug={slug} trackId={trackId} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {TRACK_CATALOG.map(track => (
+        <TrackProgressCard key={track.key} slug={slug} track={track} onOpen={setTrackId} />
+      ))}
+      <div className="pt-2">
+        <p className="text-[9.5px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>COMING SOON</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {COMING_SOON_TRACKS.map(t => (
+            <CampusCard key={t.label} className="p-4 flex items-center gap-2.5 opacity-60">
+              <t.icon size={16} style={{ color: CAMPUS.inkFaint }} />
+              <span className="text-[12px] font-semibold" style={{ color: CAMPUS.inkFaint }}>{t.label}</span>
+            </CampusCard>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------- Tab entry point (Daily Learning) ----------------
 
-export function CampusDailyLearningTab({ slug }) {
+export function CampusDailyLearningTab({ slug, trackId = "dsa" }) {
   const [items, setItems] = useState(undefined); // undefined = loading
   const [moduleEnabled, setModuleEnabled] = useState(true);
   const [error, setError] = useState(false);
@@ -282,11 +183,11 @@ export function CampusDailyLearningTab({ slug }) {
 
   const load = () => {
     setItems(undefined); setError(false);
-    Promise.all([fetchWeekItems(slug, weekId), fetchModuleConfig(slug)])
+    Promise.all([fetchWeekItems(slug, weekId, {}, trackId), fetchModuleConfig(slug)])
       .then(([rows, cfg]) => { setItems(rows); setModuleEnabled(cfg.enabled !== false); })
       .catch(() => setError(true));
   };
-  useEffect(load, [slug, weekId]);
+  useEffect(load, [slug, weekId, trackId]);
 
   if (error) {
     return (
@@ -296,9 +197,17 @@ export function CampusDailyLearningTab({ slug }) {
     );
   }
   if (items === undefined) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
-  if (!moduleEnabled || items.length === 0) return <CampusLearningSection />;
+  // Only the DSA track falls back to the generic global Learning catalog
+  // when nothing's been authored yet - a non-DSA track (e.g. Aptitude
+  // Series) with no published days yet should show its own "coming soon"
+  // empty state instead (see CampusDailyLearningLanding), not silently swap
+  // in unrelated generic content.
+  if (!moduleEnabled || (items.length === 0 && trackId === "dsa")) return <CampusLearningSection />;
+  if (items.length === 0) {
+    return <CampusEmptyState icon={BookOpen} title="Nothing published yet" description="This series doesn't have any published days yet - check back soon." />;
+  }
 
-  return <CampusDailyLearningWeek slug={slug} items={items} />;
+  return <CampusDailyLearningWeek slug={slug} items={items} trackId={trackId} />;
 }
 
 // ---------------- Admin preview (Manage tab) ----------------
@@ -310,15 +219,15 @@ export function CampusDailyLearningTab({ slug }) {
 // drift-prone rendering of the same data. Every day is openable regardless
 // of date - an admin previewing content needs to see Thursday's lesson on
 // a Monday, unlike the calendar-locked student view.
-export function CampusDailyLearningAdminPreview({ slug, weekId: weekIdProp }) {
+export function CampusDailyLearningAdminPreview({ slug, weekId: weekIdProp, trackId = "dsa" }) {
   const [items, setItems] = useState(undefined);
   const [selected, setSelected] = useState(null);
   const [openProblemId, setOpenProblemId] = useState(null);
   const weekId = weekIdProp || mondayOf();
 
   useEffect(() => {
-    fetchWeekItems(slug, weekId, { includeUnpublished: true }).then(rows => { setItems(rows); setSelected(rows[0]?.date || null); }).catch(() => setItems([]));
-  }, [slug, weekId]);
+    fetchWeekItems(slug, weekId, { includeUnpublished: true }, trackId).then(rows => { setItems(rows); setSelected(rows[0]?.date || null); }).catch(() => setItems([]));
+  }, [slug, weekId, trackId]);
 
   if (items === undefined) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
   if (items.length === 0) {
@@ -326,7 +235,7 @@ export function CampusDailyLearningAdminPreview({ slug, weekId: weekIdProp }) {
       description="Nothing has been authored for this institution's current week yet." />;
   }
 
-  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel="Daily Learning" />;
+  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel="Daily Learning" suppressReward />;
   const item = items.find(it => it.date === selected) || items[0];
 
   return (
@@ -350,21 +259,37 @@ export function CampusDailyLearningAdminPreview({ slug, weekId: weekIdProp }) {
       {/* No Next Lesson nav here - the day-picker tabs above already cover
           jumping between days in admin preview, unlike the student flow
           where future days are locked and not directly clickable. */}
-      <CampusDailyLearningItemView slug={slug} item={item} readOnly onOpenProblem={setOpenProblemId} />
+      <CampusDailyLearningItemView slug={slug} item={item} readOnly onOpenProblem={setOpenProblemId} trackId={trackId} />
     </div>
   );
 }
 
-function CampusDailyLearningWeek({ slug, items }) {
+function CampusDailyLearningWeek({ slug, items, trackId = "dsa" }) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [logs, setLogs] = useState({});
-  const [openProblemId, setOpenProblemId] = useState(null);
+  // Read once on mount from ?problem= - CampusWorkspace's own URL-sync
+  // effect deliberately excludes the "learning" tab (see its own comment)
+  // so this self-owned effect below isn't clobbered, same precedent as
+  // Programming/CS Core.
+  const [openProblemId, setOpenProblemId] = useState(() => searchParams.get("problem"));
   const weekId = items[0]?.weekId;
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    // "dsa" stays param-free - every existing bookmark/shared link to plain
+    // /daily-learning (no ?track=) keeps landing on DSA exactly as before.
+    if (trackId !== "dsa") params.set("track", trackId);
+    if (openProblemId) params.set("problem", openProblemId);
+    const qs = params.toString();
+    window.history.replaceState(null, "", `/campus/${slug}/daily-learning${qs ? `?${qs}` : ""}`);
+  }, [openProblemId, slug, trackId]);
+
+  useEffect(() => {
     if (!user) return;
-    fetchUserWeekLogs(slug, user.uid, weekId).then(setLogs).catch(() => {});
-  }, [slug, user, weekId]);
+    fetchUserWeekLogs(slug, user.uid, weekId, trackId).then(setLogs).catch(() => {});
+  }, [slug, user, weekId, trackId]);
 
   const today = todayISO();
   const defaultItem = items.find(it => it.date === today && it.date <= today)
@@ -373,8 +298,21 @@ function CampusDailyLearningWeek({ slug, items }) {
   const [selected, setSelected] = useState(defaultItem.date);
   const item = items.find(it => it.date === selected) || defaultItem;
 
+  // Day tabs are a lateral switch (always visible, like the top-level Campus
+  // tabs), not a drill-down - only the embedded practice-problem view is a
+  // real "go deeper" step. See lib/campusNav.js.
+  useCampusBackHandler(2, openProblemId !== null, () => setOpenProblemId(null));
+
   if (openProblemId) {
-    return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel="Daily Learning" />;
+    // No suppressReward here anymore - embedded problems now earn their own
+    // flat Daily Learning reward (grantDailyLearningProblemReward, see
+    // lib/dailyLearning.js) instead of being silently zeroed out. That flat
+    // reward is granted from CampusDailyLearningItemView's own live
+    // solved-problem subscription, not from CodeLab's standalone grading
+    // path, so this problem view intentionally still passes no reward
+    // override - CodeLab's own per-problem reward would otherwise ALSO fire
+    // and double the intended total.
+    return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel="Daily Learning" suppressReward />;
   }
 
   return (
@@ -405,7 +343,7 @@ function CampusDailyLearningWeek({ slug, items }) {
         <CampusEmptyState icon={Lock} title={`${DOW_LABELS[item.dow]}'s lesson opens on ${item.date}`}
           description="This program is paced day by day - come back once it unlocks." />
       ) : (
-        <CampusDailyLearningItemView slug={slug} item={item} log={logs[item.date]}
+        <CampusDailyLearningItemView slug={slug} item={item} log={logs[item.date]} trackId={trackId}
           onLogged={(log) => setLogs(prev => ({ ...prev, [item.date]: log }))}
           onOpenProblem={setOpenProblemId}
           nextItem={(() => {
@@ -425,17 +363,41 @@ function CampusDailyLearningWeek({ slug, items }) {
 
 export function CampusDailyAssessmentsTab({ slug }) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [tests, setTests] = useState(undefined);
   const [testsError, setTestsError] = useState(false);
   const [logs, setLogs] = useState({});
   const [openTest, setOpenTest] = useState(null);
-  const [openProblemId, setOpenProblemId] = useState(null);
+  // Read once from ?problem= - doesn't depend on any async fetch, unlike
+  // openTest below.
+  const [openProblemId, setOpenProblemId] = useState(() => searchParams.get("problem"));
+  // openTest is a full item object (not just a date), so it can't be resolved
+  // from the URL until `tests` has actually loaded - this ref remembers the
+  // ?test= date from the very first render and is consumed (and cleared)
+  // by the effect below once tests arrives, same reasoning DSA/Company
+  // Vault's own ?problem=/?company= resolution doesn't need since those
+  // don't require an extra async round trip to resolve an id into an object.
+  const pendingTestDateRef = useRef(searchParams.get("test"));
 
   const loadTests = () => {
     setTests(undefined); setTestsError(false);
     fetchWeekTests(slug).then(setTests).catch(() => setTestsError(true));
   };
   useEffect(loadTests, [slug]);
+
+  useEffect(() => {
+    if (!tests?.length || !pendingTestDateRef.current) return;
+    const match = tests.find(t => t.date === pendingTestDateRef.current);
+    pendingTestDateRef.current = null;
+    if (match) setOpenTest(match);
+  }, [tests]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let url = `/campus/${slug}/assessments`;
+    if (openTest) url += `?test=${encodeURIComponent(openTest.date)}${openProblemId ? `&problem=${encodeURIComponent(openProblemId)}` : ""}`;
+    window.history.replaceState(null, "", url);
+  }, [openTest, openProblemId, slug]);
 
   useEffect(() => {
     if (!user || !tests?.length) return;
@@ -446,6 +408,12 @@ export function CampusDailyAssessmentsTab({ slug }) {
     }).catch(() => {});
   }, [slug, user, tests]);
 
+  // list(1) -> openTest(2) -> openProblemId(3) - both can be active at once
+  // (a problem is only ever opened from within a test), and popCampusBack()
+  // always prefers the deeper one. See lib/campusNav.js.
+  useCampusBackHandler(2, !!openTest, () => setOpenTest(null));
+  useCampusBackHandler(3, openProblemId !== null, () => setOpenProblemId(null));
+
   if (testsError) {
     return (
       <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load assessments"
@@ -455,7 +423,11 @@ export function CampusDailyAssessmentsTab({ slug }) {
   }
   if (tests === undefined) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
 
-  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel={openTest?.title || "Assessments"} />;
+  // suppressReward stays true here for the same reason as the Daily Learning
+  // week view - the flat per-problem reward is granted separately by
+  // CampusDailyLearningItemView's own solved-problem subscription, not by
+  // CodeLab's standalone grading path.
+  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel={openTest?.title || "Assessments"} suppressReward />;
   if (openTest) {
     return (
       <div>
@@ -498,33 +470,214 @@ export function CampusDailyAssessmentsTab({ slug }) {
   );
 }
 
-// ---------------- Shared day/test content viewer ----------------
-
-function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem, readOnly = false, nextItem, onGoToNext }) {
-  const { user, userData } = useAuth();
-  const [markedRead, setMarkedRead] = useState(!!log);
-  const [answers, setAnswers] = useState(log?.mcqAnswers || {});
-  const [problems, setProblems] = useState([]);
-  const [solvedIds, setSolvedIds] = useState(new Set());
-  const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState(log ? { score: log.mcqScore, total: log.mcqTotal } : null);
+// A day's optional `timedQuiz: { timeLimitSeconds, mcqIds }` references a
+// subset of that SAME day's `mcqs` by id - reuses the exact question data,
+// adds only a countdown-timer wrapper. Deliberately ungraded/unsaved/
+// unlimited-retake (same "formative aside, not the real quiz" spirit as the
+// existing lesson-block `checkpoint` type) - the real reward stays tied to
+// the day's own completion (mark-as-read + the main Practice MCQs above),
+// so this needs no new Firestore write path or rules change at all.
+function TimedMiniQuiz({ mcqs, timeLimitSeconds }) {
+  const [started, setStarted] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(timeLimitSeconds);
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    setMarkedRead(!!log);
-    setAnswers(log?.mcqAnswers || {});
-    setResult(log ? { score: log.mcqScore, total: log.mcqTotal } : null);
+    if (!started || submitted) return;
+    if (secondsLeft <= 0) { setSubmitted(true); return; }
+    const t = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [started, submitted, secondsLeft]);
+
+  const score = mcqs.filter(q => answers[q.id] === q.correctIndex).length;
+  const mm = Math.floor(Math.max(0, secondsLeft) / 60), ss = Math.max(0, secondsLeft) % 60;
+
+  const reset = () => { setStarted(false); setSubmitted(false); setAnswers({}); setSecondsLeft(timeLimitSeconds); };
+
+  if (!started) {
+    return (
+      <CampusCard className="p-5 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[13px] font-semibold" style={{ color: CAMPUS.ink }}>Test your speed</p>
+          <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+            {mcqs.length} question{mcqs.length === 1 ? "" : "s"} - {Math.round(timeLimitSeconds / 60)} min. Ungraded practice, retake anytime.
+          </p>
+        </div>
+        <CampusButton onClick={() => setStarted(true)}>Start Timed Quiz</CampusButton>
+      </CampusCard>
+    );
+  }
+
+  return (
+    <CampusCard className="p-5 space-y-5">
+      <div className="flex items-center justify-between">
+        <p className="text-[12px] font-semibold" style={{ color: CAMPUS.ink }}>Timed Mini Quiz</p>
+        {!submitted ? (
+          <span className="flex items-center gap-1.5 text-[13px] font-mono font-bold" style={{ color: secondsLeft <= 30 ? CAMPUS.bad : CAMPUS.teal }}>
+            <Clock size={13} /> {mm}:{String(ss).padStart(2, "0")}
+          </span>
+        ) : (
+          <span className="text-[13px] font-bold" style={{ color: CAMPUS.good }}>{score} / {mcqs.length}</span>
+        )}
+      </div>
+      {mcqs.map((q, qi) => (
+        <div key={q.id}>
+          <p className="text-xs mb-2" style={{ color: CAMPUS.inkSoft }}>{qi + 1}. {q.text}</p>
+          <div className="space-y-1.5">
+            {q.options.map((opt, oi) => {
+              const isChosen = answers[q.id] === oi;
+              const isCorrect = oi === q.correctIndex;
+              let border = CAMPUS.line, bg = CAMPUS.paper;
+              if (submitted && isCorrect) { border = CAMPUS.good + "60"; bg = CAMPUS.goodTint; }
+              else if (submitted && isChosen && !isCorrect) { border = CAMPUS.bad + "60"; bg = CAMPUS.badTint; }
+              else if (isChosen) { border = CAMPUS.teal + "60"; bg = CAMPUS.tealTint; }
+              return (
+                <button key={oi} disabled={submitted} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: oi }))}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors disabled:cursor-default"
+                  style={{ background: bg, border: `1px solid ${border}` }}>
+                  <span className="text-[12px]" style={{ color: CAMPUS.inkSoft }}>{opt}</span>
+                </button>
+              );
+            })}
+          </div>
+          {submitted && q.explanation && (
+            <p className="text-[11.5px] mt-2 px-3 py-2 rounded-lg" style={{ background: CAMPUS.tealTint, color: CAMPUS.inkSoft }}>{q.explanation}</p>
+          )}
+        </div>
+      ))}
+      {!submitted ? (
+        <CampusButton onClick={() => setSubmitted(true)} className="w-full">Submit</CampusButton>
+      ) : (
+        <button onClick={reset} className="text-[12px] font-semibold" style={{ color: CAMPUS.teal }}>Retake</button>
+      )}
+    </CampusCard>
+  );
+}
+
+// ---------------- Shared day/test content viewer ----------------
+
+function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem, readOnly = false, nextItem, onGoToNext, trackId = "dsa" }) {
+  const { user, userData } = useAuth();
+  // Draft state (readAt/draftAnswers, written by saveDraftProgress as soon as
+  // the student marks a lesson read or picks an MCQ answer) restores
+  // markedRead/answers even before the final "Save Progress" submit exists -
+  // previously this only ever restored from a COMPLETED log, so refreshing,
+  // switching devices, or the tab crashing mid-lesson silently discarded
+  // everything up to that point.
+  const [markedRead, setMarkedRead] = useState(!!(log?.completedAt || log?.readAt));
+  const [answers, setAnswers] = useState(log?.mcqAnswers || log?.draftAnswers || {});
+  const [problems, setProblems] = useState([]);
+  const [solvedIds, setSolvedIds] = useState(new Set());
+  const [codeDrafts, setCodeDrafts] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState(log?.completedAt ? { score: log.mcqScore, total: log.mcqTotal } : null);
+  const [saveNotice, setSaveNotice] = useState(null); // { type: "info" | "error", message }
+  const [draftSaveStatus, setDraftSaveStatus] = useState("idle"); // idle | saving | saved | failed
+  const skipNextDraftSave = useRef(true);
+
+  useEffect(() => {
+    setMarkedRead(!!(log?.completedAt || log?.readAt));
+    setAnswers(log?.mcqAnswers || log?.draftAnswers || {});
+    setResult(log?.completedAt ? { score: log.mcqScore, total: log.mcqTotal } : null);
+    skipNextDraftSave.current = true; // this state change came FROM the loaded log, not the student - don't echo it straight back
   }, [item.date, log]);
+
+  // Debounced draft autosave - fires on every markedRead/answers change
+  // except the one caused by the load effect above (skipNextDraftSave), so
+  // opening a lesson never immediately re-writes back the exact data it just
+  // read. Skipped entirely once a real result exists (nothing left to
+  // draft) or in read-only admin preview. Deliberately NOT gated on
+  // markedRead - MCQ answers must save the instant a student picks one,
+  // whether or not they've clicked "mark as read" yet (that used to also
+  // block the MCQ buttons themselves - see the disabled prop below).
+  //
+  // Previously this swallowed every write error completely silently - if the
+  // dailyLearningLog write was ever transiently rejected (network blip,
+  // rules hiccup), NOTHING for that session was actually persisted, with no
+  // indicator anywhere that autosave had stopped working, right up until a
+  // refresh (or the final submit) surfaced the loss. One automatic retry,
+  // then a visible (not console-only) "not saved" state, closes that gap.
+  useEffect(() => {
+    if (skipNextDraftSave.current) { skipNextDraftSave.current = false; return; }
+    if (readOnly || !user || result) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setDraftSaveStatus("saving");
+      try {
+        await saveDraftProgress(slug, user.uid, item, { markedRead, mcqAnswers: answers }, trackId);
+        if (!cancelled) setDraftSaveStatus("saved");
+      } catch {
+        try {
+          await saveDraftProgress(slug, user.uid, item, { markedRead, mcqAnswers: answers }, trackId);
+          if (!cancelled) setDraftSaveStatus("saved");
+        } catch {
+          if (!cancelled) setDraftSaveStatus("failed");
+        }
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markedRead, answers]);
 
   useEffect(() => {
     Promise.all((item.problemIds || []).map(id => fetchProblem(id))).then(rows => setProblems(rows.filter(Boolean))).catch(() => setProblems([]));
   }, [item.problemIds]);
 
+  // Live, not a one-time fetch - solving a problem (or just saving a code
+  // draft) updates this card's status the instant it happens, with no
+  // remount/refresh needed - the whole point of "update immediately after a
+  // successful submission" and "student cannot tell what's in progress".
   useEffect(() => {
     if (!user || readOnly) return;
-    fetchUserCodelabProgress(user.uid).then(p => setSolvedIds(new Set(Object.keys(p.solvedProblems || {})))).catch(() => {});
+    return subscribeToCodelabProgress(user.uid, p => {
+      setSolvedIds(new Set(Object.keys(p.solvedProblems || {})));
+      setCodeDrafts(p.codeDrafts || {});
+    });
   }, [user, readOnly]);
 
+  // Flat 25 XP / 5 coin reward per embedded problem, on top of the day's own
+  // completion bonus - granted the moment a problem shows as solved for this
+  // day. Safe to attempt for every currently-solved problem on every
+  // solvedIds update (not just a "just solved" transition): the ledger check
+  // inside grantDailyLearningProblemReward makes a repeat attempt for an
+  // already-rewarded problem a harmless no-op, so this doesn't need fragile
+  // client-side "was this newly solved" tracking. grantAttemptedRef only
+  // exists to avoid re-firing the network call on every render for a
+  // problem already attempted this session - keyed by date+problemId so the
+  // same problem embedded on a different day is tracked independently.
+  const grantAttemptedRef = useRef(new Set());
+  useEffect(() => {
+    if (!user || readOnly || problems.length === 0) return;
+    problems.forEach(p => {
+      const key = `${item.date}_${p.id}`;
+      if (solvedIds.has(p.id) && !grantAttemptedRef.current.has(key)) {
+        grantAttemptedRef.current.add(key);
+        grantDailyLearningProblemReward({ slug, uid: user.uid, date: item.date, problemId: p.id, trackId })
+          .catch(() => { grantAttemptedRef.current.delete(key); });
+      }
+    });
+  }, [solvedIds, problems, user, readOnly, slug, item.date, trackId]);
+
+  // Not Started / In Progress / Solved - "in progress" is real, not
+  // fabricated: it's true only when a code draft actually exists for that
+  // problem (see saveCodeDraft in lib/codelab.js), not a guess.
+  const problemStatus = (problemId) => {
+    if (solvedIds.has(problemId)) return "solved";
+    if (codeDrafts[problemId]?.code) return "inProgress";
+    return "notStarted";
+  };
+
   const mcqs = item.mcqs || [];
+  // Shuffled purely for display - deterministic per (student, day), so a
+  // refresh/reconnect reproduces the exact same question/option order with
+  // nothing to persist, while two different students (or the same student on
+  // two different days) see different orders. Grading below always compares
+  // against the ORIGINAL q.correctIndex, never the shuffled position.
+  const shuffledMcqs = useMemo(
+    () => shuffleQuizForAttempt(mcqs, buildQuizSeedKey({ uid: user?.uid, scope: `${slug}:${item.date}` })),
+    [mcqs, user?.uid, slug, item.date]
+  );
   const allAnswered = mcqs.every(q => answers[q.id] !== undefined);
   const answeredCount = mcqs.filter(q => answers[q.id] !== undefined).length;
   const solvedCount = problems.filter(p => solvedIds.has(p.id)).length;
@@ -540,18 +693,31 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
     return Math.round((steps.reduce((a, b) => a + b, 0) / steps.length) * 100);
   }, [markedRead, result, mcqs.length, answeredCount, problems.length, solvedCount]);
 
+  // Previously `result` (which drives the "Submitted" confirmation UI) was
+  // set BEFORE awaiting submitDayCompletion, and a thrown error was only
+  // logged to console with no rollback - a failed write still looked
+  // submitted until a refresh re-derived state from the real log and
+  // revealed nothing had actually saved. Now `result` is only set once the
+  // write genuinely confirms, and a failure surfaces a visible, retryable
+  // message instead of silently reverting on refresh.
   const handleSave = async () => {
     if (!user || saving) return;
     setSaving(true);
+    setSaveNotice(null);
     try {
       let correct = 0;
       mcqs.forEach(q => { if (answers[q.id] === q.correctIndex) correct++; });
-      setResult({ score: correct, total: mcqs.length });
       const solvedNow = problems.filter(p => solvedIds.has(p.id)).map(p => p.id);
-      await submitDayCompletion({ slug, uid: user.uid, profile: userData, item, mcqAnswers: answers, correctCount: correct, problemsSolved: solvedNow });
+      const freshlyRewarded = await submitDayCompletion({ slug, uid: user.uid, profile: userData, item, mcqAnswers: answers, correctCount: correct, problemsSolved: solvedNow, trackId });
+      setResult({ score: correct, total: mcqs.length });
       onLogged?.({ mcqAnswers: answers, mcqScore: correct, mcqTotal: mcqs.length, problemsSolved: solvedNow, problemsTotal: problems.length });
-    } catch (e) { console.error(e); }
-    finally { setSaving(false); }
+      if (!freshlyRewarded) {
+        setSaveNotice({ type: "info", message: "You have already completed this activity and received your rewards." });
+      }
+    } catch (e) {
+      console.error(e);
+      setSaveNotice({ type: "error", message: "Couldn't submit - check your connection and try again." });
+    } finally { setSaving(false); }
   };
 
   const canSave = markedRead && allAnswered;
@@ -601,7 +767,7 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
       <motion.div variants={reveal} initial="hidden" animate="visible">
         <CampusCard className="p-5">
           <p className="text-[9px] font-mono tracking-widest mb-3" style={{ color: CAMPUS.inkFaint }}>CONCEPT</p>
-          <ConceptRenderer text={item.concept} />
+          <LessonBody text={item.concept} />
           {item.codeExample?.code && <div className="mt-4"><CodeExampleBlock codeExample={item.codeExample} /></div>}
           <div className="flex items-center justify-between gap-4 mt-5 pt-4 flex-wrap" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
             <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>Read through the concept above before continuing.</span>
@@ -616,6 +782,17 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
           </div>
         </CampusCard>
       </motion.div>
+
+      {!readOnly && !result && draftSaveStatus !== "idle" && (
+        <motion.p variants={reveal} initial="hidden" animate="visible" className="text-[10.5px] mt-1.5 flex items-center gap-1.5"
+          style={{ color: draftSaveStatus === "failed" ? CAMPUS.bad : CAMPUS.inkFaint }}>
+          {draftSaveStatus === "saving" && "saving progress…"}
+          {draftSaveStatus === "saved" && "progress saved"}
+          {draftSaveStatus === "failed" && (
+            <><AlertTriangle size={11} /> progress not saved - check your connection</>
+          )}
+        </motion.p>
+      )}
 
       {/* ---------------- Key points / notes / mistakes / tips / applications ---------------- */}
       <motion.div variants={reveal} initial="hidden" animate="visible" className="space-y-3 mt-3">
@@ -633,16 +810,32 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
           </p>
           <div className="space-y-2">
             {problems.map(p => {
-              const solved = solvedIds.has(p.id);
+              const status = problemStatus(p.id);
+              const cardStyle = status === "solved"
+                ? { border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }
+                : status === "inProgress"
+                  ? { border: `1px solid ${CAMPUS.warn}50`, background: CAMPUS.warnTint }
+                  : undefined;
+              const draftAt = codeDrafts[p.id]?.updatedAt;
               return (
                 <button key={p.id} onClick={() => onOpenProblem(p.id)} className="w-full text-left">
-                  <CampusCard hover className="p-3.5 flex items-center gap-3">
-                    <Code2 size={14} style={{ color: solved ? CAMPUS.good : CAMPUS.inkFaint }} className="flex-shrink-0" />
-                    <span className="flex-1 text-[13px] font-medium truncate" style={{ color: CAMPUS.ink }}>
-                      {p.number != null && <span style={{ color: CAMPUS.inkFaint }}>{p.number}. </span>}{p.title}
+                  <CampusCard hover className="p-3.5 flex items-center gap-3" style={cardStyle}>
+                    {status === "solved" ? <CheckCircle2 size={14} style={{ color: CAMPUS.good }} className="flex-shrink-0" />
+                      : status === "inProgress" ? <Pencil size={13} style={{ color: CAMPUS.warn }} className="flex-shrink-0" />
+                      : <Code2 size={14} style={{ color: CAMPUS.inkFaint }} className="flex-shrink-0" />}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-medium truncate" style={{ color: CAMPUS.ink }}>
+                        {p.number != null && <span style={{ color: CAMPUS.inkFaint }}>{p.number}. </span>}{p.title}
+                      </span>
+                      {status === "inProgress" && draftAt?.toDate && (
+                        <span className="block text-[10px] font-mono mt-0.5" style={{ color: CAMPUS.inkFaint }}>
+                          last worked on {draftAt.toDate().toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        </span>
+                      )}
                     </span>
                     <CampusChip color={{ Easy: CAMPUS.good, Medium: CAMPUS.warn, Hard: CAMPUS.bad }[p.difficulty] || CAMPUS.good}>{p.difficulty}</CampusChip>
-                    {solved && <CampusChip color={CAMPUS.good} icon={CheckCircle2}>SOLVED</CampusChip>}
+                    {status === "solved" && <CampusChip color={CAMPUS.good} icon={CheckCircle2}>SOLVED</CampusChip>}
+                    {status === "inProgress" && <CampusChip color={CAMPUS.warn} icon={Pencil}>IN PROGRESS</CampusChip>}
                     <ChevronRight size={13} style={{ color: CAMPUS.inkFaint }} />
                   </CampusCard>
                 </button>
@@ -657,28 +850,60 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
           <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>
             {item.type === "test" ? "TEST MCQs" : "KNOWLEDGE CHECK"} ({mcqs.length})
           </p>
+
+          {result && (
+            <CampusCard className="p-4 mb-3 flex items-center justify-between gap-4 flex-wrap"
+              style={{ background: CAMPUS.goodTint, border: `1px solid ${CAMPUS.good}40` }}>
+              <div>
+                <p className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: CAMPUS.good }}>
+                  <CheckCircle2 size={14} /> Knowledge Check completed
+                </p>
+                {log?.completedAt?.toDate && (
+                  <p className="text-[10.5px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>
+                    Completed {log.completedAt.toDate().toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold" style={{ color: CAMPUS.good }}>{result.score} / {result.total}</p>
+                <p className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>{result.total ? Math.round((result.score / result.total) * 100) : 0}%</p>
+              </div>
+            </CampusCard>
+          )}
+
           <CampusCard className="p-5 space-y-5">
-            {mcqs.map((q, qi) => {
+            {shuffledMcqs.map((q, qi) => {
               const chosen = answers[q.id];
               const graded = !!result || readOnly;
               return (
                 <div key={q.id}>
                   <p className="text-xs mb-2" style={{ color: CAMPUS.inkSoft }}>{qi + 1}. {q.text}</p>
                   <div className="space-y-1.5">
-                    {q.options.map((opt, oi) => {
-                      const isChosen = chosen === oi;
-                      const isCorrect = oi === q.correctIndex;
+                    {q.options.map((opt) => {
+                      const isChosen = chosen === opt.originalIndex;
+                      const isCorrect = opt.originalIndex === q.correctIndex;
                       let border = CAMPUS.line, bg = CAMPUS.paper;
                       if (graded && isChosen && isCorrect) { border = CAMPUS.good + "60"; bg = CAMPUS.goodTint; }
                       else if (graded && isChosen && !isCorrect) { border = CAMPUS.bad + "60"; bg = CAMPUS.badTint; }
                       else if (graded && isCorrect) { border = CAMPUS.good + "60"; bg = "transparent"; }
                       else if (isChosen) { border = CAMPUS.teal + "60"; bg = CAMPUS.tealTint; }
                       return (
-                        <button key={oi} disabled={readOnly || !markedRead || saving} onClick={() => !graded && setAnswers(prev => ({ ...prev, [q.id]: oi }))}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors disabled:cursor-not-allowed"
+                        // Disabled only once truly graded (a real submission exists) or
+                        // in read-only admin preview - NOT gated on "mark as read"
+                        // anymore, which used to block every option from being
+                        // selected at all until that separate button was clicked.
+                        <button key={opt.originalIndex} disabled={graded || saving} onClick={() => !graded && setAnswers(prev => ({ ...prev, [q.id]: opt.originalIndex }))}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors disabled:cursor-default"
                           style={{ background: bg, border: `1px solid ${border}` }}>
-                          <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ border: `1.5px solid ${isChosen ? CAMPUS.teal : CAMPUS.inkFaint}`, background: isChosen ? CAMPUS.teal : "transparent" }} />
-                          <span className="text-[12px]" style={{ color: CAMPUS.inkSoft }}>{opt}</span>
+                          {graded && (isChosen || isCorrect) ? (
+                            isCorrect
+                              ? <CheckCircle2 size={14} className="flex-shrink-0" style={{ color: CAMPUS.good }} />
+                              : <XCircle size={14} className="flex-shrink-0" style={{ color: CAMPUS.bad }} />
+                          ) : (
+                            <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ border: `1.5px solid ${isChosen ? CAMPUS.teal : CAMPUS.inkFaint}`, background: isChosen ? CAMPUS.teal : "transparent" }} />
+                          )}
+                          <span className="text-[12px]" style={{ color: CAMPUS.inkSoft }}>{opt.text}</span>
+                          {graded && isChosen && <span className="ml-auto text-[10px] font-mono flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>your answer</span>}
                         </button>
                       );
                     })}
@@ -690,24 +915,45 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
         </motion.div>
       )}
 
+      {item.timedQuiz?.mcqIds?.length > 0 && (
+        <motion.div variants={reveal} initial="hidden" animate="visible" className="mt-5">
+          <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>TIMED MINI QUIZ</p>
+          <TimedMiniQuiz mcqs={mcqs.filter(q => item.timedQuiz.mcqIds.includes(q.id))} timeLimitSeconds={item.timedQuiz.timeLimitSeconds || 300} />
+        </motion.div>
+      )}
+
+      {!readOnly && saveNotice && (
+        <motion.div variants={reveal} initial="hidden" animate="visible"
+          className="flex items-center gap-2 mt-5 px-3.5 py-2.5 rounded-lg text-[12px] font-medium"
+          style={saveNotice.type === "error"
+            ? { color: CAMPUS.bad, background: CAMPUS.badTint, border: `1px solid ${CAMPUS.bad}40` }
+            : { color: CAMPUS.teal, background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.teal}40` }}>
+          {saveNotice.type === "error" ? <AlertTriangle size={13} /> : <CheckCircle2 size={13} />}
+          {saveNotice.message}
+        </motion.div>
+      )}
+
       <motion.div variants={reveal} initial="hidden" animate="visible" className="mt-5">
         {readOnly ? null : !user ? (
           <p className="text-xs" style={{ color: CAMPUS.inkFaint }}>Sign in to save your progress.</p>
+        ) : result ? (
+          // Already submitted - a disabled confirmation, not a re-clickable
+          // button, so there's no accidental duplicate submission. There's no
+          // per-lesson "allow multiple attempts" setting today, so this is
+          // always the single-attempt state - a real Retake flow (with
+          // attempt history) would need that admin toggle to exist first.
+          <div className="w-full flex items-center justify-center gap-2 text-sm font-semibold py-3 rounded-xl"
+            style={{ background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${CAMPUS.good}40` }}>
+            <CheckCircle2 size={15} /> {mcqs.length > 0 ? "Knowledge Check Submitted" : "Today's learning complete"}
+          </div>
         ) : (
           <motion.button whileHover={canSave ? { scale: 1.01 } : {}} whileTap={canSave ? { scale: 0.98 } : {}}
             onClick={handleSave} disabled={!canSave || saving}
             className="w-full text-sm font-semibold py-3 rounded-xl transition-all disabled:opacity-40"
             style={{ background: CAMPUS.teal, color: "#fff" }}>
-            {saving ? "saving..." : log ? "update today's progress" : "mark today's learning as done"}
+            {saving ? "submitting..." : mcqs.length > 0 ? "Submit Knowledge Check" : "mark today's learning as done"}
           </motion.button>
         )}
-        <AnimatePresence>
-          {result && !readOnly && (
-            <motion.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="text-center text-[12px] mt-3" style={{ color: CAMPUS.inkSoft }}>
-              MCQs: {result.score}/{result.total} correct · Problems: {solvedCount}/{problems.length} solved
-            </motion.p>
-          )}
-        </AnimatePresence>
       </motion.div>
 
       {!readOnly && onGoToNext && (
@@ -743,12 +989,20 @@ export function CampusDayLeaderboard({ slug, date, dayLabel, myUid, compact = fa
         : <span className="font-mono" style={{ color: CAMPUS.inkFaint }}>{r.rank}</span>
     ) },
     { key: "displayName", label: "Student", render: r => (
-      <span className="font-medium" style={{ color: r.uid === myUid ? CAMPUS.teal : CAMPUS.ink }}>
-        {r.displayName}{r.rollNumber ? ` · ${r.rollNumber}` : ""}{r.uid === myUid && " (you)"}
-      </span>
+      <div className="min-w-0">
+        <span className="font-medium block truncate" style={{ color: r.uid === myUid ? CAMPUS.teal : CAMPUS.ink }}>
+          {r.displayName}{r.rollNumber ? ` · ${r.rollNumber}` : ""}{r.uid === myUid && " (you)"}
+        </span>
+        {(r.department || r.year || r.section) && (
+          <span className="block text-[10px] font-mono truncate" style={{ color: CAMPUS.inkFaint }}>
+            {[r.department, r.year && `Year ${r.year}`, r.section && `Sec ${r.section}`].filter(Boolean).join(" · ")}
+          </span>
+        )}
+      </div>
     ) },
     { key: "mcqScore", label: "MCQs", render: r => <span className="font-mono" style={{ color: CAMPUS.teal }}>{r.mcqScore}/{r.mcqTotal}</span> },
     { key: "problemsSolved", label: "Problems", render: r => <span className="font-mono" style={{ color: CAMPUS.good }}>{(r.problemsSolved || []).length}/{r.problemsTotal}</span> },
+    { key: "xpEarned", label: "XP", sortable: true, render: r => <span className="font-mono font-semibold" style={{ color: CAMPUS.gold }}>+{r.xpEarned || 0}</span> },
   ];
 
   return (
@@ -788,10 +1042,15 @@ function CampusDayAnalysisDrawer({ row, onClose }) {
           </CampusCard>
         </div>
 
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-2 flex-wrap">
           <span className="flex items-center gap-1.5 text-[11px]" style={{ color: CAMPUS.teal }}><Zap size={12} /> +{row.xpEarned || 0} XP earned</span>
           <span className="flex items-center gap-1.5 text-[11px]" style={{ color: CAMPUS.good }}><Coins size={12} /> +{row.coinEarned || 0} coins earned</span>
         </div>
+        {row.completedAt?.toDate && (
+          <p className="text-[10.5px] mb-6" style={{ color: CAMPUS.inkFaint }}>
+            Submitted {row.completedAt.toDate().toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })}
+          </p>
+        )}
 
         <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>MCQ ANSWERS (BY SELECTED OPTION INDEX)</p>
         <div className="space-y-1.5">

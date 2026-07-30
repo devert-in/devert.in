@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Rocket, Flame, Clock, Briefcase, TrendingUp, ChevronDown, ChevronRight,
   Check, Lock, Lightbulb, ListChecks, Target, BookOpen, Code2, Trophy,
@@ -16,9 +17,11 @@ import {
   fetchLanguages, fetchLanguage, fetchTopics, fetchTopic,
   fetchLanguageProgress, fetchAllUserProgress, markTopicOpened, completeTopic,
 } from "@/lib/programming";
-import { ConceptRenderer, InfoListCard, CodeExampleBlock } from "@/components/campus/campus-daily-learning";
+import { shuffleQuizForAttempt, buildQuizSeedKey, loadQuizDraft, saveQuizDraft } from "@/lib/quizRandom";
+import { LessonBody, InfoListCard, CodeExampleBlock } from "@/components/campus/lesson-blocks";
 import { CampusProblemView } from "@/components/campus/campus-practice";
 import { LanguageLogo } from "@/components/campus/language-logo";
+import { useCampusBackHandler } from "@/lib/campusNav";
 
 const DIFF_COLOR = { Beginner: CAMPUS.good, Intermediate: CAMPUS.warn, Advanced: CAMPUS.bad };
 
@@ -29,7 +32,36 @@ function topicHasContent(topic) {
 // ---------------- Top-level screen router ----------------
 
 export function CampusProgrammingTab() {
-  const [screen, setScreen] = useState({ view: "list" });
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const slug = pathname.split("/").filter(Boolean)[1];
+
+  // Read once on mount from ?lang=/?topic= - CampusWorkspace's own URL-sync
+  // effect deliberately excludes the "programming" tab (see its own comment)
+  // so this self-owned effect below isn't clobbered, same precedent as
+  // CampusManage owning its own deeper URL.
+  const [screen, setScreen] = useState(() => {
+    const langId = searchParams.get("lang");
+    if (!langId) return { view: "list" };
+    const topicId = searchParams.get("topic");
+    return topicId ? { view: "topic", langId, topicId } : { view: "roadmap", langId };
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let url = `/campus/${slug}?tab=programming`;
+    if (screen.view === "roadmap") url += `&lang=${encodeURIComponent(screen.langId)}`;
+    else if (screen.view === "topic") url += `&lang=${encodeURIComponent(screen.langId)}&topic=${encodeURIComponent(screen.topicId)}`;
+    window.history.replaceState(null, "", url);
+  }, [screen, slug]);
+
+  // See lib/campusNav.js - registers "what does Back mean right now" so the
+  // browser Back button (and the exit guard) step list<-roadmap<-topic
+  // instead of immediately asking to leave Campus.
+  useCampusBackHandler(2, screen.view !== "list", () => {
+    if (screen.view === "topic") setScreen({ view: "roadmap", langId: screen.langId });
+    else setScreen({ view: "list" });
+  });
 
   if (screen.view === "roadmap") {
     return (
@@ -87,7 +119,7 @@ function ProgrammingLanding({ onOpenLanguage }) {
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <div className="rounded-2xl p-6 sm:p-8" style={{ background: CAMPUS.ink }}>
+      <div className="rounded-2xl p-6 sm:p-8" style={{ background: CAMPUS.chromeBg }}>
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={16} style={{ color: CAMPUS.gold }} />
           <span className="text-[11px] font-mono tracking-widest" style={{ color: CAMPUS.goldTint }}>PROGRAMMING</span>
@@ -335,13 +367,28 @@ function LanguageRoadmap({ langId, onBack, onOpenTopic }) {
 
 function TopicView({ langId, topicId, onBack }) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [topic, setTopic] = useState(null);
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [practiceScreen, setPracticeScreen] = useState({ view: "list" });
+  const [practiceScreen, setPracticeScreen] = useState(() => {
+    const problemId = searchParams.get("practiceProblem");
+    return problemId ? { view: "problem", problemId } : { view: "list" };
+  });
   const [completing, setCompleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [alreadyDone, setAlreadyDone] = useState(false);
+  // Defaults closed - unlike the beginner content above it, this is
+  // optional denser material for a student who already has the basics and
+  // wants to go further, not something to compete with the main lesson.
+  const [showGoingDeeper, setShowGoingDeeper] = useState(false);
+
+  // Same seed every render for this (student, topic) - shuffleQuizForAttempt
+  // reproduces the identical question/option order on every refresh with
+  // nothing to persist. Only the in-progress answers/submitted flag need an
+  // explicit resume mechanism (this quiz has no Firestore doc of its own).
+  const quizSeedKey = buildQuizSeedKey({ uid: user?.uid, scope: `${langId}:${topicId}` });
+  const quizDraftKey = user ? `programming:${user.uid}:${langId}:${topicId}` : null;
 
   useEffect(() => {
     fetchTopic(langId, topicId).then(setTopic).catch(() => setTopic(null));
@@ -350,6 +397,21 @@ function TopicView({ langId, topicId, onBack }) {
       fetchLanguageProgress(user.uid, langId).then(p => setAlreadyDone(!!p?.completedTopicIds?.includes(topicId))).catch(() => {});
     }
   }, [langId, topicId, user]);
+
+  // Restore an in-progress (or already-submitted) quiz attempt for this
+  // topic the moment it's known who's viewing it - a refresh or navigating
+  // away and back must never reset an unsubmitted quiz to blank.
+  useEffect(() => {
+    if (!quizDraftKey) { setQuizAnswers({}); setQuizSubmitted(false); return; }
+    const draft = loadQuizDraft(quizDraftKey);
+    setQuizAnswers(draft?.answers || {});
+    setQuizSubmitted(!!draft?.submitted);
+  }, [quizDraftKey]);
+
+  useEffect(() => {
+    if (!quizDraftKey) return;
+    saveQuizDraft(quizDraftKey, { answers: quizAnswers, submitted: quizSubmitted });
+  }, [quizDraftKey, quizAnswers, quizSubmitted]);
 
   const handleComplete = async () => {
     if (!user) return;
@@ -365,6 +427,20 @@ function TopicView({ langId, topicId, onBack }) {
       setCompleting(false);
     }
   };
+
+  // Depth 3 - one level deeper than the roadmap/topic screen-stack (depth 2)
+  // this TopicView itself lives inside; see lib/campusNav.js.
+  useCampusBackHandler(3, practiceScreen.view === "problem", () => setPracticeScreen({ view: "list" }));
+
+  // Appends onto whatever the parent CampusProgrammingTab's own effect
+  // already wrote (?tab=programming&lang=&topic=) instead of rebuilding it here too.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (practiceScreen.view === "problem") url.searchParams.set("practiceProblem", practiceScreen.problemId);
+    else url.searchParams.delete("practiceProblem");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }, [practiceScreen]);
 
   if (practiceScreen.view === "problem") {
     return <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} backLabel="Programming" />;
@@ -412,7 +488,7 @@ function TopicView({ langId, topicId, onBack }) {
 
           {topic.concept && (
             <CampusCard className="p-5">
-              <ConceptRenderer text={topic.concept} />
+              <LessonBody text={topic.concept} />
             </CampusCard>
           )}
 
@@ -429,6 +505,22 @@ function TopicView({ langId, topicId, onBack }) {
           )}
           {topic.interviewTips?.length > 0 && (
             <InfoListCard icon={Sparkles} title="Interview Tips" items={topic.interviewTips} color={CAMPUS.warn} tint={CAMPUS.warnTint} />
+          )}
+
+          {topic.goingDeeper?.trim() && (
+            <CampusCard className="p-0 overflow-hidden">
+              <button onClick={() => setShowGoingDeeper(o => !o)} className="w-full flex items-center gap-2 p-4 text-left">
+                <TrendingUp size={14} style={{ color: CAMPUS.purple, flexShrink: 0 }} />
+                <span className="text-[13px] font-semibold flex-1" style={{ color: CAMPUS.ink }}>Going Deeper</span>
+                <CampusChip color={CAMPUS.purple}>ADVANCED</CampusChip>
+                <ChevronDown size={14} style={{ color: CAMPUS.inkFaint, transform: showGoingDeeper ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              </button>
+              {showGoingDeeper && (
+                <div className="px-4 pb-4" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+                  <p className="text-xs leading-relaxed whitespace-pre-wrap pt-3.5" style={{ color: CAMPUS.inkSoft }}>{topic.goingDeeper}</p>
+                </div>
+              )}
+            </CampusCard>
           )}
 
           {topic.practiceProblemIds?.length > 0 && (
@@ -449,7 +541,7 @@ function TopicView({ langId, topicId, onBack }) {
           )}
 
           {topic.mcqs?.length > 0 && (
-            <TopicQuiz mcqs={topic.mcqs} answers={quizAnswers} onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
+            <TopicQuiz mcqs={topic.mcqs} seedKey={quizSeedKey} answers={quizAnswers} onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
               submitted={quizSubmitted} onSubmit={() => setQuizSubmitted(true)} />
           )}
 
@@ -497,7 +589,12 @@ function TopicView({ langId, topicId, onBack }) {
   );
 }
 
-function TopicQuiz({ mcqs, answers, onAnswer, submitted, onSubmit }) {
+function TopicQuiz({ mcqs, seedKey, answers, onAnswer, submitted, onSubmit }) {
+  // Shuffled purely for display, keyed by seedKey (student+topic) - grading
+  // below always compares against the original array index i (q.correctIndex),
+  // never the shuffled render position, so `answers` keeps its existing
+  // "keyed by original question index" shape unchanged.
+  const shuffled = useMemo(() => shuffleQuizForAttempt(mcqs, seedKey), [mcqs, seedKey]);
   const score = mcqs.reduce((n, q, i) => n + (answers[i] === q.correctIndex ? 1 : 0), 0);
   return (
     <CampusCard className="p-4">
@@ -505,23 +602,23 @@ function TopicQuiz({ mcqs, answers, onAnswer, submitted, onSubmit }) {
         <ListChecks size={12} /> QUIZ
       </p>
       <div className="space-y-4">
-        {mcqs.map((q, i) => (
-          <div key={i}>
+        {shuffled.map((q, i) => (
+          <div key={q._origIndex}>
             <p className="text-[13px] font-medium mb-2" style={{ color: CAMPUS.ink }}>{i + 1}. {q.question}</p>
             <div className="space-y-1.5">
-              {q.options.map((opt, oi) => {
-                const isSelected = answers[i] === oi;
-                const isCorrect = submitted && oi === q.correctIndex;
-                const isWrong = submitted && isSelected && oi !== q.correctIndex;
+              {q.options.map((opt) => {
+                const isSelected = answers[q._origIndex] === opt.originalIndex;
+                const isCorrect = submitted && opt.originalIndex === q.correctIndex;
+                const isWrong = submitted && isSelected && opt.originalIndex !== q.correctIndex;
                 return (
-                  <button key={oi} disabled={submitted} onClick={() => onAnswer(i, oi)}
+                  <button key={opt.originalIndex} disabled={submitted} onClick={() => onAnswer(q._origIndex, opt.originalIndex)}
                     className="w-full text-left text-[12.5px] px-3 py-2 rounded-lg"
                     style={{
                       background: isCorrect ? CAMPUS.goodTint : isWrong ? CAMPUS.badTint : isSelected ? CAMPUS.tealTint : CAMPUS.paper,
                       border: `1px solid ${isCorrect ? CAMPUS.good : isWrong ? CAMPUS.bad : isSelected ? CAMPUS.teal : CAMPUS.line}`,
                       color: CAMPUS.ink,
                     }}>
-                    {opt}
+                    {opt.text}
                   </button>
                 );
               })}

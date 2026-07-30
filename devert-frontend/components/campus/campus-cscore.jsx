@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Rocket, Clock, Briefcase, ChevronDown, ChevronRight,
+  Rocket, Clock, Briefcase, ChevronDown, ChevronRight, TrendingUp,
   Check, Lightbulb, ListChecks, Target, BookOpen, Code2,
   AlertTriangle, Sparkles, Coins, Zap, ArrowRight, GraduationCap, Cpu,
   Database, Network, Puzzle, Ruler, CircuitBoard, Hammer, Blocks, Landmark,
+  Cloud, Terminal, GitBranch, Plug, ShieldCheck, Calculator, Binary,
+  ToggleLeft, Share2, Brain, LineChart, MessageSquare, Palette, PieChart,
+  Layers, MemoryStick, ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { CAMPUS } from "@/lib/campus-theme";
@@ -17,7 +22,11 @@ import {
   fetchSubjects, fetchSubject, fetchTopics, fetchTopic,
   fetchSubjectProgress, fetchAllUserProgress, markTopicOpened, completeTopic,
 } from "@/lib/csCore";
-import { ConceptRenderer, InfoListCard, CodeExampleBlock } from "@/components/campus/campus-daily-learning";
+import { shuffleQuizForAttempt, buildQuizSeedKey, loadQuizDraft, saveQuizDraft } from "@/lib/quizRandom";
+import {
+  LessonBody, InfoListCard, CodeExampleBlock, LessonProgressBar, useReadingProgress,
+} from "@/components/campus/lesson-blocks";
+import { useCampusBackHandler } from "@/lib/campusNav";
 import { CampusProblemView } from "@/components/campus/campus-practice";
 
 const DIFF_COLOR = { Beginner: CAMPUS.good, Intermediate: CAMPUS.warn, Advanced: CAMPUS.bad };
@@ -30,7 +39,7 @@ const DIFF_COLOR = { Beginner: CAMPUS.good, Intermediate: CAMPUS.warn, Advanced:
 const SUBJECT_ICONS = [
   ["operating system", Cpu],
   ["database", Database],
-  ["network", Network],
+  ["computer networks", Network],
   ["object-oriented", Puzzle],
   ["software engineering", Ruler],
   ["organization", CircuitBoard],
@@ -38,6 +47,23 @@ const SUBJECT_ICONS = [
   ["compiler", Hammer],
   ["design pattern", Blocks],
   ["system design", Landmark],
+  ["cloud", Cloud],
+  ["linux", Terminal],
+  ["git & github", GitBranch],
+  ["rest api", Plug],
+  ["security fundamentals", ShieldCheck],
+  ["aptitude", Calculator],
+  ["theory of computation", Binary],
+  ["digital logic", ToggleLeft],
+  ["distributed systems", Share2],
+  ["artificial intelligence", Brain],
+  ["machine learning", LineChart],
+  ["natural language", MessageSquare],
+  ["computer graphics", Palette],
+  ["data mining", PieChart],
+  ["parallel computing", Layers],
+  ["microprocessor", MemoryStick],
+  ["cyber security", ShieldAlert],
 ];
 export function subjectIcon(name) {
   const n = (name || "").toLowerCase();
@@ -51,7 +77,36 @@ function topicHasContent(topic) {
 // ---------------- Top-level screen router ----------------
 
 export function CampusCsCoreTab() {
-  const [screen, setScreen] = useState({ view: "list" });
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const slug = pathname.split("/").filter(Boolean)[1];
+
+  // Read once on mount from ?subject=/?topic= - CampusWorkspace's own
+  // URL-sync effect deliberately excludes the "csCore" tab (see its own
+  // comment) so this self-owned effect below isn't clobbered, same
+  // precedent as CampusManage owning its own deeper URL.
+  const [screen, setScreen] = useState(() => {
+    const subjectId = searchParams.get("subject");
+    if (!subjectId) return { view: "list" };
+    const topicId = searchParams.get("topic");
+    return topicId ? { view: "topic", subjectId, topicId } : { view: "roadmap", subjectId };
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let url = `/campus/${slug}?tab=csCore`;
+    if (screen.view === "roadmap") url += `&subject=${encodeURIComponent(screen.subjectId)}`;
+    else if (screen.view === "topic") url += `&subject=${encodeURIComponent(screen.subjectId)}&topic=${encodeURIComponent(screen.topicId)}`;
+    window.history.replaceState(null, "", url);
+  }, [screen, slug]);
+
+  // See lib/campusNav.js - same registration as Programming's identical
+  // screen-stack shape, so Back steps list<-roadmap<-topic instead of
+  // immediately asking to leave Campus.
+  useCampusBackHandler(2, screen.view !== "list", () => {
+    if (screen.view === "topic") setScreen({ view: "roadmap", subjectId: screen.subjectId });
+    else setScreen({ view: "list" });
+  });
 
   if (screen.view === "roadmap") {
     return (
@@ -108,7 +163,7 @@ function CsCoreLanding({ onOpenSubject }) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl p-6 sm:p-8" style={{ background: CAMPUS.ink }}>
+      <div className="rounded-2xl p-6 sm:p-8" style={{ background: CAMPUS.chromeBg }}>
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={16} style={{ color: CAMPUS.gold }} />
           <span className="text-[11px] font-mono tracking-widest" style={{ color: CAMPUS.goldTint }}>CS CORE</span>
@@ -203,12 +258,16 @@ function SubjectCard({ subject, progress, onClick }) {
   const completed = progress?.completedTopicIds?.length || 0;
   const total = subject.topicCount || 0;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  // Not a "component created during render" - subjectIcon() is a pure lookup
+  // into a fixed table, always returning the SAME Lucide component reference
+  // for a given subject name (see language-logo.jsx's identical pattern/comment).
   const Icon = subjectIcon(subject.name);
 
   return (
     <CampusCard hover className="p-4 cursor-pointer" onClick={onClick}>
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.line}` }}>
+          {/* eslint-disable-next-line react-hooks/static-components */}
           <Icon size={18} style={{ color: CAMPUS.teal }} />
         </div>
         <div className="min-w-0">
@@ -283,6 +342,7 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
 
   const completed = completedIds.size;
   const total = topics.length;
+  // Not a "component created during render" - see subjectIcon()'s own comment above.
   const SubjIcon = subjectIcon(subject.name);
 
   return (
@@ -291,6 +351,7 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
       <div className="mt-4 mb-6">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.line}` }}>
+            {/* eslint-disable-next-line react-hooks/static-components */}
             <SubjIcon size={20} style={{ color: CAMPUS.teal }} />
           </div>
           <div>
@@ -355,13 +416,32 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
 
 function TopicView({ subjectId, topicId, onBack }) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [topic, setTopic] = useState(null);
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [practiceScreen, setPracticeScreen] = useState({ view: "list" });
+  const [practiceScreen, setPracticeScreen] = useState(() => {
+    const problemId = searchParams.get("practiceProblem");
+    return problemId ? { view: "problem", problemId } : { view: "list" };
+  });
   const [completing, setCompleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [alreadyDone, setAlreadyDone] = useState(false);
+  // Defaults closed - see campus-programming.jsx's identical field/reasoning.
+  const [showGoingDeeper, setShowGoingDeeper] = useState(false);
+  // Measured over the whole lesson article (concept + code + key points +
+  // quiz + assignment), not just the prose - "80% through this lesson" has to
+  // mean the lesson, or the bar hits 100% while a quiz is still unanswered.
+  const articleRef = useRef(null);
+  const readingPct = useReadingProgress(articleRef);
+  const reduceMotion = useReducedMotion();
+
+  // Same seed every render for this (student, topic) - shuffleQuizForAttempt
+  // reproduces the identical question/option order on every refresh with
+  // nothing to persist. Only the in-progress answers/submitted flag need an
+  // explicit resume mechanism (this quiz has no Firestore doc of its own).
+  const quizSeedKey = buildQuizSeedKey({ uid: user?.uid, scope: `${subjectId}:${topicId}` });
+  const quizDraftKey = user ? `cscore:${user.uid}:${subjectId}:${topicId}` : null;
 
   useEffect(() => {
     fetchTopic(subjectId, topicId).then(setTopic).catch(() => setTopic(null));
@@ -370,6 +450,21 @@ function TopicView({ subjectId, topicId, onBack }) {
       fetchSubjectProgress(user.uid, subjectId).then(p => setAlreadyDone(!!p?.completedTopicIds?.includes(topicId))).catch(() => {});
     }
   }, [subjectId, topicId, user]);
+
+  // Restore an in-progress (or already-submitted) quiz attempt for this
+  // topic the moment it's known who's viewing it - a refresh or navigating
+  // away and back must never reset an unsubmitted quiz to blank.
+  useEffect(() => {
+    if (!quizDraftKey) { setQuizAnswers({}); setQuizSubmitted(false); return; }
+    const draft = loadQuizDraft(quizDraftKey);
+    setQuizAnswers(draft?.answers || {});
+    setQuizSubmitted(!!draft?.submitted);
+  }, [quizDraftKey]);
+
+  useEffect(() => {
+    if (!quizDraftKey) return;
+    saveQuizDraft(quizDraftKey, { answers: quizAnswers, submitted: quizSubmitted });
+  }, [quizDraftKey, quizAnswers, quizSubmitted]);
 
   const handleComplete = async () => {
     if (!user) return;
@@ -386,6 +481,20 @@ function TopicView({ subjectId, topicId, onBack }) {
     }
   };
 
+  // Depth 3 - one level deeper than the roadmap/topic screen-stack (depth 2)
+  // this TopicView itself lives inside; see lib/campusNav.js.
+  useCampusBackHandler(3, practiceScreen.view === "problem", () => setPracticeScreen({ view: "list" }));
+
+  // Appends onto whatever the parent CampusCsCoreTab's own effect already
+  // wrote (?tab=csCore&subject=&topic=) instead of rebuilding it here too.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (practiceScreen.view === "problem") url.searchParams.set("practiceProblem", practiceScreen.problemId);
+    else url.searchParams.delete("practiceProblem");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }, [practiceScreen]);
+
   if (practiceScreen.view === "problem") {
     return <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })} />;
   }
@@ -400,6 +509,11 @@ function TopicView({ subjectId, topicId, onBack }) {
   }
 
   const hasContent = topicHasContent(topic);
+  // Mirrors campus-programming.jsx's identical fix - a topic with an
+  // authored quiz must have it submitted before "Complete Topic" unlocks;
+  // without this, a student could skip straight past the quiz (and never
+  // even open it) and still bank the XP/coins/score.
+  const quizPending = topic.mcqs?.length > 0 && !quizSubmitted;
 
   return (
     <div className="max-w-3xl">
@@ -417,7 +531,9 @@ function TopicView({ subjectId, topicId, onBack }) {
         <CampusEmptyState icon={BookOpen} title="This lesson is being written"
           description="Real content for this topic hasn't been published yet - check back soon, or ask your admin to add it via /admin." />
       ) : (
-        <div className="space-y-5">
+        <article ref={articleRef} className="space-y-5">
+          <LessonProgressBar pct={readingPct} />
+
           {topic.whatYoullLearn?.length > 0 && (
             <InfoListCard icon={Target} title="What you'll learn" items={topic.whatYoullLearn} color={CAMPUS.teal} tint={CAMPUS.tealTint} />
           )}
@@ -427,7 +543,7 @@ function TopicView({ subjectId, topicId, onBack }) {
 
           {topic.concept && (
             <CampusCard className="p-5">
-              <ConceptRenderer text={topic.concept} />
+              <LessonBody text={topic.concept} />
             </CampusCard>
           )}
 
@@ -444,6 +560,22 @@ function TopicView({ subjectId, topicId, onBack }) {
           )}
           {topic.interviewTips?.length > 0 && (
             <InfoListCard icon={Sparkles} title="Interview Tips" items={topic.interviewTips} color={CAMPUS.warn} tint={CAMPUS.warnTint} />
+          )}
+
+          {topic.goingDeeper?.trim() && (
+            <CampusCard className="p-0 overflow-hidden">
+              <button onClick={() => setShowGoingDeeper(o => !o)} className="w-full flex items-center gap-2 p-4 text-left">
+                <TrendingUp size={14} style={{ color: CAMPUS.purple, flexShrink: 0 }} />
+                <span className="text-[13px] font-semibold flex-1" style={{ color: CAMPUS.ink }}>Going Deeper</span>
+                <CampusChip color={CAMPUS.purple}>ADVANCED</CampusChip>
+                <ChevronDown size={14} style={{ color: CAMPUS.inkFaint, transform: showGoingDeeper ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              </button>
+              {showGoingDeeper && (
+                <div className="px-4 pb-4" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+                  <p className="text-xs leading-relaxed whitespace-pre-wrap pt-3.5" style={{ color: CAMPUS.inkSoft }}>{topic.goingDeeper}</p>
+                </div>
+              )}
+            </CampusCard>
           )}
 
           {topic.practiceProblemIds?.length > 0 && (
@@ -464,7 +596,7 @@ function TopicView({ subjectId, topicId, onBack }) {
           )}
 
           {topic.mcqs?.length > 0 && (
-            <TopicQuiz mcqs={topic.mcqs} answers={quizAnswers} onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
+            <TopicQuiz mcqs={topic.mcqs} seedKey={quizSeedKey} answers={quizAnswers} onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
               submitted={quizSubmitted} onSubmit={() => setQuizSubmitted(true)} />
           )}
 
@@ -488,28 +620,41 @@ function TopicView({ subjectId, topicId, onBack }) {
                   <span className="flex items-center gap-1"><Coins size={11} /> +{topic.coinReward || 10} coins</span>
                 </p>
               )}
+              {!alreadyDone && quizPending && (
+                <p className="text-[11px] mt-1" style={{ color: CAMPUS.warn }}>Submit the quiz above to unlock this.</p>
+              )}
             </div>
             {alreadyDone ? (
               <CampusChip color={CAMPUS.good} icon={Check}>DONE</CampusChip>
             ) : (
-              <CampusButton onClick={handleComplete} disabled={completing || !user}>
+              <CampusButton onClick={handleComplete} disabled={completing || !user || quizPending}>
                 {completing ? "Saving..." : "Complete Topic"}
               </CampusButton>
             )}
           </CampusCard>
 
           {justCompleted && (
-            <p className="text-[12.5px] text-center px-3 py-2 rounded-lg" style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>
-              Nice work! XP and coins added.
-            </p>
+            <motion.p
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+              className="text-[12.5px] text-center px-3 py-2.5 rounded-lg flex items-center justify-center gap-2"
+              style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>
+              <Sparkles size={13} /> Nice work! XP and coins added.
+            </motion.p>
           )}
-        </div>
+        </article>
       )}
     </div>
   );
 }
 
-function TopicQuiz({ mcqs, answers, onAnswer, submitted, onSubmit }) {
+function TopicQuiz({ mcqs, seedKey, answers, onAnswer, submitted, onSubmit }) {
+  // Shuffled purely for display, keyed by seedKey (student+topic) - grading
+  // below always compares against the original array index i (q.correctIndex),
+  // never the shuffled render position, so `answers` keeps its existing
+  // "keyed by original question index" shape unchanged.
+  const shuffled = useMemo(() => shuffleQuizForAttempt(mcqs, seedKey), [mcqs, seedKey]);
   const score = mcqs.reduce((n, q, i) => n + (answers[i] === q.correctIndex ? 1 : 0), 0);
   return (
     <CampusCard className="p-4">
@@ -517,23 +662,23 @@ function TopicQuiz({ mcqs, answers, onAnswer, submitted, onSubmit }) {
         <ListChecks size={12} /> QUIZ
       </p>
       <div className="space-y-4">
-        {mcqs.map((q, i) => (
-          <div key={i}>
+        {shuffled.map((q, i) => (
+          <div key={q._origIndex}>
             <p className="text-[13px] font-medium mb-2" style={{ color: CAMPUS.ink }}>{i + 1}. {q.question}</p>
             <div className="space-y-1.5">
-              {q.options.map((opt, oi) => {
-                const isSelected = answers[i] === oi;
-                const isCorrect = submitted && oi === q.correctIndex;
-                const isWrong = submitted && isSelected && oi !== q.correctIndex;
+              {q.options.map((opt) => {
+                const isSelected = answers[q._origIndex] === opt.originalIndex;
+                const isCorrect = submitted && opt.originalIndex === q.correctIndex;
+                const isWrong = submitted && isSelected && opt.originalIndex !== q.correctIndex;
                 return (
-                  <button key={oi} disabled={submitted} onClick={() => onAnswer(i, oi)}
+                  <button key={opt.originalIndex} disabled={submitted} onClick={() => onAnswer(q._origIndex, opt.originalIndex)}
                     className="w-full text-left text-[12.5px] px-3 py-2 rounded-lg"
                     style={{
                       background: isCorrect ? CAMPUS.goodTint : isWrong ? CAMPUS.badTint : isSelected ? CAMPUS.tealTint : CAMPUS.paper,
                       border: `1px solid ${isCorrect ? CAMPUS.good : isWrong ? CAMPUS.bad : isSelected ? CAMPUS.teal : CAMPUS.line}`,
                       color: CAMPUS.ink,
                     }}>
-                    {opt}
+                    {opt.text}
                   </button>
                 );
               })}
