@@ -1,4 +1,4 @@
-﻿import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+﻿import { Space_Grotesk, JetBrains_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { IntroProvider } from "@/context/IntroContext";
 import { AuthProvider } from "@/context/AuthContext";
@@ -16,6 +16,15 @@ const spaceGrotesk = Space_Grotesk({
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
+});
+
+// DeVert Campus's own typeface (see globals.css's .campus-theme) - scoped to
+// that class only, not the marketing site's Space Grotesk/JetBrains Mono
+// identity, so this is a Campus-only typography change, not a site-wide one.
+// self-hosted at build time by next/font (no runtime font CDN request).
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
 });
 
 export const metadata = {
@@ -134,7 +143,7 @@ export default function RootLayout({ children }) {
       </head>
       <body
         suppressHydrationWarning
-        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased font-sans bg-background text-foreground overflow-x-hidden`}
+        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${inter.variable} antialiased font-sans bg-background text-foreground overflow-x-hidden`}
       >
         <AuthProvider>
           <IntroProvider>

@@ -11,6 +11,7 @@ import {
   UserCircle2, TrendingUp, X as CloseIcon, PanelLeftClose, PanelLeftOpen,
   Activity, Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
   AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator,
+  Zap, Coins as CoinsIcon, CheckCircle2, Shield, Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
@@ -59,6 +60,7 @@ import { NAV_ITEMS, GROUP_ORDER, NAV_GROUP_LABELS } from "@/lib/campusNavConfig"
 import { CampusMobileDrawer } from "@/components/campus/campus-mobile-drawer";
 import { CampusStaffLogin } from "@/components/campus/campus-staff-login";
 import { CampusThemeProvider, useCampusTheme, CampusThemeToggle, CampusShell } from "@/components/campus/campus-theme-provider";
+import { GLOBAL_SECTIONS } from "@/lib/campus-seo";
 
 // DeVert Campus is a deliberately separate "academic" surface - see the design
 // proposal shared with the team for why (Builder's OS's dark terminal theme is
@@ -81,7 +83,9 @@ import { CampusThemeProvider, useCampusTheme, CampusThemeToggle, CampusShell } f
 // (none of the underlying data is institution-scoped), so they get their own
 // real top-level paths rather than living as view-state nested under
 // /campus - anything else after /campus is treated as an institution slug.
-const GLOBAL_SECTIONS = ["contests", "learning", "practice"];
+// Defined in lib/campus-seo.js (not here) so app/campus/[slug]/page.jsx - a
+// server component - can import the same list at build time; re-exported
+// under this name for every existing call site in this file.
 
 // Maps a login page's own URL segment to the roleKey lib/permissions.js's
 // ROLE_CATALOG uses - "faculty" is the public-facing/URL name for what the
@@ -105,7 +109,13 @@ export function CampusApp({ initialTab }) {
   if (!first) {
     body = <CampusDirectory />;
   } else if (GLOBAL_SECTIONS.includes(first)) {
-    body = <CampusGlobalSection key={first} section={first} />;
+    // CampusGlobalSection reads ?open=/?category=/?problem= via
+    // useSearchParams() too - same Suspense requirement as CampusWorkspace
+    // below. Only surfaced once these 3 paths were added to
+    // generateStaticParams (see app/campus/[slug]/page.jsx) - before that,
+    // this branch only ever rendered client-side, where the requirement
+    // doesn't bite.
+    body = <Suspense fallback={null}><CampusGlobalSection key={first} section={first} /></Suspense>;
   } else {
     // /campus/{slug}/principal|hod|faculty - dedicated, admin-provisioned-
     // only login pages (see components/campus/campus-staff-login.jsx). These
@@ -317,38 +327,40 @@ function SectionHeading({ icon: Icon, title, action }) {
 // only produces a correct single hairline when the grid never wraps.
 function InstitutionCard({ inst, studentCount, featured }) {
   return (
-    <Link href={`/campus/${inst.id}`} className="block p-6" style={{ background: CAMPUS.surface, borderRight: `1px solid ${CAMPUS.line}`, borderBottom: `1px solid ${CAMPUS.line}` }}>
-      {featured && (
-        <span className="inline-flex text-[10px] font-bold px-2.5 py-1 mb-3" style={{ background: CAMPUS.goldTint, color: CAMPUS.gold, letterSpacing: "0.03em" }}>
-          FEATURED
-        </span>
-      )}
-      <div className="w-11 h-11 flex items-center justify-center font-bold text-[15px] mb-4 overflow-hidden"
-        style={inst.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.teal, color: "#fff" }}>
-        {inst.logoUrl
-          ? <img src={inst.logoUrl} alt="" className="w-full h-full object-contain" />
-          : (inst.name?.slice(0, 2).toUpperCase() || "??")}
-      </div>
-      <h4 className="text-[16px] font-semibold mb-1" style={{ color: CAMPUS.ink }}>{inst.name}</h4>
-      {inst.location && (
-        <div className="text-xs flex items-center gap-1 mb-4" style={{ color: CAMPUS.inkFaint }}>
-          <MapPin size={11} /> {inst.location}
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3 pt-4" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-        <div>
-          <span className="block text-[10px] font-mono uppercase tracking-wide" style={{ color: CAMPUS.inkFaint }}>Status</span>
-          <span className="block font-mono text-[13px] font-bold mt-0.5" style={{ color: (inst.accessMode || "public") === "public" ? CAMPUS.good : CAMPUS.warn }}>
-            {(inst.accessMode || "public") === "public" ? "OPEN" : inst.accessMode.replace("_", " ").toUpperCase()}
+    <Link href={`/campus/${inst.id}`} className="block">
+      <CampusCard hover className="p-6 h-full">
+        {featured && (
+          <span className="inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full mb-3" style={{ background: CAMPUS.goldTint, color: CAMPUS.gold, letterSpacing: "0.03em" }}>
+            FEATURED
           </span>
+        )}
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-[15px] mb-4 overflow-hidden"
+          style={inst.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.gradientPrimary, color: "#fff" }}>
+          {inst.logoUrl
+            ? <img src={inst.logoUrl} alt="" className="w-full h-full object-contain" />
+            : (inst.name?.slice(0, 2).toUpperCase() || "??")}
         </div>
-        {studentCount != null && (
-          <div>
-            <span className="block text-[10px] font-mono uppercase tracking-wide" style={{ color: CAMPUS.inkFaint }}>Students</span>
-            <span className="block font-mono text-[13px] font-bold mt-0.5" style={{ color: CAMPUS.ink }}>{studentCount}</span>
+        <h4 className="text-[16px] font-semibold mb-1" style={{ color: CAMPUS.ink }}>{inst.name}</h4>
+        {inst.location && (
+          <div className="text-xs flex items-center gap-1 mb-4" style={{ color: CAMPUS.inkFaint }}>
+            <MapPin size={11} /> {inst.location}
           </div>
         )}
-      </div>
+        <div className="grid grid-cols-2 gap-3 pt-4" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+          <div>
+            <span className="block text-[10px] font-mono uppercase tracking-wide" style={{ color: CAMPUS.inkFaint }}>Status</span>
+            <span className="block font-mono text-[13px] font-bold mt-0.5" style={{ color: (inst.accessMode || "public") === "public" ? CAMPUS.good : CAMPUS.warn }}>
+              {(inst.accessMode || "public") === "public" ? "OPEN" : inst.accessMode.replace("_", " ").toUpperCase()}
+            </span>
+          </div>
+          {studentCount != null && (
+            <div>
+              <span className="block text-[10px] font-mono uppercase tracking-wide" style={{ color: CAMPUS.inkFaint }}>Students</span>
+              <span className="block font-mono text-[13px] font-bold mt-0.5" style={{ color: CAMPUS.ink }}>{studentCount}</span>
+            </div>
+          )}
+        </div>
+      </CampusCard>
     </Link>
   );
 }
@@ -359,8 +371,8 @@ function InstitutionCard({ inst, studentCount, featured }) {
 function TrackChip({ label, onClick }) {
   return (
     <button onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3.5 py-2 transition-colors"
-      style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+      className="campus-btn inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3.5 py-2 rounded-full transition-all duration-150"
+      style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft, boxShadow: CAMPUS.shadow }}>
       {label} <ChevronRight size={12} style={{ color: CAMPUS.inkFaint }} />
     </button>
   );
@@ -778,7 +790,7 @@ function CampusDirectory() {
   const totalDepartments = institutions.length * DEPARTMENTS.length;
 
   return (
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp">
+    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme">
       {directoryJsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd) }} />
       )}
@@ -786,67 +798,78 @@ function CampusDirectory() {
       <CampusLandingNav onOpenFlyout={() => setFlyoutOpen(true)} />
       <CampusProfileFlyout open={flyoutOpen} onClose={() => setFlyoutOpen(false)} />
 
-      {/* Hero - full-bleed dark ground, sharp filled CTA, abstract mark echoing the
-          approved reference's layered-disc graphic, recolored teal-to-gold. */}
-      <div className="relative overflow-hidden flex items-end" style={{ minHeight: 420, background: "#0C1116" }}>
-        <svg className="absolute pointer-events-none hidden sm:block" style={{ right: -60, top: -40, width: 480, height: 480 }} viewBox="0 0 640 640">
-          <defs>
-            <linearGradient id="campusHeroGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#0E7C86" /><stop offset="100%" stopColor="#A9720B" />
-            </linearGradient>
-          </defs>
-          <g opacity="0.9">
-            <ellipse cx="420" cy="300" rx="220" ry="220" fill="url(#campusHeroGrad)" opacity="0.15" />
-            <ellipse cx="420" cy="300" rx="180" ry="180" fill="url(#campusHeroGrad)" opacity="0.22" />
-            <ellipse cx="420" cy="300" rx="140" ry="140" fill="url(#campusHeroGrad)" opacity="0.32" />
-            <ellipse cx="420" cy="300" rx="100" ry="100" fill="url(#campusHeroGrad)" opacity="0.5" />
-            <ellipse cx="420" cy="300" rx="60" ry="60" fill="url(#campusHeroGrad)" opacity="0.85" />
-          </g>
-        </svg>
-        <div className="relative z-10 px-6 sm:px-10 py-14 max-w-2xl">
-          <div className="flex items-center gap-2.5 mb-6">
-            <span className="w-[22px] h-[22px]" style={{ background: CAMPUS.teal, transform: "rotate(45deg)" }} />
-            <span className="text-[17px] font-semibold text-white">DeVert Campus</span>
+      {/* Hero - premium gradient ground (indigo -> purple, see CAMPUS.gradientHero),
+          floating glass stat cards instead of a flat inverted band underneath -
+          the "product showcase" surface every reference (Vercel/Linear/Stripe)
+          leads with. */}
+      <div className="relative" style={{ background: "#0A0E17" }}>
+        {/* Decorative blobs get their OWN overflow-hidden layer - the floating
+            stat strip below deliberately overflows this section's bottom
+            edge (translate-y-1/2), and overflow-hidden on the section itself
+            would clip that overflow instead of just containing these blobs. */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          <div className="absolute -right-24 -top-24 w-[420px] h-[420px] rounded-full" style={{ background: "radial-gradient(circle, #6366F1 0%, transparent 70%)", opacity: 0.35 }} />
+          <div className="absolute left-[-10%] bottom-[-30%] w-[380px] h-[380px] rounded-full" style={{ background: "radial-gradient(circle, #A855F7 0%, transparent 70%)", opacity: 0.3 }} />
+        </div>
+        <div className="relative z-10 px-6 sm:px-10 pt-16 pb-24 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-mono tracking-widest px-3 py-1.5 rounded-full mb-6"
+            style={{ background: "rgba(129,140,248,0.14)", color: "#A5B4FC", border: "1px solid rgba(129,140,248,0.3)" }}>
+            <Sparkles size={11} /> BUILT FOR TRAINING &amp; PLACEMENT CELLS
           </div>
-          <h1 className="font-semibold leading-[1.08] mb-5 text-white" style={{ letterSpacing: "-0.015em", fontSize: "clamp(1.9rem,4.5vw,2.9rem)" }}>
-            Structured learning &amp; placement prep, run by your college.
+          <h1 className="font-bold leading-[1.08] mb-5 text-white tracking-tight" style={{ fontSize: "clamp(2rem,5vw,3.2rem)" }}>
+            Build better campuses.<br />Empower better developers.
           </h1>
-          <p className="text-[15px] mb-8 max-w-[46ch]" style={{ color: "rgba(255,255,255,0.68)" }}>
-            Daily practice, weekly assessments, coding contests, and a real leaderboard - gated to your students, run by your own Training &amp; Placement Cell.
+          <p className="text-[15.5px] mb-8 max-w-[48ch]" style={{ color: "rgba(255,255,255,0.65)" }}>
+            Daily practice, weekly assessments, coding contests, and a real leaderboard - gated to your students, run by your own college.
           </p>
-          <button onClick={() => document.getElementById("featured-campuses")?.scrollIntoView({ behavior: "smooth" })}
-            className="text-[14.5px] font-bold px-7 py-3.5" style={{ background: CAMPUS.teal, color: "#fff" }}>
-            Explore campuses
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={() => document.getElementById("featured-campuses")?.scrollIntoView({ behavior: "smooth" })}
+              className="campus-btn campus-btn-glow text-[14px] font-bold px-6 py-3.5 rounded-xl transition-all duration-200"
+              style={{ background: "linear-gradient(135deg, #6366F1, #A855F7)", color: "#fff" }}>
+              Explore campuses
+            </button>
+            <button onClick={() => router.push("/login")}
+              className="campus-btn text-[14px] font-semibold px-6 py-3.5 rounded-xl transition-all duration-200"
+              style={{ background: "rgba(255,255,255,0.06)", color: "#fff", border: "1px solid rgba(255,255,255,0.14)" }}>
+              Get started
+            </button>
+          </div>
+        </div>
+
+        {/* Floating glass stat strip - overlaps the hero/body seam, the one
+            deliberate "product is real" proof point every premium SaaS
+            landing leads with. */}
+        <div className="relative z-10 px-6 sm:px-10">
+          <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pb-0 translate-y-1/2">
+            {[
+              { label: "Partner institutions", value: institutions.length, icon: Building2, color: "#818CF8" },
+              { label: "Registered students", value: totalDevertUsers != null ? totalDevertUsers.toLocaleString() : "…", icon: Users, color: "#22D3EE" },
+              { label: "Departments", value: totalDepartments, icon: GraduationCap, color: "#C084FC" },
+              { label: "Active contests", value: activeContestCount, icon: Trophy, color: "#FACC15" },
+            ].map(s => (
+              <div key={s.label} className="campus-glass rounded-2xl p-4 sm:p-5">
+                <s.icon size={18} style={{ color: s.color }} className="mb-2.5" />
+                <b className="block font-bold text-white" style={{ fontSize: 24 }}>{s.value}</b>
+                <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.55)" }}>{s.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Stat strip - dark inverted band, the one deliberate contrast beat, real numbers only.
-          Divider is sm:+ only, not index-based - at grid-cols-2 (mobile) every "i > 0" item
-          would wrongly inherit the divider meant for an interior COLUMN even when it's
-          actually starting a new row, so the border/padding themselves only exist at sm:+,
-          where the grid is a single row of 4 and index really does equal column. */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-7 gap-x-6 sm:gap-x-0" style={{ background: "#0C1116", padding: "36px 40px" }}>
-        {[
-          { label: "Partner institutions", value: institutions.length },
-          { label: "Registered students", value: totalDevertUsers != null ? totalDevertUsers.toLocaleString() : "…" },
-          { label: "Departments", value: totalDepartments },
-          { label: "Active contests", value: activeContestCount },
-        ].map((s, i) => (
-          <div key={s.label} className={i > 0 ? "sm:border-l sm:pl-5" : ""} style={{ borderColor: "rgba(255,255,255,0.15)" }}>
-            <b className="block font-mono font-bold text-white" style={{ fontSize: 30 }}>{s.value}</b>
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.55)" }}>{s.label}</span>
+      {/* Search band - sits far enough below the hero to clear the floating
+          stat strip's own overlap (translate-y-1/2 above). Rounded, glass-
+          adjacent search field with an icon prefix instead of a flat boxy
+          input, and a gradient search button matching the hero CTA. */}
+      <div className="px-6 sm:px-10 pt-20 pb-8" style={{ background: CAMPUS.paper }}>
+        <div className="max-w-2xl mx-auto flex items-stretch gap-2 rounded-2xl p-1.5"
+          style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
+          <div className="flex items-center gap-2.5 flex-1 pl-3">
+            <Search size={16} style={{ color: CAMPUS.inkFaint }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search your college by name, city, or state..."
+              className="flex-1 text-[14px] py-3 outline-none bg-transparent" style={{ color: CAMPUS.ink }} />
           </div>
-        ))}
-      </div>
-
-      {/* Search band - flat/boxy, no floating card, matches the reference exactly.
-          Directly above the results it filters, not sandwiched by the stat strip. */}
-      <div className="px-6 sm:px-10 py-8" style={{ borderBottom: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface }}>
-        <div className="max-w-2xl flex items-stretch" style={{ border: `1px solid ${CAMPUS.line}` }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search your college by name, city, or state..."
-            className="flex-1 text-[14px] px-4 py-3.5 outline-none bg-transparent" style={{ color: CAMPUS.ink }} />
-          <button className="px-6 text-[12.5px] font-bold flex-shrink-0" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>SEARCH</button>
+          <button className="campus-btn campus-btn-glow px-6 text-[13px] font-bold rounded-xl flex-shrink-0" style={{ background: CAMPUS.gradientPrimary, color: "#fff" }}>Search</button>
         </div>
       </div>
 
@@ -869,7 +892,7 @@ function CampusDirectory() {
             {!q && featured.length > 0 && (
               <div id="featured-campuses" className="mb-14 scroll-mt-20">
                 <SectionHeading icon={Flame} title="Featured Campuses" />
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 border-t border-l" style={{ borderColor: CAMPUS.line }}>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {featured.map((inst) => (
                     <InstitutionCard key={inst.id} inst={inst} studentCount={inst.studentCount ?? null} featured />
                   ))}
@@ -882,7 +905,7 @@ function CampusDirectory() {
               {filtered.length === 0 ? (
                 <CampusEmptyState size="sm" icon={Search} title="No matches" description={`No college matches "${search}".`} />
               ) : (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 border-t border-l" style={{ borderColor: CAMPUS.line }}>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filtered.filter(i => q || !featuredIds.has(i.id)).map((inst) => (
                     <InstitutionCard key={inst.id} inst={inst} studentCount={inst.studentCount ?? null} />
                   ))}
@@ -892,32 +915,30 @@ function CampusDirectory() {
           </>
         )}
 
-        {/* Features - flat, hairline-divided grid, no card shadows */}
         <div id="campus-features" className="mb-14 scroll-mt-20">
           <SectionHeading icon={GraduationCap} title="Everything a placement cell actually needs" />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4" style={{ borderTop: `1px solid ${CAMPUS.line}`, borderLeft: `1px solid ${CAMPUS.line}` }}>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { icon: BookOpen, title: "Daily Learning", body: "Notes, videos and concepts, published by your own faculty, with practice attached." },
-              { icon: ClipboardCheck, title: "Weekly Assessments", body: "Scheduled, negative-marked, department-scoped tests with real analytics after." },
-              { icon: Trophy, title: "Coding Contests", body: "Your own contests, on the same engine that powers DeVert's public Arena." },
-              { icon: Users, title: "Bulk Onboarding", body: "CSV roster import matches existing join requests by roll number, in one pass." },
-            ].map(f => {
-              const Icon = f.icon;
-              return (
-                <div key={f.title} className="p-6" style={{ borderRight: `1px solid ${CAMPUS.line}`, borderBottom: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface }}>
-                  <Icon size={22} style={{ color: CAMPUS.teal }} className="mb-4" />
-                  <h4 className="text-[14.5px] font-semibold mb-1.5" style={{ color: CAMPUS.ink }}>{f.title}</h4>
-                  <p className="text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{f.body}</p>
+              { icon: BookOpen, title: "Daily Learning", body: "Notes, videos and concepts, published by your own faculty, with practice attached.", color: CAMPUS.teal },
+              { icon: ClipboardCheck, title: "Weekly Assessments", body: "Scheduled, negative-marked, department-scoped tests with real analytics after.", color: CAMPUS.gold },
+              { icon: Trophy, title: "Coding Contests", body: "Your own contests, on the same engine that powers DeVert's public Arena.", color: CAMPUS.purple },
+              { icon: Users, title: "Bulk Onboarding", body: "CSV roster import matches existing join requests by roll number, in one pass.", color: CAMPUS.cyan },
+            ].map(f => (
+              <CampusCard key={f.title} hover className="p-6">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: `${f.color}18`, color: f.color }}>
+                  <f.icon size={20} />
                 </div>
-              );
-            })}
+                <h4 className="text-[14.5px] font-semibold mb-1.5" style={{ color: CAMPUS.ink }}>{f.title}</h4>
+                <p className="text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{f.body}</p>
+              </CampusCard>
+            ))}
           </div>
         </div>
 
         {user && (
           <div className="mb-10">
             <SectionHeading icon={Rocket} title="Your Learning Journey" />
-            <LearningJourneyCard sharp onContinue={() => router.push("/campus/learning")} />
+            <LearningJourneyCard onContinue={() => router.push("/campus/learning")} />
           </div>
         )}
 
@@ -939,7 +960,7 @@ function CampusDirectory() {
             } />
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {upcomingContests.map(c => (
-                <UpcomingContestRow key={c.id} contest={c} sharp onClick={(id) => router.push(`/campus/contests?open=${id}`)} />
+                <UpcomingContestRow key={c.id} contest={c} onClick={(id) => router.push(`/campus/contests?open=${id}`)} />
               ))}
             </div>
           </div>
@@ -1821,10 +1842,13 @@ function NavItem({ item, tab, setTab, collapsed }) {
   const active = tab === item.key;
   return (
     <button onClick={() => setTab(item.key)} title={collapsed ? item.label : undefined}
-      className={`relative flex items-center gap-2.5 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap transition-colors ${collapsed ? "justify-center px-0" : "px-3"}`}
-      style={{ background: active ? CAMPUS.tealTint : "transparent", color: active ? CAMPUS.teal : CAMPUS.inkSoft }}>
-      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full" style={{ background: CAMPUS.teal }} />}
-      <Icon size={15} className="flex-shrink-0" /> {!collapsed && item.label}
+      className={`campus-nav-item relative flex items-center gap-2.5 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all duration-150 ${collapsed ? "justify-center px-0" : "px-3"} ${active ? "campus-nav-item-active" : ""}`}
+      style={{
+        background: active ? CAMPUS.gradientPrimary : "transparent",
+        color: active ? "#fff" : CAMPUS.inkSoft,
+        boxShadow: active ? "0 4px 16px rgba(99,102,241,0.32)" : "none",
+      }}>
+      <Icon size={15} className="flex-shrink-0 transition-transform duration-150" /> {!collapsed && item.label}
     </button>
   );
 }
@@ -1849,8 +1873,10 @@ function CampusNavRail({ institution, tab, setTab, hiddenTabKeys, onRequestExit 
     <aside style={{ background: CAMPUS.surface, borderRight: `1px solid ${CAMPUS.line}` }}
       className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:self-start px-3 py-5 flex-col gap-1 transition-[width] duration-200 ${collapsed ? "lg:w-[76px]" : "lg:w-[220px]"}`}>
       <div className={`flex items-center gap-2.5 px-1 pb-5 mb-1 ${collapsed ? "justify-center" : ""}`} style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
-          style={institution.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.teal, color: "#fff" }}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
+          style={institution.logoUrl
+            ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }
+            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: "0 4px 14px rgba(99,102,241,0.32)" }}>
           {institution.logoUrl
             ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
             : institution.name?.slice(0, 2).toUpperCase()}
@@ -2081,23 +2107,28 @@ function useMyInstitutionRank(slug, myUid) {
 // exists and already works, never a placeholder feature.
 function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onAssessments, onManage, onProgramming, onCsCore, onAptitude, isInstAdmin }) {
   const actions = [
-    { label: "Daily Learning", icon: BookOpen, onClick: onLearning },
-    { label: "Programming", icon: CodeXml, onClick: onProgramming },
-    { label: "CS Core", icon: BrainCircuit, onClick: onCsCore },
-    { label: "Aptitude", icon: Calculator, onClick: onAptitude },
-    { label: "DSA", icon: Code2, onClick: onDsa },
-    { label: "Company Vault", icon: Briefcase, onClick: onCompanyVault },
-    { label: "Assessments", icon: ClipboardCheck, onClick: onAssessments },
-    { label: "Leaderboard", icon: BarChart3, onClick: onLeaderboard },
-    ...(isInstAdmin ? [{ label: "Manage", icon: ShieldCheck, onClick: onManage }] : []),
+    { label: "Daily Learning", icon: BookOpen, onClick: onLearning, color: CAMPUS.teal },
+    { label: "Programming", icon: CodeXml, onClick: onProgramming, color: CAMPUS.blue },
+    { label: "CS Core", icon: BrainCircuit, onClick: onCsCore, color: CAMPUS.cyan },
+    { label: "Aptitude", icon: Calculator, onClick: onAptitude, color: CAMPUS.warn },
+    { label: "DSA", icon: Code2, onClick: onDsa, color: CAMPUS.good },
+    { label: "Company Vault", icon: Briefcase, onClick: onCompanyVault, color: CAMPUS.bad },
+    { label: "Assessments", icon: ClipboardCheck, onClick: onAssessments, color: CAMPUS.gold },
+    { label: "Leaderboard", icon: BarChart3, onClick: onLeaderboard, color: CAMPUS.purple },
+    ...(isInstAdmin ? [{ label: "Manage", icon: ShieldCheck, onClick: onManage, color: CAMPUS.teal }] : []),
   ];
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
       {actions.map(a => (
-        <CampusButton key={a.label} variant="secondary" rounded="2xl" icon={a.icon} onClick={a.onClick}
-          className="w-full py-3.5" style={{ boxShadow: CAMPUS.shadow }}>
-          {a.label}
-        </CampusButton>
+        <CampusCard key={a.label} hover onClick={a.onClick} as="button"
+          className="w-full p-4 flex items-center gap-3 text-left group">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
+            style={{ background: `${a.color}18`, color: a.color }}>
+            <a.icon size={18} />
+          </div>
+          <span className="flex-1 text-[13px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{a.label}</span>
+          <ChevronRight size={15} className="flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" style={{ color: CAMPUS.inkFaint }} />
+        </CampusCard>
       ))}
     </div>
   );
@@ -2133,23 +2164,34 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
   }, [slug]);
 
   return (
-    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="campus-sharp">
-      <motion.div variants={slideUp} className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-semibold" style={{ color: CAMPUS.ink }}>
-          Welcome, {(userData?.displayName || "there").split(" ")[0]}
-        </h2>
-        <CampusChip color={CAMPUS.teal}>{isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")}</CampusChip>
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible">
+      <motion.div variants={slideUp} className="relative overflow-hidden rounded-2xl p-6 mb-6"
+        style={{ background: CAMPUS.gradientHero, border: `1px solid ${CAMPUS.line}` }}>
+        <div className="absolute -right-10 -top-16 w-56 h-56 rounded-full pointer-events-none" style={{ background: CAMPUS.teal, opacity: 0.14 }} aria-hidden="true" />
+        <div className="absolute -right-4 bottom-[-40px] w-32 h-32 rounded-full pointer-events-none" style={{ background: CAMPUS.purple, opacity: 0.14 }} aria-hidden="true" />
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.teal }}>
+              <Sparkles size={12} /> WELCOME BACK
+            </span>
+            <h2 className="text-2xl sm:text-[28px] font-bold tracking-tight" style={{ color: CAMPUS.ink }}>
+              {(userData?.displayName || "there").split(" ")[0]} 👋
+            </h2>
+            <p className="text-[13.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>Keep learning, keep growing - you&apos;re doing great.</p>
+          </div>
+          <CampusChip color={CAMPUS.teal}>{isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")}</CampusChip>
+        </div>
       </motion.div>
 
       <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-        <CampusStat label="Score" value={userData?.score ?? 0} color={CAMPUS.purple}
+        <CampusStat label="Score" value={userData?.score ?? 0} color={CAMPUS.purple} icon={Trophy}
           hint="Your permanent academic performance score. Never decreases and is never spent - this is what leaderboards and rankings are based on." />
-        <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal}
+        <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal} icon={Zap}
           hint="Spendable reward points earned from learning activities. Convert XP to Coins in the Wallet - this can go down." />
-        <CampusStat label="Coins" value={totalCoins ?? 0} color={CAMPUS.gold}
+        <CampusStat label="Coins" value={totalCoins ?? 0} color={CAMPUS.gold} icon={CoinsIcon}
           hint="Your real wallet balance. Coins can be withdrawn as INR from the Wallet page." />
-        <CampusStat label="Problems Solved" value={userData?.problemsSolvedCount ?? 0} color={CAMPUS.blue} />
-        <CampusStat label="Campus Rank" value={rank ? `#${rank}` : "-"} color={CAMPUS.good}
+        <CampusStat label="Problems Solved" value={userData?.problemsSolvedCount ?? 0} color={CAMPUS.blue} icon={CheckCircle2} />
+        <CampusStat label="Campus Rank" value={rank ? `#${rank}` : "-"} color={CAMPUS.good} icon={Shield}
           hint="Your rank within this campus, based on Score." />
       </motion.div>
 

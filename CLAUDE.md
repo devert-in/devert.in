@@ -60,6 +60,17 @@ balance.
 
 ## Design system
 
+**This section describes the main site** (landing page, Arena, Shipyard,
+Pulse, Grind, etc.) — the neon-terminal identity below. **DeVert Campus has
+its own, deliberately different design system** (a premium-SaaS look:
+Indigo/Violet/Cyan on deep navy, glassmorphism, Inter typography, gradient
+buttons, dark-first theming) — see `lib/campus-theme.js`'s `CAMPUS` tokens
+and `globals.css`'s `.campus-theme` block for the actual values, and
+`components/campus/campus-ui.jsx` for the shared primitives (`CampusCard`,
+`CampusButton`, `CampusStat`, etc.) every Campus screen builds from. Campus
+was the neon-terminal look before; that was a deliberate full pivot, not an
+oversight — don't backport it to the main site or vice versa.
+
 - **Palette:** near-black background, neon accents — green `#00FF41`
   (primary/positive), cyan `#00FFFF` (secondary/info), orange `#FF9500`,
   red `#FF5050`, purple `#C77DFF`/`#A78BFA`, gold `#FFD700`. Pick from this

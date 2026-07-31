@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   UserPlus, Trophy, GraduationCap, BookOpen, Palette, ClipboardCheck,
-  Activity, Award, Power, ChevronRight, Clock, Check,
+  Activity, Award, Power, ChevronRight, Clock, Check, Building2,
 } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
@@ -166,10 +166,10 @@ export function CampusAdminOverview({ slug, institution, onOpenContest }) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <CampusStat label="Total Students" value={institution?.studentCount ?? "-"} color={CAMPUS.teal} />
-        <CampusStat label="Pending Requests" value={pending?.length ?? "-"} color={CAMPUS.warn} />
-        <CampusStat label="Classrooms" value={classrooms?.length ?? "-"} color={CAMPUS.purple} />
-        <CampusStat label="Live Contests" value={contestBuckets.live.length} color={CAMPUS.good}
+        <CampusStat label="Total Students" value={institution?.studentCount ?? "-"} color={CAMPUS.teal} icon={GraduationCap} />
+        <CampusStat label="Pending Requests" value={pending?.length ?? "-"} color={CAMPUS.warn} icon={UserPlus} />
+        <CampusStat label="Classrooms" value={classrooms?.length ?? "-"} color={CAMPUS.purple} icon={Building2} />
+        <CampusStat label="Live Contests" value={contestBuckets.live.length} color={CAMPUS.good} icon={Trophy}
           hint={`${contestBuckets.upcoming.length} upcoming`} />
       </div>
 

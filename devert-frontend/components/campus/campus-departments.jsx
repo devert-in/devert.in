@@ -223,10 +223,10 @@ function DeptOverviewTab({ analytics, hod }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <CampusStat label="Students" value={kpis.totalStudents} />
-        <CampusStat label="HOD" value={hod ? hod.displayName : "Unassigned"} />
-        <CampusStat label="Avg Score" value={kpis.avgScore.toLocaleString()} color={CAMPUS.purple} />
-        <CampusStat label="Active This Week" value={`${kpis.activeThisWeek}/${kpis.totalStudents}`} color={CAMPUS.teal} />
+        <CampusStat label="Students" value={kpis.totalStudents} icon={Users} color={CAMPUS.teal} />
+        <CampusStat label="HOD" value={hod ? hod.displayName : "Unassigned"} icon={GraduationCap} color={CAMPUS.blue} />
+        <CampusStat label="Avg Score" value={kpis.avgScore.toLocaleString()} icon={Star} color={CAMPUS.purple} />
+        <CampusStat label="Active This Week" value={`${kpis.activeThisWeek}/${kpis.totalStudents}`} icon={TrendingUp} color={CAMPUS.good} />
       </div>
       <div className="grid sm:grid-cols-2 gap-4">
         <CampusCard className="p-4">

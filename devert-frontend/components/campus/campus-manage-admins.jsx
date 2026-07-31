@@ -52,8 +52,12 @@ export function CampusManageAdmins({ institutionId }) {
       <div className="flex gap-1.5 mb-5 flex-wrap">
         {MANAGE_ADMINS_TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className="text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: tab === t.key ? CAMPUS.tealTint : "transparent", color: tab === t.key ? CAMPUS.teal : CAMPUS.inkSoft }}>
+            className="campus-btn text-[12px] font-semibold px-3.5 py-2 rounded-xl transition-all duration-150"
+            style={{
+              background: tab === t.key ? CAMPUS.gradientPrimary : "transparent",
+              color: tab === t.key ? "#fff" : CAMPUS.inkSoft,
+              boxShadow: tab === t.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+            }}>
             {t.label}
           </button>
         ))}

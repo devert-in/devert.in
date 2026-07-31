@@ -15,18 +15,24 @@ import { CAMPUS } from "@/lib/campus-theme";
 // instead, which already swap with the .campus-theme[data-theme] attribute
 // the same way every other CAMPUS.* token does.
 
-export function CampusCard({ children, className = "", hover = false, style, as: As = "div", ...rest }) {
+// `glass` opts into the blurred, translucent .campus-glass treatment (see
+// globals.css) instead of a flat surface fill - reserved for chrome that's
+// meant to visually float above the page (hero banners, sticky bars), not
+// the default for every card (a fully-glass dashboard of a dozen cards reads
+// as noisy, not premium). `hover` now lifts AND deepens the shadow together
+// via a CSS transition instead of manual mouseenter/leave handlers, so the
+// motion itself is GPU-friendly (transform + opacity only) and respects
+// prefers-reduced-motion for free (see globals.css's campus-theme override).
+export function CampusCard({ children, className = "", hover = false, glass = false, style, as: As = "div", ...rest }) {
   return (
     <As
-      className={`rounded-2xl transition-shadow ${hover ? "cursor-pointer" : ""} ${className}`}
+      className={`rounded-2xl transition-all duration-200 ${hover ? "cursor-pointer campus-card-hover" : ""} ${glass ? "campus-glass" : ""} ${className}`}
       style={{
-        background: CAMPUS.surface,
-        border: `1px solid ${CAMPUS.line}`,
+        background: glass ? undefined : CAMPUS.surface,
+        border: glass ? undefined : `1px solid ${CAMPUS.line}`,
         boxShadow: CAMPUS.shadow,
         ...style,
       }}
-      onMouseEnter={hover ? (e) => { e.currentTarget.style.boxShadow = CAMPUS.shadowHover; e.currentTarget.style.transform = "translateY(-2px)"; } : undefined}
-      onMouseLeave={hover ? (e) => { e.currentTarget.style.boxShadow = CAMPUS.shadow; e.currentTarget.style.transform = "translateY(0)"; } : undefined}
       {...rest}
     >
       {children}
@@ -64,11 +70,37 @@ export function CampusProgressBar({ pct, color = CAMPUS.teal }) {
   );
 }
 
-export function CampusStat({ label, value, color, hint }) {
+// `icon`/`trend` are additive - every pre-existing `<CampusStat label value
+// color hint />` call site (dozens, across Manage/Analytics/Department
+// dashboards) renders exactly as before, just picking up the new card chrome
+// for free. `trend` is a plain string like "+12%" or "-3%" - the leading
+// sign decides the arrow/color (up = good, down = bad), so callers don't
+// need to compute a {direction,value} shape themselves.
+export function CampusStat({ label, value, color, hint, icon: Icon, trend }) {
+  const accent = color || CAMPUS.teal;
+  const trendUp = typeof trend === "string" && trend.trim().startsWith("+");
+  const trendDown = typeof trend === "string" && trend.trim().startsWith("-");
   return (
-    <CampusCard className="p-3.5">
-      <span className="block text-[10px] font-mono tracking-wide mb-1.5" style={{ color: CAMPUS.inkFaint }} title={hint || undefined}>{label.toUpperCase()}</span>
-      <span className="block font-mono text-xl font-bold" style={{ color: color || CAMPUS.ink }}>{value}</span>
+    <CampusCard hover className="p-4 relative overflow-hidden">
+      {Icon && (
+        <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full opacity-[0.08]" style={{ background: accent }} aria-hidden="true" />
+      )}
+      <div className="flex items-start justify-between gap-2 mb-2.5">
+        {Icon ? (
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${accent}18`, color: accent }}>
+            <Icon size={16} />
+          </div>
+        ) : (
+          <span className="text-[10px] font-mono tracking-wide" style={{ color: CAMPUS.inkFaint }} title={hint || undefined}>{label.toUpperCase()}</span>
+        )}
+        {trend && (
+          <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: trendDown ? CAMPUS.bad : trendUp ? CAMPUS.good : CAMPUS.inkFaint }}>
+            {trendUp ? "↑" : trendDown ? "↓" : ""} {trend.replace(/^[+-]/, "")}
+          </span>
+        )}
+      </div>
+      <span className="block text-2xl font-bold tabular-nums" style={{ color: CAMPUS.ink, fontFamily: "var(--font-inter)" }}>{value}</span>
+      <span className="block text-[11.5px] mt-0.5" style={{ color: CAMPUS.inkFaint }} title={Icon ? hint : undefined}>{Icon ? label : null}</span>
     </CampusCard>
   );
 }
@@ -128,10 +160,19 @@ export function CampusEmptyState({ icon: Icon, title, description, action, secon
   );
 }
 
+// primary is a gradient fill (indigo -> purple, see CAMPUS.gradientPrimary)
+// rather than a flat chrome block - the one place this redesign's "gradient
+// buttons" requirement lives, inherited for free by every existing
+// `<CampusButton>` (no variant prop) call site across the app. `campus-btn-
+// glow` (globals.css) adds the soft color-matched shadow-on-hover instead of
+// a plain darken, which is what makes a gradient button read as "premium"
+// instead of just colorful.
 const CAMPUS_BUTTON_VARIANTS = {
-  primary:   { background: CAMPUS.chromeBg, color: CAMPUS.chromeFg },
+  primary:   { background: CAMPUS.gradientPrimary, color: "#fff" },
   secondary: { background: CAMPUS.surface, color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` },
   ghost:     { background: "transparent", color: CAMPUS.teal },
+  glass:     { background: CAMPUS.glassBg, color: CAMPUS.ink, border: `1px solid ${CAMPUS.glassBorder}` },
+  success:   { background: CAMPUS.good, color: "#fff" },
   danger:    { background: CAMPUS.badTint, color: CAMPUS.bad },
 };
 
@@ -149,9 +190,10 @@ export function CampusButton({ variant = "primary", size = "md", rounded = "lg",
   const variantStyle = CAMPUS_BUTTON_VARIANTS[variant] || CAMPUS_BUTTON_VARIANTS.primary;
   const sizing = size === "sm" ? "px-3 py-1.5 text-[12px]" : "px-4 py-2.5 text-[13px]";
   const radiusClass = CAMPUS_RADIUS[rounded] || CAMPUS_RADIUS.lg;
+  const glowable = variant === "primary" || variant === "success";
   return (
     <button
-      className={`inline-flex items-center justify-center gap-1.5 font-semibold transition-colors disabled:opacity-50 ${radiusClass} ${sizing} ${className}`}
+      className={`campus-btn inline-flex items-center justify-center gap-1.5 font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${glowable ? "campus-btn-glow" : ""} ${radiusClass} ${sizing} ${className}`}
       style={{ ...variantStyle, ...style }}
       {...rest}
     >

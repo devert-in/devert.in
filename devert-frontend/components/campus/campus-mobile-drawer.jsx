@@ -101,8 +101,9 @@ export function CampusMobileDrawer({
   const jumpToManageSubTab = (key) => { onJumpToManage(key); handleClose(); };
 
   const rowStyle = (active) => ({
-    background: active ? CAMPUS.tealTint : "transparent",
-    color: active ? CAMPUS.teal : CAMPUS.ink,
+    background: active ? CAMPUS.gradientPrimary : "transparent",
+    color: active ? "#fff" : CAMPUS.ink,
+    boxShadow: active ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
   });
 
   return (

@@ -560,8 +560,12 @@ function ContestQuestionsStep({ institutionId, contestId, questions, setQuestion
         <div className="flex gap-1.5 mb-4 flex-wrap">
           {ADD_MODES.map(m => (
             <button key={m.key} onClick={() => setAddMode(m.key)}
-              className="text-[12px] font-semibold px-3 py-1.5 rounded-lg"
-              style={{ background: addMode === m.key ? CAMPUS.tealTint : "transparent", color: addMode === m.key ? CAMPUS.teal : CAMPUS.inkSoft }}>
+              className="campus-btn text-[12px] font-semibold px-3.5 py-2 rounded-xl transition-all duration-150"
+              style={{
+                background: addMode === m.key ? CAMPUS.gradientPrimary : "transparent",
+                color: addMode === m.key ? "#fff" : CAMPUS.inkSoft,
+                boxShadow: addMode === m.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+              }}>
               {m.label}
             </button>
           ))}

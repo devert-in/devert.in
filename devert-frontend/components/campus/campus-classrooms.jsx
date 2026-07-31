@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   ChevronRight, Users, GraduationCap, Medal, LayoutGrid, BarChart3, Trophy, Activity as ActivityIcon,
   FileText, Settings as SettingsIcon, ArrowUpDown, Search, Download, Printer, AlertTriangle, Star,
-  CheckCircle2, Circle, TrendingUp,
+  CheckCircle2, Circle, TrendingUp, Zap, Coins, BookOpen,
 } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
@@ -418,15 +418,15 @@ function ClassroomOverviewTab({ analytics }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <CampusStat label="Students" value={kpis.totalStudents} />
-        <CampusStat label="Active Today" value={`${kpis.activeToday}/${kpis.totalStudents}`} color={CAMPUS.good} />
-        <CampusStat label="Active This Week" value={`${kpis.activeThisWeek}/${kpis.totalStudents}`} color={CAMPUS.teal} />
-        <CampusStat label="Avg Score" value={kpis.avgScore.toLocaleString()} color={CAMPUS.purple} />
-        <CampusStat label="Avg XP" value={kpis.avgXp.toLocaleString()} color={CAMPUS.gold} />
-        <CampusStat label="Avg Coins" value={kpis.avgCoins.toLocaleString()} color={CAMPUS.gold} />
-        <CampusStat label="Avg Problems Solved" value={kpis.avgProblemsSolved} color={CAMPUS.blue} />
-        <CampusStat label="Daily Learning Today" value={`${kpis.dailyLearningCompletedToday}/${kpis.totalStudents}`} color={CAMPUS.purple} />
-        <CampusStat label="No Activity This Week" value={kpis.fallingBehindCount} color={kpis.fallingBehindCount > 0 ? CAMPUS.bad : CAMPUS.inkFaint} />
+        <CampusStat label="Students" value={kpis.totalStudents} icon={Users} />
+        <CampusStat label="Active Today" value={`${kpis.activeToday}/${kpis.totalStudents}`} color={CAMPUS.good} icon={CheckCircle2} />
+        <CampusStat label="Active This Week" value={`${kpis.activeThisWeek}/${kpis.totalStudents}`} color={CAMPUS.teal} icon={TrendingUp} />
+        <CampusStat label="Avg Score" value={kpis.avgScore.toLocaleString()} color={CAMPUS.purple} icon={Star} />
+        <CampusStat label="Avg XP" value={kpis.avgXp.toLocaleString()} color={CAMPUS.gold} icon={Zap} />
+        <CampusStat label="Avg Coins" value={kpis.avgCoins.toLocaleString()} color={CAMPUS.gold} icon={Coins} />
+        <CampusStat label="Avg Problems Solved" value={kpis.avgProblemsSolved} color={CAMPUS.blue} icon={Trophy} />
+        <CampusStat label="Daily Learning Today" value={`${kpis.dailyLearningCompletedToday}/${kpis.totalStudents}`} color={CAMPUS.purple} icon={BookOpen} />
+        <CampusStat label="No Activity This Week" value={kpis.fallingBehindCount} color={kpis.fallingBehindCount > 0 ? CAMPUS.bad : CAMPUS.inkFaint} icon={AlertTriangle} />
       </div>
 
       <CampusCard className="p-4">
@@ -732,8 +732,8 @@ function ClassroomActivityTab({ analytics }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <CampusStat label="Active Today" value={`${kpis.activeToday}/${kpis.totalStudents}`} color={CAMPUS.good} />
-        <CampusStat label="Active This Week" value={`${kpis.activeThisWeek}/${kpis.totalStudents}`} color={CAMPUS.teal} />
+        <CampusStat label="Active Today" value={`${kpis.activeToday}/${kpis.totalStudents}`} color={CAMPUS.good} icon={CheckCircle2} />
+        <CampusStat label="Active This Week" value={`${kpis.activeThisWeek}/${kpis.totalStudents}`} color={CAMPUS.teal} icon={TrendingUp} />
       </div>
 
       <CampusCard className="p-4">
@@ -818,10 +818,10 @@ function ClassroomReportsTab({ analytics, year, department, section }) {
         <CampusCard className="p-4 mb-4">
           <p className="text-[14px] font-semibold mb-3" style={{ color: CAMPUS.ink }}>{year} · {department} · Section {section} - Summary</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <CampusStat label="Students" value={kpis.totalStudents} />
-            <CampusStat label="Active Today" value={kpis.activeToday} color={CAMPUS.good} />
-            <CampusStat label="Avg Score" value={kpis.avgScore} color={CAMPUS.purple} />
-            <CampusStat label="Avg Problems Solved" value={kpis.avgProblemsSolved} color={CAMPUS.blue} />
+            <CampusStat label="Students" value={kpis.totalStudents} icon={Users} />
+            <CampusStat label="Active Today" value={kpis.activeToday} color={CAMPUS.good} icon={CheckCircle2} />
+            <CampusStat label="Avg Score" value={kpis.avgScore} color={CAMPUS.purple} icon={Star} />
+            <CampusStat label="Avg Problems Solved" value={kpis.avgProblemsSolved} color={CAMPUS.blue} icon={Trophy} />
           </div>
         </CampusCard>
         <CampusCard className="p-0 overflow-hidden">

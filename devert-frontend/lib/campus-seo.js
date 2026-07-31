@@ -6,6 +6,17 @@
 // sitemap.ts already relies on. No admin credentials, no new secrets.
 import { fetchInstitutions, fetchInstitution } from "@/lib/institutions";
 
+// Reserved top-level /campus/{slug} paths that are NOT institution slugs -
+// campus-app.jsx's own pre-auth-usable global sections (contests/learning/
+// practice). Lives here, not in campus-app.jsx (a "use client" module),
+// because app/campus/[slug]/page.jsx needs this same list at build/server
+// time (generateStaticParams/generateMetadata/notFound() guard) - importing
+// a plain constant from a client component module into server code doesn't
+// give you the real value, Next replaces every export of a "use client"
+// module with an opaque client-reference proxy, which isn't iterable. This
+// file has no "use client" directive, so both sides import the same array.
+export const GLOBAL_SECTIONS = ["contests", "learning", "practice"];
+
 // key: the internal CampusWorkspace tab id (campus-app.jsx's TAB_URL_SEGMENT
 // keys must match these exactly). urlSegment: "" means the institution root
 // (/campus/[slug] itself, no extra segment).

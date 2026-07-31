@@ -9,12 +9,23 @@
 export const CAMPUS = {
   paper: "var(--campus-paper)",
   surface: "var(--campus-surface)",
+  // A second, slightly-lifted surface tone (between paper and surface) - for
+  // nested/hover states inside a card, or a page's overall dashboard-widget
+  // background, where a plain white/pure-surface tone would read too flat
+  // against the premium-SaaS glass/depth look.
+  surface2: "var(--campus-surface-2)",
   line: "var(--campus-line)",
   ink: "var(--campus-ink)",
   inkSoft: "var(--campus-ink-soft)",
   inkFaint: "var(--campus-ink-faint)",
+  // Primary interactive accent (Indigo) - kept the `teal` name since hundreds
+  // of already-shipped components key their primary color off CAMPUS.teal;
+  // see globals.css's .campus-theme comment for why that made this a
+  // one-file palette swap instead of a per-component migration.
   teal: "var(--campus-teal)",
   tealTint: "var(--campus-teal-tint)",
+  cyan: "var(--campus-cyan)",
+  cyanTint: "var(--campus-cyan-tint)",
   gold: "var(--campus-gold)",
   goldTint: "var(--campus-gold-tint)",
   good: "var(--campus-good)",
@@ -36,6 +47,10 @@ export const CAMPUS = {
   shadow: "var(--campus-shadow)",
   shadowHover: "var(--campus-shadow-hover)",
   shadowLg: "var(--campus-shadow-lg)",
+  glassBg: "var(--campus-glass-bg)",
+  glassBorder: "var(--campus-glass-border)",
+  gradientPrimary: "var(--campus-gradient-primary)",
+  gradientHero: "var(--campus-gradient-hero)",
 };
 
 // Fixed literal hex, deliberately NOT CAMPUS.* var() references - an

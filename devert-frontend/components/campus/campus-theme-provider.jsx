@@ -19,7 +19,7 @@ import { CAMPUS } from "@/lib/campus-theme";
 // with light/dark values swapped via the data-theme attribute this provider
 // sets - so toggling repaints every component below without threading a
 // resolved-color prop through each one.
-const CampusThemeContext = createContext({ theme: "light", toggleTheme: () => {} });
+const CampusThemeContext = createContext({ theme: "dark", toggleTheme: () => {} });
 
 export function useCampusTheme() {
   return useContext(CampusThemeContext);
@@ -29,9 +29,11 @@ export function CampusThemeProvider({ children }) {
   // Lazy initializer, not a mount effect - localStorage is already
   // synchronously available the first time this ever renders (this
   // component only lives inside the client-only Campus workspace tree).
+  // Dark is the default identity now (premium-SaaS redesign) - light stays
+  // fully supported, just no longer the fallback for a first-time visitor.
   const [theme, setTheme] = useState(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("campus-theme") : null;
-    return saved === "dark" || saved === "light" ? saved : "light";
+    return saved === "dark" || saved === "light" ? saved : "dark";
   });
   const toggleTheme = () => setTheme(t => {
     const next = t === "light" ? "dark" : "light";

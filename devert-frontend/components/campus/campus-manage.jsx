@@ -207,10 +207,11 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
       <div className="flex gap-1.5 mb-5 flex-wrap">
         {visibleManageTabs.map(t => (
           <button key={t.key} onClick={() => handleTabClick(t.key)}
-            className="text-[12.5px] font-semibold px-3.5 py-1.5 rounded-lg transition-colors"
+            className="campus-btn text-[12.5px] font-semibold px-3.5 py-1.5 rounded-xl transition-all duration-150"
             style={{
-              background: tab === t.key ? CAMPUS.tealTint : "transparent",
-              color: tab === t.key ? CAMPUS.teal : CAMPUS.inkSoft,
+              background: tab === t.key ? CAMPUS.gradientPrimary : "transparent",
+              color: tab === t.key ? "#fff" : CAMPUS.inkSoft,
+              boxShadow: tab === t.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
             }}>
             {t.label}
           </button>
@@ -1271,10 +1272,11 @@ function StudentsViewToggle({ studentsView, setStudentsView }) {
     <div className="flex gap-1.5 mb-4">
       {options.map(o => (
         <button key={o.key} onClick={() => setStudentsView(o.key)}
-          className="text-[12px] font-semibold px-3 py-3 rounded-lg transition-colors"
+          className="campus-btn text-[12px] font-semibold px-3.5 py-2 rounded-xl transition-all duration-150"
           style={{
-            background: studentsView === o.key ? CAMPUS.tealTint : "transparent",
-            color: studentsView === o.key ? CAMPUS.teal : CAMPUS.inkFaint,
+            background: studentsView === o.key ? CAMPUS.gradientPrimary : "transparent",
+            color: studentsView === o.key ? "#fff" : CAMPUS.inkFaint,
+            boxShadow: studentsView === o.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
           }}>
           {o.label}
         </button>

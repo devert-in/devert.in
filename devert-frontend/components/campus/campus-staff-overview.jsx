@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ShieldCheck, Building2 } from "lucide-react";
+import { ShieldCheck, Building2, Users } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusStat, CampusSkeleton } from "@/components/campus/campus-ui";
 import { ROLE_CATALOG } from "@/lib/permissions";
@@ -47,8 +47,8 @@ export function CampusStaffOverview({ slug, institution, staffScope }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-          <CampusStat label="Students" value={stats.studentCount} color={CAMPUS.teal} hint="Approved students across the whole institution." />
-          <CampusStat label="Departments" value={stats.departmentCount} color={CAMPUS.purple} hint="Departments configured for this institution." />
+          <CampusStat label="Students" value={stats.studentCount} color={CAMPUS.teal} icon={Users} hint="Approved students across the whole institution." />
+          <CampusStat label="Departments" value={stats.departmentCount} color={CAMPUS.purple} icon={Building2} hint="Departments configured for this institution." />
         </div>
       )}
 
