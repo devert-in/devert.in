@@ -153,7 +153,9 @@ function CsCoreSidebarList({ screen, onSelectSubject, onSelectTopic, onBackToLis
   if (screen.view === "list") {
     return <CsCoreSubjectSidebar onSelect={onSelectSubject} />;
   }
-  return <CsCoreTopicSidebar subjectId={screen.subjectId} activeTopicId={screen.topicId}
+  // Keyed by subjectId so switching subjects remounts this fresh - see the
+  // identical comment on campus-programming.jsx's ProgrammingTopicSidebar.
+  return <CsCoreTopicSidebar key={screen.subjectId} subjectId={screen.subjectId} activeTopicId={screen.topicId}
     onSelectTopic={onSelectTopic} onBackToList={onBackToList} />;
 }
 
@@ -180,7 +182,7 @@ function CsCoreSubjectSidebar({ onSelect }) {
 
 function CsCoreTopicSidebar({ subjectId, activeTopicId, onSelectTopic, onBackToList }) {
   const [topics, setTopics] = useState(null);
-  useEffect(() => { setTopics(null); fetchTopics(subjectId).then(setTopics).catch(() => setTopics([])); }, [subjectId]);
+  useEffect(() => { fetchTopics(subjectId).then(setTopics).catch(() => setTopics([])); }, [subjectId]);
   const modules = useMemo(() => {
     if (!topics) return [];
     const byModule = []; const seen = new Map();

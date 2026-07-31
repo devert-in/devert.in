@@ -110,7 +110,11 @@ function ProgrammingSidebarList({ screen, onSelectLanguage, onSelectTopic, onBac
   if (screen.view === "list") {
     return <ProgrammingLanguageSidebar onSelect={onSelectLanguage} />;
   }
-  return <ProgrammingTopicSidebar langId={screen.langId} activeTopicId={screen.topicId}
+  // Keyed by langId so switching languages remounts this fresh (state resets
+  // to loading naturally) instead of an effect manually nulling out the
+  // previous language's topics - the React-recommended pattern for "reset
+  // state when an identifying prop changes."
+  return <ProgrammingTopicSidebar key={screen.langId} langId={screen.langId} activeTopicId={screen.topicId}
     onSelectTopic={onSelectTopic} onBackToList={onBackToList} />;
 }
 
@@ -134,7 +138,7 @@ function ProgrammingLanguageSidebar({ onSelect }) {
 
 function ProgrammingTopicSidebar({ langId, activeTopicId, onSelectTopic, onBackToList }) {
   const [topics, setTopics] = useState(null);
-  useEffect(() => { setTopics(null); fetchTopics(langId).then(setTopics).catch(() => setTopics([])); }, [langId]);
+  useEffect(() => { fetchTopics(langId).then(setTopics).catch(() => setTopics([])); }, [langId]);
   const modules = useMemo(() => {
     if (!topics) return [];
     const byModule = []; const seen = new Map();
