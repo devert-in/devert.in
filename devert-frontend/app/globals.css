@@ -118,7 +118,13 @@ select option {
   --campus-line: rgba(255,255,255,0.08);
   --campus-ink: #F4F6FB;
   --campus-ink-soft: #A3ABBD;
-  --campus-ink-faint: #6B7386;
+  /* Was #6B7386 - measured ~3.5:1 against --campus-surface/--campus-paper,
+     below WCAG AA's 4.5:1 for the small (9-11px) label/metadata text this
+     token is used for everywhere (sidebar section headers, timestamps,
+     hint text). #94A3B8 (Tailwind's slate-400) measures ~6.9:1 against
+     surface and ~7.5:1 against paper - comfortably legible without reading
+     as full-emphasis text the way --campus-ink-soft does. */
+  --campus-ink-faint: #94A3B8;
   --campus-teal: #818CF8;
   --campus-teal-tint: rgba(129,140,248,0.16);
   --campus-cyan: #22D3EE;

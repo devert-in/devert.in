@@ -96,6 +96,11 @@ export function CampusAptitudeTab({ sidebarSlot }) {
 // the active topic highlighted once one is open.
 function AptitudeSidebarList({ activeTopicId, onSelectTopic }) {
   const [topics, setTopics] = useState(null);
+  // Collapsed by default except whichever category the active topic (if
+  // any) belongs to - open categories are a Set of category names, same
+  // shape as AptitudeRoadmap's own inline accordion state, just independent
+  // of it (this is a second, sidebar-only instance of the same UI idea).
+  const [openCategories, setOpenCategories] = useState(new Set());
   useEffect(() => { fetchAptitudeTopics().then(setTopics).catch(() => setTopics([])); }, []);
   const byCategory = useMemo(() => {
     const grouped = {};
@@ -103,6 +108,16 @@ function AptitudeSidebarList({ activeTopicId, onSelectTopic }) {
     (topics || []).forEach(t => { if (grouped[t.category]) grouped[t.category].push(t); });
     return grouped;
   }, [topics]);
+  // Derived at render time, not synced via an effect - the active topic's
+  // category should always read as open, so it's simplest (and avoids a
+  // setState-in-effect) to just OR it into the open-check below rather than
+  // keep it copied into openCategories too.
+  const activeCategory = useMemo(() => topics?.find(t => t.id === activeTopicId)?.category, [topics, activeTopicId]);
+  const toggleCategory = (cat) => setOpenCategories(prev => {
+    const next = new Set(prev);
+    if (next.has(cat)) next.delete(cat); else next.add(cat);
+    return next;
+  });
   return (
     <>
       <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>APTITUDE</div>
@@ -110,12 +125,15 @@ function AptitudeSidebarList({ activeTopicId, onSelectTopic }) {
         const catTopics = byCategory[cat];
         if (!catTopics.length) return null;
         const Meta = CATEGORY_META[cat] || CATEGORY_META.Quantitative;
+        const open = openCategories.has(cat) || cat === activeCategory;
         return (
           <div key={cat} className="mb-1.5">
-            <div className="flex items-center gap-1.5 px-3 py-1 text-[9.5px] font-mono tracking-widest" style={{ color: Meta.color }}>
+            <button onClick={() => toggleCategory(cat)}
+              className="w-full flex items-center gap-1.5 px-3 py-1 text-[9.5px] font-mono tracking-widest text-left" style={{ color: Meta.color }}>
+              {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
               <Meta.icon size={11} /> {cat.toUpperCase()}
-            </div>
-            {catTopics.map(t => (
+            </button>
+            {open && catTopics.map(t => (
               <button key={t.id} onClick={() => onSelectTopic(t.id)}
                 className="campus-btn w-full flex items-center px-3 py-1.5 rounded-lg text-left transition-all duration-150"
                 style={{

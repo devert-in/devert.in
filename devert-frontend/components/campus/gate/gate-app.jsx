@@ -277,6 +277,11 @@ export function CampusGateTab({ sidebarSlot }) {
         <GateHeader paper={data.paper} papers={data.papers} onSwitchPaper={data.switchPaper}
           completion={data.completion} loading={data.loading} />
 
+        {/* Mobile-only: GateSidebarNav above is portaled into the desktop-only
+            CampusContextSidebar (hidden below lg:) - without this row a phone
+            would have no way to switch GATE's 16 sections at all. */}
+        <GateMobileSectionNav active={screen.section} onSelect={(key) => go(key)} />
+
         {data.loading ? (
           <div className="space-y-4">
             <CampusCard className="p-4"><CampusSkeleton height={110} /></CampusCard>
@@ -410,6 +415,38 @@ function GateHeader({ paper, papers, onSwitchPaper, completion, loading }) {
 // five groups and their sections are always shown - unlike the old bar,
 // there's no "active group" filter to maintain, since a full vertical list
 // of 16 items reads fine in a sidebar the same way Manage's 12 tabs do.
+// Mobile fallback for GateSidebarNav - a single horizontal scrollable row of
+// all 16 sections (grouped by a thin divider, same visual idea as
+// CampusTopNavbar's group dividers), since the desktop sidebar it normally
+// lives in is hidden below lg:.
+function GateMobileSectionNav({ active, onSelect }) {
+  return (
+    <div className="lg:hidden flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+      {GATE_GROUPS.map((g, gi) => (
+        <div key={g.key} className="flex items-center gap-1.5 flex-shrink-0"
+          style={gi > 0 ? { marginLeft: 4, paddingLeft: 8, borderLeft: `1px solid ${CAMPUS.line}` } : undefined}>
+          {GATE_SECTIONS.filter(s => s.group === g.key).map(s => {
+            const isActive = s.key === active;
+            const Icon = s.icon;
+            return (
+              <button key={s.key} onClick={() => onSelect(s.key)}
+                aria-current={isActive ? "page" : undefined}
+                className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0 transition-colors"
+                style={{
+                  background: isActive ? CAMPUS.tealTint : CAMPUS.paper,
+                  border: `1px solid ${isActive ? CAMPUS.teal : CAMPUS.line}`,
+                  color: isActive ? CAMPUS.teal : CAMPUS.inkSoft,
+                }}>
+                <Icon size={12} /> {s.label}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function GateSidebarNav({ active, onSelect }) {
   return (
     <>

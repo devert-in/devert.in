@@ -1218,6 +1218,14 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     goTab("learning");
     setLearningJump({ trackId, nonce: ++learningJumpNonceRef.current });
   };
+  // DSA's category filter lives directly in this component's own state (no
+  // child module owns it, unlike Programming/CS Core) - so unlike those,
+  // the mobile drawer's nested DSA category list just sets it straight,
+  // no jump/nonce/remount machinery needed.
+  const jumpToDsaCategory = (category) => {
+    setPracticeCategory(category);
+    goTab("dsa");
+  };
 
   // Search-result navigation. Two steps, and both are needed:
   //
@@ -1690,8 +1698,9 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
         onSearchSelect={handleSearchSelect}
         onExpandSidebar={() => setSidebarCollapsed(false)} />
       <CampusMobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}
-        institution={institution} tab={tab} goTab={goTab} isInstAdmin={isInstAdmin}
-        hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onJumpToTrack={jumpToTrack} onRequestExit={exitGuard.requestExit}
+        institution={institution} slug={slug} tab={tab} goTab={goTab} isInstAdmin={isInstAdmin}
+        hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onJumpToTrack={jumpToTrack}
+        onJumpToDsaCategory={jumpToDsaCategory} onSearchSelect={handleSearchSelect} onRequestExit={exitGuard.requestExit}
         themeToggle={<CampusThemeToggle />}
         onSignOut={async () => { await logout(); router.push("/campus"); }} />
       <div className="flex-1 min-w-0 flex flex-col">
@@ -1722,7 +1731,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           {isTabAllowed("profile") && tab === "profile" && (
             <ProfileTab userData={userData} totalCoins={totalCoins} membership={membership} institution={institution} isInstAdmin={isInstAdmin} staffScope={staffScope} />
           )}
-          {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} sidebarSlot={sidebarEl} jumpToTrack={learningJump} />}
+          {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} sidebarSlot={sidebarEl} jumpToTrack={learningJump} onSearchSelect={handleSearchSelect} />}
           {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab key={searchNonce} sidebarSlot={sidebarEl} />}
           {isTabAllowed("csCore") && tab === "csCore" && <CampusCsCoreTab key={searchNonce} sidebarSlot={sidebarEl} />}
           {isTabAllowed("aptitude") && tab === "aptitude" && <CampusAptitudeTab key={searchNonce} sidebarSlot={sidebarEl} />}
@@ -1739,6 +1748,14 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
               {practiceScreen.view === "list" && (
                 <>
                   <DsaProgressSummary user={user} />
+                  {/* Mobile-only: CategoryFilterList above is portaled into the
+                      desktop-only CampusContextSidebar (hidden below lg:), so
+                      without this inline row a phone has no way to filter by
+                      category at all - Difficulty/Company keep working
+                      inline on every screen size, Category needs the same. */}
+                  <div className="lg:hidden mb-4">
+                    <CategoryFilterList horizontal sortAlpha value={practiceCategory} onChange={setPracticeCategory} />
+                  </div>
                   <div className="flex gap-5 flex-wrap mb-6">
                     <SidebarFilterGroup horizontal label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={practiceDifficulty} onChange={setPracticeDifficulty} />
                     <CompanyFilterList horizontal value={practiceCompany} onChange={setPracticeCompany} />
@@ -2192,7 +2209,7 @@ function CampusProfileMenu({ institution, slug, userData, uid, setTab, onRequest
 
 function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, drawerOpen, tab, hiddenTabKeys, onRequestExit }) {
   return (
-    <header className="flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0"
+    <header className="flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0 sticky top-0 z-30"
       style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
       <button onClick={onOpenDrawer} aria-label="Open navigation" aria-expanded={drawerOpen} aria-haspopup="dialog"
         className="lg:hidden flex items-center justify-center flex-shrink-0 rounded-lg -ml-1.5"

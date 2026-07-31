@@ -2,25 +2,34 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { X, Search, ChevronRight, ChevronDown, ShieldCheck, BookOpen } from "lucide-react";
+import { X, ChevronRight, ChevronDown } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import { NAV_ITEMS, GROUP_ORDER, NAV_GROUP_LABELS } from "@/lib/campusNavConfig";
 import { MANAGE_TABS } from "@/components/campus/campus-manage";
 import { TRACK_CATALOG } from "@/lib/dailyLearning";
+import { CampusSidebarSearch } from "@/components/campus/campus-search";
+import { fetchLanguages } from "@/lib/programming";
+import { fetchSubjects } from "@/lib/csCore";
+import { LanguageLogo } from "@/components/campus/language-logo";
+import { APTITUDE_CATEGORIES } from "@/lib/aptitude";
+import { GATE_SECTIONS } from "@/components/campus/gate/gate-app";
+import { CODELAB_CATEGORIES } from "@/lib/codelab";
 
 const COLLAPSE_STORAGE_KEY = "campus-drawer-collapsed-groups";
 
 // The hamburger drawer - full parity with the desktop rail by construction
 // (it renders every NAV_ITEMS entry, the rail's own filter is just a subset
-// of visibility flags), plus an admin-only nested list of Manage's own
-// sub-tabs and a quick-search over both. See lib/campusNavConfig.js for the
-// single source of truth this and CampusNavRail/CampusBottomNav all share.
+// of visibility flags), a real cross-module search (CampusSidebarSearch,
+// shared with the desktop CampusContextSidebar - see lib/campusSearch.js so
+// "java" finds the Java curriculum here too, not just module names), plus
+// nested lists of Manage/Daily Learning/Programming/CS Core's own sub-items.
+// See lib/campusNavConfig.js for the single source of truth this and
+// CampusTopNavbar/CampusBottomNav all share.
 export function CampusMobileDrawer({
-  open, onClose, institution, tab, goTab, isInstAdmin, hiddenTabKeys,
-  onJumpToManage, onJumpToTrack, onRequestExit, themeToggle, onSignOut,
+  open, onClose, institution, slug, tab, goTab, isInstAdmin, hiddenTabKeys,
+  onJumpToManage, onJumpToTrack, onJumpToDsaCategory, onSearchSelect, onRequestExit, themeToggle, onSignOut,
 }) {
   const prefersReducedMotion = useReducedMotion();
-  const [query, setQuery] = useState("");
   // Lazy initializer, not a mount effect - localStorage is already
   // synchronously available the first time this ever renders (this
   // component only lives inside the client-only Campus workspace tree),
@@ -32,8 +41,33 @@ export function CampusMobileDrawer({
       return raw ? new Set(JSON.parse(raw)) : new Set();
     } catch { return new Set(); } // corrupt/old value - just start fully expanded
   });
+  // Which nav items with a nested sub-list (manage/learning/programming/
+  // csCore) currently have that sub-list expanded - starts empty (all
+  // collapsed) so the drawer opens as a compact single-level list; expanding
+  // one is a click on its own chevron (see DrawerRow's hasNested handling
+  // below), independent of tapping the row itself (which still navigates).
+  // Not persisted - a fresh, predictable collapsed state each time the
+  // drawer opens is preferable to remembering which item was last expanded.
+  const [expandedNested, setExpandedNested] = useState(() => new Set());
+  const toggleNested = (key) => setExpandedNested(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  // Programming/CS Core's own catalogs, fetched once per drawer session (on
+  // first open, not on mount - this component stays mounted at all times so
+  // an unconditional fetch would run for every Campus visit, not just the
+  // ones where a phone user actually opens the drawer) and nested under
+  // their nav item the same way Manage/Daily Learning already are.
+  const [languages, setLanguages] = useState(null);
+  const [subjects, setSubjects] = useState(null);
+  useEffect(() => {
+    if (!open) return;
+    if (languages === null) fetchLanguages().then(setLanguages).catch(() => setLanguages([]));
+    if (subjects === null) fetchSubjects().then(setSubjects).catch(() => setSubjects([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   const panelRef = useRef(null);
-  const searchInputRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
 
   const toggleGroup = (groupKey) => {
@@ -52,7 +86,7 @@ export function CampusMobileDrawer({
   useEffect(() => {
     if (!open) return;
     previouslyFocusedRef.current = document.activeElement;
-    const raf = requestAnimationFrame(() => searchInputRef.current?.focus());
+    const raf = requestAnimationFrame(() => panelRef.current?.querySelector("input")?.focus());
     document.body.style.overflow = "hidden";
     return () => {
       cancelAnimationFrame(raf);
@@ -61,11 +95,7 @@ export function CampusMobileDrawer({
     };
   }, [open]);
 
-  // Clears the search query as part of the SAME event that closes the
-  // drawer (not a separate effect reacting to `open`) - every internal
-  // close path (backdrop, X, Escape, selecting a destination) routes
-  // through this instead of the raw onClose prop.
-  const handleClose = () => { setQuery(""); onClose(); };
+  const handleClose = () => onClose();
 
   const handleKeyDown = (e) => {
     if (e.key === "Escape") { handleClose(); return; }
@@ -90,18 +120,25 @@ export function CampusMobileDrawer({
     })).filter(g => g.items.length > 0)
   ), [visibleNavItems]);
 
-  const searchResults = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return null;
-    const navMatches = visibleNavItems.filter(i => i.label.toLowerCase().includes(q));
-    const manageMatches = isInstAdmin ? MANAGE_TABS.filter(t => t.label.toLowerCase().includes(q)) : [];
-    const trackMatches = TRACK_CATALOG.filter(t => t.label.toLowerCase().includes(q));
-    return { navMatches, manageMatches, trackMatches };
-  }, [query, visibleNavItems, isInstAdmin]);
-
   const goToNavItem = (key) => { goTab(key); handleClose(); };
   const jumpToManageSubTab = (key) => { onJumpToManage(key); handleClose(); };
   const jumpToTrackItem = (key) => { onJumpToTrack(key); handleClose(); };
+  // Programming/CS Core don't have Manage/Daily Learning's own bespoke jump
+  // mechanism - they're two of the four modules CampusWorkspace's shared
+  // search-select handler already knows how to remount straight to a deep
+  // link (see campus-app.jsx's handleSearchSelect), so nested clicks here
+  // reuse that instead of inventing a third jump prop pair.
+  const jumpToLanguage = (langId) => { onSearchSelect({ tab: "programming", params: { lang: langId } }); handleClose(); };
+  const jumpToSubject = (subjectId) => { onSearchSelect({ tab: "csCore", params: { subject: subjectId } }); handleClose(); };
+  // GATE is the fourth remount-compatible module (same mechanism as
+  // Programming/CS Core above). Aptitude has no per-category URL param (only
+  // per-topic), so its nested rows just open the tab itself rather than
+  // pretending to deep-link into one category. DSA's category filter lives
+  // directly in CampusWorkspace's own state, so it gets its own dedicated
+  // prop (onJumpToDsaCategory) instead of the shared search-select jump.
+  const jumpToGateSection = (key) => { onSearchSelect({ tab: "gate", params: { section: key } }); handleClose(); };
+  const jumpToAptitude = () => { goTab("aptitude"); handleClose(); };
+  const jumpToDsaCat = (cat) => { onJumpToDsaCategory(cat); handleClose(); };
 
   const rowStyle = (active) => ({
     background: active ? CAMPUS.gradientPrimary : "transparent",
@@ -145,81 +182,120 @@ export function CampusMobileDrawer({
             </div>
 
             <div className="px-3 pt-3 flex-shrink-0">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CAMPUS.inkFaint }} />
-                <input ref={searchInputRef} value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search navigation..." aria-label="Search navigation"
-                  className="w-full pl-9 pr-3 rounded-lg text-[13px] outline-none"
-                  style={{ height: 40, background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
-              </div>
+              <CampusSidebarSearch slug={slug} hiddenTabKeys={hiddenTabKeys} collapsed={false}
+                onSelect={(item) => { onSearchSelect(item); handleClose(); }} />
             </div>
 
             <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
-              {searchResults ? (
-                searchResults.navMatches.length === 0 && searchResults.manageMatches.length === 0 && searchResults.trackMatches.length === 0 ? (
-                  <p className="px-2 py-4 text-[12.5px] text-center" style={{ color: CAMPUS.inkFaint }}>No matches.</p>
-                ) : (
-                  <>
-                    {searchResults.navMatches.map(item => (
-                      <DrawerRow key={item.key} icon={item.icon} label={item.label} active={tab === item.key}
-                        onClick={() => goToNavItem(item.key)} rowStyle={rowStyle} />
-                    ))}
-                    {searchResults.manageMatches.map(t => (
-                      <DrawerRow key={`manage-${t.key}`} icon={ShieldCheck} label={`Manage → ${t.label}`}
-                        onClick={() => jumpToManageSubTab(t.key)} rowStyle={rowStyle} />
-                    ))}
-                    {searchResults.trackMatches.map(t => (
-                      <DrawerRow key={`learning-${t.key}`} icon={BookOpen} label={`Daily Learning → ${t.label}`}
-                        onClick={() => jumpToTrackItem(t.key)} rowStyle={rowStyle} />
-                    ))}
-                  </>
-                )
-              ) : (
-                groupedItems.map(group => {
-                  const collapsed = collapsedGroups.has(group.key);
-                  return (
-                    <div key={group.key} className="flex flex-col gap-0.5">
-                      {group.label && (
-                        <button onClick={() => toggleGroup(group.key)}
-                          className="flex items-center gap-1.5 px-2 py-1.5 text-[9.5px] font-mono tracking-widest"
-                          style={{ color: CAMPUS.inkFaint, minHeight: 32 }}
-                          aria-expanded={!collapsed}>
-                          {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
-                          {group.label.toUpperCase()}
-                        </button>
-                      )}
-                      {!collapsed && group.items.map(item => (
-                        <div key={item.key}>
-                          <DrawerRow icon={item.icon} label={item.label} active={tab === item.key}
-                            onClick={() => goToNavItem(item.key)} rowStyle={rowStyle} />
-                          {item.key === "manage" && isInstAdmin && (
-                            <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
-                              {MANAGE_TABS.map(t => (
-                                <button key={t.key} onClick={() => jumpToManageSubTab(t.key)}
-                                  className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
-                                  style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
-                                  {t.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {item.key === "learning" && (
-                            <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
-                              {TRACK_CATALOG.map(t => (
-                                <button key={t.key} onClick={() => jumpToTrackItem(t.key)}
-                                  className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
-                                  style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
-                                  {t.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })
-              )}
+              {groupedItems.map(group => {
+                const collapsed = collapsedGroups.has(group.key);
+                return (
+                  <div key={group.key} className="flex flex-col gap-0.5">
+                    {group.label && (
+                      <button onClick={() => toggleGroup(group.key)}
+                        className="flex items-center gap-1.5 px-2 py-1.5 text-[9.5px] font-mono tracking-widest"
+                        style={{ color: CAMPUS.inkFaint, minHeight: 32 }}
+                        aria-expanded={!collapsed}>
+                        {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+                        {group.label.toUpperCase()}
+                      </button>
+                    )}
+                    {!collapsed && group.items.map(item => {
+                      const hasNested = (item.key === "manage" && isInstAdmin)
+                        || ["learning", "programming", "csCore", "aptitude", "gate", "dsa"].includes(item.key);
+                      const nestedOpen = expandedNested.has(item.key);
+                      return (
+                      <div key={item.key}>
+                        <DrawerRow icon={item.icon} label={item.label} active={tab === item.key}
+                          onClick={() => goToNavItem(item.key)} rowStyle={rowStyle}
+                          hasNested={hasNested} nestedOpen={nestedOpen} onToggleNested={() => toggleNested(item.key)} />
+                        {item.key === "manage" && isInstAdmin && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {MANAGE_TABS.map(t => (
+                              <button key={t.key} onClick={() => jumpToManageSubTab(t.key)}
+                                className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "learning" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {TRACK_CATALOG.map(t => (
+                              <button key={t.key} onClick={() => jumpToTrackItem(t.key)}
+                                className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "programming" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {languages === null ? (
+                              <p className="px-3 py-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>Loading...</p>
+                            ) : languages.map(lang => (
+                              <button key={lang.id} onClick={() => jumpToLanguage(lang.id)}
+                                className="flex items-center gap-2 rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                <LanguageLogo name={lang.name} size={13} /> {lang.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "csCore" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {subjects === null ? (
+                              <p className="px-3 py-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>Loading...</p>
+                            ) : subjects.map(subject => (
+                              <button key={subject.id} onClick={() => jumpToSubject(subject.id)}
+                                className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                {subject.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "aptitude" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {APTITUDE_CATEGORIES.map(cat => (
+                              <button key={cat} onClick={jumpToAptitude}
+                                className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                {cat}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "gate" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {GATE_SECTIONS.map(s => (
+                              <button key={s.key} onClick={() => jumpToGateSection(s.key)}
+                                className="flex items-center gap-2 rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                <s.icon size={13} className="flex-shrink-0" /> {s.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "dsa" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3 max-h-[50vh] overflow-y-auto" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {[...CODELAB_CATEGORIES].sort((a, b) => a.localeCompare(b)).map(cat => (
+                              <button key={cat} onClick={() => jumpToDsaCat(cat)}
+                                className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                {cat}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </nav>
 
             <div className="flex-shrink-0 px-3 py-3 flex flex-col gap-0.5" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
@@ -245,13 +321,26 @@ export function CampusMobileDrawer({
   );
 }
 
-function DrawerRow({ icon: Icon, label, active, onClick, rowStyle }) {
+// hasNested items (Manage/Daily Learning/Programming/CS Core) get a second,
+// separate chevron button so tapping the row still navigates to that tab
+// while tapping the chevron only expands/collapses its sub-list - the two
+// gestures shouldn't be conflated onto one tap target.
+function DrawerRow({ icon: Icon, label, active, onClick, rowStyle, hasNested, nestedOpen, onToggleNested }) {
   return (
-    <button onClick={onClick}
-      className="flex items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] font-medium text-left transition-colors"
-      style={{ minHeight: 44, ...rowStyle(active) }}>
-      <Icon size={16} className="flex-shrink-0" />
-      <span className="truncate">{label}</span>
-    </button>
+    <div className="flex items-center gap-1">
+      <button onClick={onClick}
+        className="flex-1 min-w-0 flex items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] font-medium text-left transition-colors"
+        style={{ minHeight: 44, ...rowStyle(active) }}>
+        <Icon size={16} className="flex-shrink-0" />
+        <span className="truncate">{label}</span>
+      </button>
+      {hasNested && (
+        <button onClick={(e) => { e.stopPropagation(); onToggleNested(); }}
+          aria-label={nestedOpen ? `Collapse ${label}` : `Expand ${label}`} aria-expanded={nestedOpen}
+          className="flex-shrink-0 flex items-center justify-center rounded-lg" style={{ width: 40, height: 40, color: CAMPUS.inkFaint }}>
+          {nestedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+      )}
+    </div>
   );
 }

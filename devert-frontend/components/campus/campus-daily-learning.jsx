@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, XCircle, Circle, Lock, BookOpen, Code2, Zap, Coins, ClipboardCheck,
   ChevronRight, X as CloseIcon, Trophy, Medal, Target, AlertTriangle, Info,
-  Briefcase, ArrowRight, Lightbulb, ListChecks, Clock, Pencil, Calculator,
+  Briefcase, ArrowRight, Lightbulb, ListChecks, Clock, Pencil, Calculator, GraduationCap,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -79,8 +79,11 @@ function NextLessonCard({ dayCompleted, nextItem, onGoToNext }) {
 // (no Firestore doc, no click handler) since these tracks have no content
 // model yet; each becomes a real TRACK_CATALOG entry (see lib/dailyLearning.js)
 // the day it's actually built, at which point it moves out of this list.
+// GATE Prep Series lived here until it was discovered the GATE module
+// already has its own real, working "Daily GATE" plan (GateDaily, driven by
+// lib/gate.js's fetchDailyPlan) - not a placeholder, so it gets a real,
+// clickable shortcut below instead of a disabled teaser tile.
 const COMING_SOON_TRACKS = [
-  { label: "GATE Prep Series", icon: Target },
   { label: "Communication Series", icon: Lightbulb },
   { label: "AI & ML Series", icon: Zap },
 ];
@@ -161,13 +164,50 @@ function TrackSidebarItem({ slug, track, active, onSelect }) {
   );
 }
 
-function DailyLearningSidebarList({ slug, activeTrackId, onSelect }) {
+// GATE's own "Daily GATE" plan already exists as a real, working feature
+// (GateDaily, in gate-daily.jsx, driven by lib/gate.js's fetchDailyPlan) -
+// this is a shortcut INTO that existing section, not a new track/content
+// model. Navigation reuses the same shared search-select jump every other
+// deep link inside Programming/CS Core/Aptitude/GATE already goes through
+// (see campus-app.jsx's handleSearchSelect) rather than a bespoke prop.
+function GateDailyCard({ onOpen }) {
+  return (
+    <button onClick={onOpen} className="w-full text-left">
+      <CampusCard hover className="p-5 flex items-center gap-4">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
+          <GraduationCap size={20} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <b className="block text-[14.5px]" style={{ color: CAMPUS.ink }}>Daily GATE</b>
+          <p className="text-[12px] mt-0.5" style={{ color: CAMPUS.inkSoft }}>Your day&apos;s GATE prep plan, inside the GATE module</p>
+        </div>
+        <span className="flex items-center gap-1 text-[12px] font-semibold flex-shrink-0" style={{ color: CAMPUS.teal }}>
+          Continue <ArrowRight size={13} />
+        </span>
+      </CampusCard>
+    </button>
+  );
+}
+
+function GateDailySidebarItem({ onSelect }) {
+  return (
+    <button onClick={onSelect}
+      className="campus-btn flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
+      style={{ color: CAMPUS.inkSoft }}>
+      <GraduationCap size={15} className="flex-shrink-0" />
+      <span className="text-[13px] font-medium truncate">Daily GATE</span>
+    </button>
+  );
+}
+
+function DailyLearningSidebarList({ slug, activeTrackId, onSelect, onOpenGateDaily }) {
   return (
     <>
       <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>DAILY LEARNING</div>
       {TRACK_CATALOG.map(track => (
         <TrackSidebarItem key={track.key} slug={slug} track={track} active={activeTrackId === track.key} onSelect={onSelect} />
       ))}
+      <GateDailySidebarItem onSelect={onOpenGateDaily} />
       <div className="px-1 pt-3 pb-1 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>COMING SOON</div>
       {COMING_SOON_TRACKS.map(t => (
         <div key={t.label} className="flex items-center gap-2.5 px-3 py-2 rounded-lg opacity-50" style={{ cursor: "not-allowed" }}>
@@ -191,9 +231,15 @@ function DailyLearningSidebarList({ slug, activeTrackId, onSelect }) {
 // hands down for this module's own sub-navigation - portaled unconditionally
 // (both on the picker screen and once a track is open), not just after a
 // track is picked.
-export function CampusDailyLearningLanding({ slug, sidebarSlot, jumpToTrack }) {
+export function CampusDailyLearningLanding({ slug, sidebarSlot, jumpToTrack, onSearchSelect }) {
   const searchParams = useSearchParams();
   const [trackId, setTrackId] = useState(() => searchParams.get("track") || null);
+
+  // Routes into GATE's own existing Daily GATE section via the shared
+  // search-select jump (campus-app.jsx's handleSearchSelect), which is what
+  // every other cross-module deep link already uses - so this needs no
+  // bespoke navigation of its own.
+  const openGateDaily = () => onSearchSelect?.({ tab: "gate", params: { section: "daily" } });
 
   // Lets the mobile drawer's nested track list (see campus-mobile-drawer.jsx)
   // command an already-mounted landing screen straight to a track, the same
@@ -212,7 +258,8 @@ export function CampusDailyLearningLanding({ slug, sidebarSlot, jumpToTrack }) {
   }, [trackId, slug]);
 
   const sidebar = sidebarSlot && createPortal(
-    <DailyLearningSidebarList slug={slug} activeTrackId={trackId} onSelect={setTrackId} />,
+    <DailyLearningSidebarList slug={slug} activeTrackId={trackId} onSelect={setTrackId}
+      onOpenGateDaily={openGateDaily} />,
     sidebarSlot
   );
 
@@ -235,6 +282,9 @@ export function CampusDailyLearningLanding({ slug, sidebarSlot, jumpToTrack }) {
       {TRACK_CATALOG.map(track => (
         <TrackProgressCard key={track.key} slug={slug} track={track} onOpen={setTrackId} />
       ))}
+      {/* Sits with the real tracks rather than under COMING SOON, because
+          unlike those it is a live feature - it just lives in the GATE module. */}
+      <GateDailyCard onOpen={openGateDaily} />
       <div className="pt-2">
         <p className="text-[9.5px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>COMING SOON</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
