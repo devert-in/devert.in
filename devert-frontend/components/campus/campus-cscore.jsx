@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Rocket, Clock, Briefcase, ChevronDown, ChevronRight, TrendingUp,
+  Rocket, Clock, Briefcase, ChevronDown, ChevronRight, ChevronLeft, TrendingUp,
   Check, Lightbulb, ListChecks, Target, BookOpen, Code2,
   AlertTriangle, Sparkles, Coins, Zap, ArrowRight, GraduationCap, Cpu,
   Database, Network, Puzzle, Ruler, CircuitBoard, Hammer, Blocks, Landmark,
@@ -76,7 +77,7 @@ function topicHasContent(topic) {
 
 // ---------------- Top-level screen router ----------------
 
-export function CampusCsCoreTab() {
+export function CampusCsCoreTab({ sidebarSlot }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const slug = pathname.split("/").filter(Boolean)[1];
@@ -108,20 +109,110 @@ export function CampusCsCoreTab() {
     else setScreen({ view: "list" });
   });
 
+  const sidebar = sidebarSlot && createPortal(
+    <CsCoreSidebarList screen={screen}
+      onSelectSubject={(subjectId) => setScreen({ view: "roadmap", subjectId })}
+      onSelectTopic={(topicId) => setScreen({ view: "topic", subjectId: screen.subjectId, topicId })}
+      onBackToList={() => setScreen({ view: "list" })} />,
+    sidebarSlot
+  );
+
   if (screen.view === "roadmap") {
     return (
-      <SubjectRoadmap subjectId={screen.subjectId}
-        onBack={() => setScreen({ view: "list" })}
-        onOpenTopic={(topicId) => setScreen({ view: "topic", subjectId: screen.subjectId, topicId })} />
+      <>
+        {sidebar}
+        <SubjectRoadmap subjectId={screen.subjectId}
+          onBack={() => setScreen({ view: "list" })}
+          onOpenTopic={(topicId) => setScreen({ view: "topic", subjectId: screen.subjectId, topicId })} />
+      </>
     );
   }
   if (screen.view === "topic") {
     return (
-      <TopicView subjectId={screen.subjectId} topicId={screen.topicId}
-        onBack={() => setScreen({ view: "roadmap", subjectId: screen.subjectId })} />
+      <>
+        {sidebar}
+        <TopicView subjectId={screen.subjectId} topicId={screen.topicId}
+          onBack={() => setScreen({ view: "roadmap", subjectId: screen.subjectId })} />
+      </>
     );
   }
-  return <CsCoreLanding onOpenSubject={(subjectId) => setScreen({ view: "roadmap", subjectId })} />;
+  return (
+    <>
+      {sidebar}
+      <CsCoreLanding onOpenSubject={(subjectId) => setScreen({ view: "roadmap", subjectId })} />
+    </>
+  );
+}
+
+// Navigation Architecture 2.0 - CS Core's own sub-navigation, portaled into
+// CampusContextSidebar's slot - same shape as Programming's sidebar (subject
+// list on the landing screen, that subject's own topic tree once open), a
+// second independent fetch of fetchTopics(subjectId) rather than threading
+// state through SubjectRoadmap.
+function CsCoreSidebarList({ screen, onSelectSubject, onSelectTopic, onBackToList }) {
+  if (screen.view === "list") {
+    return <CsCoreSubjectSidebar onSelect={onSelectSubject} />;
+  }
+  return <CsCoreTopicSidebar subjectId={screen.subjectId} activeTopicId={screen.topicId}
+    onSelectTopic={onSelectTopic} onBackToList={onBackToList} />;
+}
+
+function CsCoreSubjectSidebar({ onSelect }) {
+  const [subjects, setSubjects] = useState(null);
+  useEffect(() => { fetchSubjects().then(setSubjects).catch(() => setSubjects([])); }, []);
+  return (
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>CS CORE</div>
+      {subjects === null ? <CampusSkeleton height={100} className="mx-1" /> : subjects.map(subject => {
+        const Icon = subjectIcon(subject.name);
+        return (
+          <button key={subject.id} onClick={() => onSelect(subject.id)}
+            className="campus-btn flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
+            style={{ color: CAMPUS.inkSoft }}>
+            <Icon size={15} className="flex-shrink-0" />
+            <span className="text-[13px] font-medium truncate">{subject.name}</span>
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+function CsCoreTopicSidebar({ subjectId, activeTopicId, onSelectTopic, onBackToList }) {
+  const [topics, setTopics] = useState(null);
+  useEffect(() => { setTopics(null); fetchTopics(subjectId).then(setTopics).catch(() => setTopics([])); }, [subjectId]);
+  const modules = useMemo(() => {
+    if (!topics) return [];
+    const byModule = []; const seen = new Map();
+    topics.forEach(t => {
+      const key = t.module || "General";
+      if (!seen.has(key)) { seen.set(key, { module: key, topics: [] }); byModule.push(seen.get(key)); }
+      seen.get(key).topics.push(t);
+    });
+    return byModule;
+  }, [topics]);
+  return (
+    <>
+      <button onClick={onBackToList} className="flex items-center gap-1 px-1 pb-2 mb-1 text-[11px] font-semibold" style={{ color: CAMPUS.inkFaint }}>
+        <ChevronLeft size={12} /> All subjects
+      </button>
+      {topics === null ? <CampusSkeleton height={120} className="mx-1" /> : modules.map(({ module, topics: moduleTopics }) => (
+        <div key={module} className="mb-1.5">
+          <div className="px-3 py-1 text-[9.5px] font-mono tracking-widest truncate" style={{ color: CAMPUS.inkFaint }}>{module.toUpperCase()}</div>
+          {moduleTopics.map(t => (
+            <button key={t.id} onClick={() => onSelectTopic(t.id)}
+              className="campus-btn w-full flex items-center px-3 py-1.5 rounded-lg text-left transition-all duration-150"
+              style={{
+                background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
+                color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
+              }}>
+              <span className="text-[12.5px] truncate">{t.title}</span>
+            </button>
+          ))}
+        </div>
+      ))}
+    </>
+  );
 }
 
 // ---------------- Landing ----------------

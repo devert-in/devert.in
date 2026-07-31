@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { X, Search, ChevronRight, ChevronDown, ShieldCheck } from "lucide-react";
+import { X, Search, ChevronRight, ChevronDown, ShieldCheck, BookOpen } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import { NAV_ITEMS, GROUP_ORDER, NAV_GROUP_LABELS } from "@/lib/campusNavConfig";
 import { MANAGE_TABS } from "@/components/campus/campus-manage";
+import { TRACK_CATALOG } from "@/lib/dailyLearning";
 
 const COLLAPSE_STORAGE_KEY = "campus-drawer-collapsed-groups";
 
@@ -16,7 +17,7 @@ const COLLAPSE_STORAGE_KEY = "campus-drawer-collapsed-groups";
 // single source of truth this and CampusNavRail/CampusBottomNav all share.
 export function CampusMobileDrawer({
   open, onClose, institution, tab, goTab, isInstAdmin, hiddenTabKeys,
-  onJumpToManage, onRequestExit, themeToggle, onSignOut,
+  onJumpToManage, onJumpToTrack, onRequestExit, themeToggle, onSignOut,
 }) {
   const prefersReducedMotion = useReducedMotion();
   const [query, setQuery] = useState("");
@@ -94,11 +95,13 @@ export function CampusMobileDrawer({
     if (!q) return null;
     const navMatches = visibleNavItems.filter(i => i.label.toLowerCase().includes(q));
     const manageMatches = isInstAdmin ? MANAGE_TABS.filter(t => t.label.toLowerCase().includes(q)) : [];
-    return { navMatches, manageMatches };
+    const trackMatches = TRACK_CATALOG.filter(t => t.label.toLowerCase().includes(q));
+    return { navMatches, manageMatches, trackMatches };
   }, [query, visibleNavItems, isInstAdmin]);
 
   const goToNavItem = (key) => { goTab(key); handleClose(); };
   const jumpToManageSubTab = (key) => { onJumpToManage(key); handleClose(); };
+  const jumpToTrackItem = (key) => { onJumpToTrack(key); handleClose(); };
 
   const rowStyle = (active) => ({
     background: active ? CAMPUS.gradientPrimary : "transparent",
@@ -153,7 +156,7 @@ export function CampusMobileDrawer({
 
             <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
               {searchResults ? (
-                searchResults.navMatches.length === 0 && searchResults.manageMatches.length === 0 ? (
+                searchResults.navMatches.length === 0 && searchResults.manageMatches.length === 0 && searchResults.trackMatches.length === 0 ? (
                   <p className="px-2 py-4 text-[12.5px] text-center" style={{ color: CAMPUS.inkFaint }}>No matches.</p>
                 ) : (
                   <>
@@ -164,6 +167,10 @@ export function CampusMobileDrawer({
                     {searchResults.manageMatches.map(t => (
                       <DrawerRow key={`manage-${t.key}`} icon={ShieldCheck} label={`Manage → ${t.label}`}
                         onClick={() => jumpToManageSubTab(t.key)} rowStyle={rowStyle} />
+                    ))}
+                    {searchResults.trackMatches.map(t => (
+                      <DrawerRow key={`learning-${t.key}`} icon={BookOpen} label={`Daily Learning → ${t.label}`}
+                        onClick={() => jumpToTrackItem(t.key)} rowStyle={rowStyle} />
                     ))}
                   </>
                 )
@@ -189,6 +196,17 @@ export function CampusMobileDrawer({
                             <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
                               {MANAGE_TABS.map(t => (
                                 <button key={t.key} onClick={() => jumpToManageSubTab(t.key)}
+                                  className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                  style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                  {t.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {item.key === "learning" && (
+                            <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                              {TRACK_CATALOG.map(t => (
+                                <button key={t.key} onClick={() => jumpToTrackItem(t.key)}
                                   className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
                                   style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
                                   {t.label}

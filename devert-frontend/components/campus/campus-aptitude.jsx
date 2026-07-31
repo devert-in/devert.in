@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Calculator, Brain, MessageSquare, Clock, ChevronDown, ChevronRight,
@@ -46,7 +47,7 @@ function topicHasContent(topic) {
 
 // ---------------- Top-level screen router ----------------
 
-export function CampusAptitudeTab() {
+export function CampusAptitudeTab({ sidebarSlot }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const slug = pathname.split("/").filter(Boolean)[1];
@@ -65,10 +66,70 @@ export function CampusAptitudeTab() {
 
   useCampusBackHandler(2, screen.view !== "roadmap", () => setScreen({ view: "roadmap" }));
 
+  const sidebar = sidebarSlot && createPortal(
+    <AptitudeSidebarList activeTopicId={screen.view === "topic" ? screen.topicId : null}
+      onSelectTopic={(topicId) => setScreen({ view: "topic", topicId })} />,
+    sidebarSlot
+  );
+
   if (screen.view === "topic") {
-    return <AptitudeTopicView topicId={screen.topicId} onBack={() => setScreen({ view: "roadmap" })} />;
+    return (
+      <>
+        {sidebar}
+        <AptitudeTopicView topicId={screen.topicId} onBack={() => setScreen({ view: "roadmap" })} />
+      </>
+    );
   }
-  return <AptitudeRoadmap onOpenTopic={(topicId) => setScreen({ view: "topic", topicId })} />;
+  return (
+    <>
+      {sidebar}
+      <AptitudeRoadmap onOpenTopic={(topicId) => setScreen({ view: "topic", topicId })} />
+    </>
+  );
+}
+
+// Navigation Architecture 2.0 - Aptitude's own sub-navigation, portaled into
+// CampusContextSidebar's slot. Unlike Programming/CS Core there's no
+// language/subject intermediate level here - Aptitude is a single flat
+// category->topic tree (APTITUDE_CATEGORIES), so the sidebar always shows
+// the full tree (same grouping AptitudeRoadmap renders inline), just with
+// the active topic highlighted once one is open.
+function AptitudeSidebarList({ activeTopicId, onSelectTopic }) {
+  const [topics, setTopics] = useState(null);
+  useEffect(() => { fetchAptitudeTopics().then(setTopics).catch(() => setTopics([])); }, []);
+  const byCategory = useMemo(() => {
+    const grouped = {};
+    for (const cat of APTITUDE_CATEGORIES) grouped[cat] = [];
+    (topics || []).forEach(t => { if (grouped[t.category]) grouped[t.category].push(t); });
+    return grouped;
+  }, [topics]);
+  return (
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>APTITUDE</div>
+      {topics === null ? <CampusSkeleton height={140} className="mx-1" /> : APTITUDE_CATEGORIES.map(cat => {
+        const catTopics = byCategory[cat];
+        if (!catTopics.length) return null;
+        const Meta = CATEGORY_META[cat] || CATEGORY_META.Quantitative;
+        return (
+          <div key={cat} className="mb-1.5">
+            <div className="flex items-center gap-1.5 px-3 py-1 text-[9.5px] font-mono tracking-widest" style={{ color: Meta.color }}>
+              <Meta.icon size={11} /> {cat.toUpperCase()}
+            </div>
+            {catTopics.map(t => (
+              <button key={t.id} onClick={() => onSelectTopic(t.id)}
+                className="campus-btn w-full flex items-center px-3 py-1.5 rounded-lg text-left transition-all duration-150"
+                style={{
+                  background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
+                  color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
+                }}>
+                <span className="text-[12.5px] truncate">{t.name}</span>
+              </button>
+            ))}
+          </div>
+        );
+      })}
+    </>
+  );
 }
 
 // ---------------- Roadmap ----------------

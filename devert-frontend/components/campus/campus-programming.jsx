@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Rocket, Flame, Clock, Briefcase, TrendingUp, ChevronDown, ChevronRight,
+  Rocket, Flame, Clock, Briefcase, TrendingUp, ChevronDown, ChevronRight, ChevronLeft,
   Check, Lock, Lightbulb, ListChecks, Target, BookOpen, Code2, Trophy,
   AlertTriangle, Sparkles, Coins, Zap, ArrowRight, GraduationCap,
 } from "lucide-react";
@@ -31,7 +32,7 @@ function topicHasContent(topic) {
 
 // ---------------- Top-level screen router ----------------
 
-export function CampusProgrammingTab() {
+export function CampusProgrammingTab({ sidebarSlot }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const slug = pathname.split("/").filter(Boolean)[1];
@@ -63,20 +64,109 @@ export function CampusProgrammingTab() {
     else setScreen({ view: "list" });
   });
 
+  const sidebar = sidebarSlot && createPortal(
+    <ProgrammingSidebarList screen={screen}
+      onSelectLanguage={(langId) => setScreen({ view: "roadmap", langId })}
+      onSelectTopic={(topicId) => setScreen({ view: "topic", langId: screen.langId, topicId })}
+      onBackToList={() => setScreen({ view: "list" })} />,
+    sidebarSlot
+  );
+
   if (screen.view === "roadmap") {
     return (
-      <LanguageRoadmap langId={screen.langId}
-        onBack={() => setScreen({ view: "list" })}
-        onOpenTopic={(topicId) => setScreen({ view: "topic", langId: screen.langId, topicId })} />
+      <>
+        {sidebar}
+        <LanguageRoadmap langId={screen.langId}
+          onBack={() => setScreen({ view: "list" })}
+          onOpenTopic={(topicId) => setScreen({ view: "topic", langId: screen.langId, topicId })} />
+      </>
     );
   }
   if (screen.view === "topic") {
     return (
-      <TopicView langId={screen.langId} topicId={screen.topicId}
-        onBack={() => setScreen({ view: "roadmap", langId: screen.langId })} />
+      <>
+        {sidebar}
+        <TopicView langId={screen.langId} topicId={screen.topicId}
+          onBack={() => setScreen({ view: "roadmap", langId: screen.langId })} />
+      </>
     );
   }
-  return <ProgrammingLanding onOpenLanguage={(langId) => setScreen({ view: "roadmap", langId })} />;
+  return (
+    <>
+      {sidebar}
+      <ProgrammingLanding onOpenLanguage={(langId) => setScreen({ view: "roadmap", langId })} />
+    </>
+  );
+}
+
+// Navigation Architecture 2.0 - Programming's own sub-navigation, portaled
+// into CampusContextSidebar's slot. Shows the language list while on the
+// landing screen, and switches to that language's own module/topic tree
+// (same grouping LanguageRoadmap renders inline, just a second, independent
+// fetch of the same fetchTopics(langId) data - a deliberate, cheap
+// duplication rather than threading topics state through two components
+// that don't otherwise share it) once a language is open.
+function ProgrammingSidebarList({ screen, onSelectLanguage, onSelectTopic, onBackToList }) {
+  if (screen.view === "list") {
+    return <ProgrammingLanguageSidebar onSelect={onSelectLanguage} />;
+  }
+  return <ProgrammingTopicSidebar langId={screen.langId} activeTopicId={screen.topicId}
+    onSelectTopic={onSelectTopic} onBackToList={onBackToList} />;
+}
+
+function ProgrammingLanguageSidebar({ onSelect }) {
+  const [languages, setLanguages] = useState(null);
+  useEffect(() => { fetchLanguages().then(setLanguages).catch(() => setLanguages([])); }, []);
+  return (
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>PROGRAMMING</div>
+      {languages === null ? <CampusSkeleton height={100} className="mx-1" /> : languages.map(lang => (
+        <button key={lang.id} onClick={() => onSelect(lang.id)}
+          className="campus-btn flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
+          style={{ color: CAMPUS.inkSoft }}>
+          <LanguageLogo name={lang.name} size={16} />
+          <span className="text-[13px] font-medium truncate">{lang.name}</span>
+        </button>
+      ))}
+    </>
+  );
+}
+
+function ProgrammingTopicSidebar({ langId, activeTopicId, onSelectTopic, onBackToList }) {
+  const [topics, setTopics] = useState(null);
+  useEffect(() => { setTopics(null); fetchTopics(langId).then(setTopics).catch(() => setTopics([])); }, [langId]);
+  const modules = useMemo(() => {
+    if (!topics) return [];
+    const byModule = []; const seen = new Map();
+    topics.forEach(t => {
+      const key = t.module || "General";
+      if (!seen.has(key)) { seen.set(key, { module: key, topics: [] }); byModule.push(seen.get(key)); }
+      seen.get(key).topics.push(t);
+    });
+    return byModule;
+  }, [topics]);
+  return (
+    <>
+      <button onClick={onBackToList} className="flex items-center gap-1 px-1 pb-2 mb-1 text-[11px] font-semibold" style={{ color: CAMPUS.inkFaint }}>
+        <ChevronLeft size={12} /> All languages
+      </button>
+      {topics === null ? <CampusSkeleton height={120} className="mx-1" /> : modules.map(({ module, topics: moduleTopics }) => (
+        <div key={module} className="mb-1.5">
+          <div className="px-3 py-1 text-[9.5px] font-mono tracking-widest truncate" style={{ color: CAMPUS.inkFaint }}>{module.toUpperCase()}</div>
+          {moduleTopics.map(t => (
+            <button key={t.id} onClick={() => onSelectTopic(t.id)}
+              className="campus-btn w-full flex items-center px-3 py-1.5 rounded-lg text-left transition-all duration-150"
+              style={{
+                background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
+                color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
+              }}>
+              <span className="text-[12.5px] truncate">{t.title}</span>
+            </button>
+          ))}
+        </div>
+      ))}
+    </>
+  );
 }
 
 // ---------------- Landing ----------------

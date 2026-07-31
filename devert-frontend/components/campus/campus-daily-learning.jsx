@@ -191,9 +191,18 @@ function DailyLearningSidebarList({ slug, activeTrackId, onSelect }) {
 // hands down for this module's own sub-navigation - portaled unconditionally
 // (both on the picker screen and once a track is open), not just after a
 // track is picked.
-export function CampusDailyLearningLanding({ slug, sidebarSlot }) {
+export function CampusDailyLearningLanding({ slug, sidebarSlot, jumpToTrack }) {
   const searchParams = useSearchParams();
   const [trackId, setTrackId] = useState(() => searchParams.get("track") || null);
+
+  // Lets the mobile drawer's nested track list (see campus-mobile-drawer.jsx)
+  // command an already-mounted landing screen straight to a track, the same
+  // nonce-jump mechanism CampusManage already uses for its own sub-tabs.
+  useEffect(() => {
+    if (!jumpToTrack?.trackId) return;
+    setTrackId(jumpToTrack.trackId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpToTrack?.nonce]);
 
   useCampusBackHandler(1, trackId !== null, () => setTrackId(null));
 

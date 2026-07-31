@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -20,7 +21,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   fetchInstitutions, fetchInstitution, fetchMyMembership, requestToJoin,
   fetchMyInstitutionAdminRole, toggleFavoriteInstitution, fetchAnnouncements, isAnnouncementActive,
-  DEPARTMENTS, YEARS,
+  institutionInitials, DEPARTMENTS, YEARS,
   fetchLeaderboardSettings, fetchClassroom, fetchClassrooms, classroomKey, LEADERBOARD_METRICS,
   isModuleEnabledForClassroom,
   fetchMyRoleAssignment, fetchRolePermissionDefaults,
@@ -1206,6 +1207,16 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   // CampusManage's own jumpToManageTab handling in campus-manage.jsx.
   const [manageJump, setManageJump] = useState(null);
   const jumpNonceRef = useRef(0);
+  // Same nonce-jump mechanism as Manage above, for the mobile drawer's own
+  // nested Daily Learning track list (see campus-mobile-drawer.jsx) - lets
+  // the drawer switch an already-mounted CampusDailyLearningLanding straight
+  // to a specific track without needing it to remount.
+  const [learningJump, setLearningJump] = useState(null);
+  const learningJumpNonceRef = useRef(0);
+  const jumpToTrack = (trackId) => {
+    goTab("learning");
+    setLearningJump({ trackId, nonce: ++learningJumpNonceRef.current });
+  };
 
   // Navigation Architecture 2.0: CampusContextSidebar is a generic, empty
   // portal target - whichever module is active portals ITS OWN existing
@@ -1340,6 +1351,14 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     }
     return hidden;
   }, [myClassroom, isInstAdmin, staffScope]);
+  // Which tabs currently contribute their own sub-navigation to
+  // CampusContextSidebar (Navigation Architecture 2.0) - mirrors the exact
+  // same moduleKey/isTabAllowed guard the main content switch below uses for
+  // ModuleAccessRestricted, so a student whose classroom has e.g. Programming
+  // disabled sees a fully collapsed sidebar (nothing to portal into) rather
+  // than an empty frame with just the institution logo.
+  const SIDEBAR_TABS = new Set(["learning", "dsa", "programming", "csCore", "aptitude", "gate"]);
+  const hasSidebarContent = (tab === "manage" && isInstAdmin) || (SIDEBAR_TABS.has(tab) && isTabAllowed(tab));
   // Only guards a real, rendered workspace - not the checking/pending/
   // signed-out screens above, which have nothing worth protecting against
   // an accidental Back press.
@@ -1632,11 +1651,11 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     <div data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp flex flex-col lg:flex-row">
       <CampusExitConfirmDialog open={exitGuard.exitDialogOpen} institutionName={institution.name}
         onStay={exitGuard.stay} onLeave={exitGuard.leave} />
-      <CampusContextSidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapsed}
-        slotRef={setSidebarEl} hasContent={(tab === "manage" && isInstAdmin) || tab === "learning"} />
+      <CampusContextSidebar institution={institution} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapsed}
+        slotRef={setSidebarEl} hasContent={hasSidebarContent} />
       <CampusMobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}
         institution={institution} tab={tab} goTab={goTab} isInstAdmin={isInstAdmin}
-        hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onRequestExit={exitGuard.requestExit}
+        hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onJumpToTrack={jumpToTrack} onRequestExit={exitGuard.requestExit}
         themeToggle={<CampusThemeToggle />}
         onSignOut={async () => { await logout(); router.push("/campus"); }} />
       <div className="flex-1 min-w-0 flex flex-col">
@@ -1667,18 +1686,24 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           {isTabAllowed("profile") && tab === "profile" && (
             <ProfileTab userData={userData} totalCoins={totalCoins} membership={membership} institution={institution} isInstAdmin={isInstAdmin} staffScope={staffScope} />
           )}
-          {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} sidebarSlot={sidebarEl} />}
-          {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab />}
-          {isTabAllowed("csCore") && tab === "csCore" && <CampusCsCoreTab />}
-          {isTabAllowed("aptitude") && tab === "aptitude" && <CampusAptitudeTab />}
-          {isTabAllowed("gate") && tab === "gate" && <CampusGateTab />}
+          {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} sidebarSlot={sidebarEl} jumpToTrack={learningJump} />}
+          {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab sidebarSlot={sidebarEl} />}
+          {isTabAllowed("csCore") && tab === "csCore" && <CampusCsCoreTab sidebarSlot={sidebarEl} />}
+          {isTabAllowed("aptitude") && tab === "aptitude" && <CampusAptitudeTab sidebarSlot={sidebarEl} />}
+          {isTabAllowed("gate") && tab === "gate" && <CampusGateTab sidebarSlot={sidebarEl} />}
           {isTabAllowed("dsa") && tab === "dsa" && (
             <>
+              {sidebarEl && createPortal(
+                <>
+                  <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>DSA</div>
+                  <CategoryFilterList sortAlpha value={practiceCategory} onChange={setPracticeCategory} />
+                </>,
+                sidebarEl
+              )}
               {practiceScreen.view === "list" && (
                 <>
                   <DsaProgressSummary user={user} />
                   <div className="flex gap-5 flex-wrap mb-6">
-                    <CategoryFilterList horizontal value={practiceCategory} onChange={setPracticeCategory} />
                     <SidebarFilterGroup horizontal label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={practiceDifficulty} onChange={setPracticeDifficulty} />
                     <CompanyFilterList horizontal value={practiceCompany} onChange={setPracticeCompany} />
                   </div>
@@ -1914,11 +1939,26 @@ function CampusTopNavbar({ tab, setTab, hiddenTabKeys }) {
 // Collapses to nothing (not an empty box) when the active module has no
 // sub-navigation to contribute, per the Navigation Architecture 2.0 RFC's
 // "Empty Modules" guidance.
-function CampusContextSidebar({ collapsed, onToggleCollapse, slotRef, hasContent }) {
+function CampusContextSidebar({ institution, collapsed, onToggleCollapse, slotRef, hasContent }) {
   if (!hasContent) return null;
   return (
     <aside style={{ background: CAMPUS.surface, borderRight: `1px solid ${CAMPUS.line}` }}
       className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:self-start py-4 flex-col transition-[width] duration-200 ${collapsed ? "lg:w-[60px]" : "lg:w-[230px]"}`}>
+      <div className={`flex items-center gap-2.5 px-3 pb-4 mb-1 ${collapsed ? "justify-center" : ""}`} style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
+          style={institution?.logoUrl
+            ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }
+            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: "0 4px 14px rgba(99,102,241,0.32)" }}>
+          {institution?.logoUrl
+            ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
+            : institution?.name?.slice(0, 2).toUpperCase()}
+        </div>
+        {!collapsed && (
+          <b className="min-w-0 truncate text-[13px]" style={{ color: CAMPUS.ink }} title={institution?.name}>
+            {institution?.shortName?.trim() || institutionInitials(institution?.name) || institution?.name}
+          </b>
+        )}
+      </div>
       {/* Portal target - deliberately empty here; whichever module is active
           renders its own list into this node via createPortal. */}
       <div ref={slotRef} className="flex-1 overflow-y-auto min-h-0 px-3 flex flex-col gap-1" />

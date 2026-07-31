@@ -1123,5 +1123,1365 @@ All four decision problems - membership, emptiness, finiteness, equivalence - ar
         "solution": "The constraint is |xy| <= p = 7. The largest y occurs when x is empty, giving |y| = **7**. Combined with |y| >= 1, y = a^k for 1 <= k <= 7."
       }
     ]
+  },
+
+  // ---------------- Context-Free Languages ----------------
+
+  "context-free-grammars": {
+    difficulty: "Moderate",
+    estimatedMinutes: 40,
+    xpReward: 30, coinReward: 12,
+    whatYoullLearn: [
+      "What a grammar generates, as opposed to what an automaton accepts",
+      "Derivations, parse trees, and why leftmost/rightmost derivations matter",
+      "Ambiguity - what it means, why it is a property of the GRAMMAR, and when it is inherent to the language",
+      "Chomsky Normal Form, and the exact production count CNF forces",
+    ],
+    prerequisites: ["Pumping Lemma for Regular Languages"],
+    concept: `## Generating Instead of Recognising
+
+::: story
+Every machine so far has been a **recogniser**: hand it a string, it says yes or no.
+
+A grammar works the other way round. It **generates**. Start from one symbol and rewrite, over and over, until nothing is left but terminals. The language is everything you can possibly produce.
+
+Two opposite directions, and for context-free languages they land in exactly the same place.
+:::
+
+::: cards The four parts of a CFG
+V :: Variables (non-terminals). Symbols that must still be rewritten. Conventionally uppercase.
+T :: Terminals. The alphabet of the actual strings. Nothing rewrites these.
+P :: Productions, each of the form A -> alpha, where A is a SINGLE variable and alpha is any string of variables and terminals.
+S :: The start variable.
+:::
+
+::: remember
+"Context-free" is a statement about the left-hand side.
+
+Every production has **exactly one variable** on the left. So A -> alpha applies wherever A appears, regardless of what surrounds it - no context is consulted. That single restriction is what separates Type 2 from Type 1 in the Chomsky hierarchy.
+:::
+
+## The Language Finite Automata Could Not Do
+
+::: story
+Recall the one that broke every DFA: L = { a^n b^n : n >= 0 }. Unbounded counting, finite memory, impossible.
+
+Here it is as a grammar:
+
+  S -> aSb | epsilon
+
+Two productions. Each application of the first adds one \`a\` on the left and one \`b\` on the right **simultaneously**, so they cannot get out of step. The recursion is doing the counting.
+:::
+
+::: behind
+This is the shape of nearly every context-free language worth knowing: recursion that grows two matched things at once, from the middle outward.
+
+Balanced brackets, palindromes, nested if/else - all the same trick. It is also exactly why CFGs describe programming-language syntax and regular expressions do not.
+:::
+
+## Derivations And Parse Trees
+
+::: cards Two derivation orders
+Leftmost :: At each step, rewrite the leftmost variable. Written =>_lm.
+Rightmost :: At each step, rewrite the rightmost variable. Written =>_rm.
+:::
+
+::: remember
+A **parse tree** discards derivation ORDER and keeps only structure. That is the whole reason it exists.
+
+One parse tree corresponds to exactly one leftmost derivation and exactly one rightmost derivation. So counting parse trees, counting leftmost derivations, and counting rightmost derivations all give the same answer - and GATE asks all three phrasings.
+:::
+
+## Ambiguity
+
+::: story
+A grammar is **ambiguous** if some string in its language has two or more distinct parse trees.
+
+The classic: S -> S + S | S * S | id. The string id + id * id parses two ways - one grouping the addition first, one the multiplication. Same string, same grammar, two structures, two meanings.
+
+That is not an academic curiosity. For a compiler it means the expression has no defined value.
+:::
+
+::: mistake
+Saying "this language is ambiguous."
+
+Ambiguity is a property of a **grammar**, not of a language. The arithmetic grammar above is ambiguous, but the same language has an unambiguous grammar - the standard one with separate levels for expression, term and factor, which builds precedence into the structure.
+
+Only when **every** grammar for a language is ambiguous is the language **inherently ambiguous**. Those exist, and { a^i b^j c^k : i = j or j = k } is the standard example - but they are rare, and the word "inherently" is what GATE is checking you noticed.
+:::
+
+::: checkpoint
+A grammar has an ambiguous production set, but you find an unambiguous grammar generating the same language. What follows?
+- ( ) The language is inherently ambiguous
+- (x) Nothing about the language - the first grammar was ambiguous, the language is not inherently so
+- ( ) Both grammars must be ambiguous
+- ( ) The language is not context-free
+> Nothing about the language. Producing one unambiguous grammar is exactly the proof that the language is NOT inherently ambiguous. Inherent ambiguity is a claim about every possible grammar, which is far harder to establish.
+:::
+
+## Chomsky Normal Form
+
+::: cards CNF allows exactly two production shapes
+A -> BC :: Exactly two variables on the right. Neither may be the start symbol if epsilon is in the language.
+A -> a :: Exactly one terminal.
+:::
+
+Plus S -> epsilon, only if the language contains the empty string.
+
+::: remember
+The payoff is a rigid tree shape, and one number worth memorising:
+
+**A CNF derivation of a string of length n uses exactly 2n - 1 steps** - n productions of the form A -> a, and n - 1 of the form A -> BC.
+
+That fixed count is what makes the CYK parsing algorithm's O(n^3) analysis work, and GATE asks for it directly.
+:::
+
+::: interview
+Conversion order matters and is a standard multi-mark question: remove epsilon-productions, then unit productions, then useless symbols, then convert to CNF.
+
+Doing it out of order - unit productions before epsilon-productions in particular - can reintroduce exactly what you just eliminated.
+:::`,
+    deepDive: `**Greibach Normal Form (GNF)** is the other standard form: every production is A -> a alpha, one terminal followed by zero or more variables. Its value is that each derivation step consumes exactly one input symbol, so a string of length n derives in exactly n steps and left-recursion is structurally impossible - which is what makes GNF the bridge to top-down parsing and to the direct CFG-to-PDA construction.
+
+**Useless symbols** come in two flavours that are easy to conflate. A **non-generating** symbol derives no terminal string at all. A **non-reachable** symbol cannot be reached from S. Elimination order is fixed: remove non-generating symbols FIRST, then non-reachable ones. Reversed, removing non-reachable symbols can strand a symbol that only becomes unreachable after a non-generating one is deleted, and it survives into the "cleaned" grammar.`,
+    dryRun: `Derive **aabb** from the grammar S -> aSb | epsilon.
+
+::: timeline Derivation
+S :: The start variable, and the only place to begin.
+=> aSb :: Apply S -> aSb. One a and one b are added in the SAME step.
+=> aaSbb :: Apply S -> aSb again, to the inner S.
+=> aabb :: Apply S -> epsilon. The inner S vanishes, leaving a^2 b^2.
+:::
+
+::: remember
+Three steps, and the a-count and b-count never diverged - because a single production adds one of each.
+
+That simultaneity is the mechanism a finite automaton cannot reproduce. It is not that a DFA counts badly; it is that it has nowhere to keep a count that grows without bound.
+:::`,
+    keyPoints: [
+      "A CFG is (V, T, P, S), and \"context-free\" means every production has exactly ONE variable on its left-hand side.",
+      "A parse tree discards derivation order; one parse tree = one leftmost derivation = one rightmost derivation, so all three counts agree.",
+      "Ambiguity is a property of a GRAMMAR. A language is inherently ambiguous only if EVERY grammar for it is ambiguous.",
+      "CNF permits only A -> BC and A -> a (plus S -> epsilon if needed), and forces exactly 2n - 1 derivation steps for a string of length n.",
+      "Cleanup order is fixed: epsilon-productions, then unit productions, then useless symbols. Out of order, you can reintroduce what you removed.",
+    ],
+    commonMistakes: [
+      "Calling a LANGUAGE ambiguous when only the grammar is. Producing one unambiguous grammar disproves inherent ambiguity outright.",
+      "Forgetting that CNF's 2n - 1 count applies to the derivation, not to the grammar's production count.",
+      "Removing non-reachable symbols before non-generating ones, which can leave a useless symbol behind.",
+      "Assuming every CFL has an unambiguous grammar - inherently ambiguous languages are rare but real, and GATE uses them as distractors.",
+    ],
+    analogies: [
+      "A grammar is a recipe and an automaton is an inspector. The recipe tells you how to build a valid dish; the inspector tells you whether one you are handed is valid. For CFLs, everything buildable is exactly everything that passes.",
+    ],
+    memoryTricks: [
+      "CNF = \"Couples aNd Firsts\": pairs of variables (BC) or a single terminal (a). Nothing else.",
+      "2n - 1: n leaves need n terminal-productions, and a binary tree with n leaves has n - 1 internal nodes.",
+    ],
+    formulas: [
+      { name: "CNF derivation length", expression: "exactly 2n - 1 steps for |w| = n", note: "n productions A -> a, plus n - 1 productions A -> BC." },
+      { name: "CYK parsing time", expression: "O(n^3 * |G|)", note: "Requires the grammar in CNF; the cubic term is the substring table." },
+    ],
+    shortcuts: [
+      "To test ambiguity fast, look for a string with two groupings - operator grammars with no precedence levels are almost always ambiguous.",
+      "If a question gives a CNF grammar and asks for derivation length, do not derive anything. Compute 2n - 1.",
+    ],
+    mcqs: [
+      {
+        question: "A grammar G is ambiguous. What can be concluded about L(G)?",
+        options: [
+          "L(G) is inherently ambiguous",
+          "Nothing - another grammar for L(G) may well be unambiguous",
+          "L(G) is not context-free",
+          "L(G) must be regular",
+        ],
+        correctIndex: 1,
+        explanation: "Ambiguity is a property of the grammar. Inherent ambiguity requires EVERY grammar for the language to be ambiguous, which one ambiguous grammar does not establish.",
+      },
+      {
+        question: "A CNF grammar derives a string of length 8. How many derivation steps are used?",
+        options: ["8", "15", "16", "It depends on the grammar"],
+        correctIndex: 1,
+        explanation: "2n - 1 = 2(8) - 1 = 15. Eight A -> a productions and seven A -> BC productions, independent of the particular grammar.",
+      },
+    ],
+    numericals: [
+      {
+        question: "A grammar in Chomsky Normal Form derives a terminal string of length 12. How many productions of the form A -> BC are applied?",
+        answerMin: 11, answerMax: 11, unit: "productions",
+        solution: "A CNF parse tree for n leaves is a binary tree with n leaves, which has exactly **n - 1 = 11** internal nodes. Each internal node is one A -> BC application. (Total steps would be 2n - 1 = 23, of which 12 are A -> a.)",
+      },
+    ],
+    pyqRelevance: "Context-Free Grammars appear in nearly every GATE CS paper, typically for 1-2 marks. The recurring forms are: identify which grammar generates a given language, decide whether a grammar is ambiguous, count derivation steps or parse trees, and apply the CNF 2n - 1 result. Inherent ambiguity shows up as a distractor in definition questions far more often than as a proof exercise.",
+    interviewConnection: "Compiler front-ends are built directly on this: parser generators reject ambiguous grammars, and the expression-grammar precedence levels in the ambiguity example above are exactly what a real language grammar encodes.",
+    revisionSummary: "CFG = (V, T, P, S), one variable on every left-hand side. Parse tree = structure without order, so parse trees, leftmost and rightmost derivations all count the same. Ambiguity belongs to grammars; inherent ambiguity belongs to languages and is rare. CNF: A -> BC or A -> a, exactly 2n - 1 steps.",
+    shortNotes: [
+      "CFG: exactly one variable on the LHS of every production.",
+      "#parse trees = #leftmost derivations = #rightmost derivations.",
+      "Ambiguous grammar =/= inherently ambiguous language.",
+      "CNF: A -> BC | a. Derivation of length-n string = 2n - 1 steps.",
+      "Cleanup order: epsilon -> unit -> useless. Useless: non-generating BEFORE non-reachable.",
+    ],
+  },
+
+  "push-down-automata": {
+    difficulty: "Moderate",
+    estimatedMinutes: 40,
+    xpReward: 30, coinReward: 12,
+    whatYoullLearn: [
+      "What adding one stack buys you over a finite automaton",
+      "The PDA transition, and why the stack is the only unbounded memory",
+      "Acceptance by final state versus by empty stack, and why they are equivalent",
+      "The one place determinism genuinely matters: DPDA is strictly weaker than NPDA",
+    ],
+    prerequisites: ["Context-Free Grammars"],
+    concept: `## One Stack, Everything Changes
+
+::: story
+Take a finite automaton and bolt one thing onto it: a stack. Unbounded, but you may only ever touch the top.
+
+That single addition is the difference between not being able to count and being able to match a^n b^n for any n. Push an a for every a, pop one for every b, accept if the stack empties exactly when the input does.
+
+The counting lives in the stack, not in the states - which is precisely what the finite-memory constraint forbade.
+:::
+
+::: cards A PDA is a seven-tuple
+Q, Sigma, q0, F :: States, input alphabet, start state, accepting states - unchanged from a finite automaton.
+Gamma :: The STACK alphabet. Often different from the input alphabet.
+Z0 :: The initial stack symbol, sitting alone on the stack at the start.
+delta :: The transition. Takes (state, input symbol or epsilon, stack TOP) and returns a set of (new state, string to push).
+:::
+
+::: remember
+The transition reads and replaces the stack top on every move.
+
+Pushing X onto a top of Z means writing "XZ". Popping means writing epsilon. Leaving it alone means writing Z back. There is no separate push and pop instruction - there is one replace, and the three behaviours are special cases of it.
+:::
+
+## Why The Stack Is Not Just More States
+
+::: behind
+A student's first instinct is that a stack is a shortcut for having more states. It is not, and the reason is worth being precise about.
+
+A finite automaton has finitely many states, fixed before it sees any input. A stack has no bound on its height, so a PDA has infinitely many possible **configurations** even though it has finitely many states.
+
+That is the whole gap. a^n b^n needs unboundedly many distinguishable situations, and only the stack can supply them.
+:::
+
+::: mistake
+Assuming the stack can be inspected.
+
+A PDA sees the **top symbol only**. It cannot look underneath, cannot count its own stack, and cannot search it. Every design has to arrange for the information it needs to arrive at the top exactly when it is needed - which is why a PDA can match a^n b^n but cannot match a^n b^n c^n.
+:::
+
+## Two Ways To Accept
+
+::: cards Final state vs empty stack
+By final state :: The input is consumed and the machine is in a state in F. The stack contents are irrelevant.
+By empty stack :: The input is consumed and the stack is empty. F is irrelevant, and is usually written as the empty set.
+:::
+
+::: remember
+The two are **equivalent in power** - every language accepted one way is accepted the other way by some PDA.
+
+The conversions are short: to go from empty-stack to final-state, push a fresh bottom marker below everything and move to a new accepting state when you see it. To go the other way, add a state that pops everything once you reach a final state.
+
+Equivalent for NPDAs. The distinction is not equivalent for DPDAs, which is the trap in the next section.
+:::
+
+## The One Place Determinism Costs You
+
+::: story
+For finite automata, DFA and NFA accept exactly the same languages. The subset construction converts one to the other, and determinism is free.
+
+For pushdown automata it is not free. **DPDA is strictly weaker than NPDA.**
+:::
+
+::: cards The separating example
+Even-length palindromes :: L = { w w^R : w in {a,b}* }. An NPDA guesses the midpoint nondeterministically, then matches. Deterministically there is no way to know where the middle is until it is too late.
+Consequence :: This language is context-free but NOT deterministic context-free.
+:::
+
+::: remember
+Two facts to keep straight, because GATE tests exactly this asymmetry:
+
+**NFA = DFA in power. NPDA > DPDA in power.**
+
+And: DCFLs are closed under complement; CFLs in general are not. That closure difference is a direct consequence of determinism.
+:::
+
+::: checkpoint
+Which statement is correct?
+- ( ) Every CFL is accepted by some DPDA
+- (x) Some CFLs, such as { w w^R }, are accepted by no DPDA
+- ( ) DPDAs and NPDAs accept exactly the same languages
+- ( ) DPDAs are more powerful than NPDAs
+> Some CFLs need nondeterminism. Even-length palindromes are the standard witness: the machine must guess the midpoint, and no deterministic strategy can identify it in time.
+:::
+
+::: interview
+The equivalence to state clearly: a language is context-free **if and only if** some PDA accepts it. Grammar and machine descriptions of CFLs are interchangeable, exactly as regular expressions and finite automata are for regular languages.
+:::`,
+    deepDive: `The **CFG-to-PDA construction** is worth carrying because it is short and it explains why the equivalence holds. Build a one-state PDA. Put the start variable on the stack. Then: if the stack top is a variable A, pop it and push the right-hand side of some production A -> alpha (nondeterministically choosing which). If the stack top is a terminal, it must match the next input symbol - consume both. Accept by empty stack. The PDA's stack is literally holding the unexpanded remainder of a leftmost derivation, which is why the two formalisms coincide.
+
+The **PDA-to-CFG** direction is far messier - variables of the form [q A p], meaning "from state q, pop A, and end in state p" - and GATE essentially never asks for it. Knowing it exists, and that it is what makes the equivalence an if-and-only-if, is enough.`,
+    dryRun: `Trace a PDA accepting { a^n b^n } on the input **aabb**.
+
+::: timeline Stack trace
+Start :: Stack Z0, input aabb. Z0 is the bottom marker and is never popped.
+Read a :: Push A. Stack AZ0. The push phase records one stack symbol per a.
+Read a :: Push A. Stack AAZ0. Two a's seen, two A's stacked.
+Read b :: Pop A. Stack AZ0. The first b switches the machine to the pop phase.
+Read b :: Pop A. Stack Z0. Input exhausted, only the bottom marker left.
+Accept :: The stack returned to Z0 exactly as the input ended, so the counts matched.
+:::
+
+::: behind
+Notice what did NOT grow: the number of states. It is the same machine for n = 2 and n = 2000.
+
+All the counting happened in stack HEIGHT - the one resource a finite automaton does not have, and the entire reason this language separates the two models.
+:::`,
+    keyPoints: [
+      "A PDA is a finite automaton plus one unbounded stack, and only the TOP of that stack is ever visible.",
+      "The transition replaces the stack top; push, pop and leave-alone are all special cases of one replace operation.",
+      "Acceptance by final state and by empty stack are equivalent in power for NPDAs, with short conversions both ways.",
+      "DPDA is STRICTLY weaker than NPDA - unlike DFA vs NFA. { w w^R } is the standard separating language.",
+      "A language is context-free if and only if some PDA accepts it.",
+    ],
+    commonMistakes: [
+      "Carrying over \"determinism is free\" from finite automata. It is free for NFA/DFA and false for PDAs.",
+      "Believing a PDA can inspect or count its stack. It sees the top symbol and nothing else.",
+      "Trying to build a PDA for a^n b^n c^n - one stack matches one pair of counts, and the c's have nothing left to pop.",
+      "Assuming acceptance by empty stack is weaker because F is empty. It is equivalent for NPDAs.",
+    ],
+    analogies: [
+      "The stack is a spike of receipts. You can add one on top, or take the top one off, but you cannot flip through the pile - so any information you will need later has to be arranged to surface at the right moment.",
+    ],
+    memoryTricks: [
+      "\"NFA = DFA, NPDA > DPDA\" - the one asymmetry in the hierarchy, and the one GATE tests.",
+      "One stack matches one pair. a^n b^n yes, a^n b^n c^n no.",
+    ],
+    formulas: [
+      { name: "PDA transition", expression: "delta: Q x (Sigma U {epsilon}) x Gamma -> 2^(Q x Gamma*)", note: "The Gamma* output is the string replacing the popped top symbol." },
+      { name: "PDA seven-tuple", expression: "(Q, Sigma, Gamma, delta, q0, Z0, F)", note: "Gamma and Z0 are the two additions over a finite automaton." },
+    ],
+    shortcuts: [
+      "If a language needs two independent counts matched, one stack is not enough - it is not context-free.",
+      "If a construction seems to need knowing the midpoint of the input, it needs nondeterminism, so no DPDA exists.",
+    ],
+    mcqs: [
+      {
+        question: "Which is true of deterministic versus nondeterministic pushdown automata?",
+        options: [
+          "They accept exactly the same class of languages, as with DFA and NFA",
+          "NPDAs are strictly more powerful - some CFLs, such as { w w^R }, have no DPDA",
+          "DPDAs are strictly more powerful",
+          "Neither can accept { a^n b^n }",
+        ],
+        correctIndex: 1,
+        explanation: "Determinism is free for finite automata but not for PDAs. Even-length palindromes require guessing the midpoint, which no deterministic strategy achieves.",
+      },
+      {
+        question: "What can a PDA observe about its stack at any step?",
+        options: [
+          "The entire stack contents",
+          "Only the topmost symbol",
+          "The current stack height",
+          "The bottom symbol only",
+        ],
+        correctIndex: 1,
+        explanation: "The transition function takes the stack top as its only stack input. No height, no search, no access below the top.",
+      },
+    ],
+    numericals: [
+      {
+        question: "A PDA accepting { a^n b^n : n >= 1 } by empty stack pushes one symbol per a and pops one per b, starting with only Z0 on the stack. For the input a^5 b^5, what is the maximum stack height reached, counting Z0?",
+        answerMin: 6, answerMax: 6, unit: "symbols",
+        solution: "Five pushes, one per a, on top of the initial Z0 gives **6** symbols at the peak, reached just before the first b. The pops then bring it back down.",
+      },
+    ],
+    pyqRelevance: "PDAs appear most often for 1-2 marks as a definition or power question: what the transition function's signature is, whether DPDA equals NPDA (the highest-frequency trap in this topic), and which languages need a PDA rather than a finite automaton. Explicit PDA construction is asked less often than the CFG side, but the DPDA-vs-NPDA asymmetry and the DCFL-closed-under-complement fact recur reliably.",
+    interviewConnection: "The CFG-to-PDA construction is what a recursive-descent parser does concretely - the call stack IS the PDA stack, holding the unexpanded remainder of the derivation.",
+    revisionSummary: "PDA = finite automaton + one stack, top symbol only. Seven-tuple adds Gamma and Z0. Final-state and empty-stack acceptance are equivalent for NPDAs. DPDA < NPDA strictly, witnessed by { w w^R }. CFL iff some PDA accepts it.",
+    shortNotes: [
+      "PDA = (Q, Sigma, Gamma, delta, q0, Z0, F). Stack top only.",
+      "delta: Q x (Sigma U {eps}) x Gamma -> 2^(Q x Gamma*).",
+      "Final state == empty stack in power (for NPDAs).",
+      "NPDA > DPDA. Witness: { w w^R }. (But NFA == DFA.)",
+      "DCFL closed under complement; CFL is not.",
+      "One stack = one matched pair. a^n b^n c^n is not a CFL.",
+    ],
+  },
+
+  "context-free-language-properties-and-closure": {
+    difficulty: "Moderate",
+    estimatedMinutes: 35,
+    xpReward: 30, coinReward: 12,
+    whatYoullLearn: [
+      "Which operations CFLs are closed under, and the two headline ones they are not",
+      "Why intersection and complement fail, with the standard counter-example",
+      "Closure with a REGULAR language, which does hold and is heavily used",
+      "Which CFL decision problems are decidable, and which are not",
+    ],
+    prerequisites: ["Push-Down Automata"],
+    concept: `## The Two That Fail
+
+::: story
+Regular languages are closed under essentially everything. Context-free languages are not, and the failures are the entire point of this topic.
+
+**CFLs are not closed under intersection, and not closed under complement.**
+
+Every other closure question in a GATE paper is testing whether you know those two.
+:::
+
+::: cards Closure summary
+Closed :: Union, concatenation, Kleene star, reversal, homomorphism, inverse homomorphism, substitution.
+NOT closed :: Intersection, complement, set difference.
+Special case, closed :: Intersection with a REGULAR language. CFL and Regular gives a CFL.
+:::
+
+## Why Intersection Fails
+
+::: story
+The counter-example is short enough to reconstruct in the exam, which is better than memorising the result.
+
+  L1 = { a^i b^i c^j : i, j >= 0 }   - match the a's and b's, ignore the c's
+  L2 = { a^i b^j c^j : i, j >= 0 }   - ignore the a's, match the b's and c's
+
+Both are context-free. Each needs exactly one matched pair, which one stack handles.
+
+Their intersection is { a^n b^n c^n }, which is famously **not** context-free - the pumping lemma for CFLs kills it.
+
+Two context-free languages, one non-context-free intersection. Closure fails.
+:::
+
+::: behind
+The intuition is the stack again. Each language needs one counter; the intersection needs two simultaneously, and a PDA has one stack.
+:::
+
+## Why Complement Fails - And The Shortcut
+
+::: remember
+Complement failure follows from intersection failure by De Morgan, and this derivation is worth being able to produce:
+
+  L1 intersect L2 = complement( complement(L1) union complement(L2) )
+
+CFLs **are** closed under union. So if they were also closed under complement, the right-hand side would be context-free for any CFLs L1 and L2 - making intersection closed too. It is not. Therefore complement is not closed.
+:::
+
+::: mistake
+Assuming complement fails for DCFLs too.
+
+**Deterministic** CFLs ARE closed under complement - a DPDA can be complemented by swapping accepting and non-accepting states, with care around epsilon-moves and dead configurations. DCFLs are still not closed under intersection or union.
+
+So: CFL not closed under complement, DCFL closed under complement. GATE uses that distinction directly.
+:::
+
+## Intersection With A Regular Language
+
+::: story
+The one closure result that survives, and the one you actually use.
+
+If L is context-free and R is regular, then L intersect R is context-free.
+
+The construction is a product: run the PDA for L and the DFA for R in lockstep, tracking a pair of states, with the single stack still belonging to the PDA. One stack, so it still works.
+:::
+
+::: remember
+This is the standard tool for proving a language is NOT context-free without wrestling the pumping lemma directly.
+
+Intersect the suspect language with a well-chosen regular language. If the result is something already known to be non-context-free, the original cannot have been context-free either - because closure with a regular language would have guaranteed it was.
+:::
+
+::: checkpoint
+L is context-free, R is regular. Which is guaranteed context-free?
+- ( ) L intersect R only if R is also context-free
+- (x) L intersect R, always - CFLs are closed under intersection with a regular language
+- ( ) Neither, since CFLs are not closed under intersection
+- ( ) Only if L is deterministic
+> Always. The general intersection failure does not apply here: the product construction pairs PDA states with DFA states and still uses exactly one stack, so the result is a PDA.
+:::
+
+## Decision Problems
+
+::: cards Decidable for CFLs
+Membership :: Is w in L? Yes - CYK, O(n^3).
+Emptiness :: Is L empty? Yes.
+Finiteness :: Is L finite? Yes.
+:::
+
+::: cards UNDECIDABLE for CFLs
+Equivalence :: Is L1 = L2? No.
+Intersection-emptiness :: Is L1 intersect L2 empty? No.
+Ambiguity :: Is a given grammar ambiguous? No.
+Is L1 a subset of L2? :: No.
+Is L context-free's complement context-free? :: No.
+:::
+
+::: interview
+The line to remember: for **regular** languages, equivalence IS decidable. For **context-free** languages it is not.
+
+That single difference is one of the most-asked comparison points in the whole subject, and it is easy to state precisely.
+:::`,
+    deepDive: `**DCFL equivalence** is the surprising one. Whether two DPDAs accept the same language was open for decades and was finally proved DECIDABLE by Senizergues in 1997 - a genuinely deep result. GATE does not require the proof, but it occasionally offers "DCFL equivalence is undecidable" as a plausible-looking distractor, and it is false.
+
+Note also that CFLs are closed under **substitution** and **homomorphism**, which are stronger than they look: replacing each terminal by an entire language, or by a string, preserves context-freeness. Inverse homomorphism is closed too. These appear less often than intersection/complement but round out the table.`,
+    dryRun: `Use closure the other way round: show that **L = { a^i b^j c^k : i = j or j = k }** cannot be handled by intersection alone, and see how the regular-intersection tool is applied in practice.
+
+::: timeline Applying the tool
+Suspect a language :: Take M = { a^n b^n c^n }. We want to show it is not context-free.
+Pick a regular partner :: R = a* b* c*, chosen so the intersection isolates the ordering constraint.
+Apply the closure rule :: If M were context-free, then M intersect R would be too, since CFL intersect Regular = CFL.
+Observe the intersection :: M intersect R = M, because every string of M already has the a*b*c* shape.
+Reach the contradiction :: M is shown non-context-free by the CFL pumping lemma. So M was never context-free.
+:::
+
+::: remember
+The closure property works in both directions, and that is what makes it useful.
+
+Forwards it GUARANTEES context-freeness (CFL intersect Regular is a CFL). Backwards it becomes a proof technique: intersect a suspect language with a well-chosen regular language, and if the result is a known non-CFL, the original cannot have been one either.
+:::`,
+    keyPoints: [
+      "CFLs are closed under union, concatenation, Kleene star, reversal and homomorphism - and NOT under intersection, complement or difference.",
+      "L1 = { a^i b^i c^j } and L2 = { a^i b^j c^j } intersect to { a^n b^n c^n }, the standard proof that intersection fails.",
+      "Complement failure follows from intersection failure by De Morgan, since union IS closed.",
+      "CFL intersect REGULAR is context-free - the one surviving intersection result, and the standard tool for non-context-freeness proofs.",
+      "Decidable for CFLs: membership, emptiness, finiteness. Undecidable: equivalence, ambiguity, intersection-emptiness, subset.",
+    ],
+    commonMistakes: [
+      "Assuming CFLs behave like regular languages under intersection and complement. Those are exactly the two that break.",
+      "Forgetting the regular-language exception, and so missing the easiest route to a non-context-freeness proof.",
+      "Saying DCFLs are not closed under complement. They are - it is general CFLs that are not.",
+      "Claiming CFL equivalence is decidable by analogy with regular languages. It is not; DFA equivalence is.",
+    ],
+    analogies: [
+      "One stack is one budget. Union just asks which of two budgets to use, so it is fine. Intersection asks you to satisfy two budgets at once, and you only have the one.",
+    ],
+    memoryTricks: [
+      "\"CFLs fail at IC\" - Intersection and Complement.",
+      "Regular is the friendly partner: CFL and Regular is still a CFL.",
+      "Decidable trio: Membership, Emptiness, Finiteness. Everything comparative (equal, subset, ambiguous) is undecidable.",
+    ],
+    formulas: [
+      { name: "De Morgan derivation", expression: "L1 ∩ L2 = ~(~L1 ∪ ~L2)", note: "Union is closed, so if complement were closed, intersection would be. It is not." },
+      { name: "Regular intersection", expression: "CFL ∩ Regular = CFL", note: "Product of PDA states and DFA states; still one stack." },
+    ],
+    shortcuts: [
+      "To show a language is not context-free, first try intersecting with a regular language to reduce it to a^n b^n c^n.",
+      "Any GATE option asserting CFL closure under intersection or complement is wrong - unless it says DCFL and complement, which is right.",
+    ],
+    mcqs: [
+      {
+        question: "Which pair of operations are context-free languages NOT closed under?",
+        options: [
+          "Union and concatenation",
+          "Intersection and complement",
+          "Kleene star and reversal",
+          "Concatenation and homomorphism",
+        ],
+        correctIndex: 1,
+        explanation: "Union, concatenation, star, reversal and homomorphism all preserve context-freeness. Intersection and complement are the two failures, witnessed by { a^i b^i c^j } ∩ { a^i b^j c^j } = { a^n b^n c^n }.",
+      },
+      {
+        question: "L is a CFL and R is regular. Which is guaranteed?",
+        options: [
+          "L ∩ R is context-free",
+          "L ∩ R may fail to be context-free",
+          "L ∩ R is regular",
+          "L ∪ R is not context-free",
+        ],
+        correctIndex: 0,
+        explanation: "Intersection with a regular language preserves context-freeness - the product construction keeps a single stack. This is the exception to the general intersection failure.",
+      },
+    ],
+    numericals: [
+      {
+        question: "Of these five problems for context-free languages - membership, emptiness, finiteness, equivalence, ambiguity - how many are decidable?",
+        answerMin: 3, answerMax: 3, unit: "problems",
+        solution: "**3** are decidable: membership (CYK, O(n^3)), emptiness, and finiteness. Equivalence and ambiguity are both undecidable.",
+      },
+    ],
+    pyqRelevance: "Closure properties are among the highest-frequency GATE topics in Theory of Computation, usually 1-2 marks and often as a multi-statement \"which of the following are true\" question. Intersection and complement failure, and the regular-language exception, carry most of the marks. The decidable/undecidable table for CFLs is asked almost as often, with CFL equivalence as the most common distractor.",
+    interviewConnection: "The regular-intersection construction is what lets a parser apply lexical constraints on top of a context-free grammar without leaving the context-free world.",
+    revisionSummary: "Closed: union, concatenation, star, reversal, homomorphism. Not closed: intersection, complement, difference. Exception: CFL ∩ Regular = CFL. DCFLs ARE closed under complement. Decidable: membership, emptiness, finiteness. Undecidable: equivalence, ambiguity, subset, intersection-emptiness.",
+    shortNotes: [
+      "NOT closed: intersection, complement, difference. (\"CFLs fail at IC.\")",
+      "Closed: union, concat, star, reversal, homomorphism, substitution.",
+      "CFL ∩ Regular = CFL - the exception, and the proof tool.",
+      "Witness: { a^i b^i c^j } ∩ { a^i b^j c^j } = { a^n b^n c^n }.",
+      "DCFL: closed under complement, NOT under union/intersection.",
+      "Decidable: membership, emptiness, finiteness. Undecidable: equivalence, ambiguity, subset.",
+    ],
+  },
+
+  "pumping-lemma-for-context-free-languages": {
+    difficulty: "Hard",
+    estimatedMinutes: 40,
+    xpReward: 35, coinReward: 15,
+    whatYoullLearn: [
+      "The CFL pumping lemma statement, and how its five-part split differs from the regular one",
+      "Why the split is uvxyz and what |vxy| <= p actually constrains",
+      "How to run the adversary game to prove a language is not context-free",
+      "The limits of the lemma - it is necessary, not sufficient",
+    ],
+    prerequisites: ["Context-Free Language Properties and Closure"],
+    concept: `## Two Pumps, Not One
+
+::: story
+The regular pumping lemma split a string into three parts, xyz, and pumped the middle one.
+
+The context-free version splits into **five**, uvxyz, and pumps **two** of them - v and y - **together and by the same amount**.
+
+That change is not cosmetic. It comes straight from parse trees: a long enough string forces some variable to repeat on a root-to-leaf path, and the subtree between the two occurrences can be duplicated. Duplicating it grows the material on BOTH sides of the middle, which is why two segments pump in lockstep.
+:::
+
+::: remember
+**Statement.** For every context-free language L there is a pumping length p such that every string s in L with |s| >= p can be written s = uvxyz where:
+
+1. |vy| >= 1 - v and y are not both empty
+2. |vxy| <= p - the pumped parts and the middle sit inside a window of length p
+3. u v^i x y^i z is in L for every i >= 0 - **the same i on both**
+:::
+
+::: cards Regular vs context-free lemma
+Regular :: s = xyz, pump y alone. Constraint |xy| <= p pins the pumped part near the START.
+Context-free :: s = uvxyz, pump v and y together. Constraint |vxy| <= p pins v, x, y inside a WINDOW of length p, which may sit anywhere.
+:::
+
+::: mistake
+Pumping v and y by different amounts.
+
+The condition is u v^i x y^i z - one index, used twice. There is no version where v is pumped twice and y three times. Half the wrong answers in this topic come from treating them independently.
+:::
+
+## The Window Is The Whole Argument
+
+::: story
+For the regular lemma, |xy| <= p forced the pumped part into the first p symbols. Convenient - you always knew where it was.
+
+For CFLs, |vxy| <= p says only that v, x and y together occupy some window of length at most p. That window can sit **anywhere** in the string.
+
+So the proof has to consider every position the window could occupy - and the skill is choosing a string where **every** placement leads to a contradiction.
+:::
+
+::: behind
+Why a window of length p at all? Because p is chosen from the grammar's variable count and the maximum right-hand-side length. A path long enough to repeat a variable bounds the size of the subtree hanging below it, and that subtree spans exactly vxy.
+
+You do not need the derivation for GATE, but knowing where the bound comes from stops |vxy| <= p feeling arbitrary.
+:::
+
+## The Adversary Game
+
+::: flow
+1. Assume L is context-free :: So a pumping length p exists. You do not get to choose p.
+2. YOU choose s :: A string in L with |s| >= p. This is your only real freedom - choose well.
+3. The adversary chooses the split :: Any uvxyz meeting |vy| >= 1 and |vxy| <= p. You must beat EVERY split.
+4. YOU choose i :: Usually i = 0 or i = 2. Show u v^i x y^i z is not in L.
+5. Contradiction :: L is not context-free.
+:::
+
+::: remember
+Steps 2 and 4 are yours; step 3 is not. A proof that only handles a convenient split is not a proof.
+
+For a^n b^n c^n the standard choice is s = a^p b^p c^p. Because |vxy| <= p, the window cannot touch both the a-block and the c-block - they are p symbols apart. So vy misses at least one of the three letters, and pumping unbalances the counts.
+:::
+
+::: checkpoint
+For s = a^p b^p c^p, why can the window vxy not contain both an a and a c?
+- ( ) Because |vy| >= 1
+- (x) Because |vxy| <= p, and the a-block and c-block are separated by p b's
+- ( ) Because v and y must be adjacent
+- ( ) Because x must be empty
+> The length bound. The last a and the first c are more than p positions apart, so no window of length at most p can reach both. That is precisely what forces vy to miss a letter and unbalance the counts.
+:::
+
+## What The Lemma Cannot Do
+
+::: mistake
+Using the lemma to prove a language IS context-free.
+
+It is a **necessary** condition, not sufficient. There are non-context-free languages that satisfy the pumping condition, so passing the test proves nothing.
+
+To prove a language IS context-free, exhibit a grammar or a PDA. The lemma only ever proves the negative.
+:::
+
+::: interview
+If a language survives the pumping lemma but you still suspect it is not context-free, the usual next tool is closure: intersect with a regular language and reduce to something already known to be non-context-free. Ogden's lemma - a strengthening that lets you mark positions that must be pumped - exists for the residual cases, and is worth naming.
+:::`,
+    deepDive: `**Ogden's lemma** strengthens the pumping lemma by letting you designate at least p positions as "marked", and guaranteeing that vy contains at least one marked position (with |vxy| containing at most p marked positions). This matters for languages where the plain lemma fails because the adversary can always place the window in a boring region - { a^i b^j c^k d^l : i = 0 or j = k = l } is the standard example that plain pumping cannot kill but Ogden's can. GATE does not ask for Ogden's lemma proofs, but naming it as the strengthening is a genuine signal in an interview.
+
+Note the asymmetry with the regular lemma once more: there, |xy| <= p located the pumped part absolutely, at the front. Here |vxy| <= p only bounds a window's WIDTH, not its position, which is why CFL pumping proofs need case analysis over where the window falls and regular ones usually do not.`,
+    dryRun: `Prove **{ a^n b^n c^n }** is not context-free.
+
+::: timeline The adversary game
+Assume :: L is context-free, so a pumping length p exists. The adversary supplies p; we never choose it.
+Choose s :: s = a^p b^p c^p. It is in L and |s| = 3p >= p. This is our one free choice, and it is what makes every case fail.
+Note the window :: Any split satisfies |vxy| <= p, so the window spans at most TWO of the three letter-blocks - never all three.
+Case, no c in vy :: Pump to i = 2. The a and/or b count rises while c stays at p. The counts are now unequal.
+Case, no a in vy :: Symmetric. The a count stays at p while b and/or c grow.
+Contradiction :: Since |vy| >= 1, something always gets pumped, so some count always breaks.
+:::
+
+::: remember
+The window bound is doing all the work here.
+
+|vxy| <= p guarantees vy misses at least one of the three letters, because the a-block and c-block are p symbols apart. And |vy| >= 1 guarantees something IS pumped. Together they make it impossible for the three counts to stay equal.
+:::`,
+    keyPoints: [
+      "The CFL lemma splits into FIVE parts, s = uvxyz, and pumps v and y TOGETHER with the same exponent i.",
+      "Conditions: |vy| >= 1, |vxy| <= p, and u v^i x y^i z in L for all i >= 0.",
+      "|vxy| <= p bounds the WIDTH of a window, not its position - unlike the regular lemma's |xy| <= p, which pins the pumped part to the front.",
+      "You choose the string and the exponent; the adversary chooses the split, so every split must be defeated.",
+      "The lemma is necessary but NOT sufficient - it can prove a language is not context-free, never that it is.",
+    ],
+    commonMistakes: [
+      "Pumping v and y by different amounts. The exponent i is shared.",
+      "Treating |vxy| <= p as though it forced the window to the start of the string, by analogy with the regular lemma.",
+      "Handling only one convenient split instead of all of them.",
+      "Concluding a language IS context-free because pumping succeeds. The condition is necessary only.",
+    ],
+    analogies: [
+      "The parse tree repeats a variable on a long path, and the repeated subtree is a copy-paste block. Pasting it again grows material on both sides of the middle at once - which is exactly why two segments must pump together rather than one.",
+    ],
+    memoryTricks: [
+      "Regular pumps ONE part; context-free pumps TWO, in lockstep. Three-part split versus five-part split.",
+      "u-v-x-y-z: the outer u and z are untouched, the inner x is the pivot, and v and y are the twins.",
+      "For a^n b^n c^n pick a^p b^p c^p: the window is too narrow to reach both ends.",
+    ],
+    formulas: [
+      { name: "CFL pumping lemma", expression: "s = uvxyz, |vy| >= 1, |vxy| <= p, u v^i x y^i z in L for all i >= 0", note: "Same i on both v and y." },
+      { name: "Regular, for contrast", expression: "s = xyz, |y| >= 1, |xy| <= p, x y^i z in L", note: "One pumped part, pinned to the front." },
+    ],
+    shortcuts: [
+      "For three equal blocks, choose all three at length p - the window then cannot span the outer two.",
+      "i = 0 (pumping down) is often faster than i = 2, especially when it empties a block entirely.",
+    ],
+    mcqs: [
+      {
+        question: "In the CFL pumping lemma, s = uvxyz. Which strings are guaranteed to be in L?",
+        options: [
+          "u v^i x y^j z for all i, j >= 0",
+          "u v^i x y^i z for all i >= 0",
+          "u v^i x y z for all i >= 0",
+          "u x z only",
+        ],
+        correctIndex: 1,
+        explanation: "v and y are pumped together with the SAME exponent i. Independent exponents i and j are not guaranteed, and that is the most common misstatement of the lemma.",
+      },
+      {
+        question: "What does the condition |vxy| <= p tell you?",
+        options: [
+          "The pumped parts must lie within the first p symbols of s",
+          "v, x and y together occupy a window of at most p symbols, positioned anywhere in s",
+          "v and y each have length at most p/2",
+          "x must be empty",
+        ],
+        correctIndex: 1,
+        explanation: "It bounds the window's WIDTH, not its location. The regular lemma's |xy| <= p pins the pumped part to the front; the CFL version does not, which is why proofs need case analysis over where the window sits.",
+      },
+    ],
+    numericals: [
+      {
+        question: "A CFL has pumping length p = 6, and s = uvxyz with |s| >= 6. Given |vxy| <= p and |vy| >= 1, what is the maximum possible length of vy?",
+        answerMin: 6, answerMax: 6, unit: "symbols",
+        solution: "vy is largest when x is empty, so |vy| = |vxy| <= p = **6**. Combined with |vy| >= 1, the length of vy ranges from 1 to 6.",
+      },
+    ],
+    pyqRelevance: "The CFL pumping lemma is asked most often as a statement question - which form of the pumped string is guaranteed, or what |vxy| <= p means - rather than as a full proof, since proofs are hard to mark in 2 marks. The single most common trap is the option offering independent exponents u v^i x y^j z. Expect it to appear alongside the regular pumping lemma so the two can be confused.",
+    interviewConnection: "The parse-tree repetition argument behind the lemma is the same pigeonhole reasoning that bounds recursion depth in a grammar - useful when reasoning about why some syntax genuinely cannot be expressed context-freely and needs a semantic check instead.",
+    revisionSummary: "s = uvxyz with |vy| >= 1, |vxy| <= p, and u v^i x y^i z in L for all i - same exponent on both. The window bound constrains width, not position. You pick s and i; the adversary picks the split. Necessary, not sufficient.",
+    shortNotes: [
+      "s = uvxyz. Pump v and y TOGETHER: u v^i x y^i z.",
+      "|vy| >= 1, |vxy| <= p.",
+      "|vxy| <= p bounds WIDTH, not position (unlike regular's |xy| <= p).",
+      "You choose s and i; adversary chooses the split. Beat every split.",
+      "Necessary, NOT sufficient. Cannot prove a language IS a CFL.",
+      "a^n b^n c^n: take s = a^p b^p c^p; window cannot reach both a's and c's.",
+    ],
+  },
+
+  // ---------------- Turing Machines and Undecidability ----------------
+
+  "turing-machines": {
+    difficulty: "Moderate",
+    estimatedMinutes: 40,
+    xpReward: 30, coinReward: 12,
+    whatYoullLearn: [
+      "What removing the stack restriction buys: an unbounded, rewritable, randomly-accessible tape",
+      "The TM transition, and why halting is a genuinely new possibility",
+      "Recursive versus recursively enumerable - the single most important distinction in the topic",
+      "Why every reasonable variant (multi-tape, nondeterministic) has exactly the same power",
+    ],
+    prerequisites: ["Pumping Lemma for Context-Free Languages"],
+    concept: `## Take Away The Restriction
+
+::: story
+A finite automaton had no memory beyond its state. A PDA had a stack - unbounded, but you could only touch the top.
+
+A Turing machine has a tape: unbounded, **rewritable**, and readable at any position by moving a head left or right.
+
+That is the last restriction to go. What is left is the most powerful model anyone has found - and, per the Church-Turing thesis, the definition of "computable".
+:::
+
+::: cards A TM is a seven-tuple
+Q, Sigma, q0 :: States, input alphabet, start state.
+Gamma :: Tape alphabet. Strictly contains Sigma, plus the blank symbol.
+B :: The blank symbol. In Gamma, never in Sigma.
+delta :: (state, tape symbol) -> (state, symbol to WRITE, direction L or R).
+q_accept, q_reject :: Halting states. Entering either one stops the machine immediately.
+:::
+
+::: remember
+Every move does three things at once: write a symbol, move the head one cell, change state.
+
+There is no "read without writing" - writing the same symbol back is how you leave a cell alone. And there is no "stay put" in the standard model, though adding one changes nothing about the machine's power.
+:::
+
+## The New Possibility: Not Halting
+
+::: story
+A DFA always stops - it reads n symbols and it is done. A PDA on a finite input effectively does too.
+
+A Turing machine need never stop. It can loop forever, rewriting the tape, head wandering, no answer ever produced.
+
+That is not a defect. It is the source of everything interesting in the rest of this subject, including undecidability.
+:::
+
+::: cards The distinction everything else rests on
+Recursive (decidable) :: A TM exists that halts on EVERY input - accept for strings in L, reject for strings not in L. It always answers.
+Recursively enumerable (RE) :: A TM exists that halts and accepts every string in L, but on strings NOT in L it may reject OR may loop forever.
+:::
+
+::: mistake
+Reading "recursively enumerable" as "we can list it, so we can decide it."
+
+You can enumerate an RE language - that is what the name means - but enumeration gives no deadline. If a string has not appeared yet, you cannot tell whether it is absent or merely slow to arrive. That gap is exactly the difference between RE and recursive.
+:::
+
+::: remember
+**Every recursive language is RE. Not every RE language is recursive.**
+
+And the theorem that makes this usable:
+
+**L is recursive if and only if both L and its complement are RE.**
+
+If you can semi-decide membership and semi-decide non-membership, run both in parallel; one must eventually answer, so you have a decider.
+:::
+
+::: checkpoint
+L is RE and its complement is also RE. What follows?
+- ( ) L is undecidable
+- (x) L is recursive - run both semi-deciders in parallel and one is guaranteed to halt
+- ( ) L is context-free
+- ( ) Nothing can be concluded
+> L is recursive. This is the standard characterisation, and it is the workhorse for proving a language is NOT RE: if L is known undecidable but RE, its complement cannot be RE, or L would be recursive.
+:::
+
+## All The Variants Are The Same
+
+::: cards Equivalent in power to the standard TM
+Multi-tape :: k tapes with independent heads. Simulable on one tape; costs at most a quadratic slowdown, no power.
+Nondeterministic :: A set of next moves. Simulated by breadth-first search over configurations - exponential time, same language class.
+Two-way infinite tape :: Fold the tape in half and track two tracks.
+Multi-head, multi-dimensional tape :: Same story.
+:::
+
+::: remember
+**NTM = DTM in power.** Note how the pattern has now flipped twice:
+
+NFA = DFA. NPDA **>** DPDA. NTM = DTM.
+
+The pushdown level is the only one where nondeterminism adds power. GATE tests this asymmetry constantly, and the middle case is the one people get wrong.
+:::
+
+::: behind
+Nondeterminism costing exponential TIME while adding no POWER is exactly where P versus NP lives.
+
+Theory of Computation asks what is computable at all; complexity theory asks how fast. The same NTM/DTM equivalence that is unremarkable here becomes the open problem of the field once a time bound is imposed.
+:::
+
+::: interview
+The Church-Turing thesis is not a theorem and cannot be proved - it is the claim that anything effectively computable by any means is computable by a Turing machine. Its evidence is that every model anyone has proposed (lambda calculus, recursive functions, register machines, real hardware) has turned out to be exactly equivalent.
+:::`,
+    deepDive: `A **linear bounded automaton (LBA)** is a TM restricted to the tape cells its input already occupies. LBAs accept exactly the **context-sensitive languages**, Type 1 in the Chomsky hierarchy, which sit strictly between CFLs and recursive languages. { a^n b^n c^n } - not context-free - IS context-sensitive, which is a neat way to see that the hierarchy levels are genuinely distinct.
+
+Two LBA facts recur in GATE: membership for context-sensitive languages IS decidable (the tape is bounded, so configurations are finite and looping can be detected), but **emptiness for LBAs is undecidable**. Also worth knowing: whether deterministic and nondeterministic LBAs are equivalent is a genuinely open problem, the first LBA problem, unlike the settled NTM = DTM.`,
+    dryRun: `Trace a TM that decides **{ 0^n 1^n }** on the input **0011**, by repeatedly crossing off one 0 and one 1.
+
+::: timeline Tape trace
+Start :: Tape 0011, head on the leftmost 0, state q0.
+Cross a 0 :: Write X, move right. Tape X011. Now scan right for the first 1.
+Scan right :: Pass over 0s and Xs without changing them, until a 1 is found.
+Cross a 1 :: Write Y, move left. Tape X01Y. One pair is now matched.
+Return left :: Scan back to the leftmost unmarked 0 and repeat.
+Second pass :: Tape XXYY. No unmarked 0s and no unmarked 1s remain.
+Accept :: Every 0 was paired with exactly one 1, so the counts were equal.
+:::
+
+::: remember
+The reason this works and a PDA-style approach is not needed: the head can go BACK.
+
+A stack loses what it pops. This machine rewrites marks in place and re-reads them as often as it likes, which is why a TM can also handle { a^n b^n c^n } - just run the crossing-off pass a third time.
+:::`,
+    keyPoints: [
+      "A TM is a seven-tuple with an unbounded, rewritable tape; each move writes, moves the head, and changes state.",
+      "Unlike a DFA or PDA, a TM may never halt - and that possibility is the source of undecidability.",
+      "Recursive = a TM that halts on every input. Recursively enumerable = halts and accepts on members, may loop on non-members.",
+      "L is recursive if and only if both L and its complement are RE - the standard tool for proving something is not RE.",
+      "All variants (multi-tape, nondeterministic, two-way) are equivalent in POWER. NTM = DTM, unlike NPDA > DPDA.",
+    ],
+    commonMistakes: [
+      "Treating recursively enumerable as decidable. Enumeration has no deadline, so absence is never confirmable.",
+      "Carrying the NPDA > DPDA asymmetry up to Turing machines. Nondeterminism adds no power at this level.",
+      "Assuming a multi-tape TM is more powerful than a single-tape one. It is faster, not stronger.",
+      "Forgetting that Gamma strictly contains Sigma and includes the blank - the blank is never an input symbol.",
+    ],
+    analogies: [
+      "A stack is a spike of receipts you can only add to or take from the top. A tape is a notebook: you can flip to any page, read it, cross something out, and come back later. Losing nothing is what makes the difference.",
+    ],
+    memoryTricks: [
+      "The nondeterminism pattern: NFA = DFA, NPDA > DPDA, NTM = DTM. Only the middle one is strict.",
+      "Recursive = Reliable (always halts). RE = Rather Eventually (halts on yes, maybe never on no).",
+      "L recursive iff L and ~L both RE - \"both directions semi-decidable means fully decidable\".",
+    ],
+    formulas: [
+      { name: "TM transition", expression: "delta: Q x Gamma -> Q x Gamma x {L, R}", note: "Write and move happen on every step; there is no read-only move." },
+      { name: "Recursive characterisation", expression: "L recursive  <=>  L is RE and ~L is RE", note: "Run both semi-deciders in parallel; one must halt." },
+      { name: "Multi-tape simulation cost", expression: "O(t(n)^2) on a single tape", note: "Quadratic slowdown, no change in the language class." },
+    ],
+    shortcuts: [
+      "If an option claims a multi-tape or nondeterministic TM recognises MORE languages, it is wrong.",
+      "To show a language is not RE, show it is the complement of something undecidable but RE.",
+    ],
+    mcqs: [
+      {
+        question: "Which is true of nondeterministic versus deterministic Turing machines?",
+        options: [
+          "NTMs recognise strictly more languages than DTMs",
+          "They recognise exactly the same class of languages, though the simulation may cost exponential time",
+          "DTMs are strictly more powerful",
+          "NTMs cannot recognise recursive languages",
+        ],
+        correctIndex: 1,
+        explanation: "Nondeterminism adds no power at the Turing level - a DTM simulates an NTM by searching the configuration tree. It adds time, not capability. Contrast NPDA > DPDA, where it genuinely does add power.",
+      },
+      {
+        question: "L and its complement are both recursively enumerable. What can be concluded?",
+        options: [
+          "L is recursive",
+          "L is undecidable",
+          "L is context-sensitive but not recursive",
+          "Nothing further",
+        ],
+        correctIndex: 0,
+        explanation: "Running both semi-deciders in parallel guarantees one halts, giving a decider for L. This is the standard characterisation of recursive languages.",
+      },
+    ],
+    numericals: [
+      {
+        question: "A single-tape TM's transition function is delta: Q x Gamma -> Q x Gamma x {L, R}. If |Q| = 5 and |Gamma| = 4, how many entries does a fully specified transition table have?",
+        answerMin: 20, answerMax: 20, unit: "entries",
+        solution: "The domain is Q x Gamma, so the table has |Q| x |Gamma| = 5 x 4 = **20** entries. (Each maps to one of |Q| x |Gamma| x 2 = 40 possible outputs, but the question asks for table size, which is the domain.)",
+      },
+    ],
+    pyqRelevance: "Turing machines are asked mainly for definitions and power comparisons, 1-2 marks. The two highest-frequency items are the recursive-versus-RE distinction (especially the \"L and ~L both RE\" characterisation) and the claim that some TM variant is more powerful, which is always false. LBAs and context-sensitive languages appear in Chomsky-hierarchy questions.",
+    interviewConnection: "The Church-Turing thesis is why \"can this be automated at all?\" has a precise answer, and why no programming language is more powerful than any other in the computability sense - only more convenient.",
+    revisionSummary: "TM = unbounded rewritable tape with a movable head; every move writes, moves and changes state. May not halt, which is where undecidability comes from. Recursive = always halts; RE = halts on members only. L recursive iff L and ~L both RE. All variants equivalent: NTM = DTM.",
+    shortNotes: [
+      "delta: Q x Gamma -> Q x Gamma x {L, R}. Write + move + state, every step.",
+      "Gamma strictly contains Sigma; blank B is in Gamma, never in Sigma.",
+      "Recursive = halts on ALL inputs. RE = halts on members, may loop on non-members.",
+      "L recursive <=> L and ~L both RE.",
+      "NFA = DFA, NPDA > DPDA, NTM = DTM. Only the middle is strict.",
+      "LBA = context-sensitive. CSL membership decidable; LBA emptiness undecidable.",
+    ],
+  },
+
+  "decidability-and-undecidability": {
+    difficulty: "Hard",
+    estimatedMinutes: 40,
+    xpReward: 35, coinReward: 15,
+    whatYoullLearn: [
+      "What it means for a problem to be undecidable, as opposed to merely hard",
+      "The halting problem and the diagonalisation argument behind it",
+      "Rice's theorem - the single most efficient undecidability tool in the syllabus",
+      "The standard decidable/undecidable table GATE draws from",
+    ],
+    prerequisites: ["Turing Machines"],
+    concept: `## Not Hard - Impossible
+
+::: story
+Undecidable does not mean slow, or unsolved, or needing a better algorithm.
+
+It means **no algorithm exists**, and none ever will, no matter how much time or memory you are given. It is a proof of impossibility, not a statement about current technique.
+
+There are exactly two ways to establish it: diagonalisation from first principles, or reduction from something already known undecidable. Almost all of GATE's questions live in the second category.
+:::
+
+::: cards Two levels of "cannot"
+Undecidable :: No TM halts on every input with the right answer. The language may still be RE - you can confirm yes, never confirm no.
+Not RE :: No TM even semi-decides it. Strictly worse. The complement of the halting problem is the standard example.
+:::
+
+## The Halting Problem
+
+::: remember
+**HALT = { (M, w) : Turing machine M halts on input w }** is undecidable.
+
+The proof is diagonalisation, and the shape is worth carrying because it recurs.
+:::
+
+::: flow
+1. Suppose a decider H exists :: H(M, w) returns "halts" or "loops", always, correctly.
+2. Build D from H :: D takes a machine description M and runs H(M, M) - asking whether M halts on its own description.
+3. Invert the answer :: If H says M halts on M, then D deliberately loops forever. If H says it loops, D halts.
+4. Run D on itself :: Ask what D does on input D.
+5. Contradiction :: If D halts on D, then by construction it loops. If it loops, it halts. Both impossible, so H cannot exist.
+:::
+
+::: behind
+The self-reference is doing the work, and it is the same move as Cantor's diagonal argument and Russell's paradox.
+
+Feeding a machine its own description is legal because a TM is just a finite string, and strings are exactly what TMs take as input. That "programs are data" observation is what makes the whole field possible.
+:::
+
+::: mistake
+Concluding that halting cannot be determined for ANY program.
+
+Plenty of specific programs are obviously analysable - a loop with a fixed bound clearly terminates. Undecidability says there is no SINGLE algorithm that works for **every** (M, w) pair. It is a statement about universality, not about every individual case.
+:::
+
+## Rice's Theorem
+
+::: story
+Proving each new problem undecidable by its own reduction is slow. Rice's theorem does most of them at once.
+
+**Any non-trivial property of the LANGUAGE recognised by a Turing machine is undecidable.**
+
+Non-trivial means: some TM has the property and some TM does not. That is the only condition.
+:::
+
+::: cards What Rice covers, and what it does not
+Covered - undecidable :: Is L(M) empty? Regular? Finite? Does it contain a particular string? Is L(M1) = L(M2)? All are properties of the LANGUAGE.
+NOT covered :: Does M have 7 states? Does M ever move left? Does M halt within 50 steps? These are properties of the MACHINE, not its language - and they are decidable.
+:::
+
+::: remember
+The whole skill is telling those two apart.
+
+Ask: **could two machines recognising the same language disagree about this property?** If yes, it is a machine property and Rice does not apply. If no - if the property depends only on the set of accepted strings - Rice applies and it is undecidable.
+:::
+
+::: checkpoint
+Which of these is DECIDABLE?
+- ( ) Does TM M accept a finite language?
+- ( ) Is L(M) regular?
+- (x) Does TM M have exactly 12 states?
+- ( ) Does TM M accept the empty string?
+> Counting states. It is a syntactic property of the machine description - just read it off. The other three are properties of the LANGUAGE recognised, so Rice's theorem makes them undecidable.
+:::
+
+## The Table GATE Draws From
+
+::: cards Decidable
+Regular :: Membership, emptiness, finiteness, equivalence, subset - everything.
+CFL :: Membership, emptiness, finiteness.
+CSL :: Membership.
+TM :: Does M halt within k steps? Does M have n states? (Bounded and syntactic questions.)
+:::
+
+::: cards Undecidable
+TM :: Halting, emptiness of L(M), finiteness, regularity, equivalence - everything Rice covers.
+CFL :: Equivalence, ambiguity, intersection-emptiness, subset, "is L(G) = Sigma*?".
+Other :: Post's Correspondence Problem, and LBA emptiness.
+:::
+
+::: interview
+Notice the pattern down the hierarchy: as the model gets more powerful, fewer questions about it stay answerable.
+
+Regular languages answer everything. CFLs lose equivalence. Turing machines lose essentially everything about their language. Power and analysability trade off directly, and that observation is worth stating out loud.
+:::`,
+    deepDive: `**Post's Correspondence Problem (PCP)** is the standard undecidable problem that has nothing to do with machines: given a set of domino pairs (top string, bottom string), is there a sequence - repeats allowed - whose top concatenation equals its bottom concatenation? Undecidable in general, though the **bounded** version (at most k dominoes) is decidable by brute force, and PCP over a **unary** alphabet is decidable too. PCP matters because it is the usual bridge for proving CFG problems undecidable - CFL ambiguity and CFL intersection-emptiness are both proved by reduction from PCP.
+
+Worth keeping precise: the halting problem is **RE but not recursive** - you can semi-decide it by simulating and accepting when M halts. Its complement is **not even RE**, because if both were RE the language would be recursive. That is the "L recursive iff L and ~L both RE" theorem doing real work.`,
+    dryRun: `Decide whether **"Does TM M accept at least one string of length 5?"** is decidable.
+
+::: timeline Applying Rice's theorem
+Identify the property :: "L(M) contains a string of length 5." Note it is stated purely in terms of accepted strings.
+Language or machine property? :: Two machines with identical languages must agree on it. So it is a LANGUAGE property - Rice is in scope.
+Check non-triviality, part 1 :: Some TM has it. A machine accepting all of Sigma* certainly accepts a length-5 string.
+Check non-triviality, part 2 :: Some TM lacks it. A machine accepting nothing does not.
+Conclude :: Non-trivial language property, therefore UNDECIDABLE.
+:::
+
+::: mistake
+Now change one word: **"Does M accept some string within 5 steps?"**
+
+That is bounded, so it is DECIDABLE - simulate every input of length at most 5 for 5 steps and look. Rice does not apply, because two machines with the same language can easily disagree about how fast they accept.
+
+One word moved the question across the boundary. That is exactly the discrimination GATE is testing.
+:::`,
+    keyPoints: [
+      "Undecidable means no algorithm exists for ALL inputs - not that the problem is merely hard or currently unsolved.",
+      "The halting problem is undecidable, proved by diagonalisation: build D that inverts what a supposed decider predicts about D itself.",
+      "Rice's theorem: EVERY non-trivial property of the LANGUAGE a TM recognises is undecidable.",
+      "Rice does not apply to properties of the MACHINE (state count, steps taken) - those are typically decidable.",
+      "HALT is RE but not recursive; its complement is not even RE.",
+    ],
+    commonMistakes: [
+      "Reading undecidability as \"no program's halting can ever be determined\". It is about no single universal algorithm, not about every individual case.",
+      "Applying Rice's theorem to machine properties like state count or step bounds. Those are decidable.",
+      "Forgetting the non-triviality condition - a property held by ALL TMs or by NONE is trivially decidable.",
+      "Assuming undecidable implies not RE. Many undecidable languages, HALT included, are RE.",
+    ],
+    analogies: [
+      "Rice's theorem is a blanket verdict: once a question is about WHAT a machine computes rather than HOW it is written, the answer cannot be computed in general. Reading the source is allowed; predicting the behaviour is not.",
+    ],
+    memoryTricks: [
+      "Rice = \"Recognised language In question? Certainly Excluded.\" If the property is about L(M), it is undecidable.",
+      "Machine property (states, steps, moves) = decidable. Language property (empty, finite, regular, equal) = undecidable.",
+      "Down the hierarchy, decidability drains away: Regular answers all, CFL loses equivalence, TM loses everything.",
+    ],
+    formulas: [
+      { name: "Halting problem", expression: "HALT = { (M, w) : M halts on w }", note: "Undecidable. RE but not recursive." },
+      { name: "Rice's theorem", expression: "Every non-trivial property of L(M) is undecidable", note: "Non-trivial = held by some TM and not by others." },
+      { name: "Complement fact", expression: "~HALT is not RE", note: "If it were, HALT would be recursive." },
+    ],
+    shortcuts: [
+      "Ask one question: is this about the LANGUAGE or the MACHINE? Language means undecidable, machine usually means decidable.",
+      "Any bound - within k steps, on inputs up to length n - makes a question decidable by brute force.",
+    ],
+    mcqs: [
+      {
+        question: "Which of these problems about a Turing machine M is DECIDABLE?",
+        options: [
+          "Is L(M) empty?",
+          "Is L(M) regular?",
+          "Does M halt on input w within 100 steps?",
+          "Is L(M) finite?",
+        ],
+        correctIndex: 2,
+        explanation: "A step BOUND makes it decidable - simulate 100 steps and observe. The other three are non-trivial properties of the language recognised, so Rice's theorem makes them undecidable.",
+      },
+      {
+        question: "The halting problem is:",
+        options: [
+          "Recursive",
+          "Recursively enumerable but not recursive",
+          "Not recursively enumerable",
+          "Context-sensitive",
+        ],
+        correctIndex: 1,
+        explanation: "Simulating M on w and accepting if it halts semi-decides HALT, so it is RE. Diagonalisation shows no decider exists, so it is not recursive. Its COMPLEMENT is the one that is not RE.",
+      },
+    ],
+    numericals: [
+      {
+        question: "Of the following five problems, how many are undecidable? (1) DFA equivalence, (2) CFL equivalence, (3) TM halting, (4) whether L(M) is regular for a TM M, (5) whether a TM has 10 states.",
+        answerMin: 3, answerMax: 3, unit: "problems",
+        solution: "Undecidable: (2) CFL equivalence, (3) TM halting, (4) regularity of L(M) by Rice. Decidable: (1) DFA equivalence, and (5) state count, which is syntactic. So **3**.",
+      },
+    ],
+    pyqRelevance: "Decidability is one of the highest-yield GATE topics in this subject, appearing nearly every year for 1-2 marks. The dominant form is a multi-statement question mixing decidable and undecidable problems, and Rice's theorem plus the machine-versus-language distinction resolves most of them. \"Does M halt within k steps\" is the most common decidable distractor placed among undecidable options.",
+    interviewConnection: "This is why static analysers are necessarily conservative: perfect dead-code or infinite-loop detection would decide halting, so real tools accept false positives by design rather than by weakness.",
+    revisionSummary: "Undecidable = no algorithm for all inputs. HALT is undecidable by diagonalisation, is RE, and its complement is not RE. Rice: every non-trivial property of L(M) is undecidable, but machine properties and step-bounded questions are decidable. Decidability drains away as models get more powerful.",
+    shortNotes: [
+      "Undecidable = no algorithm for ALL inputs (not merely hard).",
+      "HALT undecidable (diagonalisation). HALT is RE; ~HALT is NOT RE.",
+      "Rice: every non-trivial property of L(M) is undecidable.",
+      "Rice does NOT cover machine properties (state count, k-step bounds) - those are decidable.",
+      "Decidable: DFA everything; CFL membership/emptiness/finiteness; CSL membership.",
+      "Undecidable: CFL equivalence/ambiguity; all Rice properties; PCP; LBA emptiness.",
+    ],
+  },
+
+  "reductions-and-the-halting-problem": {
+    difficulty: "Hard",
+    estimatedMinutes: 35,
+    xpReward: 35, coinReward: 15,
+    whatYoullLearn: [
+      "What a mapping reduction is, and the direction that makes a proof valid",
+      "How to prove a new problem undecidable by reducing FROM a known one",
+      "The direction error that invalidates most attempted reduction proofs",
+      "How reductions establish not-RE, not just undecidable",
+    ],
+    prerequisites: ["Decidability and Undecidability"],
+    concept: `## Borrowing Impossibility
+
+::: story
+Diagonalisation is hard work, and you only need to do it once. After the halting problem, every other undecidability proof can borrow from it.
+
+The tool is **reduction**: show that if you could solve your new problem B, you could use that solution to solve a problem A already known unsolvable. Since A is impossible, B must be too.
+
+You are transferring impossibility, not discovering it fresh.
+:::
+
+::: remember
+**A reduces to B**, written A <=_m B, means there is a COMPUTABLE function f such that:
+
+  w is in A  if and only if  f(w) is in B
+
+f must always halt, and the equivalence must hold in both directions. f is a translator of instances, not a solver of anything.
+:::
+
+## The Direction Is Everything
+
+::: cards Get this backwards and the proof says nothing
+To prove B UNDECIDABLE :: Reduce a KNOWN-undecidable A **to** B. A <=_m B. "If B were decidable, so would A be - contradiction."
+To prove B DECIDABLE :: Reduce B **to** a known-decidable problem. B <=_m A.
+:::
+
+::: mistake
+The single most common error in this topic: reducing **B to HALT** and concluding B is undecidable.
+
+That shows only that B is no harder than HALT - which is true of a great many perfectly decidable problems. It proves nothing at all about B.
+
+The correct direction is **HALT <=_m B**: use a hypothetical decider for B to build one for HALT.
+:::
+
+::: remember
+A one-line sanity check that catches the error every time:
+
+**Reduce FROM the hard problem TO the new one.** The known-impossible thing goes on the LEFT of <=_m.
+
+If your proof never assumes a decider for B exists, you are reducing the wrong way.
+:::
+
+::: checkpoint
+You want to prove problem X is undecidable. Which reduction works?
+- ( ) Reduce X to HALT
+- (x) Reduce HALT to X
+- ( ) Reduce X to a decidable problem
+- ( ) Either direction proves it
+> Reduce HALT to X. That assumes a decider for X and uses it to decide HALT, which is impossible - so no decider for X exists. Reducing X to HALT only shows X is no harder than HALT, which is unremarkable.
+:::
+
+## The Shape Of A Proof
+
+::: flow
+1. State the assumption :: Suppose a decider R for B exists.
+2. Build a decider for A :: Construct S, which on input w computes f(w) and runs R on it.
+3. Verify the equivalence :: Argue that w is in A exactly when f(w) is in B, so S is correct.
+4. Note that f is computable :: The construction must always halt - otherwise S is not a decider.
+5. Contradiction :: S decides A, which is known undecidable. So R cannot exist.
+:::
+
+::: behind
+Step 4 is the one people skip, and it matters. f must be a total computable function - it builds a new instance and returns it, and it must never itself loop.
+
+Note that f is not required to RUN anything. It typically constructs a machine description and hands it over. Building a machine that would loop is fine; looping while building it is not.
+:::
+
+## Beyond Undecidable
+
+::: story
+Reductions also establish the stronger claim: not even recursively enumerable.
+
+If A is not RE and A <=_m B, then B is not RE either. Since ~HALT is not RE, reducing ~HALT to something proves that something is not RE.
+:::
+
+::: cards The standard results this produces
+HALT :: RE, not recursive. Reduce from it for ordinary undecidability.
+~HALT :: Not RE. Reduce from it to prove a problem is not even semi-decidable.
+EQ_TM :: Whether two TMs recognise the same language - neither it nor its complement is RE.
+:::
+
+::: interview
+The relationship to Rice's theorem is worth stating: Rice IS a reduction argument, packaged.
+
+Its proof reduces HALT to an arbitrary non-trivial language property. So when you invoke Rice, you are invoking a reduction someone already performed for you - which is exactly why it saves so much time in an exam.
+:::`,
+    deepDive: `The reduction defined here is **many-one** (mapping) reduction, A <=_m B, which transforms one instance into one instance. The more permissive **Turing reduction**, A <=_T B, lets you call an oracle for B any number of times and use the answers freely.
+
+The distinction matters in one specific place GATE occasionally probes: many-one reductions preserve RE-ness, Turing reductions do not. A language and its complement are always Turing-equivalent (just invert the oracle's answer), so HALT <=_T ~HALT - yet HALT is RE and ~HALT is not. If Turing reductions preserved RE-ness, that would be a contradiction. For undecidability arguments either kind works, but only many-one reductions can establish the not-RE results above.`,
+    dryRun: `Prove **E_TM = { M : L(M) is empty }** is undecidable, by reducing from HALT.
+
+::: timeline The reduction
+Assume :: A decider R for E_TM exists - it tells us whether a given machine accepts nothing.
+Take a HALT instance :: An arbitrary pair (M, w). We want to decide whether M halts on w.
+Construct a new machine M' :: On any input x, M' ignores x, runs M on w, and accepts if that run halts.
+Note what L(M') is :: If M halts on w, M' accepts EVERY input, so L(M') = Sigma*, non-empty. If M never halts, M' accepts nothing, so L(M') is empty.
+Run the decider :: R(M') answers "empty" exactly when M does NOT halt on w.
+Contradiction :: Inverting R's answer decides HALT, which is impossible. So R does not exist.
+:::
+
+::: remember
+Two details that make this a valid proof rather than a sketch.
+
+The construction of M' always halts - we only WRITE a machine description, we never run it. And M' ignores its own input entirely, which is what forces L(M') to be all-or-nothing and makes the emptiness question line up exactly with halting.
+:::`,
+    keyPoints: [
+      "A <=_m B means a total computable f exists with w in A iff f(w) in B - a translator of instances, not a solver.",
+      "To prove B undecidable, reduce a KNOWN-undecidable problem TO B. The hard problem goes on the LEFT.",
+      "Reducing B to HALT proves nothing about B - it only shows B is no harder than HALT.",
+      "The reduction function must always halt; it typically constructs a machine description without running it.",
+      "If A is not RE and A <=_m B, then B is not RE - which is how not-RE results are obtained.",
+    ],
+    commonMistakes: [
+      "Reducing in the wrong direction. This is the dominant error, and it invalidates the proof entirely.",
+      "Building a reduction function that may loop. f must be total, or the constructed decider is not a decider.",
+      "Confusing many-one with Turing reductions. Only many-one preserves RE-ness.",
+      "Forgetting to verify BOTH directions of \"w in A iff f(w) in B\". One direction is not enough.",
+    ],
+    analogies: [
+      "A reduction is a translation service, not a solution. You show that anyone who could answer questions in language B could answer them in language A too - so if A's questions are known unanswerable, B's must be as well.",
+    ],
+    memoryTricks: [
+      "\"Reduce FROM hard TO new.\" The known-impossible problem is on the left of <=_m.",
+      "If your proof never says \"suppose a decider for the NEW problem exists\", you are going the wrong way.",
+      "Many-one preserves RE. Turing does not - HALT <=_T ~HALT, yet only one of them is RE.",
+    ],
+    formulas: [
+      { name: "Mapping reduction", expression: "A <=_m B  iff  exists total computable f with (w in A <=> f(w) in B)", note: "f must always halt." },
+      { name: "Undecidability transfer", expression: "A undecidable and A <=_m B  =>  B undecidable", note: "Direction is essential: A is the known-hard one." },
+      { name: "Not-RE transfer", expression: "A not RE and A <=_m B  =>  B not RE", note: "Reduce from ~HALT to prove not-RE." },
+    ],
+    shortcuts: [
+      "The standard construction: build M' that ignores its input, runs M on w, and accepts if that halts. It converts almost any language property into a halting question.",
+      "If a question asks which reduction proves undecidability, pick the one with the known-hard problem on the left.",
+    ],
+    mcqs: [
+      {
+        question: "To prove problem X undecidable using the halting problem, which reduction is correct?",
+        options: [
+          "Reduce X to HALT",
+          "Reduce HALT to X",
+          "Reduce X to a decidable problem",
+          "Either direction is valid",
+        ],
+        correctIndex: 1,
+        explanation: "HALT <=_m X assumes a decider for X and builds one for HALT - a contradiction, so no decider for X exists. Reducing X to HALT only shows X is no harder than HALT, which many decidable problems also satisfy.",
+      },
+      {
+        question: "A is not recursively enumerable and A <=_m B. What follows about B?",
+        options: [
+          "B is recursive",
+          "B is RE but not recursive",
+          "B is not RE",
+          "Nothing can be concluded",
+        ],
+        correctIndex: 2,
+        explanation: "Many-one reductions preserve RE-ness downward: if B were RE, composing with the computable f would make A RE too. So B is not RE.",
+      },
+    ],
+    numericals: [
+      {
+        question: "In the reduction proving E_TM undecidable, a machine M' is constructed that ignores its input and runs M on w. For a given (M, w), how many distinct possible values can L(M') take?",
+        answerMin: 2, answerMax: 2, unit: "values",
+        solution: "Because M' ignores its input, it either accepts everything or nothing: L(M') = Sigma* if M halts on w, or L(M') = {} if it does not. Exactly **2** possibilities, and that all-or-nothing behaviour is precisely what makes the emptiness test line up with halting.",
+      },
+    ],
+    pyqRelevance: "Reductions appear both directly - which reduction direction proves undecidability - and implicitly, since most decidable/undecidable classification questions are settled by Rice's theorem, itself a packaged reduction. The direction question is the most common explicit form, and the wrong direction is always offered as a distractor. Expect 1-2 marks.",
+    interviewConnection: "The same transfer-of-hardness argument is how NP-completeness is established; only the resource being conserved changes, from computability to polynomial time.",
+    revisionSummary: "A <=_m B: total computable f with w in A iff f(w) in B. To prove B undecidable, reduce a known-undecidable A TO B - hard problem on the left. Reducing B to HALT proves nothing. Many-one reductions also transfer not-RE-ness; Turing reductions do not. Rice's theorem is a pre-packaged reduction from HALT.",
+    shortNotes: [
+      "A <=_m B: total computable f, w in A <=> f(w) in B.",
+      "Prove B undecidable: reduce FROM known-hard A TO B (A on the LEFT).",
+      "Reducing B to HALT proves NOTHING about B.",
+      "f must always halt - it builds a machine description, it does not run it.",
+      "A not RE and A <=_m B => B not RE. Reduce from ~HALT.",
+      "Many-one preserves RE; Turing does not (HALT <=_T ~HALT).",
+      "Rice's theorem = a packaged reduction from HALT.",
+    ],
   }
 };

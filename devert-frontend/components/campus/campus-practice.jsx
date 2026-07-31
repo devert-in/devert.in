@@ -127,7 +127,7 @@ export function SidebarFilterGroup({ label, options, value, onChange, horizontal
 // in this file (see fetchPublishedProblems's own call sites), and cheap: a
 // single equality-filtered query over ~hundreds of docs, not a per-render
 // cost.
-export function CategoryFilterList({ value, onChange, horizontal = false }) {
+export function CategoryFilterList({ value, onChange, horizontal = false, sortAlpha = false }) {
   const { user } = useAuth();
   const [problems, setProblems] = useState([]);
   const [solvedIds, setSolvedIds] = useState(new Set());
@@ -153,12 +153,17 @@ export function CategoryFilterList({ value, onChange, horizontal = false }) {
   }, [problems, solvedIds]);
   const allTotal = problems.length;
   const allSolved = problems.reduce((n, p) => n + (solvedIds.has(p.id) ? 1 : 0), 0);
+  // Navigation Architecture 2.0's sidebar wants categories in alphabetical
+  // order (a browsing list, scanned by name) - every other call site keeps
+  // CODELAB_CATEGORIES' own curated order (roughly easiest/most-common
+  // first), so this is opt-in rather than a change to the shared constant.
+  const categoryOptions = sortAlpha ? [...CODELAB_CATEGORIES].sort((a, b) => a.localeCompare(b)) : CODELAB_CATEGORIES;
 
   return (
     <div>
       <p className="text-[9px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>CATEGORY</p>
       <div className={`flex flex-wrap gap-1.5 ${horizontal ? "" : "lg:flex-col"}`}>
-        {["All", ...CODELAB_CATEGORIES].map(opt => {
+        {["All", ...categoryOptions].map(opt => {
           const active = value === opt;
           const c = opt === "All" ? { total: allTotal, solved: allSolved } : (counts[opt] || { total: 0, solved: 0 });
           return (

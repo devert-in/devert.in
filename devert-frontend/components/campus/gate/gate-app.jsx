@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Activity, AlertTriangle, BarChart3, BookMarked, BookOpen, Bookmark, CalendarCheck,
@@ -84,10 +85,6 @@ const GATE_GROUPS = [
   { key: "revise", label: "Revise", icon: Repeat },
   { key: "track", label: "Track", icon: Activity },
 ];
-
-function sectionMeta(key) {
-  return GATE_SECTIONS.find(s => s.key === key) || GATE_SECTIONS[0];
-}
 
 // ---------------- shared data context ----------------
 
@@ -212,7 +209,7 @@ function useGateData(user) {
 
 // ---------------- top-level router ----------------
 
-export function CampusGateTab() {
+export function CampusGateTab({ sidebarSlot }) {
   const { user } = useAuth();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -234,8 +231,6 @@ export function CampusGateTab() {
     };
   });
 
-  const [group, setGroup] = useState(() => sectionMeta(screen.section).group);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams({ tab: "gate", section: screen.section });
@@ -247,7 +242,6 @@ export function CampusGateTab() {
 
   const go = useCallback((section, params = {}) => {
     setScreen({ section, subjectId: null, topicId: null, testId: null, ...params });
-    setGroup(sectionMeta(section).group);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
@@ -271,17 +265,17 @@ export function CampusGateTab() {
     );
   }
 
-  const visibleSections = GATE_SECTIONS.filter(s => s.group === group);
   const Section = SECTION_COMPONENTS[screen.section] || GateOverview;
 
   return (
     <GateContext.Provider value={{ ...data, go, screen, slug }}>
+      {sidebarSlot && createPortal(
+        <GateSidebarNav active={screen.section} onSelect={(key) => go(key)} />,
+        sidebarSlot
+      )}
       <div className="space-y-5">
         <GateHeader paper={data.paper} papers={data.papers} onSwitchPaper={data.switchPaper}
           completion={data.completion} loading={data.loading} />
-
-        <GateSectionNav group={group} setGroup={setGroup} sections={visibleSections}
-          active={screen.section} onSelect={(key) => go(key)} />
 
         {data.loading ? (
           <div className="space-y-4">
@@ -409,55 +403,41 @@ function GateHeader({ paper, papers, onSwitchPaper, completion, loading }) {
   );
 }
 
-// ---------------- section nav ----------------
+// ---------------- section nav (Navigation Architecture 2.0 - portaled sidebar) ----------------
 
-function GateSectionNav({ group, setGroup, sections, active, onSelect }) {
+// GATE's own sub-navigation, portaled into CampusContextSidebar's slot
+// (replacing the old two-row sticky-top-of-content nav.jsx-style bar). All
+// five groups and their sections are always shown - unlike the old bar,
+// there's no "active group" filter to maintain, since a full vertical list
+// of 16 items reads fine in a sidebar the same way Manage's 12 tabs do.
+function GateSidebarNav({ active, onSelect }) {
   return (
-    <div className="space-y-2 sticky top-0 z-20 -mx-1 px-1 py-2 backdrop-blur"
-      style={{ background: `color-mix(in srgb, ${CAMPUS.paper} 90%, transparent)` }}>
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-        {GATE_GROUPS.map(g => {
-          const isActive = g.key === group;
-          const Icon = g.icon;
-          return (
-            <button key={g.key} onClick={() => {
-              setGroup(g.key);
-              // Switching group lands on that group's first section rather than
-              // showing a group whose sections don't include what's on screen -
-              // otherwise the nav highlights nothing and looks broken.
-              const first = GATE_SECTIONS.find(s => s.group === g.key);
-              if (first && !GATE_SECTIONS.filter(s => s.group === g.key).some(s => s.key === active)) onSelect(first.key);
-            }}
-              className="flex items-center gap-1.5 text-[11.5px] font-mono font-semibold tracking-wide px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0 transition-colors"
-              style={{
-                background: isActive ? CAMPUS.chromeBg : CAMPUS.surface,
-                color: isActive ? CAMPUS.chromeFg : CAMPUS.inkSoft,
-                border: `1px solid ${isActive ? CAMPUS.chromeBg : CAMPUS.line}`,
-              }}>
-              <Icon size={12} /> {g.label.toUpperCase()}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-        {sections.map(s => {
-          const isActive = s.key === active;
-          const Icon = s.icon;
-          return (
-            <button key={s.key} onClick={() => onSelect(s.key)}
-              aria-current={isActive ? "page" : undefined}
-              className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0 transition-colors"
-              style={{
-                background: isActive ? CAMPUS.tealTint : CAMPUS.paper,
-                border: `1px solid ${isActive ? CAMPUS.teal : CAMPUS.line}`,
-                color: isActive ? CAMPUS.teal : CAMPUS.inkSoft,
-              }}>
-              <Icon size={12} /> {s.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>GATE</div>
+      {GATE_GROUPS.map(g => (
+        <div key={g.key} className="mb-1.5">
+          <div className="flex items-center gap-1.5 px-3 py-1 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>
+            <g.icon size={11} /> {g.label.toUpperCase()}
+          </div>
+          {GATE_SECTIONS.filter(s => s.group === g.key).map(s => {
+            const isActive = s.key === active;
+            const Icon = s.icon;
+            return (
+              <button key={s.key} onClick={() => onSelect(s.key)}
+                aria-current={isActive ? "page" : undefined}
+                className="campus-btn w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-all duration-150"
+                style={{
+                  background: isActive ? CAMPUS.gradientPrimary : "transparent",
+                  color: isActive ? "#fff" : CAMPUS.inkSoft,
+                }}>
+                <Icon size={13} className="flex-shrink-0" />
+                <span className="text-[12.5px] truncate">{s.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </>
   );
 }
 
