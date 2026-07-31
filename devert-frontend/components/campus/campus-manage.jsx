@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import {
   Check, X, Upload, Plus, Trophy, BookOpen, Search, Pencil, Download,
@@ -27,7 +28,7 @@ import {
 import { DailyLearningItemEditor } from "@/components/campus/campus-daily-learning-editor";
 import { useAuth } from "@/context/AuthContext";
 import { CAMPUS } from "@/lib/campus-theme";
-import { CampusCard, CampusChip, CampusButton, CampusSkeleton, CampusEmptyState, CampusBackButton, ReportDownloadButton } from "@/components/campus/campus-ui";
+import { CampusCard, CampusChip, CampusButton, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusBreadcrumb, ReportDownloadButton } from "@/components/campus/campus-ui";
 import { gatherPendingRequestsReport } from "@/lib/campusReports";
 import { CampusContestStudio } from "@/components/campus/campus-contest-studio";
 import { CampusContestDashboard } from "@/components/campus/campus-contest-dashboard";
@@ -96,7 +97,30 @@ const MANAGE_TAB_PERMISSION = {
   leaderboards: "leaderboards.view",
 };
 
-export function CampusManage({ institutionId, institution, initialTab, initialStudentsView, onInstitutionUpdated, jumpToManageTab }) {
+// Manage's own sub-navigation, portaled into CampusContextSidebar's slot
+// (see CampusManage's render below) - a vertical rendering of the exact same
+// visibleManageTabs/handleTabClick CampusManage already computed for the old
+// inline tab strip, not a second copy of that state.
+function ManageSidebarList({ tabs, active, onSelect }) {
+  return (
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>MANAGE</div>
+      {tabs.map(t => (
+        <button key={t.key} onClick={() => onSelect(t.key)}
+          className="campus-btn flex items-center text-[13px] font-medium px-3 py-2 rounded-lg text-left whitespace-nowrap transition-all duration-150"
+          style={{
+            background: active === t.key ? CAMPUS.gradientPrimary : "transparent",
+            color: active === t.key ? "#fff" : CAMPUS.inkSoft,
+            boxShadow: active === t.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+          }}>
+          {t.label}
+        </button>
+      ))}
+    </>
+  );
+}
+
+export function CampusManage({ institutionId, institution, initialTab, initialStudentsView, onInstitutionUpdated, jumpToManageTab, sidebarSlot }) {
   // jumpToManageTab lets the mobile nav drawer command an already-mounted
   // Manage into a specific sub-tab (e.g. its in-drawer search result for
   // "students") - the lazy initializer alone covers the common case
@@ -204,19 +228,22 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
 
   return (
     <div>
-      <div className="flex gap-1.5 mb-5 flex-wrap">
-        {visibleManageTabs.map(t => (
-          <button key={t.key} onClick={() => handleTabClick(t.key)}
-            className="campus-btn text-[12.5px] font-semibold px-3.5 py-1.5 rounded-xl transition-all duration-150"
-            style={{
-              background: tab === t.key ? CAMPUS.gradientPrimary : "transparent",
-              color: tab === t.key ? "#fff" : CAMPUS.inkSoft,
-              boxShadow: tab === t.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
-            }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Manage's own sub-navigation lives in the shared contextual sidebar
+          (Navigation Architecture 2.0) instead of an inline tab strip - same
+          visibleManageTabs/handleTabClick this file already owned, just
+          portaled into the slot CampusWorkspace hands down rather than
+          rendered here. sidebarSlot is null the one render before
+          CampusContextSidebar's ref callback fires, and on any screen where
+          this ever mounted outside that shell (there is none today, but the
+          guard costs nothing). */}
+      {sidebarSlot && createPortal(
+        <ManageSidebarList tabs={visibleManageTabs} active={tab} onSelect={handleTabClick} />,
+        sidebarSlot
+      )}
+      <CampusBreadcrumb className="mb-4" items={[
+        { label: "Manage", onClick: tab !== visibleManageTabs[0]?.key ? () => handleTabClick(visibleManageTabs[0]?.key) : undefined },
+        { label: MANAGE_TABS.find(t => t.key === tab)?.label || "" },
+      ]} />
       {tab === "students" && <ManageStudents institutionId={institutionId} institution={institution}
         studentsView={studentsView} setStudentsView={setStudentsView} />}
       {tab === "departments" && <CampusDepartments institutionId={institutionId} />}

@@ -20,7 +20,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   fetchInstitutions, fetchInstitution, fetchMyMembership, requestToJoin,
   fetchMyInstitutionAdminRole, toggleFavoriteInstitution, fetchAnnouncements, isAnnouncementActive,
-  institutionInitials, DEPARTMENTS, YEARS,
+  DEPARTMENTS, YEARS,
   fetchLeaderboardSettings, fetchClassroom, fetchClassrooms, classroomKey, LEADERBOARD_METRICS,
   isModuleEnabledForClassroom,
   fetchMyRoleAssignment, fetchRolePermissionDefaults,
@@ -56,7 +56,7 @@ import { CampusAdminOverview } from "@/components/campus/campus-admin-overview";
 import { CampusStaffOverview } from "@/components/campus/campus-staff-overview";
 import { CampusHodDashboard, CampusPrincipalDashboard } from "@/components/campus/campus-departments";
 import { CampusFacultyDashboard } from "@/components/campus/campus-classrooms";
-import { NAV_ITEMS, GROUP_ORDER, NAV_GROUP_LABELS } from "@/lib/campusNavConfig";
+import { NAV_ITEMS, GROUP_ORDER } from "@/lib/campusNavConfig";
 import { CampusMobileDrawer } from "@/components/campus/campus-mobile-drawer";
 import { CampusStaffLogin } from "@/components/campus/campus-staff-login";
 import { CampusThemeProvider, useCampusTheme, CampusThemeToggle, CampusShell } from "@/components/campus/campus-theme-provider";
@@ -1207,6 +1207,28 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   const [manageJump, setManageJump] = useState(null);
   const jumpNonceRef = useRef(0);
 
+  // Navigation Architecture 2.0: CampusContextSidebar is a generic, empty
+  // portal target - whichever module is active portals ITS OWN existing
+  // sub-navigation (Manage's tab list, Daily Learning's track list, ...) into
+  // this DOM node rather than CampusWorkspace owning a second copy of that
+  // module's state. A callback-ref state setter (not a plain useRef) so the
+  // very first portal call - which can happen in the same commit this node
+  // mounts - has a non-null target to render into.
+  const [sidebarEl, setSidebarEl] = useState(null);
+  // Collapse persistence carried over unchanged from the old CampusNavRail
+  // (same "campus-nav-collapsed" localStorage key/values) - lifted up here
+  // because the toggle button now lives inside CampusContextSidebar, which
+  // no longer owns any state of its own (see that component's own comment).
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("campus-nav-collapsed") === "1") setSidebarCollapsed(true);
+  }, []);
+  const toggleSidebarCollapsed = () => setSidebarCollapsed(c => {
+    const next = !c;
+    localStorage.setItem("campus-nav-collapsed", next ? "1" : "0");
+    return next;
+  });
+
   // Classroom-level module access (see NAV_ITEMS' moduleKey/lib/institutions.js's
   // MODULES) - fetched once here, not per-tab, so every gated tab (and the
   // nav rail/bottom nav deciding what to even show) reads the same value.
@@ -1610,8 +1632,8 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     <div data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp flex flex-col lg:flex-row">
       <CampusExitConfirmDialog open={exitGuard.exitDialogOpen} institutionName={institution.name}
         onStay={exitGuard.stay} onLeave={exitGuard.leave} />
-      <CampusNavRail institution={institution} tab={tab} setTab={goTab}
-        hiddenTabKeys={hiddenTabKeys} onRequestExit={exitGuard.requestExit} />
+      <CampusContextSidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapsed}
+        slotRef={setSidebarEl} hasContent={(tab === "manage" && isInstAdmin) || tab === "learning"} />
       <CampusMobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}
         institution={institution} tab={tab} goTab={goTab} isInstAdmin={isInstAdmin}
         hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onRequestExit={exitGuard.requestExit}
@@ -1619,7 +1641,8 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
         onSignOut={async () => { await logout(); router.push("/campus"); }} />
       <div className="flex-1 min-w-0 flex flex-col">
         <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user?.uid}
-          onOpenDrawer={() => setDrawerOpen(true)} drawerOpen={drawerOpen} />
+          onOpenDrawer={() => setDrawerOpen(true)} drawerOpen={drawerOpen}
+          tab={tab} hiddenTabKeys={hiddenTabKeys} onRequestExit={exitGuard.requestExit} />
         <div className="flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-6 min-w-0">
           {NAV_ITEMS.find(i => i.key === tab)?.moduleKey && !isTabAllowed(tab) ? (
             <ModuleAccessRestricted moduleLabel={NAV_ITEMS.find(i => i.key === tab)?.label || "This section"} onBack={() => goTab("dashboard")} />
@@ -1644,7 +1667,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           {isTabAllowed("profile") && tab === "profile" && (
             <ProfileTab userData={userData} totalCoins={totalCoins} membership={membership} institution={institution} isInstAdmin={isInstAdmin} staffScope={staffScope} />
           )}
-          {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} />}
+          {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} sidebarSlot={sidebarEl} />}
           {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab />}
           {isTabAllowed("csCore") && tab === "csCore" && <CampusCsCoreTab />}
           {isTabAllowed("aptitude") && tab === "aptitude" && <CampusAptitudeTab />}
@@ -1682,7 +1705,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             isInstAdmin
               ? <CampusManage institutionId={slug} institution={institution}
                   initialTab={initialManageTab} initialStudentsView={initialManageStudentsView}
-                  jumpToManageTab={manageJump}
+                  jumpToManageTab={manageJump} sidebarSlot={sidebarEl}
                   onInstitutionUpdated={(patch) => setInstitution(prev => ({ ...(prev || {}), ...patch }))} />
               // Frontend gate only for the UI decision of what to render - the
               // real authority is firestore.rules (every Manage write is
@@ -1834,89 +1857,76 @@ function CampusExitConfirmDialog({ open, institutionName, onStay, onLeave }) {
   );
 }
 
-// Hoisted to module scope (not defined inside CampusNavRail's render) so it
-// keeps a stable identity across re-renders instead of being torn down and
-// recreated on every parent render.
-function NavItem({ item, tab, setTab, collapsed }) {
+// Navigation Architecture 2.0 - Level 1 (Global Navigation). Horizontal
+// top-navbar rendering of the exact same NAV_ITEMS/hiddenTabKeys/GROUP_ORDER
+// data the old vertical CampusNavRail used to render - same array, same
+// role-gating logic, just a different renderer, so no authorization logic is
+// duplicated. GROUP_ORDER draws a subtle divider between groups rather than a
+// labeled section (a flat horizontal row reads fine at 13 items; stacked
+// group headers don't translate to a horizontal layout). Desktop-only
+// (lg:flex) - mobile keeps CampusBottomNav/CampusMobileDrawer, unchanged.
+function TopNavItem({ item, tab, setTab }) {
   const Icon = item.icon;
   const active = tab === item.key;
   return (
-    <button onClick={() => setTab(item.key)} title={collapsed ? item.label : undefined}
-      className={`campus-nav-item relative flex items-center gap-2.5 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all duration-150 ${collapsed ? "justify-center px-0" : "px-3"} ${active ? "campus-nav-item-active" : ""}`}
-      style={{
-        background: active ? CAMPUS.gradientPrimary : "transparent",
-        color: active ? "#fff" : CAMPUS.inkSoft,
-        boxShadow: active ? "0 4px 16px rgba(99,102,241,0.32)" : "none",
-      }}>
-      <Icon size={15} className="flex-shrink-0 transition-transform duration-150" /> {!collapsed && item.label}
+    <button onClick={() => setTab(item.key)}
+      className="relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-colors"
+      style={{ color: active ? CAMPUS.ink : CAMPUS.inkSoft }}>
+      {active && (
+        <motion.span layoutId="campus-top-nav-active" className="absolute inset-0 rounded-lg -z-10"
+          style={{ background: CAMPUS.tealTint }} transition={{ type: "spring", stiffness: 500, damping: 35 }} />
+      )}
+      <Icon size={14} className="flex-shrink-0" /> {item.label}
     </button>
   );
 }
 
-// Desktop-only icon+label rail - hidden below lg, replaced by CampusBottomNav.
-// Collapsible (persisted like the theme toggle) so it can shrink to an
-// icon-only rail without losing the current tab.
-function CampusNavRail({ institution, tab, setTab, hiddenTabKeys, onRequestExit }) {
-  const [collapsed, setCollapsed] = useState(false);
+function CampusTopNavbar({ tab, setTab, hiddenTabKeys }) {
+  const groups = GROUP_ORDER
+    // "profile" is deliberately excluded from the top navbar - it already
+    // has a dedicated entry point via the account avatar menu's "View
+    // Profile" (CampusProfileMenu), so listing it a second time here would
+    // just be redundant clutter in the busiest nav surface. Still present in
+    // CampusBottomNav/CampusMobileDrawer on mobile, where there's no
+    // equivalent shortcut.
+    .map(groupKey => ({ key: groupKey, items: NAV_ITEMS.filter(i => i.parentGroup === groupKey && i.key !== "profile" && i.desktopVisibility && !hiddenTabKeys?.has(i.key)) }))
+    .filter(g => g.items.length > 0);
+  return (
+    <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto no-scrollbar flex-1 min-w-0">
+      {groups.map((group, i) => (
+        <div key={group.key} className="flex items-center gap-0.5 flex-shrink-0"
+          style={i > 0 ? { marginLeft: 6, paddingLeft: 6, borderLeft: `1px solid ${CAMPUS.line}` } : undefined}>
+          {group.items.map(item => <TopNavItem key={item.key} item={item} tab={tab} setTab={setTab} />)}
+        </div>
+      ))}
+    </nav>
+  );
+}
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem("campus-nav-collapsed") === "1") setCollapsed(true);
-  }, []);
-
-  const toggleCollapsed = () => setCollapsed(c => {
-    const next = !c;
-    localStorage.setItem("campus-nav-collapsed", next ? "1" : "0");
-    return next;
-  });
-
+// Navigation Architecture 2.0 - Level 2 (Contextual Sidebar). A generic,
+// config-agnostic portal target living in the exact physical slot the old
+// CampusNavRail occupied (same width tokens, same collapse toggle/icons) -
+// but it knows nothing about NAV_ITEMS, MANAGE_TABS, or TRACK_CATALOG. The
+// active module portals ITS OWN existing sub-navigation list into `slotRef`
+// instead of this component (or CampusWorkspace) owning a second copy of
+// that module's state - see CampusManage/CampusDailyLearningLanding for the
+// two modules wired up so far (more follow in later migration passes).
+// Collapses to nothing (not an empty box) when the active module has no
+// sub-navigation to contribute, per the Navigation Architecture 2.0 RFC's
+// "Empty Modules" guidance.
+function CampusContextSidebar({ collapsed, onToggleCollapse, slotRef, hasContent }) {
+  if (!hasContent) return null;
   return (
     <aside style={{ background: CAMPUS.surface, borderRight: `1px solid ${CAMPUS.line}` }}
-      className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:self-start px-3 py-5 flex-col gap-1 transition-[width] duration-200 ${collapsed ? "lg:w-[76px]" : "lg:w-[220px]"}`}>
-      <div className={`flex items-center gap-2.5 px-1 pb-5 mb-1 ${collapsed ? "justify-center" : ""}`} style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
-          style={institution.logoUrl
-            ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }
-            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: "0 4px 14px rgba(99,102,241,0.32)" }}>
-          {institution.logoUrl
-            ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
-            : institution.name?.slice(0, 2).toUpperCase()}
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <b className="block text-[13px] truncate" style={{ color: CAMPUS.ink }} title={institution.name}>
-              {institution.shortName?.trim() || institutionInitials(institution.name) || institution.name}
-            </b>
-            <span className="block text-[10px] font-mono tracking-wide" style={{ color: CAMPUS.inkFaint }}>CAMPUS WORKSPACE</span>
-          </div>
-        )}
-      </div>
-
-      <nav className="flex flex-col gap-3 flex-1 overflow-y-auto">
-        {GROUP_ORDER.map(groupKey => {
-          const items = NAV_ITEMS.filter(i => i.parentGroup === groupKey && i.desktopVisibility && !hiddenTabKeys?.has(i.key));
-          if (!items.length) return null;
-          const label = NAV_GROUP_LABELS[groupKey];
-          return (
-            <div key={groupKey} className={`flex flex-col gap-1 ${groupKey === "admin" ? "mt-auto pt-3" : ""}`}
-              style={groupKey === "admin" ? { borderTop: `1px solid ${CAMPUS.line}` } : undefined}>
-              {label && !collapsed && (
-                <span className="px-3 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{label.toUpperCase()}</span>
-              )}
-              {items.map(item => <NavItem key={item.key} item={item} tab={tab} setTab={setTab} collapsed={collapsed} />)}
-            </div>
-          );
-        })}
-      </nav>
-
-      <button onClick={toggleCollapsed}
-        className={`flex items-center gap-1.5 text-[11px] font-medium pt-3 mt-1 transition-colors ${collapsed ? "justify-center" : ""}`}
+      className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:self-start py-4 flex-col transition-[width] duration-200 ${collapsed ? "lg:w-[60px]" : "lg:w-[230px]"}`}>
+      {/* Portal target - deliberately empty here; whichever module is active
+          renders its own list into this node via createPortal. */}
+      <div ref={slotRef} className="flex-1 overflow-y-auto min-h-0 px-3 flex flex-col gap-1" />
+      <button onClick={onToggleCollapse}
+        className={`flex items-center gap-1.5 text-[11px] font-medium pt-3 mt-1 mx-3 transition-colors ${collapsed ? "justify-center" : ""}`}
         style={{ color: CAMPUS.inkFaint, borderTop: `1px solid ${CAMPUS.line}` }}>
         {collapsed ? <PanelLeftOpen size={14} /> : <><PanelLeftClose size={13} /> Collapse</>}
       </button>
-      <Link href="/" title="Return to DeVert" onClick={(e) => { e.preventDefault(); onRequestExit("/"); }}
-        className={`flex items-center gap-1.5 text-[11px] font-medium pt-2 ${collapsed ? "justify-center" : ""}`} style={{ color: CAMPUS.inkFaint }}>
-        <ArrowLeft size={12} /> {!collapsed && "Return to DeVert"}
-      </Link>
     </aside>
   );
 }
@@ -1955,7 +1965,7 @@ function CampusBottomNav({ tab, setTab, hiddenTabKeys }) {
 // this Campus, then View Profile and Sign out below a divider. Consolidated
 // here (rather than a separate "..." icon) so the avatar is the one place
 // every account/campus-level action lives.
-function CampusProfileMenu({ institution, slug, userData, uid, setTab }) {
+function CampusProfileMenu({ institution, slug, userData, uid, setTab, onRequestExit }) {
   const { logout } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -2044,6 +2054,13 @@ function CampusProfileMenu({ institution, slug, userData, uid, setTab }) {
             style={{ ...ITEM_STYLE, borderTop: `1px solid ${CAMPUS.line}` }}>
             <IdCard size={14} style={{ color: CAMPUS.inkFaint }} /> View Profile
           </button>
+          {onRequestExit && (
+            <button onClick={() => { setOpen(false); onRequestExit("/"); }} onMouseEnter={onEnter} onMouseLeave={onLeave}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[12.5px] text-left transition-colors"
+              style={{ ...ITEM_STYLE, borderTop: `1px solid ${CAMPUS.line}` }}>
+              <ArrowLeft size={14} style={{ color: CAMPUS.inkFaint }} /> Return to DeVert
+            </button>
+          )}
           <button onClick={handleLogout} onMouseEnter={onEnter} onMouseLeave={onLeave}
             className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[12.5px] text-left transition-colors"
             style={{ color: CAMPUS.bad, borderTop: `1px solid ${CAMPUS.line}` }}>
@@ -2055,7 +2072,7 @@ function CampusProfileMenu({ institution, slug, userData, uid, setTab }) {
   );
 }
 
-function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, drawerOpen }) {
+function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, drawerOpen, tab, hiddenTabKeys, onRequestExit }) {
   return (
     <header className="flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0"
       style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
@@ -2070,10 +2087,10 @@ function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, 
           ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
           : institution.name?.slice(0, 2).toUpperCase()}
       </div>
-      <span className="hidden lg:inline text-[12.5px] font-medium truncate" style={{ color: CAMPUS.inkFaint }}>{institution.name}</span>
-      <div className="flex-1" />
+      <CampusTopNavbar tab={tab} setTab={setTab} hiddenTabKeys={hiddenTabKeys} />
+      <div className="lg:hidden flex-1" />
       <CampusThemeToggle />
-      <CampusProfileMenu institution={institution} slug={slug} userData={userData} uid={uid} setTab={setTab} />
+      <CampusProfileMenu institution={institution} slug={slug} userData={userData} uid={uid} setTab={setTab} onRequestExit={onRequestExit} />
     </header>
   );
 }

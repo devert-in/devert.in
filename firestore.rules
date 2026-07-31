@@ -21,6 +21,34 @@ service cloud.firestore {
       return isAuth() && request.auth.token.get('admin', false) == true;
     }
 
+    // ---------- same-day reward window ----------
+    // Daily Learning pays XP/coins only on the day a lesson is FOR. These build
+    // today's date as an ISO string so it can be compared against the log's own
+    // `date` field, which is a string - rules cannot parse a date out of a
+    // string, so the comparison has to go the other way.
+    //
+    // IST (+05:30) is hardcoded because the programme is scheduled in IST: a
+    // "Friday" lesson is Friday in Hyderabad regardless of where the student
+    // is sitting. lib/dailyLearning.js's toISODate uses LOCAL date parts, so a
+    // student in a very different timezone can disagree with this rule near
+    // midnight and see their write rejected. That is the correct outcome for an
+    // IST-scheduled programme, but it is a real edge case, not an oversight.
+    function istNow() {
+      return request.time + duration.value(330, 'm');
+    }
+    function pad2(n) {
+      return n < 10 ? '0' + string(n) : string(n);
+    }
+    function istTodayStr() {
+      return string(istNow().year()) + '-' + pad2(istNow().month()) + '-' + pad2(istNow().day());
+    }
+    // A log claiming no reward is always allowed through the date check - late
+    // completions must still be recordable, they simply earn nothing.
+    function isRewardFreeLog() {
+      return request.resource.data.get('xpEarned', 0) == 0
+          && request.resource.data.get('coinEarned', 0) == 0;
+    }
+
     // ---------- content distribution: audiences ----------
     // See docs/CONTENT-ENGINE-ARCHITECTURE.md sections 4, 5 and 6a. Mirrors
     // readerAudiences()/audienceAllows() in devert-frontend/lib/audiences.js -
@@ -1934,7 +1962,18 @@ service cloud.firestore {
             && isModuleEnabledForUser(request.resource.data.uid, institutionId, 'dailyLearning')
             && (resource == null || !('completedAt' in resource.data) || request.resource.data.completedAt == resource.data.completedAt)
             && request.resource.data.get('xpEarned', 0) is number && request.resource.data.get('xpEarned', 0) >= 0 && request.resource.data.get('xpEarned', 0) <= 2000
-            && request.resource.data.get('coinEarned', 0) is number && request.resource.data.get('coinEarned', 0) >= 0 && request.resource.data.get('coinEarned', 0) <= 2000);
+            && request.resource.data.get('coinEarned', 0) is number && request.resource.data.get('coinEarned', 0) >= 0 && request.resource.data.get('coinEarned', 0) <= 2000
+            // Same-day rule: a day may only claim XP/coins on the day it is
+            // FOR. lib/dailyLearning.js's submitDayCompletion applies this
+            // client-side, but that is the UX - coins convert to real INR, so
+            // it is enforced here too. Without this, the client check is a
+            // one-line bypass through the SDK.
+            //
+            // A late day may still be written (progress, streak history and
+            // analytics all keep working) - it just cannot carry a nonzero
+            // reward. Institution/platform admins are exempt above, so
+            // legitimate corrections are unaffected.
+            && (isRewardFreeLog() || request.resource.data.get('date', '') == istTodayStr()));
       }
 
       // New tracks within Daily Learning (Aptitude Series first - see

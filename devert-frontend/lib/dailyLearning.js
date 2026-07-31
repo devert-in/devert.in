@@ -216,9 +216,31 @@ export async function fetchTrackProgress(slug, uid, trackId) {
 // XP/coins/score; Firestore now retries this whole callback if the log doc
 // changes underneath it, so the loser of the race re-reads an
 // already-completed doc and is correctly denied a second reward.
+// Is this day's work being done ON that day? Daily Learning is a daily-habit
+// program, and paying full XP/coins for a fortnight of catch-up in one sitting
+// rewards the opposite of the behaviour it exists to build. From 2026-07-31, a
+// day completed late still records completion and still counts toward progress
+// and streak history - it just earns nothing.
+//
+// Deliberately compares two LOCAL ISO date strings (toISODate uses local
+// getters, never toISOString) so a student in IST submitting at 00:30 is judged
+// against their own calendar day, not a UTC one that is still "yesterday" until
+// 05:30. This file's toISODate comment documents the same trap.
+//
+// This is a client-side check on a client-side reward path, so it is enforced
+// again in firestore.rules - see the dailyLearningLog write rule. Coins convert
+// to real INR, so the rule is the authority and this is the UX.
+export function isSameDayAsToday(date) {
+  return date === todayISO();
+}
+
 export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers, correctCount, problemsSolved, trackId = "dsa" }) {
   const logRef = doc(db, trackPaths(slug, trackId).logs, logId(uid, item.date));
   let alreadyRewarded;
+
+  // Read once, outside the transaction body, so a retry cannot straddle
+  // midnight and grant on one attempt but not the next.
+  const onTime = isSameDayAsToday(item.date);
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(logRef);
@@ -246,8 +268,12 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
       mcqTotal: (item.mcqs || []).length,
       problemsSolved,
       problemsTotal: (item.problemIds || []).length,
-      xpEarned: alreadyRewarded ? (existing.xpEarned || 0) : (item.xpReward || 0),
-      coinEarned: alreadyRewarded ? (existing.coinEarned || 0) : (item.coinReward || 0),
+      xpEarned: alreadyRewarded ? (existing.xpEarned || 0) : (onTime ? (item.xpReward || 0) : 0),
+      coinEarned: alreadyRewarded ? (existing.coinEarned || 0) : (onTime ? (item.coinReward || 0) : 0),
+      // Why the day earned nothing, recorded on the log itself rather than
+      // inferred later - "completed but 0 XP" is otherwise indistinguishable
+      // from a bug, both to a student asking and to anyone reading analytics.
+      lateSubmission: alreadyRewarded ? (existing.lateSubmission ?? false) : !onTime,
       completedAt: existing?.completedAt || serverTimestamp(),
       updatedAt: serverTimestamp(),
     }, { merge: true });
@@ -259,7 +285,10 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
     // stranded (no retry possible - the flag already says "rewarded"). Given
     // the tx argument, grantRewards uses tx.update/tx.set instead of the
     // standalone SDK calls, making the whole thing one atomic commit.
-    if (!alreadyRewarded) {
+    // `onTime` gates the grant entirely - a late day writes its log (so
+    // progress, streak history and analytics still see it) but never touches
+    // the reward ledger at all, rather than granting zero through it.
+    if (!alreadyRewarded && onTime) {
       grantRewards(uid, {
         xpReward: item.xpReward || 0,
         coinReward: item.coinReward || 0,
@@ -272,7 +301,10 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
     }
   });
 
-  return !alreadyRewarded;
+  // { rewarded, onTime } rather than a bare boolean - the caller needs to tell
+  // "you already did this" apart from "you did it late", because those are two
+  // different messages to show a student.
+  return { rewarded: !alreadyRewarded && onTime, alreadyCompleted: alreadyRewarded, onTime };
 }
 
 // Flat per-problem reward for solving a practice/coding problem embedded in
@@ -293,6 +325,11 @@ export const DAILY_LEARNING_PROBLEM_XP = 25;
 export const DAILY_LEARNING_PROBLEM_COINS = 5;
 
 export async function grantDailyLearningProblemReward({ slug, uid, date, problemId, trackId = "dsa" }) {
+  // Same same-day rule as submitDayCompletion. Without it the day bonus would
+  // be withheld for late work while the per-problem rewards - 25 XP each, which
+  // on a two-problem day is most of the value - still paid out in full, leaving
+  // the rule trivially sidesteppable by just solving the problems.
+  if (!isSameDayAsToday(date)) return false;
   const activityId = `${slug}_${trackId}_${date}_${problemId}`;
   return runTransaction(db, async (tx) => {
     const already = await isAlreadyGranted(tx, uid, "daily_learning_problem", activityId);

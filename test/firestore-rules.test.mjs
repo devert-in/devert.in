@@ -322,6 +322,13 @@ test("a hackathon submission owner cannot forge their own score/rank/winner, onl
 // --- Contest Platform ---
 
 const FUTURE = new Date(Date.now() + 60 * 60 * 1000); // +1h, mirrors an in-progress/upcoming contest
+
+// Today's date in IST, matching istTodayStr() in firestore.rules. Daily Learning
+// logs may only claim XP/coins on the day they are FOR, so any test asserting a
+// REWARDED log write has to use the current date - a hardcoded one silently
+// becomes a past date the day after it is written, and the test starts failing
+// for a reason that has nothing to do with what it is checking.
+const IST_TODAY = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
 const PAST = new Date(Date.now() - 60 * 60 * 1000);    // -1h, mirrors a contest that has ended
 
 async function seedContest(ctx, contestId, overrides = {}) {
@@ -1082,8 +1089,8 @@ test("an approved student can write their own dailyLearningLog slot", async () =
     await ctx.firestore().doc("institutions/mrcet/students/owner-uid").set({ uid: "owner-uid", status: "approved" });
   });
   const owner = testEnv.authenticatedContext("owner-uid");
-  await assertSucceeds(owner.firestore().doc("institutions/mrcet/dailyLearningLog/owner-uid_2026-07-24").set({
-    uid: "owner-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
+  await assertSucceeds(owner.firestore().doc(`institutions/mrcet/dailyLearningLog/owner-uid_${IST_TODAY}`).set({
+    uid: "owner-uid", date: IST_TODAY, weekId: "2026-07-20", dow: "fri", type: "lesson",
     xpEarned: 50, coinEarned: 20, completedAt: new Date(),
   }));
 });
@@ -1293,14 +1300,14 @@ test("a DSA dailyLearning item and an Aptitude learningTracks item on the SAME c
 
   // Same shape one level down: a student's completion log for the same date,
   // in each track, are two entirely separate documents.
-  await approved.firestore().doc("institutions/mrcet/dailyLearningLog/approved-uid_2026-07-24").set({
-    uid: "approved-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson", xpEarned: 30, coinEarned: 10,
+  await approved.firestore().doc(`institutions/mrcet/dailyLearningLog/approved-uid_${IST_TODAY}`).set({
+    uid: "approved-uid", date: IST_TODAY, weekId: "2026-07-20", dow: "fri", type: "lesson", xpEarned: 30, coinEarned: 10,
   });
-  await approved.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/approved-uid_2026-07-24").set({
-    uid: "approved-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson", xpEarned: 40, coinEarned: 15,
+  await approved.firestore().doc(`institutions/mrcet/learningTracks/aptitude/logs/approved-uid_${IST_TODAY}`).set({
+    uid: "approved-uid", date: IST_TODAY, weekId: "2026-07-20", dow: "fri", type: "lesson", xpEarned: 40, coinEarned: 15,
   });
-  const dsaLog = await approved.firestore().doc("institutions/mrcet/dailyLearningLog/approved-uid_2026-07-24").get();
-  const aptitudeLog = await approved.firestore().doc("institutions/mrcet/learningTracks/aptitude/logs/approved-uid_2026-07-24").get();
+  const dsaLog = await approved.firestore().doc(`institutions/mrcet/dailyLearningLog/approved-uid_${IST_TODAY}`).get();
+  const aptitudeLog = await approved.firestore().doc(`institutions/mrcet/learningTracks/aptitude/logs/approved-uid_${IST_TODAY}`).get();
   assert.strictEqual(dsaLog.data().xpEarned, 30);
   assert.strictEqual(aptitudeLog.data().xpEarned, 40);
 });

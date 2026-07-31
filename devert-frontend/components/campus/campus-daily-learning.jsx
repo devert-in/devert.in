@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, XCircle, Circle, Lock, BookOpen, Code2, Zap, Coins, ClipboardCheck,
@@ -14,11 +15,12 @@ import {
   DOW_LABELS, DOW_ORDER, mondayOf, todayISO, fetchWeekItems, fetchLog,
   fetchUserWeekLogs, submitDayCompletion, saveDraftProgress, fetchDayLeaderboard, fetchWeekTests,
   fetchModuleConfig, grantDailyLearningProblemReward, TRACK_CATALOG, fetchTrackProgress,
+  isSameDayAsToday, shiftWeek,
 } from "@/lib/dailyLearning";
 import { CAMPUS } from "@/lib/campus-theme";
 import { shuffleQuizForAttempt, buildQuizSeedKey } from "@/lib/quizRandom";
 import {
-  CampusCard, CampusChip, CampusTable, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton,
+  CampusCard, CampusChip, CampusTable, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton, CampusBreadcrumb,
 } from "@/components/campus/campus-ui";
 import { CampusProblemView } from "@/components/campus/campus-practice";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
@@ -123,6 +125,60 @@ function TrackProgressCard({ slug, track, onOpen }) {
   );
 }
 
+// Sidebar rendering of TRACK_CATALOG (+ the same COMING_SOON_TRACKS teaser
+// row shown on the landing screen), portaled into CampusContextSidebar's
+// slot (Navigation Architecture 2.0) - shown the instant Daily Learning is
+// opened, not just once a track is picked, so the sidebar always reflects
+// "what's inside Daily Learning" the same way the landing page's own cards
+// do. Reuses fetchTrackProgress exactly like TrackProgressCard - no new data
+// source, just a second, more compact renderer of the same numbers.
+function TrackSidebarItem({ slug, track, active, onSelect }) {
+  const { user } = useAuth();
+  const [progress, setProgress] = useState(undefined);
+  useEffect(() => {
+    if (!user) return;
+    fetchTrackProgress(slug, user.uid, track.key).then(setProgress).catch(() => setProgress(null));
+  }, [slug, user, track.key]);
+  const Icon = TRACK_ICONS[track.icon] || BookOpen;
+  return (
+    <button onClick={() => onSelect(track.key)}
+      className="campus-btn flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
+      style={{
+        background: active ? CAMPUS.gradientPrimary : "transparent",
+        color: active ? "#fff" : CAMPUS.inkSoft,
+        boxShadow: active ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+      }}>
+      <Icon size={15} className="flex-shrink-0" />
+      <span className="flex-1 min-w-0">
+        <span className="block text-[13px] font-medium truncate">{track.label}</span>
+        {progress !== undefined && progress !== null && (
+          <span className="block text-[10.5px] truncate" style={{ color: active ? "rgba(255,255,255,0.75)" : CAMPUS.inkFaint }}>
+            Day {Math.max(1, progress?.currentDayIndex || 1)} &middot; {progress?.percentComplete || 0}%
+          </span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+function DailyLearningSidebarList({ slug, activeTrackId, onSelect }) {
+  return (
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>DAILY LEARNING</div>
+      {TRACK_CATALOG.map(track => (
+        <TrackSidebarItem key={track.key} slug={slug} track={track} active={activeTrackId === track.key} onSelect={onSelect} />
+      ))}
+      <div className="px-1 pt-3 pb-1 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>COMING SOON</div>
+      {COMING_SOON_TRACKS.map(t => (
+        <div key={t.label} className="flex items-center gap-2.5 px-3 py-2 rounded-lg opacity-50" style={{ cursor: "not-allowed" }}>
+          <t.icon size={14} className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }} />
+          <span className="text-[12.5px] font-medium truncate" style={{ color: CAMPUS.inkFaint }}>{t.label}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 // The Daily Learning tab's real entry screen - one progress card per
 // TRACK_CATALOG series, routing into the existing CampusDailyLearningTab
 // (unmodified below) with an explicit trackId once a card is tapped. Reads
@@ -131,7 +187,11 @@ function TrackProgressCard({ slug, track, onOpen }) {
 // (see lib/campusNav.js) so hardware/gesture Back steps out to the picker
 // before it ever reaches the "Leave Campus?" exit guard - one level shallower
 // than CampusDailyLearningWeek's own depth-2 problem-view drill-down.
-export function CampusDailyLearningLanding({ slug }) {
+// sidebarSlot (Navigation Architecture 2.0) is the DOM node CampusWorkspace
+// hands down for this module's own sub-navigation - portaled unconditionally
+// (both on the picker screen and once a track is open), not just after a
+// track is picked.
+export function CampusDailyLearningLanding({ slug, sidebarSlot }) {
   const searchParams = useSearchParams();
   const [trackId, setTrackId] = useState(() => searchParams.get("track") || null);
 
@@ -142,19 +202,27 @@ export function CampusDailyLearningLanding({ slug }) {
     window.history.replaceState(null, "", `/campus/${slug}/daily-learning`);
   }, [trackId, slug]);
 
+  const sidebar = sidebarSlot && createPortal(
+    <DailyLearningSidebarList slug={slug} activeTrackId={trackId} onSelect={setTrackId} />,
+    sidebarSlot
+  );
+
   if (trackId) {
     return (
       <div>
-        <CampusBackButton onClick={() => setTrackId(null)} label="All series" />
-        <div className="mt-3">
-          <CampusDailyLearningTab slug={slug} trackId={trackId} />
-        </div>
+        {sidebar}
+        <CampusBreadcrumb className="mb-4" items={[
+          { label: "Daily Learning", onClick: () => setTrackId(null) },
+          { label: TRACK_CATALOG.find(t => t.key === trackId)?.label || "" },
+        ]} />
+        <CampusDailyLearningTab slug={slug} trackId={trackId} />
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
+      {sidebar}
       {TRACK_CATALOG.map(track => (
         <TrackProgressCard key={track.key} slug={slug} track={track} onOpen={setTrackId} />
       ))}
@@ -179,7 +247,14 @@ export function CampusDailyLearningTab({ slug, trackId = "dsa" }) {
   const [items, setItems] = useState(undefined); // undefined = loading
   const [moduleEnabled, setModuleEnabled] = useState(true);
   const [error, setError] = useState(false);
-  const weekId = mondayOf();
+  // Which week is on screen. Previously this was hardcoded to mondayOf(), so
+  // everything a student had already worked through became unreachable the
+  // moment Monday came round - and with content authored weeks ahead, whole
+  // weeks could scroll past unseen. `weekOffset` counts back from the current
+  // week; 0 is this week and negatives are the archive.
+  const [weekOffset, setWeekOffset] = useState(0);
+  const currentWeekId = mondayOf();
+  const weekId = shiftWeek(currentWeekId, weekOffset);
 
   const load = () => {
     setItems(undefined); setError(false);
@@ -202,12 +277,72 @@ export function CampusDailyLearningTab({ slug, trackId = "dsa" }) {
   // Series) with no published days yet should show its own "coming soon"
   // empty state instead (see CampusDailyLearningLanding), not silently swap
   // in unrelated generic content.
-  if (!moduleEnabled || (items.length === 0 && trackId === "dsa")) return <CampusLearningSection />;
-  if (items.length === 0) {
-    return <CampusEmptyState icon={BookOpen} title="Nothing published yet" description="This series doesn't have any published days yet - check back soon." />;
-  }
+  //
+  // Scoped to the CURRENT week only: an empty PAST week is a real, navigable
+  // state that should say so, not dump the visitor into unrelated generic
+  // content or make them think the archive is broken.
+  const viewingCurrentWeek = weekOffset === 0;
+  if (viewingCurrentWeek && (!moduleEnabled || (items.length === 0 && trackId === "dsa"))) return <CampusLearningSection />;
 
-  return <CampusDailyLearningWeek slug={slug} items={items} trackId={trackId} />;
+  return (
+    <div>
+      <WeekNav weekId={weekId} weekOffset={weekOffset} onChange={setWeekOffset} />
+      {items.length === 0 ? (
+        <CampusEmptyState icon={BookOpen} title={viewingCurrentWeek ? "Nothing published yet" : "Nothing published that week"}
+          description={viewingCurrentWeek
+            ? "This series doesn't have any published days yet - check back soon."
+            : "No days were published for this week. Use the arrows to browse another one."} />
+      ) : (
+        // Remount on week change so every day-level piece of state (selected
+        // day, answers, draft progress) is rebuilt for the week being shown
+        // rather than carried across from the previous one.
+        <CampusDailyLearningWeek key={weekId} slug={slug} items={items} trackId={trackId} />
+      )}
+    </div>
+  );
+}
+
+// Week stepper for the archive. Forward is capped at the current week: days
+// beyond today already render locked, and letting a student page into empty
+// future weeks reads as broken rather than as "not written yet".
+function WeekNav({ weekId, weekOffset, onChange }) {
+  const start = new Date(`${weekId}T00:00:00`);
+  const end = new Date(start); end.setDate(end.getDate() + 5); // Mon-Sat
+  const fmt = (d) => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const atCurrent = weekOffset === 0;
+
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <button onClick={() => onChange(weekOffset - 1)} aria-label="Previous week"
+        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} />
+      </button>
+
+      <div className="flex-1 min-w-0 text-center">
+        <p className="text-[12.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>
+          {fmt(start)} &ndash; {fmt(end)}
+        </p>
+        <p className="text-[10px] font-mono tracking-widest" style={{ color: atCurrent ? CAMPUS.teal : CAMPUS.inkFaint }}>
+          {atCurrent ? "THIS WEEK" : `${Math.abs(weekOffset)} WEEK${Math.abs(weekOffset) === 1 ? "" : "S"} AGO`}
+        </p>
+      </div>
+
+      <button onClick={() => onChange(Math.min(0, weekOffset + 1))} disabled={atCurrent} aria-label="Next week"
+        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{
+          background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`,
+          color: CAMPUS.inkSoft, opacity: atCurrent ? 0.4 : 1,
+          cursor: atCurrent ? "not-allowed" : "pointer",
+        }}>
+        <ChevronRight size={14} />
+      </button>
+
+      {!atCurrent && (
+        <CampusButton size="sm" variant="secondary" onClick={() => onChange(0)}>Today</CampusButton>
+      )}
+    </div>
+  );
 }
 
 // ---------------- Admin preview (Manage tab) ----------------
@@ -708,11 +843,21 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
       let correct = 0;
       mcqs.forEach(q => { if (answers[q.id] === q.correctIndex) correct++; });
       const solvedNow = problems.filter(p => solvedIds.has(p.id)).map(p => p.id);
-      const freshlyRewarded = await submitDayCompletion({ slug, uid: user.uid, profile: userData, item, mcqAnswers: answers, correctCount: correct, problemsSolved: solvedNow, trackId });
+      const { rewarded, alreadyCompleted, onTime } = await submitDayCompletion({ slug, uid: user.uid, profile: userData, item, mcqAnswers: answers, correctCount: correct, problemsSolved: solvedNow, trackId });
       setResult({ score: correct, total: mcqs.length });
       onLogged?.({ mcqAnswers: answers, mcqScore: correct, mcqTotal: mcqs.length, problemsSolved: solvedNow, problemsTotal: problems.length });
-      if (!freshlyRewarded) {
+      // Three genuinely different outcomes, three different messages. Saying
+      // "already rewarded" to someone catching up on last Tuesday is wrong and
+      // reads as a bug.
+      if (alreadyCompleted) {
         setSaveNotice({ type: "info", message: "You have already completed this activity and received your rewards." });
+      } else if (!onTime) {
+        setSaveNotice({
+          type: "info",
+          message: "Saved, and it counts toward your progress - but XP and coins are only awarded on the day itself.",
+        });
+      } else if (rewarded) {
+        setSaveNotice(null);
       }
     } catch (e) {
       console.error(e);
@@ -721,6 +866,11 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
   };
 
   const canSave = markedRead && allAnswered;
+  // A day whose own date is not today earns nothing - see isSameDayAsToday in
+  // lib/dailyLearning.js. readOnly is the admin preview, which never rewards
+  // anyway, so it is excluded to avoid shouting "NO REWARDS" at an admin
+  // reviewing content.
+  const isLate = !readOnly && !isSameDayAsToday(item.date);
   const reveal = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } };
 
   return (
@@ -738,8 +888,26 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
         {item.estimatedMinutes > 0 && (
           <span className="flex items-center gap-1 text-[11px]" style={{ color: CAMPUS.inkFaint }}><Clock size={11} /> {item.estimatedMinutes} min</span>
         )}
-        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: CAMPUS.teal }}><Zap size={11} /> +{item.xpReward} XP</span>
-        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: CAMPUS.good }}><Coins size={11} /> +{item.coinReward} coins</span>
+        {/* Rewards are same-day only, so a past day must not advertise XP it
+            will never pay - showing "+50 XP" and then awarding nothing reads as
+            a broken promise. The amounts are struck through and the reason is
+            stated BEFORE the work, not after submitting it. */}
+        {isLate ? (
+          <>
+            <span className="flex items-center gap-1.5 text-[11px] line-through" style={{ color: CAMPUS.inkFaint }}>
+              <Zap size={11} /> +{item.xpReward} XP
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] line-through" style={{ color: CAMPUS.inkFaint }}>
+              <Coins size={11} /> +{item.coinReward} coins
+            </span>
+            <CampusChip color={CAMPUS.warn}>PAST DAY &middot; NO REWARDS</CampusChip>
+          </>
+        ) : (
+          <>
+            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: CAMPUS.teal }}><Zap size={11} /> +{item.xpReward} XP</span>
+            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: CAMPUS.good }}><Coins size={11} /> +{item.coinReward} coins</span>
+          </>
+        )}
         {!readOnly && (
           <div className="flex items-center gap-2 ml-auto">
             <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: CAMPUS.line }}>

@@ -183,6 +183,12 @@ select option {
   color: var(--campus-ink) !important;
 }
 .campus-nav-item:hover svg { transform: scale(1.1); }
+/* CampusTopNavbar - horizontal scroll on narrower lg: widths without a
+   visible scrollbar cluttering the chrome; the row is still fully
+   scrollable via trackpad/drag/keyboard, just without the OS scrollbar
+   chin under it. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .campus-theme * { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
 }
