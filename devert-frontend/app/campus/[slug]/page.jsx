@@ -14,8 +14,8 @@ import {
 // (bookmarked, refreshed, or hit via Next's on-demand RSC fetch for a
 // dynamic segment outside generateStaticParams - which is exactly what a
 // client-side router.push(\"/campus/practice\") triggers) called notFound()
-// unconditionally - a real, live 404 on every "Trending Placement Tracks"
-// chip and every Campuses-nav Learning/Contests/Practice link.
+// unconditionally - a real, live 404 on every Campuses-nav
+// Learning/Contests/Practice link.
 const GLOBAL_SECTION_SET = new Set(GLOBAL_SECTIONS);
 
 export async function generateStaticParams() {

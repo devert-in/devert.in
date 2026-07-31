@@ -31,7 +31,7 @@ import { CampusPermissionsContext } from "@/lib/campusPermissions";
 import Dropdown from "@/components/dropdown";
 import { fetchPublishedInstitutionContests, fetchPublishedContests, contestPhase, bucketContests } from "@/lib/contests";
 import { fetchCourseTree, flattenTasks, getCurrentTask, courseProgressPct } from "@/lib/learning";
-import { CODELAB_CATEGORIES, CODELAB_DIFFICULTIES, fetchUserCodelabProgress, fetchPublishedProblems } from "@/lib/codelab";
+import { CODELAB_DIFFICULTIES, fetchUserCodelabProgress, fetchPublishedProblems } from "@/lib/codelab";
 import { subscribeToProblemNotes, isRevisionDue } from "@/lib/problemNotes";
 import { CAMPUS } from "@/lib/campus-theme";
 import { slideUp, staggerContainer } from "@/lib/campus-motion";
@@ -42,6 +42,7 @@ import {
 import { CampusContestFlow } from "@/components/campus/campus-contests";
 import { CampusPracticeList, CampusProblemView, SidebarFilterGroup, CategoryFilterList, CompanyFilterList } from "@/components/campus/campus-practice";
 import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
+import { fetchPublishedCompanies } from "@/lib/companyPrep";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
 import { CampusDailyLearningLanding, CampusDailyAssessmentsTab, CampusDayLeaderboard } from "@/components/campus/campus-daily-learning";
 import { CampusProgrammingTab } from "@/components/campus/campus-programming";
@@ -367,19 +368,6 @@ function InstitutionCard({ inst, studentCount, featured }) {
   );
 }
 
-// Landing-page-only, so this is square/hairline directly (no shared-component
-// concern like UpcomingContestRow/LearningJourneyCard below, which the
-// authenticated workspace's Overview tab also renders and must keep rounded).
-function TrackChip({ label, onClick }) {
-  return (
-    <button onClick={onClick}
-      className="campus-btn inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3.5 py-2 rounded-full transition-all duration-150"
-      style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft, boxShadow: CAMPUS.shadow }}>
-      {label} <ChevronRight size={12} style={{ color: CAMPUS.inkFaint }} />
-    </button>
-  );
-}
-
 // `sharp` opts into the landing page's square/hairline language without
 // touching the rounded CampusCard rendering the authenticated workspace's
 // Overview tab still uses for this exact same component.
@@ -590,7 +578,23 @@ function ContinueLearningCard({ slug, onContinue }) {
 // specific college's workspace, the existing rounded UI is untouched.
 function CampusLandingNav({ onOpenFlyout }) {
   const { theme, toggleTheme } = useCampusTheme();
-  const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  // Below md:, the desktop link row (Campuses/Learning/Contests/Practice/
+  // Features) is `hidden` with no fallback of any kind - those 5
+  // destinations simply vanished on a phone. This mobile menu is that
+  // fallback, reusing the exact same scrollTo/href targets, not a second
+  // set of links to keep in sync.
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const scrollTo = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    setMobileOpen(false);
+  };
+  const MOBILE_LINKS = [
+    { label: "Campuses", onClick: () => scrollTo("featured-campuses") },
+    { label: "Learning", href: "/campus/learning" },
+    { label: "Contests", href: "/campus/contests" },
+    { label: "Practice", href: "/campus/practice" },
+    { label: "Features", onClick: () => scrollTo("campus-features") },
+  ];
 
   return (
     <nav className="flex items-center gap-8 px-6 sm:px-10"
@@ -606,7 +610,7 @@ function CampusLandingNav({ onOpenFlyout }) {
         <Link href="/campus/practice" className="text-[14.5px] font-medium px-3.5 py-2 transition-colors" style={{ color: CAMPUS.ink }}>Practice</Link>
         <button onClick={() => scrollTo("campus-features")} className="text-[14.5px] font-medium px-3.5 py-2 transition-colors" style={{ color: CAMPUS.ink }}>Features</button>
       </div>
-      <div className="flex items-center gap-4 sm:gap-5 flex-shrink-0 ml-auto">
+      <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0 ml-auto">
         <button onClick={toggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} style={{ color: CAMPUS.ink }}>
           {theme === "light" ? <Moon size={19} /> : <Sun size={19} />}
         </button>
@@ -616,7 +620,31 @@ function CampusLandingNav({ onOpenFlyout }) {
           style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
           <UserCircle2 size={19} />
         </button>
+        <button onClick={() => setMobileOpen(o => !o)} aria-label={mobileOpen ? "Close menu" : "Open menu"} aria-expanded={mobileOpen}
+          className="md:hidden flex items-center justify-center flex-shrink-0" style={{ width: 34, height: 34, color: CAMPUS.ink }}>
+          {mobileOpen ? <CloseIcon size={20} /> : <Menu size={20} />}
+        </button>
       </div>
+      {mobileOpen && (
+        <div className="md:hidden absolute left-0 right-0 top-full flex flex-col"
+          style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
+          {MOBILE_LINKS.map(l => l.href ? (
+            <Link key={l.label} href={l.href} onClick={() => setMobileOpen(false)}
+              className="px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
+              {l.label}
+            </Link>
+          ) : (
+            <button key={l.label} onClick={l.onClick}
+              className="text-left px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
+              {l.label}
+            </button>
+          ))}
+          <Link href="/" onClick={() => setMobileOpen(false)}
+            className="sm:hidden px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
+            Return to DeVert
+          </Link>
+        </div>
+      )}
     </nav>
   );
 }
@@ -713,7 +741,6 @@ function CampusProfileFlyout({ open, onClose }) {
 
 function CampusDirectory() {
   const { theme } = useCampusTheme();
-  const { user } = useAuth();
   const router = useRouter();
   const [institutions, setInstitutions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -760,11 +787,6 @@ function CampusDirectory() {
     [institutions],
   );
   const featuredIds = new Set(featured.map(i => i.id));
-
-  // All of them, not just the first few - this used to be .slice(0, 6), which
-  // silently hid every topic added after "Trees" (Graphs, DP, Backtracking,
-  // Heap, Trie, Bit Manipulation...) despite all of them having real problems.
-  const tracks = CODELAB_CATEGORIES;
 
   const directoryJsonLd = institutions.length > 0 ? {
     "@context": "https://schema.org",
@@ -830,26 +852,41 @@ function CampusDirectory() {
               style={{ background: "linear-gradient(135deg, #6366F1, #A855F7)", color: "#fff" }}>
               Explore campuses
             </button>
-            <button onClick={() => router.push("/login")}
-              className="campus-btn text-[14px] font-semibold px-6 py-3.5 rounded-xl transition-all duration-200"
-              style={{ background: "rgba(255,255,255,0.06)", color: "#fff", border: "1px solid rgba(255,255,255,0.14)" }}>
-              Get started
-            </button>
           </div>
         </div>
 
-        {/* Floating glass stat strip - overlaps the hero/body seam, the one
-            deliberate "product is real" proof point every premium SaaS
-            landing leads with. */}
-        <div className="relative z-10 px-6 sm:px-10">
-          <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pb-0 translate-y-1/2">
+        {/* Stat strip - stays fully inside the hero's dark background
+            (no translate-y overlap into the light body section below).
+            An overlapping "floating over the seam" version was tried and
+            reverted - its glass fill is semi-transparent white text on a
+            fixed-dark card, which only reads correctly while the card sits
+            entirely on the dark hero; letting any of it slide onto the
+            light section below washed it out. */}
+        <div className="relative z-10 px-6 sm:px-10 pb-14">
+          <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
               { label: "Partner institutions", value: institutions.length, icon: Building2, color: "#818CF8" },
               { label: "Registered students", value: totalDevertUsers != null ? totalDevertUsers.toLocaleString() : "…", icon: Users, color: "#22D3EE" },
               { label: "Departments", value: totalDepartments, icon: GraduationCap, color: "#C084FC" },
               { label: "Active contests", value: activeContestCount, icon: Trophy, color: "#FACC15" },
             ].map(s => (
-              <div key={s.label} className="campus-glass rounded-2xl p-4 sm:p-5">
+              <div key={s.label} className="rounded-2xl p-4 sm:p-5"
+                // .campus-glass is theme-reactive (see globals.css) - correct
+                // for cards sitting on the normal light/dark surface, but
+                // this card sits on the hero's hardcoded-dark background
+                // above (style={{background:"#0A0E17"}}) regardless of the
+                // site theme toggle. Using the theme-reactive class here
+                // meant light mode swapped in a WHITE-tinted glass fill
+                // (--campus-glass-bg: rgba(255,255,255,0.6)) over that dark
+                // background - a washed-out, low-contrast card exactly like
+                // chromeBg/chromeFg elsewhere are deliberately NOT
+                // theme-reactive for the same reason.
+                style={{
+                  background: "rgba(255,255,255,0.045)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  backdropFilter: "blur(20px) saturate(140%)",
+                  WebkitBackdropFilter: "blur(20px) saturate(140%)",
+                }}>
                 <s.icon size={18} style={{ color: s.color }} className="mb-2.5" />
                 <b className="block font-bold text-white" style={{ fontSize: 24 }}>{s.value}</b>
                 <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.55)" }}>{s.label}</span>
@@ -859,11 +896,12 @@ function CampusDirectory() {
         </div>
       </div>
 
-      {/* Search band - sits far enough below the hero to clear the floating
-          stat strip's own overlap (translate-y-1/2 above). Rounded, glass-
-          adjacent search field with an icon prefix instead of a flat boxy
-          input, and a gradient search button matching the hero CTA. */}
-      <div className="px-6 sm:px-10 pt-20 pb-8" style={{ background: CAMPUS.paper }}>
+      {/* Search band - no more overlap to clear now that the stat strip
+          stays inside the hero (its own pb-14 already provides the gap),
+          so this is just a normal top padding. Rounded, glass-adjacent
+          search field with an icon prefix instead of a flat boxy input,
+          and a gradient search button matching the hero CTA. */}
+      <div className="px-6 sm:px-10 pt-10 pb-8" style={{ background: CAMPUS.paper }}>
         <div className="max-w-2xl mx-auto flex items-stretch gap-2 rounded-2xl p-1.5"
           style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
           <div className="flex items-center gap-2.5 flex-1 pl-3">
@@ -937,22 +975,6 @@ function CampusDirectory() {
           </div>
         </div>
 
-        {user && (
-          <div className="mb-10">
-            <SectionHeading icon={Rocket} title="Your Learning Journey" />
-            <LearningJourneyCard onContinue={() => router.push("/campus/learning")} />
-          </div>
-        )}
-
-        <div className="mb-10">
-          <SectionHeading icon={Target} title="Trending Placement Tracks" />
-          <div className="flex flex-wrap gap-2.5">
-            {tracks.map(t => (
-              <TrackChip key={t} label={t} onClick={() => router.push(`/campus/practice?category=${encodeURIComponent(t)}`)} />
-            ))}
-          </div>
-        </div>
-
         {upcomingContests.length > 0 && (
           <div>
             <SectionHeading icon={Trophy} title="Upcoming Contests" action={
@@ -999,9 +1021,9 @@ function CampusGlobalSection({ section }) {
   // sync effect needed" reasoning as ?category= below.
   const [practiceMode, setPracticeMode] = useState(() => (searchParams.get("mode") === "companyPrep" ? "companyPrep" : "coding"));
   const [companyPrepScreen, setCompanyPrepScreen] = useState({ view: "list" });
-  // Seeded once from ?category=... (a "Trending Placement Tracks" chip deep
-  // link) - searchParams is already available synchronously on first render
-  // for a client component, so this needs no separate sync effect.
+  // Seeded once from ?category=... (a bookmarked or shared category link) -
+  // searchParams is already available synchronously on first render for a
+  // client component, so this needs no separate sync effect.
   const [practiceCategory, setPracticeCategory] = useState(() => searchParams.get("category") || "All");
   const [practiceDifficulty, setPracticeDifficulty] = useState("All");
   const [practiceCompany, setPracticeCompany] = useState("All");
@@ -1048,8 +1070,8 @@ function CampusGlobalSection({ section }) {
     <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp px-6 py-10 pb-16">
       <div className="max-w-6xl mx-auto">
         {/* router.back(), not push("/campus") - every real path into this
-            section is an in-app click (a nav link, a "Trending Placement
-            Tracks" chip, an "Upcoming Contests" row...), so real browser back
+            section is an in-app click (a nav link, an "Upcoming Contests"
+            row, a drawer category row...), so real browser back
             both returns to the exact page that link lived on AND restores
             its scroll position, neither of which push() to a fixed
             destination can do - push() always lands at the top of a fresh
@@ -1144,6 +1166,11 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     const view = screenParam === "attempt" || screenParam === "results" ? screenParam : "details";
     return { view, contestId: initialContestId };
   });
+  // Contests' own sidebar phase filter (Live/Upcoming/Past/All) - lives here
+  // rather than inside CampusContestsTabContent so it survives that
+  // component's own remounts (none currently, but consistent with every
+  // other sidebar-filter state in this file living in the workspace).
+  const [contestPhaseFilter, setContestPhaseFilter] = useState("all");
   // Read once on mount from ?problem=/?company=&view= - the only way a
   // refresh or shared link inside DSA/Company Vault can land back on the
   // exact problem/company instead of always falling back to the tab's list
@@ -1225,6 +1252,28 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   const jumpToDsaCategory = (category) => {
     setPracticeCategory(category);
     goTab("dsa");
+  };
+  // Company Vault's screen state lives directly in this component too (same
+  // reasoning as DSA above), so this is the same direct-set pattern rather
+  // than the shared search-select jump.
+  const jumpToCompany = (companyId) => {
+    setCompanyPrepScreen({ view: "company", companyId });
+    goTab("companyVault");
+  };
+  // Contests' phase filter is likewise local state in this component.
+  const jumpToContestPhase = (phase) => {
+    setContestPhaseFilter(phase);
+    goTab("contests");
+  };
+  // Assessments' openTest state lives inside CampusDailyAssessmentsTab
+  // itself (unlike DSA/Company Vault/Contests above), so this needs the
+  // same nonce-jump mechanism as Manage/Daily Learning rather than a direct
+  // setter call.
+  const [assessmentJump, setAssessmentJump] = useState(null);
+  const assessmentJumpNonceRef = useRef(0);
+  const jumpToAssessment = (date) => {
+    goTab("assessments");
+    setAssessmentJump({ date, nonce: ++assessmentJumpNonceRef.current });
   };
 
   // Search-result navigation. Two steps, and both are needed:
@@ -1398,7 +1447,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   // ModuleAccessRestricted, so a student whose classroom has e.g. Programming
   // disabled sees a fully collapsed sidebar (nothing to portal into) rather
   // than an empty frame with just the institution logo.
-  const SIDEBAR_TABS = new Set(["learning", "dsa", "programming", "csCore", "aptitude", "gate"]);
+  const SIDEBAR_TABS = new Set(["learning", "dsa", "programming", "csCore", "aptitude", "gate", "companyVault", "contests", "assessments"]);
   const hasSidebarContent = (tab === "manage" && isInstAdmin) || (SIDEBAR_TABS.has(tab) && isTabAllowed(tab));
   // Only guards a real, rendered workspace - not the checking/pending/
   // signed-out screens above, which have nothing worth protecting against
@@ -1471,7 +1520,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     if (!slug || !user) return;
     const unsub = onSnapshot(doc(db, "institutions", slug, "students", user.uid), snap => {
       setMembership(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-    });
+    }, err => console.error("[onSnapshot:campusMembership]", err));
     return unsub;
   }, [slug, user]);
 
@@ -1700,7 +1749,8 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
       <CampusMobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}
         institution={institution} slug={slug} tab={tab} goTab={goTab} isInstAdmin={isInstAdmin}
         hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onJumpToTrack={jumpToTrack}
-        onJumpToDsaCategory={jumpToDsaCategory} onSearchSelect={handleSearchSelect} onRequestExit={exitGuard.requestExit}
+        onJumpToDsaCategory={jumpToDsaCategory} onJumpToCompany={jumpToCompany} onJumpToContestPhase={jumpToContestPhase}
+        onJumpToAssessment={jumpToAssessment} onSearchSelect={handleSearchSelect} onRequestExit={exitGuard.requestExit}
         themeToggle={<CampusThemeToggle />}
         onSignOut={async () => { await logout(); router.push("/campus"); }} />
       <div className="flex-1 min-w-0 flex flex-col">
@@ -1771,12 +1821,20 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             </>
           )}
           {isTabAllowed("companyVault") && tab === "companyVault" && (
-            <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen}
-              hiddenIds={new Set(contentVisibility.hiddenCompanyIds)} />
+            <>
+              {sidebarEl && createPortal(
+                <CompanySidebarList activeCompanyId={companyPrepScreen.view !== "list" ? companyPrepScreen.companyId : null}
+                  onSelect={(companyId) => setCompanyPrepScreen({ view: "company", companyId })} />,
+                sidebarEl
+              )}
+              <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen}
+                hiddenIds={new Set(contentVisibility.hiddenCompanyIds)} />
+            </>
           )}
-          {isTabAllowed("assessments") && tab === "assessments" && <CampusDailyAssessmentsTab slug={slug} />}
+          {isTabAllowed("assessments") && tab === "assessments" && <CampusDailyAssessmentsTab slug={slug} sidebarSlot={sidebarEl} jumpToAssessment={assessmentJump} />}
           {isTabAllowed("contests") && tab === "contests" && (
-            <CampusContestsTabContent institutionId={slug} screen={contestScreen} setScreen={setContestScreen} />
+            <CampusContestsTabContent institutionId={slug} screen={contestScreen} setScreen={setContestScreen}
+              sidebarSlot={sidebarEl} phaseFilter={contestPhaseFilter} setPhaseFilter={setContestPhaseFilter} />
           )}
           {tab === "leaderboard" && <CampusLeaderboardTab slug={slug} myUid={user?.uid} myClassroom={myClassroom} />}
           {tab === "manage" && (
@@ -1935,6 +1993,34 @@ function CampusExitConfirmDialog({ open, institutionName, onStay, onLeave }) {
   );
 }
 
+// Company Vault's own sub-navigation, portaled into CampusContextSidebar's
+// slot - the published company list, same data CampusCompanyPrepFlow's own
+// list view already fetches, just a second, independent fetch for the more
+// compact sidebar rendering (same tradeoff already made for every other
+// sidebar list in this file).
+function CompanySidebarList({ activeCompanyId, onSelect }) {
+  const [companies, setCompanies] = useState(null);
+  useEffect(() => { fetchPublishedCompanies().then(setCompanies).catch(() => setCompanies([])); }, []);
+  return (
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>COMPANY VAULT</div>
+      {companies === null ? (
+        <CampusSkeleton height={100} className="mx-1" />
+      ) : companies.map(c => (
+        <button key={c.id} onClick={() => onSelect(c.id)}
+          className="campus-btn flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
+          style={{
+            background: activeCompanyId === c.id ? CAMPUS.gradientPrimary : "transparent",
+            color: activeCompanyId === c.id ? "#fff" : CAMPUS.inkSoft,
+            boxShadow: activeCompanyId === c.id ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+          }}>
+          <span className="text-[13px] font-medium truncate">{c.name}</span>
+        </button>
+      ))}
+    </>
+  );
+}
+
 // Navigation Architecture 2.0 - Level 1 (Global Navigation). Horizontal
 // top-navbar rendering of the exact same NAV_ITEMS/hiddenTabKeys/GROUP_ORDER
 // data the old vertical CampusNavRail used to render - same array, same
@@ -2017,10 +2103,14 @@ function SidebarNavButton({ item, active, collapsed, onClick }) {
 // `hasContent` no longer gates the whole aside. It used to, per the Navigation
 // Architecture 2.0 RFC's "Empty Modules" guidance - a sidebar with nothing in it
 // collapsed to nothing rather than rendering an empty box. That still holds for
-// the module-contributed portion, but the sidebar now also carries two things
-// that are global rather than contextual: Search and Dashboard. Those are always
-// present, so the aside always renders and `hasContent` instead decides whether
-// the module slot gets a divider above it.
+// the module-contributed portion, but the sidebar now also carries chrome that
+// is global rather than contextual: Search, plus whichever NAV_ITEMS entries
+// are flagged `sidebarGlobal` (currently Dashboard and Daily Learning - see
+// campusNavConfig.js). Those are always present, so the aside always renders
+// and `hasContent` instead decides whether the module slot gets a divider
+// above it.
+const SIDEBAR_GLOBAL_ITEMS = NAV_ITEMS.filter(i => i.sidebarGlobal);
+
 function CampusContextSidebar({
   institution, collapsed, onToggleCollapse, slotRef, hasContent,
   slug, hiddenTabKeys, tab, setTab, onSearchSelect, onExpandSidebar,
@@ -2672,7 +2762,41 @@ function CampusLeaderboardTab({ slug, myUid, myClassroom }) {
 // handles list -> details -> attempt -> results entirely natively, reusing
 // registerForContest/submitContestAnswers/gradeSubmission/persistGrading etc.
 // verbatim - see components/campus/campus-contests.jsx.
-function CampusContestsTabContent({ institutionId, screen, setScreen }) {
+// Contests didn't have any real sub-navigation before - "upcoming/live/past"
+// only existed as a computed per-card badge (contestPhase()). This adds a
+// genuine phase filter, portaled into the sidebar like every other module -
+// a client-side filter over bucketContests' own grouping (already used
+// elsewhere for the exact same phases), not a new data source.
+const CONTEST_PHASE_FILTERS = [
+  { key: "all", label: "All Contests" },
+  { key: "live", label: "Live" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "past", label: "Past" },
+];
+
+function ContestsSidebarList({ counts, active, onSelect }) {
+  return (
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>CONTESTS</div>
+      {CONTEST_PHASE_FILTERS.map(f => (
+        <button key={f.key} onClick={() => onSelect(f.key)}
+          className="campus-btn flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all duration-150"
+          style={{
+            background: active === f.key ? CAMPUS.gradientPrimary : "transparent",
+            color: active === f.key ? "#fff" : CAMPUS.inkSoft,
+            boxShadow: active === f.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+          }}>
+          <span className="text-[13px] font-medium">{f.label}</span>
+          <span className="text-[10.5px] font-mono flex-shrink-0" style={{ color: active === f.key ? "rgba(255,255,255,0.8)" : CAMPUS.inkFaint }}>
+            {counts[f.key]}
+          </span>
+        </button>
+      ))}
+    </>
+  );
+}
+
+function CampusContestsTabContent({ institutionId, screen, setScreen, sidebarSlot, phaseFilter, setPhaseFilter }) {
   const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -2686,7 +2810,19 @@ function CampusContestsTabContent({ institutionId, screen, setScreen }) {
   };
   useEffect(load, [institutionId]);
 
-  return <CampusContestFlow contests={contests} loading={loading} error={error} onRetry={load} screen={screen} setScreen={setScreen} />;
+  const bucketed = useMemo(() => bucketContests(contests), [contests]);
+  const counts = { all: contests.length, live: bucketed.live.length, upcoming: bucketed.upcoming.length, past: bucketed.past.length };
+  const visibleContests = phaseFilter === "all" ? contests : bucketed[phaseFilter] || [];
+
+  return (
+    <>
+      {sidebarSlot && createPortal(
+        <ContestsSidebarList counts={counts} active={phaseFilter} onSelect={setPhaseFilter} />,
+        sidebarSlot
+      )}
+      <CampusContestFlow contests={visibleContests} loading={loading} error={error} onRetry={load} screen={screen} setScreen={setScreen} />
+    </>
+  );
 }
 
 // Invite-only campuses show this instead of the full JoinForm - just two
