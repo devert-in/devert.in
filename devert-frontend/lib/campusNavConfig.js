@@ -47,7 +47,7 @@ import {
 //   destination doesn't need a second parallel array to stay out of the
 //   rail.
 export const NAV_ITEMS = [
-  { key: "dashboard", label: "Overview", icon: LayoutDashboard, parentGroup: "root", moduleKey: null, adminOnly: false, urlSegment: "", ownUrl: false, order: 10, mobileVisibility: "bottomNav", desktopVisibility: true },
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, parentGroup: "root", moduleKey: null, adminOnly: false, urlSegment: "", ownUrl: false, order: 10, mobileVisibility: "bottomNav", desktopVisibility: true },
   { key: "profile", label: "Profile", icon: IdCard, parentGroup: "root", moduleKey: null, adminOnly: false, urlSegment: null, ownUrl: false, order: 20, mobileVisibility: "bottomNav", desktopVisibility: true },
   { key: "learning", label: "Daily Learning", icon: BookOpen, parentGroup: "learn", moduleKey: "dailyLearning", adminOnly: false, urlSegment: "daily-learning", ownUrl: true, order: 30, mobileVisibility: "bottomNav", desktopVisibility: true },
   { key: "programming", label: "Programming", icon: CodeXml, parentGroup: "learn", moduleKey: "programming", adminOnly: false, urlSegment: null, ownUrl: true, order: 40, mobileVisibility: "drawerOnly", desktopVisibility: true },

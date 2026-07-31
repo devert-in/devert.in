@@ -23,7 +23,7 @@ export const GLOBAL_SECTIONS = ["contests", "learning", "practice"];
 export const CAMPUS_SECTIONS = {
   dashboard: {
     urlSegment: "",
-    label: "Overview",
+    label: "Dashboard",
     title: (inst) => `${inst.name} Campus`,
     description: (inst) =>
       inst.description?.trim() ||

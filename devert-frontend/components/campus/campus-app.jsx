@@ -59,6 +59,7 @@ import { CampusHodDashboard, CampusPrincipalDashboard } from "@/components/campu
 import { CampusFacultyDashboard } from "@/components/campus/campus-classrooms";
 import { NAV_ITEMS, GROUP_ORDER } from "@/lib/campusNavConfig";
 import { CampusMobileDrawer } from "@/components/campus/campus-mobile-drawer";
+import { CampusSidebarSearch } from "@/components/campus/campus-search";
 import { CampusStaffLogin } from "@/components/campus/campus-staff-login";
 import { CampusThemeProvider, useCampusTheme, CampusThemeToggle, CampusShell } from "@/components/campus/campus-theme-provider";
 import { GLOBAL_SECTIONS } from "@/lib/campus-seo";
@@ -157,9 +158,9 @@ function Centered({ children }) {
 
 // A persistent left nav rail for the pre-auth global Campus sections
 // (Practice/Learning/Contests), purpose-built for CampusGlobalSection (see
-// below) - the authenticated Workspace's own sidebar (CampusNavRail) lists
-// DSA and Company Vault as fully separate tabs, and this rail mirrors that
-// same split rather than a mode toggle. Grouped nav items (not just the two
+// below) - the authenticated Workspace's own top navbar (CampusTopNavbar)
+// lists DSA and Company Vault as fully separate tabs, and this rail mirrors
+// that same split rather than a mode toggle. Grouped nav items (not just the two
 // Practice buttons) so jumping between DSA, Company Vault, Daily Learning
 // and Contests doesn't require leaving the rail and re-finding your way
 // back through a "Back" link each time - every item here is a real
@@ -1218,6 +1219,38 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     setLearningJump({ trackId, nonce: ++learningJumpNonceRef.current });
   };
 
+  // Search-result navigation. Two steps, and both are needed:
+  //
+  //   1. Write the target URL through the router, not a raw history mutation.
+  //      useSearchParams() reads from Next's own router context, which only
+  //      updates on a router navigation (push/replace) - a bare
+  //      window.history.replaceState() moves the address bar but never touches
+  //      that context, so a freshly-mounted module would read stale (missing)
+  //      params and land on the right tab without drilling into the topic.
+  //      Every deep-linkable module (Programming, CS Core, Aptitude, GATE)
+  //      already initialises its screen state from useSearchParams() in a
+  //      useState initialiser, so the params are how the destination is
+  //      expressed - no new per-module prop needed once they're real.
+  //
+  //   2. Bump a nonce that is part of the module's React key, forcing a remount
+  //      so that initialiser runs again. Without this, jumping to a topic inside
+  //      the module you are ALREADY in would change the URL and nothing else,
+  //      because the initialiser only runs on mount.
+  //
+  // router.replace rather than router.push: a search jump is a destination,
+  // not a step worth walking back through one param at a time (the Back-stack
+  // registry in lib/campusNav.js already handles in-module back navigation).
+  const [searchNonce, setSearchNonce] = useState(0);
+  const handleSearchSelect = (item) => {
+    if (!item) return;
+    const params = new URLSearchParams({ tab: item.tab, ...(item.params || {}) });
+    router.replace(`/campus/${slug}?${params.toString()}`, { scroll: false });
+    goTab(item.tab);
+    // Only deep results need a remount; a plain module result is just a tab
+    // switch, and remounting there would needlessly discard that module's state.
+    if (Object.keys(item.params || {}).length > 0) setSearchNonce(n => n + 1);
+  };
+
   // Navigation Architecture 2.0: CampusContextSidebar is a generic, empty
   // portal target - whichever module is active portals ITS OWN existing
   // sub-navigation (Manage's tab list, Daily Learning's track list, ...) into
@@ -1652,7 +1685,10 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
       <CampusExitConfirmDialog open={exitGuard.exitDialogOpen} institutionName={institution.name}
         onStay={exitGuard.stay} onLeave={exitGuard.leave} />
       <CampusContextSidebar institution={institution} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapsed}
-        slotRef={setSidebarEl} hasContent={hasSidebarContent} />
+        slotRef={setSidebarEl} hasContent={hasSidebarContent}
+        slug={slug} hiddenTabKeys={hiddenTabKeys} tab={tab} setTab={goTab}
+        onSearchSelect={handleSearchSelect}
+        onExpandSidebar={() => setSidebarCollapsed(false)} />
       <CampusMobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}
         institution={institution} tab={tab} goTab={goTab} isInstAdmin={isInstAdmin}
         hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onJumpToTrack={jumpToTrack} onRequestExit={exitGuard.requestExit}
@@ -1687,10 +1723,10 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             <ProfileTab userData={userData} totalCoins={totalCoins} membership={membership} institution={institution} isInstAdmin={isInstAdmin} staffScope={staffScope} />
           )}
           {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} sidebarSlot={sidebarEl} jumpToTrack={learningJump} />}
-          {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab sidebarSlot={sidebarEl} />}
-          {isTabAllowed("csCore") && tab === "csCore" && <CampusCsCoreTab sidebarSlot={sidebarEl} />}
-          {isTabAllowed("aptitude") && tab === "aptitude" && <CampusAptitudeTab sidebarSlot={sidebarEl} />}
-          {isTabAllowed("gate") && tab === "gate" && <CampusGateTab sidebarSlot={sidebarEl} />}
+          {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab key={searchNonce} sidebarSlot={sidebarEl} />}
+          {isTabAllowed("csCore") && tab === "csCore" && <CampusCsCoreTab key={searchNonce} sidebarSlot={sidebarEl} />}
+          {isTabAllowed("aptitude") && tab === "aptitude" && <CampusAptitudeTab key={searchNonce} sidebarSlot={sidebarEl} />}
+          {isTabAllowed("gate") && tab === "gate" && <CampusGateTab key={searchNonce} sidebarSlot={sidebarEl} />}
           {isTabAllowed("dsa") && tab === "dsa" && (
             <>
               {sidebarEl && createPortal(
@@ -1928,6 +1964,32 @@ function CampusTopNavbar({ tab, setTab, hiddenTabKeys }) {
   );
 }
 
+// Dashboard is pulled out of NAV_ITEMS by key rather than redeclared, so its
+// label and icon stay in one place - renaming it there (as "Overview" ->
+// "Dashboard" was) must not need a second edit here.
+const DASHBOARD_NAV_ITEM = NAV_ITEMS.find(i => i.key === "dashboard");
+
+// The sidebar's own nav-row treatment. Deliberately NOT shared with TopNavItem:
+// that one is a horizontal pill with a layoutId transition between siblings, and
+// this is a full-width vertical row with a leading accent bar. Forcing one
+// component to do both would take more props than either needs.
+function SidebarNavButton({ item, active, collapsed, onClick }) {
+  if (!item) return null;
+  const Icon = item.icon;
+  return (
+    <button onClick={onClick} title={collapsed ? item.label : undefined}
+      className={`flex items-center gap-2.5 rounded-lg text-[12.5px] font-medium transition-colors ${collapsed ? "justify-center py-2" : "px-2.5 py-2"}`}
+      style={{
+        background: active ? CAMPUS.tealTint : "transparent",
+        color: active ? CAMPUS.teal : CAMPUS.inkSoft,
+        borderLeft: collapsed ? "none" : `2px solid ${active ? CAMPUS.teal : "transparent"}`,
+      }}>
+      <Icon size={15} className="flex-shrink-0" />
+      {!collapsed && item.label}
+    </button>
+  );
+}
+
 // Navigation Architecture 2.0 - Level 2 (Contextual Sidebar). A generic,
 // config-agnostic portal target living in the exact physical slot the old
 // CampusNavRail occupied (same width tokens, same collapse toggle/icons) -
@@ -1939,8 +2001,17 @@ function CampusTopNavbar({ tab, setTab, hiddenTabKeys }) {
 // Collapses to nothing (not an empty box) when the active module has no
 // sub-navigation to contribute, per the Navigation Architecture 2.0 RFC's
 // "Empty Modules" guidance.
-function CampusContextSidebar({ institution, collapsed, onToggleCollapse, slotRef, hasContent }) {
-  if (!hasContent) return null;
+// `hasContent` no longer gates the whole aside. It used to, per the Navigation
+// Architecture 2.0 RFC's "Empty Modules" guidance - a sidebar with nothing in it
+// collapsed to nothing rather than rendering an empty box. That still holds for
+// the module-contributed portion, but the sidebar now also carries two things
+// that are global rather than contextual: Search and Dashboard. Those are always
+// present, so the aside always renders and `hasContent` instead decides whether
+// the module slot gets a divider above it.
+function CampusContextSidebar({
+  institution, collapsed, onToggleCollapse, slotRef, hasContent,
+  slug, hiddenTabKeys, tab, setTab, onSearchSelect, onExpandSidebar,
+}) {
   return (
     <aside style={{ background: CAMPUS.surface, borderRight: `1px solid ${CAMPUS.line}` }}
       className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:self-start py-4 flex-col transition-[width] duration-200 ${collapsed ? "lg:w-[60px]" : "lg:w-[230px]"}`}>
@@ -1959,9 +2030,22 @@ function CampusContextSidebar({ institution, collapsed, onToggleCollapse, slotRe
           </b>
         )}
       </div>
+      {/* Global, always-present sidebar chrome: Search, then Dashboard. Both sit
+          ABOVE the module slot because they are not contextual - they mean the
+          same thing whichever module is open. Search is first because it is the
+          fastest route to anything, including the module you are already in. */}
+      <div className={`${collapsed ? "px-2" : "px-3"} pt-3 flex flex-col gap-1`}>
+        <CampusSidebarSearch slug={slug} hiddenTabKeys={hiddenTabKeys} collapsed={collapsed}
+          onSelect={onSearchSelect} onExpandSidebar={onExpandSidebar} />
+        <SidebarNavButton item={DASHBOARD_NAV_ITEM} active={tab === "dashboard"} collapsed={collapsed}
+          onClick={() => setTab("dashboard")} />
+      </div>
+
       {/* Portal target - deliberately empty here; whichever module is active
           renders its own list into this node via createPortal. */}
-      <div ref={slotRef} className="flex-1 overflow-y-auto min-h-0 px-3 flex flex-col gap-1" />
+      <div ref={slotRef}
+        className={`flex-1 overflow-y-auto min-h-0 px-3 flex flex-col gap-1 ${hasContent ? "pt-3 mt-3" : ""}`}
+        style={hasContent ? { borderTop: `1px solid ${CAMPUS.line}` } : undefined} />
       <button onClick={onToggleCollapse}
         className={`flex items-center gap-1.5 text-[11px] font-medium pt-3 mt-1 mx-3 transition-colors ${collapsed ? "justify-center" : ""}`}
         style={{ color: CAMPUS.inkFaint, borderTop: `1px solid ${CAMPUS.line}` }}>
