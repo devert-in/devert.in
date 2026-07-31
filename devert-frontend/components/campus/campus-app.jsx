@@ -1964,10 +1964,6 @@ function CampusTopNavbar({ tab, setTab, hiddenTabKeys }) {
   );
 }
 
-// Dashboard is pulled out of NAV_ITEMS by key rather than redeclared, so its
-// label and icon stay in one place - renaming it there (as "Overview" ->
-// "Dashboard" was) must not need a second edit here.
-const DASHBOARD_NAV_ITEM = NAV_ITEMS.find(i => i.key === "dashboard");
 
 // The sidebar's own nav-row treatment. Deliberately NOT shared with TopNavItem:
 // that one is a horizontal pill with a layoutId transition between siblings, and
@@ -2030,15 +2026,13 @@ function CampusContextSidebar({
           </b>
         )}
       </div>
-      {/* Global, always-present sidebar chrome: Search, then Dashboard. Both sit
-          ABOVE the module slot because they are not contextual - they mean the
-          same thing whichever module is open. Search is first because it is the
-          fastest route to anything, including the module you are already in. */}
+      {/* Global, always-present sidebar chrome: Search. Sits ABOVE the module
+          slot because it is not contextual - it means the same thing whichever
+          module is open, and is the fastest route to anything, including the
+          module you are already in. */}
       <div className={`${collapsed ? "px-2" : "px-3"} pt-3 flex flex-col gap-1`}>
         <CampusSidebarSearch slug={slug} hiddenTabKeys={hiddenTabKeys} collapsed={collapsed}
           onSelect={onSearchSelect} onExpandSidebar={onExpandSidebar} />
-        <SidebarNavButton item={DASHBOARD_NAV_ITEM} active={tab === "dashboard"} collapsed={collapsed}
-          onClick={() => setTab("dashboard")} />
       </div>
 
       {/* Portal target - deliberately empty here; whichever module is active

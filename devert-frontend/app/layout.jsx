@@ -2,11 +2,9 @@
 import "./globals.css";
 import { IntroProvider } from "@/context/IntroContext";
 import { AuthProvider } from "@/context/AuthContext";
-import { WindowManagerProvider } from "@/context/WindowManagerContext";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
-import { WindowLayer } from "@/components/window/window-layer";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -147,13 +145,24 @@ export default function RootLayout({ children }) {
       >
         <AuthProvider>
           <IntroProvider>
-            <WindowManagerProvider>
-              <CommandPalette />
-              <Navbar />
-              {children}
-              <WindowLayer />
-              <Footer />
-            </WindowManagerProvider>
+            {/* The Builder's OS window manager is deliberately NOT mounted.
+                Core DeVert opened most dock destinations as floating,
+                draggable windows; every one of those modules already had a
+                working standalone route, so the window layer mainly added a
+                window-management mental model on top of a product still
+                establishing its basics.
+
+                The implementation is intact and unreferenced -
+                context/WindowManagerContext.jsx, context/window-registry.js
+                and components/window/** - so a specialised surface that
+                genuinely wants panes (an AI workspace, a multi-file editor,
+                DevTools) can mount WindowManagerProvider + WindowLayer around
+                just itself. Nothing in the default flow depends on it, which
+                is the property that makes that possible. */}
+            <CommandPalette />
+            <Navbar />
+            {children}
+            <Footer />
           </IntroProvider>
         </AuthProvider>
       </body>
