@@ -38,6 +38,12 @@ import { CampusPracticeList, CampusProblemView } from "@/components/campus/campu
 import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
 import { CampusBrandingForm } from "@/components/campus/campus-branding";
 import { StudentAnalyticsDashboard } from "@/components/campus/campus-student-dashboard";
+import { RosterToolbar } from "@/components/campus/roster-toolbar";
+import {
+  DEFAULT_ROSTER_FILTERS, PENDING_SORTS, ROSTER_SORTS,
+  applyRosterFilters, sortRoster, sortIsRanked, sortNeedsStats,
+} from "@/lib/rosterFilters";
+import { fetchClassroomUsers } from "@/lib/classroomAnalytics";
 import { CampusClassrooms } from "@/components/campus/campus-classrooms";
 import { ModuleAccessSummary } from "@/components/campus/campus-module-access";
 import { useCampusBackHandler } from "@/lib/campusNav";
@@ -1271,12 +1277,26 @@ function formatRequestedAt(requestedAt) {
 // exportRegistrationsCsv (app/admin/page.jsx, campus-contest-dashboard.jsx),
 // extended with the identity/academic columns a TPC actually wants in a
 // roster report.
-function exportRosterCsv(students, institutionName) {
-  const header = "name,rollNumber,department,year,section,status,requestedAt";
-  const rows = students.map(s => {
+// `students` is the filtered, sorted list the admin is looking at, not the whole
+// roster. The stat columns are emitted only when the ranking sorts have already
+// loaded users/{uid} - writing 0 for every student because the optional fetch
+// never ran would look like real data saying nobody has any XP.
+function exportRosterCsv(students, institutionName, { statsByUid } = {}) {
+  const statCols = statsByUid ? ",xp,score,problemsSolved,streak" : "";
+  const header = `rank,name,rollNumber,department,year,section,status,email,contestRestricted,requestedAt${statCols}`;
+  const rows = students.map((s, i) => {
     const requestedAt = s.requestedAt?.toDate ? s.requestedAt.toDate().toISOString() : "";
     const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    return [s.name, s.rollNumber, s.department, s.year, s.section, s.status, requestedAt].map(esc).join(",");
+    const u = statsByUid?.get(s.uid) || {};
+    const cells = [
+      // Position in the export, so a ranked export stays ranked after the
+      // spreadsheet's own sort inevitably gets applied to it.
+      i + 1,
+      s.name, s.rollNumber, s.department, s.year, s.section, s.status, s.email,
+      s.contestRestricted ? "yes" : "no", requestedAt,
+    ];
+    if (statsByUid) cells.push(u.xp || 0, u.score || 0, u.problemsSolvedCount || 0, u.streak || 0);
+    return cells.map(esc).join(",");
   });
   const csv = [header, ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -1325,12 +1345,16 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
   const [csvBusy, setCsvBusy] = useState(false);
   const fileRef = useRef(null);
 
-  const [search, setSearch] = useState("");
-  const [deptFilter, setDeptFilter] = useState("all");
-  const [yearFilter, setYearFilter] = useState("all");
-  const [pendingDeptFilter, setPendingDeptFilter] = useState("all");
-  const [pendingYearFilter, setPendingYearFilter] = useState("all");
-  const [pendingSectionFilter, setPendingSectionFilter] = useState("all");
+  const [filters, setFilters] = useState(DEFAULT_ROSTER_FILTERS);
+  const [sort, setSort] = useState("cohortAsc");
+  const [pendingFilters, setPendingFilters] = useState(DEFAULT_ROSTER_FILTERS);
+  const [pendingSort, setPendingSort] = useState("joinedAsc");
+  // users/{uid} stats (xp / score / streak / problemsSolvedCount) live outside
+  // the roster doc, so the performance sorts need one extra batched pass. Loaded
+  // lazily the first time such a sort is picked and then kept - an admin who
+  // only ever sorts by roll number never pays for it. See loadStats below.
+  const [statsByUid, setStatsByUid] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [editingUid, setEditingUid] = useState(null);
   const [editName, setEditName] = useState("");
   const [editRoll, setEditRoll] = useState("");
@@ -1389,34 +1413,43 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
   };
   useEffect(() => { loadAnnouncements(); }, [institutionId]);
 
-  const departments = useMemo(() => [...new Set(approved.map(s => s.department).filter(Boolean))], [approved]);
-  const years = useMemo(() => [...new Set(approved.map(s => s.year).filter(Boolean))], [approved]);
-
+  // Filter, then sort - never the reverse. Sorting the full roster and then
+  // filtering would do the expensive pass over rows that are about to be thrown
+  // away, and `sortRoster` is what assigns rank position for the ranked sorts,
+  // so it has to see exactly the rows being displayed.
   const filteredApproved = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return approved.filter(s => {
-      if (deptFilter !== "all" && s.department !== deptFilter) return false;
-      if (yearFilter !== "all" && s.year !== yearFilter) return false;
-      if (q && !(s.name || "").toLowerCase().includes(q) && !(s.rollNumber || "").toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [approved, search, deptFilter, yearFilter]);
-
-  // Same derived-from-data filter pattern as the approved list above, just
-  // applied to `pending` and with a Section filter added (neither list had
-  // one before this).
-  const pendingDepartments = useMemo(() => [...new Set(pending.map(s => s.department).filter(Boolean))], [pending]);
-  const pendingYears = useMemo(() => [...new Set(pending.map(s => s.year).filter(Boolean))], [pending]);
-  const pendingSections = useMemo(() => [...new Set(pending.map(s => s.section).filter(Boolean))].sort(), [pending]);
+    const rows = applyRosterFilters(approved, filters);
+    return sortRoster(rows, sort, { statsByUid, dateField: "reviewedAt" });
+  }, [approved, filters, sort, statsByUid]);
 
   const filteredPending = useMemo(() => {
-    return pending.filter(s => {
-      if (pendingDeptFilter !== "all" && s.department !== pendingDeptFilter) return false;
-      if (pendingYearFilter !== "all" && s.year !== pendingYearFilter) return false;
-      if (pendingSectionFilter !== "all" && s.section !== pendingSectionFilter) return false;
-      return true;
-    });
-  }, [pending, pendingDeptFilter, pendingYearFilter, pendingSectionFilter]);
+    const rows = applyRosterFilters(pending, pendingFilters);
+    return sortRoster(rows, pendingSort, { dateField: "requestedAt" });
+  }, [pending, pendingFilters, pendingSort]);
+
+  // Fetched by the roster's own uids rather than by re-querying users on
+  // department/year/section - reusing fetchClassroomUsers inherits its
+  // documentId()-in-chunks-of-30 shape and the drift argument in its comment
+  // (a suspended student's users doc can stop matching their roster row).
+  // 276 students is 10 queries; a failure leaves the ranking sorts falling back
+  // to name order rather than silently ordering everyone as 0.
+  const handleSortChange = async (nextSort) => {
+    setSort(nextSort);
+    if (!sortNeedsStats(nextSort) || statsByUid || statsLoading || !approved.length) return;
+    setStatsLoading(true);
+    try {
+      const users = await fetchClassroomUsers(approved.map(s => s.uid));
+      setStatsByUid(new Map(users.map(u => [u.uid, u])));
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't load student XP and scores, so ranking sorts are unavailable. Everything else still works.");
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  const ranked = sortIsRanked(sort) && !!statsByUid;
+  const statOf = (uid, field) => statsByUid?.get(uid)?.[field] || 0;
 
   const handleApprove = async (student) => {
     setError("");
@@ -1514,6 +1547,22 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
     setSelectedUids(p => {
       const next = new Set(p);
       if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
+
+  // Scoped to the rows currently passing the filters, never to the whole
+  // roster - "select all" next to a filtered list of 259 has to mean those 259.
+  // Rows selected under a previous filter are deliberately left alone by both
+  // branches, so building a selection across two cohorts works.
+  const allVisibleSelected = filteredApproved.length > 0
+    && filteredApproved.every(s => selectedUids.has(s.uid));
+
+  const toggleSelectAllVisible = () => {
+    setSelectedUids(p => {
+      const next = new Set(p);
+      if (allVisibleSelected) filteredApproved.forEach(s => next.delete(s.uid));
+      else filteredApproved.forEach(s => next.add(s.uid));
       return next;
     });
   };
@@ -1639,33 +1688,18 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
         </p>
       )}
 
-      {pending.length > 0 && (pendingDepartments.length > 0 || pendingYears.length > 0 || pendingSections.length > 0) && (
-        <div className="flex gap-2 flex-wrap mb-4">
-          {pendingDepartments.length > 0 && (
-            <select value={pendingDeptFilter} onChange={e => setPendingDeptFilter(e.target.value)}
-              className="text-[12.5px] px-3 py-2 rounded-lg outline-none"
-              style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-              <option value="all">All departments</option>
-              {pendingDepartments.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          )}
-          {pendingYears.length > 0 && (
-            <select value={pendingYearFilter} onChange={e => setPendingYearFilter(e.target.value)}
-              className="text-[12.5px] px-3 py-2 rounded-lg outline-none"
-              style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-              <option value="all">All years</option>
-              {pendingYears.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          )}
-          {pendingSections.length > 0 && (
-            <select value={pendingSectionFilter} onChange={e => setPendingSectionFilter(e.target.value)}
-              className="text-[12.5px] px-3 py-2 rounded-lg outline-none"
-              style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-              <option value="all">All sections</option>
-              {pendingSections.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
-            </select>
-          )}
-        </div>
+      {/* Status/flag filters are off here: every row in this list is pending by
+          definition, and a request has no classroom or contest restriction yet. */}
+      {pending.length > 0 && (
+        <RosterToolbar
+          students={pending}
+          filters={pendingFilters} onFiltersChange={setPendingFilters}
+          sort={pendingSort} onSortChange={setPendingSort}
+          sortOptions={PENDING_SORTS}
+          showStatusFilters={false}
+          resultCount={filteredPending.length} totalCount={pending.length}
+          searchPlaceholder="Search requests by name, roll number or email..."
+        />
       )}
 
       {loading ? (
@@ -1732,16 +1766,26 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
 
       <div className="flex items-center justify-between mb-4 mt-8 flex-wrap gap-3">
         <h2 className="text-lg font-semibold" style={{ color: CAMPUS.ink }}>
-          Students {!loading && <span style={{ color: CAMPUS.inkFaint }}>({approved.length})</span>}
+          Students {!loading && (
+            <span style={{ color: CAMPUS.inkFaint }}>
+              ({filteredApproved.length === approved.length
+                ? approved.length
+                : `${filteredApproved.length} of ${approved.length}`})
+            </span>
+          )}
         </h2>
         <div className="flex gap-2">
           <CampusButton variant="secondary" size="sm" icon={Megaphone} onClick={() => setComposing(o => !o)}
             disabled={approved.length === 0}>
             {selectedUids.size > 0 ? `Message ${selectedUids.size} selected` : "Send announcement"}
           </CampusButton>
-          <CampusButton variant="secondary" size="sm" icon={Download} onClick={() => exportRosterCsv(approved, institution?.name)}
-            disabled={approved.length === 0}>
-            Export roster CSV
+          {/* Exports exactly what is on screen, in the order it is on screen -
+              an export that quietly ignored the filters would be the single
+              most misleading button here. */}
+          <CampusButton variant="secondary" size="sm" icon={Download}
+            onClick={() => exportRosterCsv(filteredApproved, institution?.name, { statsByUid })}
+            disabled={filteredApproved.length === 0}>
+            {filteredApproved.length === approved.length ? "Export roster CSV" : `Export ${filteredApproved.length} shown`}
           </CampusButton>
         </div>
       </div>
@@ -1845,30 +1889,39 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
         </CampusCard>
       )}
 
-      <div className="flex gap-2 flex-wrap mb-4">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CAMPUS.inkFaint }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or roll number..."
-            className="w-full text-[12.5px] pl-8 pr-3 py-2 rounded-lg outline-none"
-            style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+      {approved.length > 0 && (
+        <RosterToolbar
+          students={approved}
+          filters={filters} onFiltersChange={setFilters}
+          sort={sort} onSortChange={handleSortChange}
+          sortOptions={ROSTER_SORTS}
+          statsLoading={statsLoading}
+          resultCount={filteredApproved.length} totalCount={approved.length}
+        />
+      )}
+
+      {/* Makes the filters actionable rather than merely visual: filter to
+          CSE(AI&ML) III Year, select all 259, message exactly them. Selecting
+          only ever adds the currently-visible rows and clearing only ever drops
+          them, so a selection built across two different filters is preserved
+          instead of being silently discarded by the next filter change. */}
+      {filteredApproved.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          <label className="text-[11.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer" style={{ color: CAMPUS.inkSoft }}>
+            <input type="checkbox" checked={allVisibleSelected}
+              onChange={() => toggleSelectAllVisible()} style={{ accentColor: CAMPUS.teal }} />
+            Select all {filteredApproved.length} shown
+          </label>
+          {selectedUids.size > 0 && (
+            <>
+              <span className="text-[11px] font-mono" style={{ color: CAMPUS.teal }}>{selectedUids.size} selected</span>
+              <button onClick={() => setSelectedUids(new Set())} className="text-[11px] font-semibold" style={{ color: CAMPUS.inkFaint }}>
+                Clear selection
+              </button>
+            </>
+          )}
         </div>
-        {departments.length > 0 && (
-          <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-            className="text-[12.5px] px-3 py-2 rounded-lg outline-none"
-            style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-            <option value="all">All departments</option>
-            {departments.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        )}
-        {years.length > 0 && (
-          <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
-            className="text-[12.5px] px-3 py-2 rounded-lg outline-none"
-            style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-            <option value="all">All years</option>
-            {years.map(y => <option key={y} value={y}>Year {y}</option>)}
-          </select>
-        )}
-      </div>
+      )}
 
       {loading ? null : approved.length === 0 ? (
         <CampusEmptyState size="sm" icon={Check} title="No students yet" description="Approved students will show up here." />
@@ -1915,6 +1968,14 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
                   <input type="checkbox" checked={selectedUids.has(s.uid)} onChange={() => toggleSelect(s.uid)}
                     onClick={(e) => e.stopPropagation()}
                     className="flex-shrink-0" style={{ accentColor: CAMPUS.teal }} />
+                  {/* Only under a ranking sort - a position number next to a
+                      list sorted by roll number would be meaningless. */}
+                  {ranked && (
+                    <span className="flex-shrink-0 text-[11px] font-mono font-bold w-7 text-right"
+                      style={{ color: i < 3 ? CAMPUS.gold : CAMPUS.inkFaint }}>
+                      #{i + 1}
+                    </span>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <b className="text-[13px]" style={{ color: CAMPUS.ink }}>{s.name || "(no name)"}</b>
@@ -1922,9 +1983,16 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
                       {s.contestRestricted && <CampusChip color={CAMPUS.warn}>CONTEST RESTRICTED</CampusChip>}
                     </div>
                     <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>
-                      {s.rollNumber} {s.department && `· ${s.department}`} {s.year && `· Year ${s.year}`} {s.section && `· Sec ${s.section}`}
+                      {/* `year` holds a canonical string ("III Year"), so the
+                          old `Year ${s.year}` here rendered "Year III Year". */}
+                      {s.rollNumber} {s.department && `· ${s.department}`} {s.year && `· ${s.year}`} {s.section && `· Sec ${s.section}`}
                     </span>
                   </div>
+                  {statsByUid && (
+                    <span className="flex-shrink-0 text-[11px] font-mono hidden sm:inline" style={{ color: CAMPUS.purple }}>
+                      {statOf(s.uid, "xp").toLocaleString()} XP · {statOf(s.uid, "score").toLocaleString()} pts
+                    </span>
+                  )}
                   <button onClick={(e) => { e.stopPropagation(); setMoreMenuUid(moreMenuUid === s.uid ? null : s.uid); setRemovingUid(null); }}
                     title="More options" className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>
                     <MoreVertical size={16} />
