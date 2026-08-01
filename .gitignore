@@ -127,3 +127,9 @@ nandhakishor-portfolio/
 # Ad-hoc scratch checks (scripts/_tmp-*.mjs) - one-off Firestore probes, kept
 # locally but never committed.
 scripts/_tmp-*
+
+# Generated contest reports. These contain real students' names, roll numbers
+# and individual scores - personal data that has no business in version
+# control. Regenerate them from Firestore when they're needed.
+scripts/contest-classwise-results-*.csv
+scripts/contest-classwise-report-*.html

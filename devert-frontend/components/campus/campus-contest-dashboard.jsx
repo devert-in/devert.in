@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Users, BarChart3, Trophy, Download, Pencil, Copy, Medal, Settings, ChevronDown, ChevronUp, Award, X, Printer, RotateCcw, AlertTriangle, Workflow, Play, Pause } from "lucide-react";
+import { Users, BarChart3, Trophy, Download, Pencil, Copy, Medal, Settings, ChevronDown, ChevronUp, Award, X, Printer, RotateCcw, AlertTriangle, Workflow, Play, Pause, Search } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton, ReportDownloadButton } from "@/components/campus/campus-ui";
 import {
@@ -40,6 +40,17 @@ function participantLabel(r) {
   return r.campusFullName || (r.handle ? `@${r.handle}` : (r.uid || "").slice(0, 10));
 }
 
+// "8m 15s" / "1h 04m". Submissions written before timeTakenSeconds existed have
+// no value at all, so this must render a dash rather than "0m 00s" - claiming
+// someone finished instantly is worse than admitting it wasn't recorded.
+function formatDuration(seconds) {
+  if (typeof seconds !== "number" || !isFinite(seconds) || seconds < 0) return "-";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return h > 0 ? `${h}h ${pad(m)}m` : `${m}m ${pad(s)}s`;
+}
+
 function exportRegistrationsCsv(registrations, title) {
   const header = "name,rollNumber,uid,registeredAt";
   const rows = registrations.map(r => {
@@ -51,6 +62,23 @@ function exportRegistrationsCsv(registrations, title) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = `${title.replace(/\s+/g, "-").toLowerCase()}-registrations.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Every class, every student, ranked within their own class - the full list an
+// HOD or class teacher actually wants, rather than the top 3 the card shows.
+function exportClasswiseCsv(classwise, title) {
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = "class,classRank,name,rollNumber,score,maxScore,percent,accuracy,timeTaken,timeTakenSeconds";
+  const rows = classwise.flatMap(cls => cls.rows.map((r, i) =>
+    [cls.label, i + 1, r.name, r.rollNumber, r.score, r.maxScore, r.pct, r.accuracy,
+     formatDuration(r.timeTakenSeconds), r.timeTakenSeconds ?? ""].map(esc).join(",")
+  ));
+  const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${title.replace(/\s+/g, "-").toLowerCase()}-classwise-results.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -351,6 +379,8 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [registrations, setRegistrations] = useState([]);
+  const [regQuery, setRegQuery] = useState("");
+  const [expandedClass, setExpandedClass] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [questions, setQuestions] = useState([]);
@@ -412,6 +442,68 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
   };
 
   const submittedUids = useMemo(() => new Set(submissions.map(s => s.uid)), [submissions]);
+
+  // Filtered BEFORE the 100-row display cap below, not after - on a cohort of
+  // 120+ registrants the student an admin is looking for is very often past
+  // row 100, and searching a list that had already been truncated would simply
+  // never find them. Roll number is matched as well as name because that is
+  // what an admin reads off an attendance sheet.
+  const filteredRegistrations = useMemo(() => {
+    const q = regQuery.trim().toLowerCase();
+    if (!q) return registrations;
+    return registrations.filter(r =>
+      (r.campusFullName || "").toLowerCase().includes(q)
+      || (r.rollNumber || "").toLowerCase().includes(q)
+      || (r.handle || "").toLowerCase().includes(q)
+      || (r.uid || "").toLowerCase().includes(q)
+    );
+  }, [registrations, regQuery]);
+
+  // Classwise results - built from the submissions and roster this dashboard
+  // already loads, so it costs no extra reads.
+  //
+  // Ranked on PERCENTAGE, not raw score. For an ordinary contest where every
+  // student sat the same paper the two are identical orderings, so this changes
+  // nothing; it only diverges when a paper was edited mid-contest and different
+  // students have different maxScore values, where ranking on raw score would
+  // place a perfect 10/10 below a 12/20. Time is the tiebreak, matching
+  // fetchLeaderboard's own score-then-timeTakenSeconds ordering; a missing time
+  // sorts last so it can never win a tie by default.
+  const classwise = useMemo(() => {
+    const rosterByUid = new Map(roster.map(s => [s.uid, s]));
+    const graded = submissions.filter(s => s.graded);
+    const groups = new Map();
+    for (const s of graded) {
+      const r = rosterByUid.get(s.uid) || {};
+      const label = (r.year || r.department || r.section)
+        ? `${r.year || "?"} / ${r.department || "?"} / ${r.section || "?"}`
+        : "Unassigned";
+      const max = s.maxScore || 0;
+      const row = {
+        uid: s.uid,
+        name: r.name || s.campusFullName || (s.uid || "").slice(0, 10),
+        rollNumber: r.rollNumber || s.rollNumber || "",
+        score: s.score || 0, maxScore: max,
+        pct: max > 0 ? Math.round(((s.score || 0) / max) * 1000) / 10 : 0,
+        accuracy: s.accuracy ?? 0,
+        timeTakenSeconds: s.timeTakenSeconds,
+      };
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(row);
+    }
+    return [...groups.entries()]
+      .map(([label, rows]) => {
+        rows.sort((a, b) => b.pct - a.pct || b.score - a.score
+          || ((a.timeTakenSeconds ?? Infinity) - (b.timeTakenSeconds ?? Infinity)));
+        const timed = rows.filter(r => typeof r.timeTakenSeconds === "number");
+        return {
+          label, rows,
+          avgPct: Math.round((rows.reduce((a, r) => a + r.pct, 0) / rows.length) * 10) / 10,
+          avgTime: timed.length ? Math.round(timed.reduce((a, r) => a + r.timeTakenSeconds, 0) / timed.length) : null,
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [submissions, roster]);
 
   const handleResetAttempt = async (uid) => {
     if (!window.confirm("Reset this student's attempt? Their existing submission will be deleted and they'll be able to attempt the contest again.")) return;
@@ -638,7 +730,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
         <CampusCard className="p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: CAMPUS.ink }}><Users size={13} /> Registrations</p>
-            <button onClick={() => exportRegistrationsCsv(registrations, contest.title)} disabled={registrations.length === 0}
+            <button onClick={() => exportRegistrationsCsv(filteredRegistrations, contest.title)} disabled={filteredRegistrations.length === 0}
               className="flex items-center gap-1 text-[11px] disabled:opacity-40" style={{ color: CAMPUS.teal }}>
               <Download size={11} /> export csv
             </button>
@@ -649,8 +741,32 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
               <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>No registrations yet.</p>
             </div>
           ) : (
+            <>
+              <div className="relative mb-2">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CAMPUS.inkFaint }} />
+                <input value={regQuery} onChange={e => setRegQuery(e.target.value)} placeholder="Search by name or roll number..."
+                  className="w-full text-[12px] pl-9 pr-8 py-1.5 rounded-lg outline-none"
+                  style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+                {regQuery && (
+                  <button onClick={() => setRegQuery("")} title="Clear search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: CAMPUS.inkFaint }}>
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              {regQuery.trim() && (
+                <p className="text-[10.5px] mb-1.5" style={{ color: CAMPUS.inkFaint }}>
+                  {filteredRegistrations.length} of {registrations.length} match &quot;{regQuery.trim()}&quot;
+                </p>
+              )}
+              {filteredRegistrations.length === 0 ? (
+                <div className="py-6 text-center">
+                  <Search size={18} style={{ color: CAMPUS.inkFaint }} className="mx-auto mb-2" />
+                  <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>No registrant matches that search.</p>
+                </div>
+              ) : (
             <div className="max-h-56 overflow-y-auto space-y-1">
-              {registrations.slice(0, 100).map(r => (
+              {filteredRegistrations.slice(0, 100).map(r => (
                 <div key={r.uid} className="flex items-center justify-between gap-2 text-[11.5px]">
                   <span className="truncate flex-1 min-w-0" style={{ color: CAMPUS.inkSoft }}>{participantLabel(r)}</span>
                   {r.rollNumber && <span className="font-mono flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{r.rollNumber}</span>}
@@ -662,8 +778,10 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
                   )}
                 </div>
               ))}
-              {registrations.length > 100 && <p className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>+{registrations.length - 100} more - export CSV for the full list.</p>}
+              {filteredRegistrations.length > 100 && <p className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>+{filteredRegistrations.length - 100} more - search above, or export CSV for the full list.</p>}
             </div>
+              )}
+            </>
           )}
         </CampusCard>
 
@@ -691,6 +809,11 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
                       </td>
                       <td className="text-[11.5px] py-1.5 text-right" style={{ color: CAMPUS.teal }}>{row.score}/{row.maxScore}</td>
                       <td className="text-[11.5px] py-1.5 pl-2 text-right" style={{ color: CAMPUS.inkFaint }}>{row.accuracy}%</td>
+                      {/* Time is already what fetchLeaderboard breaks ties on
+                          (score desc, timeTakenSeconds asc), so two students on
+                          the same score were always ordered by it - showing it
+                          just makes the ordering legible instead of arbitrary. */}
+                      <td className="text-[11.5px] py-1.5 pl-2 text-right font-mono whitespace-nowrap" style={{ color: CAMPUS.inkFaint }}>{formatDuration(row.timeTakenSeconds)}</td>
                       <td className="py-1.5 pl-2 text-right">
                         <button onClick={() => setCertRow(row)} title="Issue certificate" style={{ color: CAMPUS.gold }}>
                           <Award size={13} />
@@ -704,6 +827,68 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
           )}
         </CampusCard>
       </div>
+
+      {classwise.length > 0 && (
+        <CampusCard className="p-4 mt-4 min-w-0">
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+            <p className="text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: CAMPUS.ink }}>
+              <Users size={13} /> Classwise Results
+              <span className="font-normal" style={{ color: CAMPUS.inkFaint }}>({classwise.length} {classwise.length === 1 ? "class" : "classes"})</span>
+            </p>
+            <button onClick={() => exportClasswiseCsv(classwise, contest.title)}
+              className="flex items-center gap-1 text-[11px]" style={{ color: CAMPUS.teal }}>
+              <Download size={11} /> export csv
+            </button>
+          </div>
+          <div className="space-y-3">
+            {classwise.map(cls => {
+              const open = expandedClass === cls.label;
+              const shown = open ? cls.rows : cls.rows.slice(0, 3);
+              return (
+                <div key={cls.label} className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
+                  <button onClick={() => setExpandedClass(open ? null : cls.label)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left" style={{ background: CAMPUS.paper }}>
+                    <span className="text-[11.5px] font-semibold min-w-0 truncate" style={{ color: CAMPUS.ink }}>{cls.label}</span>
+                    <span className="text-[10.5px] flex-shrink-0 flex items-center gap-2" style={{ color: CAMPUS.inkFaint }}>
+                      <span>{cls.rows.length} students</span>
+                      <span>avg {cls.avgPct}%</span>
+                      <span className="font-mono">{formatDuration(cls.avgTime)}</span>
+                      {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </span>
+                  </button>
+                  <div className="px-3 py-2 overflow-x-auto">
+                    <table className="w-full">
+                      <tbody>
+                        {shown.map((r, i) => (
+                          <tr key={r.uid} style={{ borderTop: i === 0 ? "none" : `1px solid ${CAMPUS.line}` }}>
+                            <td className="text-[11px] py-1 pr-2 w-7">
+                              {i < 3
+                                ? <span className="flex items-center gap-0.5 font-bold" style={{ color: i === 0 ? CAMPUS.gold : i === 1 ? "#9CA3AF" : "#B87333" }}><Medal size={10} /> {i + 1}</span>
+                                : <span style={{ color: CAMPUS.inkFaint }}>{i + 1}</span>}
+                            </td>
+                            <td className="text-[11px] py-1 truncate" style={{ color: CAMPUS.ink }}>
+                              {r.name}
+                              {r.rollNumber && <span className="block font-mono text-[9.5px]" style={{ color: CAMPUS.inkFaint }}>{r.rollNumber}</span>}
+                            </td>
+                            <td className="text-[11px] py-1 text-right whitespace-nowrap" style={{ color: CAMPUS.teal }}>{r.score}/{r.maxScore}</td>
+                            <td className="text-[11px] py-1 pl-2 text-right font-mono" style={{ color: CAMPUS.inkFaint }}>{r.pct}%</td>
+                            <td className="text-[11px] py-1 pl-2 text-right font-mono whitespace-nowrap" style={{ color: CAMPUS.inkFaint }}>{formatDuration(r.timeTakenSeconds)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {!open && cls.rows.length > 3 && (
+                      <button onClick={() => setExpandedClass(cls.label)} className="text-[10.5px] mt-1" style={{ color: CAMPUS.teal }}>
+                        show all {cls.rows.length} →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CampusCard>
+      )}
 
       {/* min-w-0 on the grid children below is load-bearing: `truncate` sets
           white-space:nowrap, and a grid item defaults to min-width:auto, so
