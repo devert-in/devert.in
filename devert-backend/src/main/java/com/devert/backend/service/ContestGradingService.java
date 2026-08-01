@@ -121,6 +121,10 @@ public class ContestGradingService {
             .collection("codingResults").document(questionId);
         resultRef.set(resultDoc).get();
 
+        // FieldValue.serverTimestamp() cannot be serialized by Jackson to JSON.
+        // The client doesn't need it, so remove it before returning.
+        resultDoc.remove("gradedAt");
+
         return resultDoc;
     }
 }

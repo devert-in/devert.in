@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.devert.backend.dto.ContestCodeSubmitRequest;
 import com.devert.backend.service.ContestGradingService;
+import com.devert.backend.service.GradingService;
 import com.devert.backend.service.RateLimiter;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
@@ -80,6 +81,13 @@ public class ContestGradingController {
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(err(e.getMessage()));
+        } catch (GradingService.JudgeUnavailableException e) {
+            // Retryable and the student's fault in no way - nothing was written, so
+            // resubmitting is safe and is exactly what they should do. 503 (not 500)
+            // so this is distinguishable from a real defect in the logs.
+            log.warn("Judge unavailable for uid={} contestId={} questionId={}: {}", uid, contestId, questionId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(err("The grading service is busy right now - your code is saved. Wait a few seconds and submit again."));
         } catch (Exception e) {
             log.error("Contest grading failed for uid={} contestId={} questionId={}", uid, contestId, questionId, e);
             return ResponseEntity.internalServerError().body(err("Grading failed: " + e.getMessage()));

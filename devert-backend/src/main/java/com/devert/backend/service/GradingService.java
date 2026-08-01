@@ -29,6 +29,19 @@ import com.google.cloud.firestore.SetOptions;
 @Service
 public class GradingService {
 
+    // Raised when a test could not be JUDGED at all - the execution provider was
+    // unreachable or kept rejecting us after CodeExecutionService's retries. This
+    // is deliberately NOT the same thing as a test the student's code failed:
+    // scoring an unjudgeable test as "failed" silently costs real marks for an
+    // outage the student had no part in, which matters most during a live contest,
+    // exactly when the provider is under the most load. Callers surface this as a
+    // retryable "try again" rather than storing a partial grade.
+    public static class JudgeUnavailableException extends RuntimeException {
+        public JudgeUnavailableException(String message) {
+            super(message);
+        }
+    }
+
     @Autowired(required = false)
     private Firestore db;
 
@@ -380,9 +393,13 @@ public class GradingService {
         outcome.memoryKb = parseMemoryKb(result != null ? result.memory : null);
 
         if (result == null) {
-            outcome.passed = false;
-            outcome.verdict = "Judge Error";
-            return outcome;
+            // CodeExecutionService has already retried with backoff by this point,
+            // so a null here means the provider is genuinely unavailable - not that
+            // the submitted code is wrong. Aborting the whole grade is the honest
+            // outcome; the alternative (counting it as a failed test) quietly marks
+            // a correct solution down for an infrastructure problem.
+            throw new JudgeUnavailableException(
+                "The code execution service is temporarily unavailable - no grade was recorded.");
         }
         if (!"success".equals(result.status)) {
             // See CodeExecutionService's class comment: this provider can't distinguish
