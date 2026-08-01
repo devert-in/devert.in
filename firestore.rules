@@ -1186,14 +1186,18 @@ service cloud.firestore {
       // fetchInstitutionContests already filters on.
       allow read: if isAdmin()
         || isInstitutionAdmin(resource.data.get('institutionId', ''))
+        // A listed Mock Reviewer sees the contest regardless of publish status
+        // or target audience - "let someone sit this paper before it opens"
+        // is the whole point, so this has to reach a still-draft contest, not
+        // just a published one outside the reviewer's own audience. Top-level,
+        // not nested under the status=='published' branch below (which used
+        // to gate this too, silently defeating the "before it opens" case -
+        // caught by an emulator test asserting a reviewer CAN read a draft).
+        || (resource != null && isContestReviewer(contestId))
         || (resource != null && resource.data.status == 'published'
           && (!('institutionId' in resource.data)
             || (isApprovedStudent(resource.data.institutionId)
-              && matchesContestScope(resource.data.get('targetScope', {}), resource.data.institutionId, request.auth.uid))
-            // A listed Mock Reviewer sees the contest regardless of the target
-            // audience - reviewing a III Year paper is the whole job, and a
-            // reviewer is usually deliberately outside that audience.
-            || isContestReviewer(contestId)));
+              && matchesContestScope(resource.data.get('targetScope', {}), resource.data.institutionId, request.auth.uid))));
       allow create: if isAdmin()
         || (isAuth() && request.resource.data.get('institutionId', '') != ''
           && isInstitutionAdmin(request.resource.data.institutionId));

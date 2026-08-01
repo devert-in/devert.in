@@ -1903,6 +1903,34 @@ test("a mock reviewer can sit a contest they are not eligible for, without touch
   await assertFails(outsider.firestore().doc("contests/rev-contest/dryRuns/outsider-uid").set({ isDryRun: true, score: 1 }));
 });
 
+test("a mock reviewer can read a contest that is still in draft, before it has ever been published", async () => {
+  // The whole point of the feature ("let someone sit this paper before it
+  // opens") - a reviewer's access must not depend on status=='published' at
+  // all, only on being listed. Regression test for a bug where
+  // isContestReviewer() was nested inside the published-only branch of the
+  // contest read rule, so a reviewer could bypass the audience check but
+  // never the draft status - defeating "before it opens" entirely.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("contests/draft-contest").set({
+      title: "Unpublished paper", status: "draft", institutionId: "mrcet",
+    });
+    await ctx.firestore().doc("contests/draft-contest/questions/q1").set({ type: "mcq", question: "Q", marks: 1, order: 0 });
+    await ctx.firestore().doc("institutions/mrcet/students/reviewer-uid").set({ uid: "reviewer-uid", status: "approved" });
+    await ctx.firestore().doc("contests/draft-contest/reviewers/reviewer-uid").set({ uid: "reviewer-uid", enabled: true });
+  });
+
+  const reviewer = testEnv.authenticatedContext("reviewer-uid");
+  await assertSucceeds(reviewer.firestore().doc("contests/draft-contest").get());
+  await assertSucceeds(reviewer.firestore().doc("contests/draft-contest/questions/q1").get());
+
+  // A non-reviewer, even an otherwise-approved student, still cannot see a draft at all.
+  const outsider = testEnv.authenticatedContext("outsider-uid");
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/students/outsider-uid").set({ uid: "outsider-uid", status: "approved" });
+  });
+  await assertFails(outsider.firestore().doc("contests/draft-contest").get());
+});
+
 test("a disabled reviewer loses access without losing their attempt history", async () => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await ctx.firestore().doc("contests/rev-off").set({

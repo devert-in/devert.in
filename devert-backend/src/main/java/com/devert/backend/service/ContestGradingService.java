@@ -57,25 +57,35 @@ public class ContestGradingService {
             throw new IllegalArgumentException("This question isn't a coding question.");
         }
 
-        // Registration required - mirrors gradeArenaSubmission's own ownership check
-        // (a match belongs to a uid; here, a contest attempt belongs to a registrant).
+        // Registration required UNLESS this uid is a listed, enabled Mock
+        // Reviewer - a reviewer never registers (see contest-reviewers.jsx),
+        // and is very often reviewing a contest that is still in draft, with
+        // no registrant at all yet. Mirrors the frontend's own dryRun bypass
+        // in CampusContestAttempt's load() - a reviewer is checking the
+        // paper, not participating in the contest.
         DocumentSnapshot registration = contestRef.collection("registrations").document(uid).get().get();
-        if (!registration.exists()) {
+        DocumentSnapshot reviewerDoc = contestRef.collection("reviewers").document(uid).get().get();
+        boolean isReviewer = reviewerDoc.exists() && !Boolean.FALSE.equals(reviewerDoc.getBoolean("enabled"));
+        if (!registration.exists() && !isReviewer) {
             throw new IllegalArgumentException("You're not registered for this contest.");
         }
+        boolean isDryRun = !registration.exists() && isReviewer;
 
         // Server-stamped time/paused check, never a client-reported "still in
         // time" - same reasoning as gradeArenaSubmission's elapsed-time check.
-        if (Boolean.TRUE.equals(contest.getBoolean("paused"))) {
-            throw new IllegalArgumentException("This contest is currently paused by your institution admin - try again once it resumes.");
-        }
-        Timestamp contestEnd = contest.getTimestamp("contestEnd");
-        if (contestEnd != null) {
-            long graceMinutes = contest.contains("graceMinutes") && contest.getLong("graceMinutes") != null
-                ? contest.getLong("graceMinutes") : 0;
-            long deadlineMs = contestEnd.toDate().getTime() + graceMinutes * 60_000L;
-            if (System.currentTimeMillis() > deadlineMs) {
-                throw new IllegalArgumentException("The submission window for this contest has closed.");
+        // Skipped entirely for a dry run, same as the frontend's own gate.
+        if (!isDryRun) {
+            if (Boolean.TRUE.equals(contest.getBoolean("paused"))) {
+                throw new IllegalArgumentException("This contest is currently paused by your institution admin - try again once it resumes.");
+            }
+            Timestamp contestEnd = contest.getTimestamp("contestEnd");
+            if (contestEnd != null) {
+                long graceMinutes = contest.contains("graceMinutes") && contest.getLong("graceMinutes") != null
+                    ? contest.getLong("graceMinutes") : 0;
+                long deadlineMs = contestEnd.toDate().getTime() + graceMinutes * 60_000L;
+                if (System.currentTimeMillis() > deadlineMs) {
+                    throw new IllegalArgumentException("The submission window for this contest has closed.");
+                }
             }
         }
 
@@ -101,7 +111,13 @@ public class ContestGradingService {
         resultDoc.put("language", language.toLowerCase());
         resultDoc.put("gradedAt", FieldValue.serverTimestamp());
 
-        DocumentReference resultRef = contestRef.collection("submissions").document(uid)
+        // A dry run's coding results live under dryRuns/{uid}, never
+        // submissions/{uid} - same isolation reasoning as the MCQ dry-run
+        // write (lib/contests.js's submitContestDryRun): none of this may
+        // reach the leaderboard, participantCount, or any average.
+        DocumentReference resultRef = (isDryRun
+            ? contestRef.collection("dryRuns").document(uid)
+            : contestRef.collection("submissions").document(uid))
             .collection("codingResults").document(questionId);
         resultRef.set(resultDoc).get();
 
