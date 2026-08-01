@@ -1300,6 +1300,17 @@ service cloud.firestore {
         allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isOwner(uid);
         allow write: if isAdmin() || isContestInstitutionAdmin(contestId)
           || (isOwner(uid) && isContestReviewer(contestId));
+
+        // A coding question's dry-run result, written only by
+        // ContestGradingService via the admin SDK (bypasses these rules
+        // entirely) once it resolves the caller as a reviewer rather than a
+        // registrant - never a client write path, same reasoning as
+        // submissions/{uid}/codingResults above. Same read visibility as the
+        // parent dry run doc.
+        match /codingResults/{questionId} {
+          allow read: if isAdmin() || isContestInstitutionAdmin(contestId) || isOwner(uid);
+          allow write: if false;
+        }
       }
 
       match /submissions/{uid} {

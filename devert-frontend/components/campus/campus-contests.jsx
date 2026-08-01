@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { CheckCircle2, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle, Pause, Play, Send } from "lucide-react";
+import { CheckCircle2, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle, Pause, Play, Send, FlaskConical } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchContest, fetchContestQuestions, fetchContestAnswerKeys, fetchMyRegistration,
@@ -10,7 +10,7 @@ import {
   gradeSubmission, persistGrading, fetchLeaderboard, fetchMyRank,
   getContestSettings, isSettingReleased, isAnswerCorrect,
   fetchContestCodingResults, submitContestCodingAnswer,
-  fetchContestQuestionSampleTests, submitContestDryRun,
+  fetchContestQuestionSampleTests, submitContestDryRun, fetchMyContestReviewer,
 } from "@/lib/contests";
 import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
 import { ContestShareButton } from "@/components/campus/contest-share";
@@ -135,6 +135,7 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState("");
   const [now, setNow] = useState(new Date());
+  const [reviewer, setReviewer] = useState(null);
 
   const load = () => {
     if (!contestId) { setLoading(false); return; }
@@ -146,6 +147,16 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
   useEffect(() => {
     if (!user || !contestId) { setRegistered(false); return; }
     fetchMyRegistration(contestId, user.uid).then(r => setRegistered(!!r)).catch(console.error);
+  }, [user, contestId]);
+
+  // A Mock Reviewer sees this regardless of whether the contest has ever been
+  // published or is out of their own audience - see firestore.rules'
+  // isContestReviewer(). fetchContest above already succeeds for them even on
+  // a still-draft contest, so this is purely "should the Dry Run entry point
+  // show", not a visibility gate of its own.
+  useEffect(() => {
+    if (!user || !contestId) { setReviewer(null); return; }
+    fetchMyContestReviewer(contestId, user.uid).then(setReviewer).catch(() => setReviewer(null));
   }, [user, contestId]);
 
   useEffect(() => {
@@ -249,8 +260,32 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
         )}
       </CampusCard>
 
+      {user && reviewer && (
+        <CampusCard className="p-5 mb-5" style={{ borderColor: CAMPUS.purple }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <FlaskConical size={14} style={{ color: CAMPUS.purple }} />
+            <b className="text-sm" style={{ color: CAMPUS.ink }}>You&apos;re a Mock Reviewer for this contest</b>
+          </div>
+          <p className="text-xs mb-3" style={{ color: CAMPUS.inkSoft }}>
+            Sit the paper end to end, even before it opens. Your attempt is saved separately and never reaches the
+            leaderboard, participant count, or any average - you can redo it as many times as you like.
+          </p>
+          <button onClick={() => onEnterAttempt(contestId, { dryRun: true })}
+            className="w-full text-sm font-semibold py-3 rounded-xl transition-colors"
+            style={{ color: CAMPUS.purple, border: `1px solid ${CAMPUS.purple}50`, background: `${CAMPUS.purple}14` }}>
+            start dry run →
+          </button>
+        </CampusCard>
+      )}
+
       {!user ? (
         <SignInPrompt message="You'll need a DeVert account to register for this contest." />
+      ) : contest.status !== "published" ? (
+        !reviewer && (
+          <span className="flex-1 text-center text-sm py-3 rounded-xl block" style={{ color: CAMPUS.inkFaint, border: `1px solid ${CAMPUS.line}` }}>
+            This contest hasn&apos;t been published yet.
+          </span>
+        )
       ) : (
         <div className="flex gap-3 flex-wrap">
           {registered ? (
@@ -1148,11 +1183,12 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
 export function CampusContestFlow({ contests, loading, error, onRetry, screen, setScreen }) {
   if (screen.view === "details") {
     return <CampusContestDetails contestId={screen.contestId} onBack={() => setScreen({ view: "list" })}
-      onEnterAttempt={(id) => setScreen({ view: "attempt", contestId: id })}
+      onEnterAttempt={(id, opts) => setScreen({ view: "attempt", contestId: id, dryRun: !!opts?.dryRun })}
       onViewResults={(id) => setScreen({ view: "results", contestId: id })} />;
   }
   if (screen.view === "attempt") {
-    return <CampusContestAttempt contestId={screen.contestId} onBack={(id) => setScreen({ view: "details", contestId: id })}
+    return <CampusContestAttempt contestId={screen.contestId} dryRun={!!screen.dryRun}
+      onBack={(id) => setScreen({ view: "details", contestId: id })}
       onViewResults={(id) => setScreen({ view: "results", contestId: id })} />;
   }
   if (screen.view === "results") {

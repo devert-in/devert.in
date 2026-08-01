@@ -337,15 +337,36 @@ export function contestPhase(contest, now = new Date()) {
 
   if (contest.lifecycleState) {
     switch (contest.lifecycleState) {
-      case "draft": case "hidden": case "registrationOpen":
-        // Still taking registrations - but once the registration window shuts,
-        // say so rather than showing a Register button that the rules will
-        // reject (request.time <= registrationEnd is enforced server-side).
-        return regEnd && now > regEnd ? "closed" : "upcoming";
-      case "registrationClosed":
-        return "closed";
-      case "live":
+      // Not published. These never open on their own, whatever the clock says
+      // - an unfinished paper must not go live because its start time arrived.
+      case "draft": case "hidden":
+        return "upcoming";
+
+      // Published and not yet finished: THE CLOCK DECIDES. A contest opens the
+      // instant contestStart arrives and closes the instant contestEnd passes,
+      // with nobody pressing anything. Nothing in this project runs on a
+      // schedule (the only deployed Cloud Functions are link-preview routers)
+      // and Firestore rules cannot act on their own, so the alternative was a
+      // human being at a keyboard at 19:00 sharp - and if they were late, or
+      // busy, or offline, 260 students sat looking at a countdown that had
+      // already reached zero.
+      //
+      // Deriving the phase from the clock on every render means no scheduler is
+      // needed: each client computes it independently and flips over at the
+      // same moment. It also matches how the server already behaves -
+      // firestore.rules gates registration on registrationEnd and answer keys
+      // on contestEnd by comparing request.time, never lifecycleState - so the
+      // UI now agrees with the boundary that was always authoritative.
+      //
+      // lifecycleState still governs everything the clock cannot know: draft
+      // and hidden hold a contest back, and the terminal states below end it
+      // early and irreversibly.
+      case "registrationOpen": case "registrationClosed": case "live":
         return byClock();
+
+      // Force End and the post-contest states win over the clock outright: once
+      // submissions are closed, reopening is an explicit admin action (back to
+      // "live"), never something a still-future contestEnd can undo.
       default:
         // submissionClosed, evaluation, resultsPublished, archived
         return "past";
@@ -1131,6 +1152,15 @@ export async function submitContestCodingAnswer(contestId, questionId, language,
 // from this without any reshaping.
 export async function fetchContestCodingResults(contestId, uid) {
   const snap = await getDocs(collection(db, "contests", contestId, "submissions", uid, "codingResults"));
+  const results = {};
+  snap.docs.forEach(d => { results[d.id] = d.data(); });
+  return results;
+}
+
+// Dry-run counterpart - ContestGradingService writes a reviewer's coding
+// results here instead, never into submissions/{uid} (see its own comment).
+export async function fetchContestDryRunCodingResults(contestId, uid) {
+  const snap = await getDocs(collection(db, "contests", contestId, "dryRuns", uid, "codingResults"));
   const results = {};
   snap.docs.forEach(d => { results[d.id] = d.data(); });
   return results;
