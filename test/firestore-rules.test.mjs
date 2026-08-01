@@ -1651,3 +1651,67 @@ test("roleAssignments is never directly client-writable - not by the account its
     uid: "some-new-hod", institutionId: "mrcet", roleKey: "hod", scope: { department: "CSE", classroomId: null }, status: "active",
   }));
 });
+
+// Staff dry runs (contests/{id}/dryRuns/{uid}) - an admin taking the paper to
+// verify it without becoming a participant. The whole point of the separate
+// collection is that nothing which reads `submissions` can see these, so the
+// boundary that matters is: only that contest's own institution admin touches
+// them, and a student can neither read one (it is a full worked attempt,
+// answers included) nor mint one for themselves.
+test("a contest dry run is readable and writable only by that contest's own institution admin", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("contests/dryrun-contest").set({
+      title: "MRCET Placement Sprint", status: "published", audiences: ["legacy"], institutionId: "mrcet",
+    });
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid" });
+    await ctx.firestore().doc("institutions/mrcet/students/approved-uid").set({ uid: "approved-uid", status: "approved" });
+    await ctx.firestore().doc("institutions/other-college/admins/other-admin-uid").set({ uid: "other-admin-uid" });
+  });
+
+  const payload = { isDryRun: true, answers: { q1: "b" }, score: 20, maxScore: 25, timeTakenSeconds: 300 };
+  const mrcetAdmin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertSucceeds(mrcetAdmin.firestore().doc("contests/dryrun-contest/dryRuns/mrcet-admin-uid").set(payload));
+  await assertSucceeds(mrcetAdmin.firestore().doc("contests/dryrun-contest/dryRuns/mrcet-admin-uid").get());
+  // Scratch data - re-runnable and deletable, unlike a real submission.
+  await assertSucceeds(mrcetAdmin.firestore().doc("contests/dryrun-contest/dryRuns/mrcet-admin-uid").set({ ...payload, score: 25 }));
+  await assertSucceeds(mrcetAdmin.firestore().doc("contests/dryrun-contest/dryRuns/mrcet-admin-uid").delete());
+
+  // An approved student of this very institution still gets nothing: a dry run
+  // holds a complete correct attempt, so reading one is reading the answer key.
+  const student = testEnv.authenticatedContext("approved-uid");
+  await assertFails(student.firestore().doc("contests/dryrun-contest/dryRuns/mrcet-admin-uid").get());
+  await assertFails(student.firestore().doc("contests/dryrun-contest/dryRuns/approved-uid").set(payload));
+
+  // Another college's admin is an outsider here, same as anywhere else.
+  const otherAdmin = testEnv.authenticatedContext("other-admin-uid");
+  await assertFails(otherAdmin.firestore().doc("contests/dryrun-contest/dryRuns/other-admin-uid").set(payload));
+  await assertFails(otherAdmin.firestore().doc("contests/dryrun-contest/dryRuns/mrcet-admin-uid").get());
+
+  const stranger = testEnv.authenticatedContext("random-uid");
+  await assertFails(stranger.firestore().doc("contests/dryrun-contest/dryRuns/random-uid").set(payload));
+  const anon = testEnv.unauthenticatedContext();
+  await assertFails(anon.firestore().doc("contests/dryrun-contest/dryRuns/mrcet-admin-uid").get());
+});
+
+// The reason the separate collection exists at all: a dry run must be
+// structurally incapable of showing up in the leaderboard query.
+test("a dry run does not appear in the submissions collection the leaderboard reads", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("contests/leak-contest").set({
+      title: "Leak check", status: "published", audiences: ["legacy"], institutionId: "mrcet",
+      contestEnd: new Date(Date.now() - 60000),
+    });
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid" });
+    await ctx.firestore().doc("contests/leak-contest/dryRuns/mrcet-admin-uid").set({
+      isDryRun: true, graded: true, score: 25, maxScore: 25, timeTakenSeconds: 1,
+    });
+    await ctx.firestore().doc("contests/leak-contest/submissions/real-student").set({
+      graded: true, score: 12, maxScore: 25, timeTakenSeconds: 900,
+    });
+  });
+  const admin = testEnv.authenticatedContext("mrcet-admin-uid");
+  const snap = await admin.firestore().collection("contests/leak-contest/submissions")
+    .where("graded", "==", true).get();
+  assert.deepEqual(snap.docs.map(d => d.id), ["real-student"],
+    "a perfect-scoring dry run must not be in the collection the leaderboard queries");
+});

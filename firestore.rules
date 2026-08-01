@@ -1204,6 +1204,25 @@ service cloud.firestore {
       // caps. Anyone signed in can read submissions once the contest has ended - that's
       // what powers the per-contest leaderboard; that institution's own admin can read
       // earlier too (for a live registrations/submissions view while it's running).
+      // Staff dry runs - an admin taking the paper to verify it without
+      // becoming a participant. Deliberately a SEPARATE collection from
+      // submissions rather than a flag on it: every analytics read
+      // (fetchLeaderboard, fetchMyRank's count aggregations, the dashboard's
+      // averages) queries submissions, so keeping dry runs out of that
+      // collection excludes them from all of it with no query or index change,
+      // and with no risk of a rule here weakening the real submission path.
+      //
+      // Admin-only in every direction, and only for THIS contest's own
+      // institution. A student can neither read a dry run (which contains a
+      // full worked attempt) nor write one - `isOwner(uid)` is deliberately
+      // absent from create, unlike submissions, because a dry run is not a
+      // participation record and nobody should be able to mint one for
+      // themselves. Unlike a real submission it is freely deletable and
+      // re-writable: it is scratch data an admin should be able to redo.
+      match /dryRuns/{uid} {
+        allow read, write: if isAdmin() || isContestInstitutionAdmin(contestId);
+      }
+
       match /submissions/{uid} {
         allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId) || (isApprovedForContest(contestId) &&
           isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
