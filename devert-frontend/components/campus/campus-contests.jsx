@@ -11,8 +11,28 @@ import {
   getContestSettings, isSettingReleased, isAnswerCorrect,
   fetchContestCodingResults, submitContestCodingAnswer,
   fetchContestQuestionSampleTests, submitContestDryRun, fetchMyContestReviewer,
+  fetchContestRegistrations,
 } from "@/lib/contests";
 import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
+
+// "III Year / CSE(AI&ML) / C" from the fields fetchLeaderboard denormalizes off
+// users/{uid}. A platform (non-Campus) submitter has none of them, and a Campus
+// student whose roster row predates classrooms may have only some - both fall
+// back to "Unassigned" rather than rendering "? / ? / ?".
+function classLabel(row) {
+  if (!row?.year && !row?.department && !row?.section) return "Unassigned";
+  return `${row.year || "?"} / ${row.department || "?"} / ${row.section || "?"}`;
+}
+
+// Seconds as stored, rendered for humans: "3m 34s", "1h 02m", "-" when absent.
+function formatAttemptTime(seconds) {
+  if (typeof seconds !== "number" || !isFinite(seconds) || seconds < 0) return "-";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const two = (n) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}h ${two(m)}m` : `${m}m ${two(s)}s`;
+}
 import { ContestShareButton } from "@/components/campus/contest-share";
 import { Inline } from "@/components/campus/lesson-blocks";
 import { seededShuffle } from "@/lib/quizRandom";
@@ -1004,6 +1024,9 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
   const [mySubmission, setMySubmission] = useState(null);
   const [myRank, setMyRank] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [registrations, setRegistrations] = useState([]);
+  const [classFilter, setClassFilter] = useState("all");
+  const [showNonAttempters, setShowNonAttempters] = useState(false);
   const [grading, setGrading] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [answerKeys, setAnswerKeys] = useState({});
@@ -1019,6 +1042,14 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
 
       const lb = await fetchLeaderboard(contestId).catch(() => []);
       setLeaderboard(lb);
+
+      // Rules-gated to owner/admin (firestore.rules registrations/{uid}), so
+      // this resolves to [] for an ordinary student and to the full roster for
+      // an admin viewing the same screen. That IS the permission check - no
+      // client-side role test to keep in sync, and no way for it to over-share:
+      // a student who never registered gets nothing, and one who did gets only
+      // their own row, which the leaderboard already shows them.
+      setRegistrations(await fetchContestRegistrations(contestId).catch(() => []));
 
       if (user) {
         let sub = await fetchMySubmission(contestId, user.uid).catch(() => null);
@@ -1080,6 +1111,18 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
   }
   if (!contest) return <CampusEmptyState icon={Trophy} title="Contest not found" description="This contest may have ended or been removed." />;
 
+  // Everyone who registered but has no graded submission. Empty for students,
+  // since the registrations fetch above is rules-gated to admins.
+  const rankedUids = new Set(leaderboard.map(r => r.uid));
+  const nonAttempters = registrations
+    .filter(r => !rankedUids.has(r.uid))
+    .map(r => ({ ...r, didNotAttempt: true, rank: null, score: null, maxScore: null, accuracy: null, timeTakenSeconds: null }))
+    .sort((a, b) => (a.campusFullName || "").localeCompare(b.campusFullName || ""));
+
+  const boardRows = showNonAttempters ? [...leaderboard, ...nonAttempters] : leaderboard;
+  const classOptions = [...new Set(boardRows.map(classLabel))].filter(c => c !== "Unassigned").sort();
+  const visibleRows = classFilter === "all" ? boardRows : boardRows.filter(r => classLabel(r) === classFilter);
+
   const phase = contestPhase(contest);
   const settings = getContestSettings(contest);
   const manual = contest.manualReleases || {};
@@ -1126,8 +1169,37 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
 
           {leaderboardVisible ? (
             <CampusCard className="overflow-hidden">
+              {(classOptions.length > 1 || nonAttempters.length > 0) && (
+                <div className="flex items-center gap-2 flex-wrap p-3" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
+                  {classOptions.length > 1 && (
+                    <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
+                      className="text-[11px] px-2 py-1.5 rounded-lg outline-none"
+                      style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+                      <option value="all">All sections ({boardRows.length})</option>
+                      {classOptions.map(cn => (
+                        <option key={cn} value={cn}>{cn} ({boardRows.filter(r => classLabel(r) === cn).length})</option>
+                      ))}
+                    </select>
+                  )}
+                  {/* Only an admin ever has these rows - fetchContestRegistrations
+                      is rules-gated to owner/admin, so a student's fetch returns
+                      nothing and this control never appears for them. */}
+                  {nonAttempters.length > 0 && (
+                    <button onClick={() => setShowNonAttempters(v => !v)}
+                      className="text-[11px] px-2.5 py-1.5 rounded-lg"
+                      style={showNonAttempters
+                        ? { background: `${CAMPUS.purple}1F`, color: CAMPUS.purple, border: `1px solid ${CAMPUS.purple}55` }
+                        : { background: CAMPUS.paper, color: CAMPUS.inkFaint, border: `1px solid ${CAMPUS.line}` }}>
+                      {showNonAttempters ? "hide" : "show"} no-attempt ({nonAttempters.length})
+                    </button>
+                  )}
+                  <span className="text-[10.5px] ml-auto" style={{ color: CAMPUS.inkFaint }}>
+                    {visibleRows.length} shown
+                  </span>
+                </div>
+              )}
               <CampusTable
-                rows={leaderboard}
+                rows={visibleRows}
                 rowKey="uid"
                 rowStyle={row => ({ background: user && row.uid === user.uid ? CAMPUS.tealTint : "transparent" })}
                 emptyState={<CampusEmptyState size="sm" icon={Medal} title="No graded submissions yet" />}
@@ -1146,12 +1218,20 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
                           {isMe && <span className="text-[9px] ml-1.5" style={{ color: CAMPUS.good }}>you</span>}
                         </span>
                         {row.rollNumber && <span className="block text-[9.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>{row.rollNumber}</span>}
+                        {classLabel(row) !== "Unassigned" && <span className="block text-[9.5px]" style={{ color: CAMPUS.inkFaint }}>{classLabel(row)}</span>}
                       </div>
                     );
                   } },
-                  { key: "score", label: "Score", sortable: true, render: row => <span style={{ color: CAMPUS.teal }}>{row.score}/{row.maxScore}</span> },
-                  { key: "accuracy", label: "Accuracy", sortable: true, render: row => <span style={{ color: CAMPUS.inkSoft }}>{row.accuracy}%</span> },
-                  { key: "timeTakenSeconds", label: "Time", sortable: true, render: row => <span style={{ color: CAMPUS.inkFaint }}>{row.timeTakenSeconds}s</span> },
+                  { key: "score", label: "Score", sortable: true, render: row => (
+                    row.didNotAttempt
+                      ? <span className="italic text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>no attempt</span>
+                      : <span style={{ color: CAMPUS.teal }}>{row.score}/{row.maxScore}</span>
+                  ) },
+                  { key: "accuracy", label: "Accuracy", sortable: true, render: row => <span style={{ color: CAMPUS.inkSoft }}>{row.didNotAttempt ? "-" : `${row.accuracy}%`}</span> },
+                  // Raw seconds ("214s") read badly past a minute or two - a
+                  // 22-minute attempt showed as "1334s", which nobody parses at
+                  // a glance on a results screen.
+                  { key: "timeTakenSeconds", label: "Time", sortable: true, render: row => <span style={{ color: CAMPUS.inkFaint }}>{formatAttemptTime(row.timeTakenSeconds)}</span> },
                 ]}
               />
             </CampusCard>

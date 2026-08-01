@@ -66,6 +66,29 @@ function exportRegistrationsCsv(registrations, title) {
   URL.revokeObjectURL(url);
 }
 
+// Exports exactly the rows currently on screen, filters and all - so "export
+// III Year / CSE(AI&ML) / C, no-attempt only" is just filter-then-export rather
+// than a separate feature. Non-attempters export with blank score columns and an
+// explicit status, never as a zero, which would be indistinguishable from a
+// student who sat the paper and scored nothing.
+function exportParticipantsCsv(rows, title) {
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = "rank,name,rollNumber,class,status,score,maxScore,percent,correct,attempted,accuracy,timeTaken,timeTakenSeconds";
+  const body = rows.map(r => [
+    r.rank ?? "", r.name, r.rollNumber, r.className,
+    r.attempted ? (r.graded ? "attempted" : "attempted (ungraded)") : "did not attempt",
+    r.attempted ? r.score : "", r.attempted ? r.maxScore : "", r.attempted ? r.pct : "",
+    r.attempted ? r.correct : "", r.attempted ? r.attemptedCount : "", r.attempted ? r.accuracy : "",
+    r.attempted ? formatDuration(r.timeTakenSeconds) : "", r.attempted ? (r.timeTakenSeconds ?? "") : "",
+  ].map(esc).join(","));
+  const blob = new Blob([[header, ...body].join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${title.replace(/\s+/g, "-").toLowerCase()}-full-leaderboard.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // Every class, every student, ranked within their own class - the full list an
 // HOD or class teacher actually wants, rather than the top 3 the card shows.
 function exportClasswiseCsv(classwise, title) {
@@ -467,6 +490,9 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
   const [registrations, setRegistrations] = useState([]);
   const [regQuery, setRegQuery] = useState("");
   const [expandedClass, setExpandedClass] = useState(null);
+  const [participantClass, setParticipantClass] = useState("all");
+  const [participantStatus, setParticipantStatus] = useState("all");
+  const [participantQuery, setParticipantQuery] = useState("");
   const [submissions, setSubmissions] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [questions, setQuestions] = useState([]);
@@ -606,6 +632,78 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
       mixedPapers,
     };
   }, [submissions, roster]);
+
+  // EVERY registrant, not just the ones who scored - built from registrations
+  // joined to submissions, so the students who registered and never opened the
+  // paper are present as rows rather than absent from the record. That absence
+  // is the point: "who didn't attempt" is a question the dashboard is asked far
+  // more often than "who came 47th", and fetchLeaderboard cannot answer it -
+  // it queries submissions (so non-attempters do not exist there) and caps at
+  // topN=50 (so on a 122-registrant contest most attempters are missing too).
+  // Everything here is already in memory; this costs no extra reads.
+  const participants = useMemo(() => {
+    const rosterByUid = new Map(roster.map(s => [s.uid, s]));
+    const subByUid = new Map(submissions.map(s => [s.uid, s]));
+    const uids = new Set([...registrations.map(r => r.uid), ...submissions.map(s => s.uid)]);
+
+    const rows = [...uids].map(uid => {
+      const reg = registrations.find(r => r.uid === uid) || {};
+      const r = rosterByUid.get(uid) || {};
+      const s = subByUid.get(uid);
+      const max = s?.maxScore || 0;
+      const attempted = !!s;
+      return {
+        uid,
+        name: r.name || reg.campusFullName || (reg.handle ? `@${reg.handle}` : uid.slice(0, 10)),
+        rollNumber: r.rollNumber || reg.rollNumber || "",
+        className: (r.year || r.department || r.section)
+          ? `${r.year || "?"} / ${r.department || "?"} / ${r.section || "?"}` : "Unassigned",
+        attempted,
+        graded: !!s?.graded,
+        registered: registrations.some(x => x.uid === uid),
+        score: attempted ? (s.score || 0) : null,
+        maxScore: max,
+        pct: attempted && max > 0 ? Math.round(((s.score || 0) / max) * 1000) / 10 : null,
+        correct: attempted ? (s.correctCount ?? 0) : null,
+        attemptedCount: attempted
+          ? Object.values(s.answers || {}).filter(v =>
+              !(v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0))).length
+          : null,
+        accuracy: attempted ? (s.accuracy ?? 0) : null,
+        timeTakenSeconds: attempted ? s.timeTakenSeconds : null,
+      };
+    });
+
+    // Attempters rank above non-attempters; an unattempted paper has no rank at
+    // all rather than a rank of zero, which would read as a score.
+    rows.sort((a, b) => {
+      if (a.attempted !== b.attempted) return a.attempted ? -1 : 1;
+      if (!a.attempted) return (a.name || "").localeCompare(b.name || "");
+      return b.pct - a.pct || b.score - a.score
+        || ((a.timeTakenSeconds ?? Infinity) - (b.timeTakenSeconds ?? Infinity));
+    });
+    rows.forEach((r, i) => { r.rank = r.attempted ? i + 1 : null; });
+
+    return {
+      rows,
+      classNames: [...new Set(rows.map(r => r.className))].sort(),
+      attemptedCount: rows.filter(r => r.attempted).length,
+      noAttemptCount: rows.filter(r => !r.attempted).length,
+    };
+  }, [registrations, submissions, roster]);
+
+  const filteredParticipants = useMemo(() => {
+    const q = participantQuery.trim().toLowerCase();
+    return participants.rows.filter(r => {
+      if (participantClass !== "all" && r.className !== participantClass) return false;
+      if (participantStatus === "attempted" && !r.attempted) return false;
+      if (participantStatus === "notAttempted" && r.attempted) return false;
+      if (!q) return true;
+      return (r.name || "").toLowerCase().includes(q)
+        || (r.rollNumber || "").toLowerCase().includes(q)
+        || (r.className || "").toLowerCase().includes(q);
+    });
+  }, [participants, participantClass, participantStatus, participantQuery]);
 
   const handleResetAttempt = async (uid) => {
     if (!window.confirm("Reset this student's attempt? Their existing submission will be deleted and they'll be able to attempt the contest again.")) return;
@@ -929,6 +1027,104 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
           )}
         </CampusCard>
       </div>
+
+      {participants.rows.length > 0 && (
+        <CampusCard className="p-4 mt-4 min-w-0">
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <p className="text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: CAMPUS.ink }}>
+              <Trophy size={13} /> Full Leaderboard
+              <span className="font-normal" style={{ color: CAMPUS.inkFaint }}>
+                {participants.rows.length} registered &middot; {participants.attemptedCount} attempted &middot; {participants.noAttemptCount} did not
+              </span>
+            </p>
+            <button onClick={() => exportParticipantsCsv(filteredParticipants, contest.title)}
+              disabled={filteredParticipants.length === 0}
+              className="flex items-center gap-1 text-[11px] disabled:opacity-40" style={{ color: CAMPUS.teal }}>
+              <Download size={11} /> export csv ({filteredParticipants.length})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <select value={participantClass} onChange={e => setParticipantClass(e.target.value)}
+              className="text-[11px] px-2 py-1.5 rounded-lg outline-none"
+              style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+              <option value="all">All classes ({participants.rows.length})</option>
+              {participants.classNames.map(cn => (
+                <option key={cn} value={cn}>{cn} ({participants.rows.filter(r => r.className === cn).length})</option>
+              ))}
+            </select>
+            {[["all", "All"], ["attempted", `Attempted (${participants.attemptedCount})`], ["notAttempted", `No attempt (${participants.noAttemptCount})`]].map(([v, label]) => (
+              <button key={v} onClick={() => setParticipantStatus(v)}
+                className="text-[11px] px-2.5 py-1.5 rounded-lg transition-colors"
+                style={participantStatus === v
+                  ? { background: `${CAMPUS.purple}1F`, color: CAMPUS.purple, border: `1px solid ${CAMPUS.purple}55` }
+                  : { background: CAMPUS.paper, color: CAMPUS.inkFaint, border: `1px solid ${CAMPUS.line}` }}>
+                {label}
+              </button>
+            ))}
+            <div className="relative flex-1 min-w-[140px]">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: CAMPUS.inkFaint }} />
+              <input value={participantQuery} onChange={e => setParticipantQuery(e.target.value)} placeholder="name, roll number or class..."
+                className="w-full text-[11px] pl-7 pr-7 py-1.5 rounded-lg outline-none"
+                style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+              {participantQuery && (
+                <button onClick={() => setParticipantQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2" style={{ color: CAMPUS.inkFaint }}>
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {filteredParticipants.length === 0 ? (
+            <div className="py-6 text-center">
+              <Search size={18} style={{ color: CAMPUS.inkFaint }} className="mx-auto mb-2" />
+              <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>Nobody matches these filters.</p>
+            </div>
+          ) : (
+            <div className="max-h-[26rem] overflow-y-auto overflow-x-auto">
+              <table className="w-full">
+                <thead className="sticky top-0" style={{ background: CAMPUS.surface }}>
+                  <tr style={{ color: CAMPUS.inkFaint }}>
+                    {["#", "Name", "Class", "Score", "%", "Correct", "Att.", "Acc.", "Time"].map((h, i) => (
+                      <th key={h} className={`text-[9.5px] uppercase tracking-wide font-semibold py-1.5 whitespace-nowrap ${i <= 2 ? "text-left" : "text-right pl-2"} ${i === 0 ? "pr-2" : ""}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredParticipants.map(r => (
+                    <tr key={r.uid} style={{ borderTop: `1px solid ${CAMPUS.line}`, opacity: r.attempted ? 1 : 0.55 }}>
+                      <td className="text-[11px] py-1.5 pr-2 w-7">
+                        {r.rank && r.rank <= 3
+                          ? <span className="flex items-center gap-0.5 font-bold" style={{ color: r.rank === 1 ? CAMPUS.gold : r.rank === 2 ? "#9CA3AF" : "#B87333" }}><Medal size={10} /> {r.rank}</span>
+                          : <span style={{ color: CAMPUS.inkFaint }}>{r.rank ?? "-"}</span>}
+                      </td>
+                      <td className="text-[11px] py-1.5 min-w-0" style={{ color: CAMPUS.ink }}>
+                        <span className="block truncate">{r.name}</span>
+                        {r.rollNumber && <span className="block font-mono text-[9.5px]" style={{ color: CAMPUS.inkFaint }}>{r.rollNumber}</span>}
+                      </td>
+                      <td className="text-[10px] py-1.5 whitespace-nowrap" style={{ color: CAMPUS.inkFaint }}>{r.className}</td>
+                      {r.attempted ? (
+                        <>
+                          <td className="text-[11px] py-1.5 pl-2 text-right font-mono whitespace-nowrap" style={{ color: CAMPUS.teal }}>{r.score}/{r.maxScore}</td>
+                          <td className="text-[11px] py-1.5 pl-2 text-right font-mono" style={{ color: CAMPUS.ink }}>{r.pct}%</td>
+                          <td className="text-[11px] py-1.5 pl-2 text-right font-mono" style={{ color: CAMPUS.inkFaint }}>{r.correct}</td>
+                          <td className="text-[11px] py-1.5 pl-2 text-right font-mono" style={{ color: CAMPUS.inkFaint }}>{r.attemptedCount}</td>
+                          <td className="text-[11px] py-1.5 pl-2 text-right font-mono" style={{ color: CAMPUS.inkFaint }}>{r.accuracy}%</td>
+                          <td className="text-[11px] py-1.5 pl-2 text-right font-mono whitespace-nowrap" style={{ color: CAMPUS.inkFaint }}>{formatDuration(r.timeTakenSeconds)}</td>
+                        </>
+                      ) : (
+                        <td colSpan={6} className="text-[10.5px] py-1.5 pl-2 text-right italic" style={{ color: CAMPUS.inkFaint }}>
+                          registered - did not attempt
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CampusCard>
+      )}
 
       {classwise.overall && (
         <CampusCard className="p-4 mt-4 min-w-0">

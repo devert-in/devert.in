@@ -781,7 +781,11 @@ export async function deleteContestDryRun(contestId, uid) {
   await deleteDoc(doc(db, "contests", contestId, "dryRuns", uid));
 }
 
-export async function fetchLeaderboard(contestId, topN = 50) {
+// topN defaults to the whole field, not a page. A campus contest's results
+// screen is the record of who sat it - truncating at 50 on a 122-registrant
+// contest silently hid most of the cohort, and the caller had no way to tell
+// a full leaderboard from a clipped one.
+export async function fetchLeaderboard(contestId, topN = 1000) {
   const snap = await getDocs(query(
     collection(db, "contests", contestId, "submissions"),
     where("graded", "==", true),
@@ -801,7 +805,15 @@ export async function fetchLeaderboard(contestId, topN = 50) {
   for (let i = 0; i < uids.length; i += 30) {
     const chunk = uids.slice(i, i + 30);
     const chunkSnap = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
-    chunkSnap.docs.forEach(d => profilesByUid.set(d.id, { handle: d.data().handle, rollNumber: d.data().rollNumber, campusFullName: d.data().campusFullName }));
+    // year/department/section ride along so a leaderboard can be filtered by
+    // class without a second pass over the roster (which a student could not
+    // read anyway). users/{uid} is public-read, and these are the same
+    // denormalized fields approveStudent already writes there for exactly this
+    // kind of query. A platform (non-Campus) submitter simply has none of them.
+    chunkSnap.docs.forEach(d => profilesByUid.set(d.id, {
+      handle: d.data().handle, rollNumber: d.data().rollNumber, campusFullName: d.data().campusFullName,
+      year: d.data().year, department: d.data().department, section: d.data().section,
+    }));
   }
   return rows.map(r => ({ ...r, ...(profilesByUid.get(r.uid) || null) }));
 }
