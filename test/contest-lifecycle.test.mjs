@@ -135,12 +135,36 @@ test("a Live contest closes itself once contestEnd passes, with nobody clicking"
   assert.equal(contestPhase({ ...WINDOW, lifecycleState: "live" }, AT("2026-08-01T12:30:01Z")), "past");
 });
 
-test("the clock can never open a contest that has not been armed", () => {
-  // Mid-window, but the admin never moved it to Live. It must stay shut.
+test("a published contest opens itself the moment the start time arrives", () => {
+  // The headline requirement: no human transition. Nothing in this project runs
+  // on a schedule, so if the clock could not open a contest, somebody had to be
+  // at a keyboard at the exact start time or every registered student watched a
+  // countdown sit at zero. registrationOpen and registrationClosed are both
+  // published states and both go live on time.
+  //
+  // This deliberately replaces an earlier test that asserted the opposite
+  // ("the clock can never open a contest that has not been armed"). That was
+  // correct for the original fix, where lifecycleState had to arm a contest
+  // before the clock could open it; auto-start supersedes it.
   const mid = AT("2026-08-01T12:00:00Z");
-  for (const state of ["draft", "hidden", "registrationOpen", "registrationClosed"]) {
-    assert.notEqual(contestPhase({ ...WINDOW, lifecycleState: state }, mid), "live",
-      `${state} must not be openable by the clock alone`);
+  for (const state of ["registrationOpen", "registrationClosed", "live"]) {
+    assert.equal(contestPhase({ ...WINDOW, lifecycleState: state }, mid), "live",
+      `${state} should be open once the window is reached`);
+  }
+  // To the second.
+  for (const state of ["registrationOpen", "registrationClosed"]) {
+    assert.notEqual(contestPhase({ ...WINDOW, lifecycleState: state }, AT("2026-08-01T11:29:59Z")), "live");
+    assert.equal(contestPhase({ ...WINDOW, lifecycleState: state }, AT("2026-08-01T11:30:00Z")), "live");
+  }
+});
+
+test("an unpublished contest never opens on its own, whatever the clock says", () => {
+  // The one thing lifecycleState still holds back: an unfinished paper must not
+  // go live merely because its start time arrived.
+  const mid = AT("2026-08-01T12:00:00Z");
+  for (const state of ["draft", "hidden"]) {
+    assert.equal(contestPhase({ ...WINDOW, lifecycleState: state }, mid), "upcoming",
+      `${state} must never be openable by the clock`);
   }
 });
 
