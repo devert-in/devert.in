@@ -10,7 +10,7 @@ import {
   gradeSubmission, persistGrading, fetchLeaderboard, fetchMyRank,
   getContestSettings, isSettingReleased, isAnswerCorrect,
   fetchContestCodingResults, submitContestCodingAnswer,
-  fetchContestQuestionSampleTests,
+  fetchContestQuestionSampleTests, submitContestDryRun,
 } from "@/lib/contests";
 import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
 import { ContestShareButton } from "@/components/campus/contest-share";
@@ -365,7 +365,21 @@ function ContestCodingPanel({ state, isPaused, onLanguageChange, onCodeChange, o
 
 // ---------------- Attempt ----------------
 
-export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
+// `dryRun` is the admin's own sit-through of the paper, launched from the
+// Manage dashboard (which is already institution-admin gated, so this component
+// does not re-derive permission - firestore.rules refuses the dryRuns write to
+// anyone else regardless).
+//
+// It differs from a real attempt in exactly three ways, all of them here:
+//   - the phase gate is skipped, so a paper can be checked BEFORE it opens,
+//     which is the whole point of a dry run;
+//   - no registration is required, since an admin is deliberately outside the
+//     contest's target audience and could never register;
+//   - the result is written to contests/{id}/dryRuns, never to submissions, so
+//     it cannot reach the leaderboard, participantCount, or any average.
+// Everything else - shuffling, the timer, autosave, the question palette - is
+// the identical code path a student runs, which is what makes it a real check.
+export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun = false }) {
   const { user } = useAuth();
 
   const [contest, setContest] = useState(null);
@@ -478,15 +492,19 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
 
       const c = await fetchContest(contestId);
       if (!c) { setBlocked("Contest not found."); setLoading(false); return; }
-      const phase = contestPhase(c);
-      if (phase !== "live") {
-        setBlocked(phase === "past" ? "This contest has ended." : "This contest hasn't started yet.");
-        setLoading(false); return;
+      // A dry run deliberately ignores both gates - see the note on this
+      // component. It is checking the paper, not participating in the contest.
+      if (!dryRun) {
+        const phase = contestPhase(c);
+        if (phase !== "live") {
+          setBlocked(phase === "past" ? "This contest has ended." : "This contest hasn't started yet.");
+          setLoading(false); return;
+        }
+        const reg = await fetchMyRegistration(contestId, user.uid);
+        if (!reg) { setBlocked("You're not registered for this contest."); setLoading(false); return; }
+        const existingSub = await fetchMySubmission(contestId, user.uid);
+        if (existingSub) { setBlocked("You've already submitted your attempt for this contest."); setLoading(false); return; }
       }
-      const reg = await fetchMyRegistration(contestId, user.uid);
-      if (!reg) { setBlocked("You're not registered for this contest."); setLoading(false); return; }
-      const existingSub = await fetchMySubmission(contestId, user.uid);
-      if (existingSub) { setBlocked("You've already submitted your attempt for this contest."); setLoading(false); return; }
 
       const qs = await fetchContestQuestions(contestId);
       const shuffled = seededShuffle(qs, `${user.uid}:${contestId}:q`).map(q => ({
@@ -497,7 +515,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
       const end = toDate(c.contestEnd).getTime();
       startedAtRef.current = Date.now();
       const capEnd = startedAtRef.current + (c.durationMinutes || 60) * 60 * 1000;
-      const effectiveEnd = Math.min(end, capEnd);
+      const effectiveEnd = (dryRun ? capEnd : Math.min(end, capEnd));
 
       setContest(c);
       setQuestions(shuffled);
@@ -521,7 +539,22 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
       recordElapsed();
       const timeTakenSeconds = Math.round((Date.now() - startedAtRef.current) / 1000);
       const maxScore = questions.reduce((sum, q) => sum + (q.marks || 1), 0);
-      await submitContestAnswers(contestId, user.uid, answersRef.current, timeTakenSeconds, maxScore, timingsRef.current);
+      if (dryRun) {
+        // Scored here and now rather than left for a results view to grade:
+        // an admin can already read the answer keys, and the whole point is to
+        // see the score immediately. Coding questions have no client-gradable
+        // key (hidden tests are server-only), so gradeSubmission scores them 0
+        // and the MCQ total is what a dry run is actually telling you.
+        const keys = await fetchContestAnswerKeys(contestId).catch(() => ({}));
+        const grading = gradeSubmission(questions, keys, answersRef.current, {});
+        await submitContestDryRun(contestId, user.uid, {
+          answers: answersRef.current, answerTimings: timingsRef.current,
+          timeTakenSeconds, maxScore, graded: true,
+          score: grading.score, accuracy: grading.accuracy, correctCount: grading.correctCount,
+        });
+      } else {
+        await submitContestAnswers(contestId, user.uid, answersRef.current, timeTakenSeconds, maxScore, timingsRef.current);
+      }
       setSubmitted(true);
     } catch (e) {
       console.error(e);
@@ -559,7 +592,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
         setIsPaused(!!c.paused);
         const end = toDate(c.contestEnd).getTime();
         const capEnd = startedAtRef.current + (c.durationMinutes || 60) * 60 * 1000;
-        const effectiveEnd = Math.min(end, capEnd);
+        const effectiveEnd = (dryRun ? capEnd : Math.min(end, capEnd));
         setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
       } catch {
         // transient - next poll retries, no need to surface a blip to the student

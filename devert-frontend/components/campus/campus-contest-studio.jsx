@@ -260,10 +260,12 @@ function ContestTypeStep({ contestType, setContestType, onNext, onBack }) {
 
 // ---------------- Step 3: Target Audience ----------------
 // "All Students" (default) keeps every existing contest's only-ever behavior
-// unchanged. "Specific Audience" narrows via matchesTargetScope's exact
-// AND-hierarchy/OR-uids semantics (lib/contests.js) - firestore.rules'
-// isInContestAudience() enforces this same shape server-side, so the wizard
-// can never merely LOOK like it narrowed access without the rule backing it.
+// unchanged. "Specific Audience" narrows with AND-hierarchy / OR-uids
+// semantics, defined and enforced in exactly one place: matchesContestScope()
+// / isInContestAudience() in firestore.rules, which gate isApprovedForContest().
+// The wizard can never merely LOOK like it narrowed access - the rule is what
+// grants or refuses the read. There is deliberately no client-side copy of
+// this matcher to drift out of sync.
 
 function TargetAudienceStep({ institutionId, scope, setScope, onNext, onBack }) {
   const [classrooms, setClassrooms] = useState([]);

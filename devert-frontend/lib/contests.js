@@ -130,31 +130,16 @@ export function blankContestForm() {
   };
 }
 
-// Pure - does this student match a contest's target audience? "all"/missing
-// scope always matches (today's only behavior). Hierarchical filters
-// (department/year/section/classroom) AND together when more than one is
-// set, narrowing down exactly like the wizard's cascading picker implies;
-// `uids` is an explicit allowlist that ORs on top of the hierarchy (so an
-// admin can add a handful of extra specific students to a department-wide
-// contest) or, if it's the ONLY filter set, is the sole gate ("Selected Roll
-// Numbers"). A scoped contest with every filter left empty fails OPEN (matches
-// everyone) rather than silently excluding every student - an admin who
-// toggles "Specific Audience" but hasn't picked anything yet shouldn't
-// accidentally hide the contest from the whole institution.
-export function matchesTargetScope(scope, student) {
-  if (!scope || scope.mode !== "scoped") return true;
-  const hasHierarchy = !!(scope.departments?.length || scope.years?.length || scope.sections?.length || scope.classroomIds?.length);
-  const hasUids = !!scope.uids?.length;
-  if (!hasHierarchy && !hasUids) return true;
-  const inHierarchy = hasHierarchy
-    && (!scope.departments?.length || scope.departments.includes(student.department))
-    && (!scope.years?.length || scope.years.includes(student.year))
-    && (!scope.sections?.length || scope.sections.includes(student.section))
-    && (!scope.classroomIds?.length || scope.classroomIds.includes(student.classroomId));
-  const inUidList = hasUids && scope.uids.includes(student.uid);
-  if (hasHierarchy && hasUids) return inHierarchy || inUidList;
-  return hasHierarchy ? inHierarchy : inUidList;
-}
+// NOTE: the client-side audience matcher that used to live here has been
+// removed. It was exported and documented as "the" audience filter but had no
+// callers anywhere in the app, so the next person to change audience logic
+// would have edited it, seen nothing break, and shipped a no-op.
+//
+// Audience scoping is enforced in exactly one place: matchesContestScope() /
+// isInContestAudience() in firestore.rules, which gate isApprovedForContest()
+// and therefore every read of a contest, its questions, and its answer keys.
+// That is the authority boundary - there is deliberately no client mirror of
+// it to drift out of sync.
 
 export function blankContestQuestionForm(type = "mcq") {
   return {
@@ -627,6 +612,52 @@ export async function persistGrading(contestId, uid, grading) {
   });
 
   return !alreadyGraded;
+}
+
+// Grades every submission that the student never came back to grade.
+//
+// Grading is otherwise lazy: persistGrading only runs in the student's own
+// browser, the first time they reopen their result after the contest ends. A
+// student who submitted and closed the tab stays graded:false forever, appears
+// in no leaderboard, and is excluded from the average / highest / lowest, since
+// those are computed over graded submissions only. The reported numbers were
+// therefore drawn from a self-selected subset - the students who came back.
+//
+// Scores with the SAME pure gradeSubmission() the student path uses, against
+// the same answer keys and the same backend-written coding results, so a swept
+// score is identical to the one that student would have produced themselves.
+// Idempotent per submission: persistGrading re-reads `graded` inside a
+// transaction, so re-running the sweep (or racing a student who opens their
+// result mid-sweep) cannot double-grade or overwrite.
+//
+// Sequential, not Promise.all - this can touch hundreds of submissions and each
+// one is a transaction; a burst of parallel writes buys nothing here and risks
+// contention. Returns per-submission outcomes so the caller can report honestly
+// rather than claiming a clean sweep it didn't verify.
+export async function gradeUngradedSubmissions(contestId, { onProgress } = {}) {
+  const [questions, answerKeys, subsSnap] = await Promise.all([
+    fetchContestQuestions(contestId),
+    fetchContestAnswerKeys(contestId),
+    getDocs(collection(db, "contests", contestId, "submissions")),
+  ]);
+  const pending = subsSnap.docs.filter(d => !d.data().graded);
+  const result = { total: pending.length, graded: 0, failed: 0, errors: [] };
+
+  for (let i = 0; i < pending.length; i++) {
+    const d = pending[i];
+    try {
+      const codingResults = await fetchContestCodingResults(contestId, d.id).catch(() => ({}));
+      const grading = gradeSubmission(questions, answerKeys, d.data().answers || {}, codingResults);
+      await persistGrading(contestId, d.id, grading);
+      result.graded++;
+    } catch (e) {
+      result.failed++;
+      // Keep the uid - "3 failed" is useless without knowing which.
+      result.errors.push({ uid: d.id, message: e?.message || String(e) });
+    }
+    onProgress?.(i + 1, pending.length);
+  }
+  return result;
 }
 
 // ---------------- Staff dry runs ----------------

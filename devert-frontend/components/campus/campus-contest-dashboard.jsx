@@ -8,12 +8,15 @@ import {
   fetchContest, contestPhase, fetchContestRegistrations, fetchContestSubmissions,
   fetchLeaderboard, duplicateContest, updateContest, fetchContestQuestions, fetchContestAnswerKeys,
   isAnswerCorrect, getContestSettings, updateContestSettings, setManualRelease, resetContestAttempt,
+  gradeUngradedSubmissions,
   LIFECYCLE_LABELS, legalNextLifecycleStates, transitionContestLifecycle,
   pauseContest, resumeContest, extendContestTime, forceEndContest, restartContest,
 } from "@/lib/contests";
 import { fetchApprovedStudents, fetchInstitution } from "@/lib/institutions";
 import { gatherContestResultsReport } from "@/lib/campusReports";
 import { ContestPreviewButton } from "@/components/campus/contest-preview";
+import { ContestInfoCard } from "@/components/campus/contest-info-editor";
+import { CampusContestAttempt } from "@/components/campus/campus-contests";
 import { useAuth } from "@/context/AuthContext";
 
 function toDate(v) {
@@ -21,11 +24,6 @@ function toDate(v) {
   return typeof v.toDate === "function" ? v.toDate() : new Date(v);
 }
 function pad(n) { return String(n).padStart(2, "0"); }
-function formatDate(v) {
-  const d = toDate(v);
-  if (!d) return "TBA";
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
 function formatCountdown(ms) {
   if (ms <= 0) return "00:00:00";
   const totalSec = Math.floor(ms / 1000);
@@ -253,24 +251,17 @@ function CampusContestLifecyclePanel({ contest, uid, onChanged }) {
   };
 
   // Quick edits, alongside the full 7-step wizard's own Edit button (header
-  // above) - renaming or nudging the start time doesn't need to reopen every
-  // step just to reach the one field that actually needs changing.
+  // above) - renaming doesn't need to reopen every step just to reach the one
+  // field that actually needs changing. Rescheduling the start (and every
+  // other schedule field) has its own proper inline editor now - see
+  // ContestInfoCard (contest-info-editor.jsx), rendered further down this
+  // same dashboard - so it isn't duplicated here as a second, worse path.
   const handleRename = () => {
     const raw = window.prompt("New contest title:", contest.title);
     if (raw == null) return;
     const title = raw.trim();
     if (!title || title === contest.title) return;
     run(() => updateContest(contest.id, { title }));
-  };
-
-  const handleRescheduleStart = () => {
-    const current = toDate(contest.contestStart);
-    const currentLocal = current ? `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}T${String(current.getHours()).padStart(2, "0")}:${String(current.getMinutes()).padStart(2, "0")}` : "";
-    const raw = window.prompt("New contest start (YYYY-MM-DDTHH:MM, 24-hour, your local time):", currentLocal);
-    if (!raw) return;
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) { setError("That doesn't look like a valid date/time - try YYYY-MM-DDTHH:MM."); return; }
-    run(() => updateContest(contest.id, { contestStart: d }));
   };
 
   const handleForceEnd = () => {
@@ -341,10 +332,6 @@ function CampusContestLifecyclePanel({ contest, uid, onChanged }) {
             className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
             Rename
           </button>
-          <button disabled={busy} onClick={handleRescheduleStart}
-            className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
-            Change Start Time
-          </button>
         </div>
       </div>
 
@@ -371,6 +358,9 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
   const [now, setNow] = useState(new Date());
   const [busy, setBusy] = useState(false);
   const [resettingUid, setResettingUid] = useState(null);
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepResult, setSweepResult] = useState(null);
+  const [dryRunOpen, setDryRunOpen] = useState(false);
   const [certRow, setCertRow] = useState(null);
 
   const load = async () => {
@@ -397,6 +387,27 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
     }
   };
   useEffect(() => { load(); }, [contestId]);
+
+  // Submissions nobody has scored. Grading normally runs in the student's own
+  // browser when they reopen their result, so anyone who submitted and left is
+  // stuck at graded:false - invisible to the leaderboard and excluded from the
+  // averages below, which quietly makes every score stat a measure of the
+  // students who came back rather than the students who sat the contest.
+  const ungraded = submissions.filter(s => !s.graded);
+
+  const handleGradeSweep = async () => {
+    setSweeping(true);
+    setSweepResult(null);
+    try {
+      const r = await gradeUngradedSubmissions(contestId);
+      setSweepResult(r);
+      await load();
+    } catch (e) {
+      setSweepResult({ total: ungraded.length, graded: 0, failed: ungraded.length, errors: [{ uid: "-", message: e?.message || String(e) }] });
+    } finally {
+      setSweeping(false);
+    }
+  };
 
   const submittedUids = useMemo(() => new Set(submissions.map(s => s.uid)), [submissions]);
 
@@ -504,6 +515,32 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
   }
   if (!contest) return <CampusEmptyState icon={Trophy} title="Contest not found" description="This contest may have been deleted." />;
 
+  // Takes over the whole dashboard while running, rather than opening in a
+  // modal - a dry run is meant to reproduce the student's screen, and a paper
+  // checked inside a cramped dialog is not the paper students will see.
+  if (dryRunOpen) {
+    return (
+      <div>
+        <div className="mb-3 px-3.5 py-2.5 rounded-lg flex items-center gap-2 flex-wrap"
+          style={{ background: CAMPUS.warnTint, color: CAMPUS.warn, border: `1px solid ${CAMPUS.warn}40` }}>
+          <AlertTriangle size={14} />
+          <span className="text-[12.5px] flex-1">
+            <b>Dry run</b> — this is the real paper on the real timer, but nothing you do here counts.
+            It is saved outside the results and never appears in the leaderboard or averages.
+          </span>
+          <button onClick={() => { setDryRunOpen(false); load(); }}
+            className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg"
+            style={{ background: CAMPUS.surface, color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
+            Exit dry run
+          </button>
+        </div>
+        <CampusContestAttempt contestId={contestId} dryRun
+          onBack={() => { setDryRunOpen(false); load(); }}
+          onViewResults={() => { setDryRunOpen(false); load(); }} />
+      </div>
+    );
+  }
+
   const phase = contestPhase(contest, now);
   const start = toDate(contest.contestStart), end = toDate(contest.contestEnd);
   const countdownTarget = phase === "upcoming" || phase === "closed" ? start : phase === "live" ? end : null;
@@ -525,6 +562,25 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
         <div className="flex gap-2 flex-wrap">
           <ReportDownloadButton label="Full Report" size="sm" getReport={() => gatherContestResultsReport(contestId, contest.title)} />
           <ContestPreviewButton contestId={contestId} questionCount={contest.questionCount} />
+          {/* Sit the paper exactly as a student would, at any time - before the
+              contest opens, which is the whole point. Writes to dryRuns, so it
+              never reaches the leaderboard or any average. */}
+          <button onClick={() => setDryRunOpen(true)}
+            title="Take the contest yourself to check it - excluded from all results"
+            className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
+            style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+            <Play size={12} /> Dry run
+          </button>
+          {/* Only offered when there is actually something unscored - a button
+              that always reads "Grade 0 pending" trains you to ignore it. */}
+          {ungraded.length > 0 && (
+            <button onClick={handleGradeSweep} disabled={sweeping}
+              title="Score submissions the student never reopened - they are missing from the leaderboard and averages"
+              className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+              style={{ border: `1px solid ${CAMPUS.warn}`, background: CAMPUS.warnTint, color: CAMPUS.warn }}>
+              <BarChart3 size={12} /> {sweeping ? "Grading..." : `Grade ${ungraded.length} pending`}
+            </button>
+          )}
           <button onClick={() => onEdit?.(contestId)} title="Edit name, schedule, duration, audience and questions"
             className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
             <Pencil size={12} /> Edit
@@ -534,6 +590,25 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
           </button>
         </div>
       </div>
+
+      {sweepResult && (
+        <div className="mb-3 px-3.5 py-2.5 rounded-lg text-[12.5px]"
+          style={sweepResult.failed
+            ? { background: CAMPUS.badTint, color: CAMPUS.bad, border: `1px solid ${CAMPUS.bad}40` }
+            : { background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${CAMPUS.good}40` }}>
+          Graded {sweepResult.graded} of {sweepResult.total} pending submission{sweepResult.total === 1 ? "" : "s"}.
+          {/* Naming the ones that failed, not just counting them - "3 failed"
+              gives an admin nothing to act on. */}
+          {sweepResult.failed > 0 && (
+            <> {sweepResult.failed} could not be graded:{" "}
+              <span className="font-mono text-[11.5px]">
+                {sweepResult.errors.slice(0, 3).map(e => e.uid).join(", ")}
+                {sweepResult.errors.length > 3 ? ` +${sweepResult.errors.length - 3} more` : ""}
+              </span>. {sweepResult.errors[0]?.message}
+            </>
+          )}
+        </div>
+      )}
 
       <CampusContestLifecyclePanel contest={contest} uid={user?.uid} onChanged={load} />
 
@@ -678,18 +753,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
 
       <CampusContestSettingsPanel contest={contest} onSaved={load} />
 
-      <CampusCard className="p-4 mt-4">
-        <p className="text-[12.5px] font-semibold mb-2 flex items-center gap-1.5" style={{ color: CAMPUS.ink }}><BarChart3 size={13} /> Contest info</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11.5px]" style={{ color: CAMPUS.inkSoft }}>
-          <span>Category: {contest.category}</span>
-          <span>Difficulty: {contest.difficulty}</span>
-          <span>Questions: {contest.questionCount || 0}</span>
-          <span>Duration: {contest.durationMinutes} min</span>
-          <span>Reg. ends: {formatDate(contest.registrationEnd)}</span>
-          <span>Starts: {formatDate(contest.contestStart)}</span>
-          <span>Ends: {formatDate(contest.contestEnd)}</span>
-        </div>
-      </CampusCard>
+      <ContestInfoCard contest={contest} onSaved={load} />
 
       {certRow && <CampusCertificateModal contest={contest} institution={institution} row={certRow} onClose={() => setCertRow(null)} />}
     </div>

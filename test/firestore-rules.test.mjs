@@ -1715,3 +1715,131 @@ test("a dry run does not appear in the submissions collection the leaderboard re
   assert.deepEqual(snap.docs.map(d => d.id), ["real-student"],
     "a perfect-scoring dry run must not be in the collection the leaderboard queries");
 });
+
+// rankingVisibility used to live only in the component, deciding whether a
+// Leaderboard button rendered - while the submissions collection stayed
+// readable by every in-audience student the moment contestEnd passed. "Hidden"
+// hid the widget, not the data. These pin the setting as a real read condition.
+test("a peer can read another student's contest submission only when rankings are actually published", async () => {
+  const ended = new Date(Date.now() - 60_000);
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    for (const [id, settings] of [
+      ["rank-open", { leaderboardEnabled: true, rankingVisibility: "campus_only" }],
+      ["rank-hidden", { leaderboardEnabled: true, rankingVisibility: "hidden" }],
+      ["rank-off", { leaderboardEnabled: false, rankingVisibility: "campus_only" }],
+      ["rank-default", undefined],
+    ]) {
+      await ctx.firestore().doc(`contests/${id}`).set({
+        title: id, status: "published", audiences: ["legacy"], institutionId: "mrcet",
+        contestEnd: ended, ...(settings ? { settings } : {}),
+      });
+      await ctx.firestore().doc(`contests/${id}/submissions/peer-uid`).set({
+        graded: true, score: 22, maxScore: 25, timeTakenSeconds: 800,
+      });
+      await ctx.firestore().doc(`contests/${id}/submissions/me-uid`).set({
+        graded: true, score: 11, maxScore: 25, timeTakenSeconds: 1500,
+      });
+    }
+    await ctx.firestore().doc("institutions/mrcet/students/me-uid").set({ uid: "me-uid", status: "approved" });
+    await ctx.firestore().doc("institutions/mrcet/students/peer-uid").set({ uid: "peer-uid", status: "approved" });
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid" });
+  });
+
+  const me = testEnv.authenticatedContext("me-uid");
+  // Published (explicitly, and by default) - peer scores are readable.
+  await assertSucceeds(me.firestore().doc("contests/rank-open/submissions/peer-uid").get());
+  await assertSucceeds(me.firestore().doc("contests/rank-default/submissions/peer-uid").get());
+  // Hidden or disabled - the peer's score is genuinely unreadable now.
+  await assertFails(me.firestore().doc("contests/rank-hidden/submissions/peer-uid").get());
+  await assertFails(me.firestore().doc("contests/rank-off/submissions/peer-uid").get());
+
+  // Your own submission is always yours, whatever the ranking setting says -
+  // hiding a leaderboard must never hide a student's own result from them.
+  await assertSucceeds(me.firestore().doc("contests/rank-hidden/submissions/me-uid").get());
+  await assertSucceeds(me.firestore().doc("contests/rank-off/submissions/me-uid").get());
+
+  // The institution admin still sees everything - they run the contest.
+  const admin = testEnv.authenticatedContext("mrcet-admin-uid");
+  await assertSucceeds(admin.firestore().doc("contests/rank-hidden/submissions/peer-uid").get());
+});
+
+// Grading used to be locked to isOwner(uid), so a student who submitted and
+// never reopened their result stayed graded:false forever - absent from the
+// leaderboard and from the average/highest/lowest, which are computed over
+// graded submissions only. The institution admin now may grade too, so a sweep
+// can close that gap. What must NOT change is what a grading write may say.
+test("an institution admin can grade a student's abandoned submission, under the same bounds as the student", async () => {
+  const ended = new Date(Date.now() - 60_000);
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("contests/sweep-contest").set({
+      title: "Sweep", status: "published", audiences: ["legacy"], institutionId: "mrcet",
+      contestEnd: ended, prizeXp: 0, prizeCoins: 0,
+    });
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid" });
+    await ctx.firestore().doc("institutions/other-college/admins/other-admin-uid").set({ uid: "other-admin-uid" });
+    await ctx.firestore().doc("institutions/mrcet/students/ghost-uid").set({ uid: "ghost-uid", status: "approved" });
+    await ctx.firestore().doc("institutions/mrcet/students/peer-uid").set({ uid: "peer-uid", status: "approved" });
+    for (const uid of ["ghost-uid", "ghost2-uid", "ghost3-uid", "ghost4-uid"]) {
+      await ctx.firestore().doc(`contests/sweep-contest/submissions/${uid}`).set({
+        graded: false, maxScore: 25, answers: {}, timeTakenSeconds: 900,
+      });
+    }
+  });
+  const admin = testEnv.authenticatedContext("mrcet-admin-uid");
+  const good = { graded: true, score: 18, accuracy: 72, correctCount: 9 };
+
+  await assertSucceeds(admin.firestore().doc("contests/sweep-contest/submissions/ghost-uid").update(good));
+
+  // The bounds are unchanged - a score above the locked maxScore is still refused.
+  await assertFails(admin.firestore().doc("contests/sweep-contest/submissions/ghost2-uid")
+    .update({ graded: true, score: 999, accuracy: 100, correctCount: 25 }));
+  // ...and so is smuggling a prize in on the same write.
+  await assertFails(admin.firestore().doc("contests/sweep-contest/submissions/ghost3-uid")
+    .update({ ...good, xpEarned: 500 }));
+  // Re-grading an already-graded submission stays impossible, for anyone.
+  await assertFails(admin.firestore().doc("contests/sweep-contest/submissions/ghost-uid")
+    .update({ graded: true, score: 25, accuracy: 100, correctCount: 25 }));
+
+  // Widening WHO may grade must not have opened it to students at large.
+  const peer = testEnv.authenticatedContext("peer-uid");
+  await assertFails(peer.firestore().doc("contests/sweep-contest/submissions/ghost4-uid").update(good));
+  // Nor to another college's admin.
+  const otherAdmin = testEnv.authenticatedContext("other-admin-uid");
+  await assertFails(otherAdmin.firestore().doc("contests/sweep-contest/submissions/ghost4-uid").update(good));
+});
+
+// The grading rule bounded xpEarned/coinsEarned with DOT ACCESS. Dot-accessing
+// a key that is absent from the resulting document throws in rules, which
+// denies the whole expression - and those fields are absent from every real
+// grading write (the create rule forbids them; persistGrading writes only
+// graded/score/accuracy/correctCount, because contests grant no XP or coins).
+// So grading was impossible for everyone. This is the exact payload
+// persistGrading sends.
+test("a student can grade their own submission with the payload persistGrading actually sends", async () => {
+  const ended = new Date(Date.now() - 60_000);
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("contests/grade-contest").set({
+      title: "Grade", status: "published", audiences: ["legacy"], institutionId: "mrcet",
+      contestEnd: ended, prizeXp: 0, prizeCoins: 0,
+    });
+    await ctx.firestore().doc("institutions/mrcet/students/grader-uid").set({ uid: "grader-uid", status: "approved" });
+    for (const uid of ["grader-uid", "capped-uid"]) {
+      await ctx.firestore().doc(`contests/grade-contest/submissions/${uid}`).set({
+        graded: false, maxScore: 25, answers: {}, timeTakenSeconds: 900,
+      });
+    }
+    await ctx.firestore().doc("institutions/mrcet/students/capped-uid").set({ uid: "capped-uid", status: "approved" });
+  });
+  const me = testEnv.authenticatedContext("grader-uid");
+  // No xpEarned / coinsEarned anywhere - exactly what persistGrading writes.
+  await assertSucceeds(me.firestore().doc("contests/grade-contest/submissions/grader-uid").update({
+    graded: true, score: 18, accuracy: 72, correctCount: 9,
+  }));
+
+  // The prize caps still bite when the fields ARE supplied: this contest awards
+  // nothing, so any nonzero xpEarned must still be refused.
+  const capped = testEnv.authenticatedContext("capped-uid");
+  await assertFails(capped.firestore().doc("contests/grade-contest/submissions/capped-uid").update({
+    graded: true, score: 10, accuracy: 40, correctCount: 5, xpEarned: 250,
+  }));
+});

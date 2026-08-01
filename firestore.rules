@@ -380,6 +380,24 @@ service cloud.firestore {
         get(/databases/$(database)/documents/contests/$(contestId)).data.get('targetScope', {}),
         contestInstitutionId(contestId), uid);
     }
+    // Whether a contest's rankings are actually published. `rankingVisibility`
+    // used to exist only in the component, as the condition deciding whether a
+    // Leaderboard button rendered - so "hidden" hid the widget while the
+    // submissions collection stayed readable by every in-audience student the
+    // moment contestEnd passed. Anyone with devtools could still read every
+    // classmate's score and timing. For a placement contest whose rankings are
+    // deliberately withheld that is a real disclosure, so the setting is now a
+    // read condition here rather than a UI preference.
+    //
+    // Defaults mirror CONTEST_SETTINGS_DEFAULTS exactly (leaderboardEnabled
+    // true, rankingVisibility 'campus_only'), so a contest that has never had
+    // its settings touched - which is all of them today - keeps behaving
+    // exactly as it does now. Only an explicit 'hidden' or a disabled
+    // leaderboard closes peer reads.
+    function contestRankingsPublished(contestId) {
+      return get(/databases/$(database)/documents/contests/$(contestId)).data.get('settings', {}).get('leaderboardEnabled', true) == true
+        && get(/databases/$(database)/documents/contests/$(contestId)).data.get('settings', {}).get('rankingVisibility', 'campus_only') != 'hidden';
+    }
     function isApprovedForContest(contestId) {
       return contestInstitutionId(contestId) == ''
         || (isApprovedStudent(contestInstitutionId(contestId)) && !isContestRestricted(contestInstitutionId(contestId))
@@ -1224,8 +1242,13 @@ service cloud.firestore {
       }
 
       match /submissions/{uid} {
+        // Own submission, or an admin's, is always readable. A PEER's is only
+        // readable once the contest has ended AND its rankings are actually
+        // published - see contestRankingsPublished(). Without that last clause
+        // "hidden rankings" only hid the button.
         allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId) || (isApprovedForContest(contestId) &&
-          isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
+          isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd
+          && contestRankingsPublished(contestId));
         // maxScore must be written honestly (client-computed from the real,
         // public question set) at create time and is then locked - the
         // grading update below bounds score/correctCount against it, so a
@@ -1242,7 +1265,21 @@ service cloud.firestore {
           && request.resource.data.maxScore is number
           && request.resource.data.maxScore > 0
           && request.resource.data.maxScore <= 1000;
-        allow update: if isOwner(uid)
+        // isOwner OR that institution's admin. Grading only ever ran in the
+        // student's own browser, the first time they reopened their result -
+        // so a student who submitted and closed the tab was never graded, sat
+        // in no leaderboard, and was silently excluded from the average /
+        // highest / lowest, which are computed over graded submissions only.
+        // Every headline number was therefore drawn from the students engaged
+        // enough to come back. With grading locked to isOwner there was no
+        // remedy: the admin running the contest could not score it either.
+        //
+        // The admin is bound by EXACTLY the same clauses as the student below -
+        // same affectedKeys allowlist, same score/accuracy/correctCount bounds
+        // against the locked maxScore, same after-contestEnd requirement, and
+        // still only on a submission that is not yet graded. This widens WHO
+        // may grade, never WHAT a grading write is allowed to say.
+        allow update: if (isOwner(uid) || isContestInstitutionAdmin(contestId) || isAdmin())
           && resource.data.graded == false
           && request.resource.data.graded == true
           && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd
@@ -1255,10 +1292,23 @@ service cloud.firestore {
           && request.resource.data.accuracy <= 100
           && request.resource.data.correctCount >= 0
           && request.resource.data.correctCount <= resource.data.maxScore
-          && request.resource.data.xpEarned >= 0
-          && request.resource.data.xpEarned <= get(/databases/$(database)/documents/contests/$(contestId)).data.get('prizeXp', 0)
-          && request.resource.data.coinsEarned >= 0
-          && request.resource.data.coinsEarned <= get(/databases/$(database)/documents/contests/$(contestId)).data.get('prizeCoins', 0);
+          // .get(field, 0), NOT dot access. Dot-accessing a key absent from the
+          // resulting document THROWS in rules, denying the whole expression -
+          // and xpEarned/coinsEarned are absent from every real grading write:
+          // the create rule above explicitly forbids them, and persistGrading
+          // writes only graded/score/accuracy/correctCount, because contests
+          // deliberately grant no XP or coins any more. So these two clauses
+          // denied EVERY grading attempt, by students and admins alike, with
+          // "Property xpEarned is undefined". Caught by the admin-sweep
+          // emulator test failing on a perfectly well-formed write.
+          //
+          // The caps are kept rather than dropped: if a contest ever does award
+          // a prize and writes these fields, they stay bounded by its own
+          // prizeXp/prizeCoins.
+          && request.resource.data.get('xpEarned', 0) >= 0
+          && request.resource.data.get('xpEarned', 0) <= get(/databases/$(database)/documents/contests/$(contestId)).data.get('prizeXp', 0)
+          && request.resource.data.get('coinsEarned', 0) >= 0
+          && request.resource.data.get('coinsEarned', 0) <= get(/databases/$(database)/documents/contests/$(contestId)).data.get('prizeCoins', 0);
         // "Reset attempt" (Student Management) - deleting the submission doc
         // lets the student attempt the contest again; only that institution's
         // own admin (or platform isAdmin()) can do this.
