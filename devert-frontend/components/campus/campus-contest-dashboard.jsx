@@ -6,7 +6,7 @@ import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton, ReportDownloadButton } from "@/components/campus/campus-ui";
 import {
   fetchContest, contestPhase, fetchContestRegistrations, fetchContestSubmissions,
-  fetchLeaderboard, duplicateContest, fetchContestQuestions, fetchContestAnswerKeys,
+  fetchLeaderboard, duplicateContest, updateContest, fetchContestQuestions, fetchContestAnswerKeys,
   isAnswerCorrect, getContestSettings, updateContestSettings, setManualRelease, resetContestAttempt,
   LIFECYCLE_LABELS, legalNextLifecycleStates, transitionContestLifecycle,
   pauseContest, resumeContest, extendContestTime, forceEndContest, restartContest,
@@ -252,6 +252,27 @@ function CampusContestLifecyclePanel({ contest, uid, onChanged }) {
     run(() => extendContestTime(contest.id, sign * minutes, uid));
   };
 
+  // Quick edits, alongside the full 7-step wizard's own Edit button (header
+  // above) - renaming or nudging the start time doesn't need to reopen every
+  // step just to reach the one field that actually needs changing.
+  const handleRename = () => {
+    const raw = window.prompt("New contest title:", contest.title);
+    if (raw == null) return;
+    const title = raw.trim();
+    if (!title || title === contest.title) return;
+    run(() => updateContest(contest.id, { title }));
+  };
+
+  const handleRescheduleStart = () => {
+    const current = toDate(contest.contestStart);
+    const currentLocal = current ? `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}T${String(current.getHours()).padStart(2, "0")}:${String(current.getMinutes()).padStart(2, "0")}` : "";
+    const raw = window.prompt("New contest start (YYYY-MM-DDTHH:MM, 24-hour, your local time):", currentLocal);
+    if (!raw) return;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) { setError("That doesn't look like a valid date/time - try YYYY-MM-DDTHH:MM."); return; }
+    run(() => updateContest(contest.id, { contestStart: d }));
+  };
+
   const handleForceEnd = () => {
     if (!window.confirm("End submissions right now, ahead of the scheduled end time? Students will no longer be able to submit.")) return;
     run(() => forceEndContest(contest.id, uid));
@@ -312,6 +333,20 @@ function CampusContestLifecyclePanel({ contest, uid, onChanged }) {
           </div>
         </div>
       )}
+
+      <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+        <p className="text-[11px] font-mono tracking-wide mb-2" style={{ color: CAMPUS.inkFaint }}>QUICK EDITS</p>
+        <div className="flex flex-wrap gap-1.5">
+          <button disabled={busy} onClick={handleRename}
+            className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+            Rename
+          </button>
+          <button disabled={busy} onClick={handleRescheduleStart}
+            className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+            Change Start Time
+          </button>
+        </div>
+      </div>
 
       {error && <p className="text-[12px] mt-2" style={{ color: CAMPUS.bad }}>{error}</p>}
     </CampusCard>

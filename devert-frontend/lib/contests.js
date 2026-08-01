@@ -313,23 +313,60 @@ function toDate(v) {
 // contest in", just two ways of arriving at the same four buckets every
 // existing caller (bucketContests, the student Contests list, the admin
 // dashboard) already understands.
+// lifecycleState ARMS a contest; the clock decides whether it is actually open.
+//
+// This used to return "live" on lifecycleState alone, without ever reading
+// contestStart - so moving a contest to Live hours ahead of time (a perfectly
+// reasonable thing for an admin to do while setting up) opened it to students
+// immediately, against a paper nobody was supposed to have seen yet. It also
+// never re-read contestEnd, so a contest whose end time had passed stayed open
+// until a human remembered to close it, and late submissions kept landing.
+//
+// Nothing in this project runs on a schedule - the only deployed Cloud
+// Functions are link-preview routers, and Firestore rules cannot act on their
+// own - so a state that ignores the clock is never corrected by anything. The
+// dates have to be the bound, with lifecycleState as the gate on top:
+//
+//   not "live" yet          -> the clock cannot open it
+//   "live" but before start -> armed, still shows as upcoming/closed
+//   "live" and within window-> genuinely live
+//   "live" but past the end -> over, whether or not anyone clicked
+//
+// Both admin overrides still work, by different routes: Extend/Reduce Time
+// rewrite contestEnd, so the clock branch below picks them up; Force End moves
+// the state to submissionClosed, which resolves to "past" without consulting
+// the clock at all. Neither needed changing for this.
 export function contestPhase(contest, now = new Date()) {
-  if (contest.lifecycleState) {
-    switch (contest.lifecycleState) {
-      case "draft": case "hidden": return "upcoming";
-      case "registrationOpen": return "upcoming";
-      case "registrationClosed": return "closed";
-      case "live": return "live";
-      default: return "past"; // submissionClosed, evaluation, resultsPublished, archived
-    }
-  }
   const regEnd = toDate(contest.registrationEnd);
   const start = toDate(contest.contestStart);
   const end = toDate(contest.contestEnd);
-  if (end && now > end) return "past";
-  if (start && now >= start) return "live";
-  if (regEnd && now > regEnd) return "closed"; // registration closed, not yet started
-  return "upcoming";
+
+  // The clock alone, used both by the legacy no-lifecycleState path and as the
+  // resolver once lifecycleState says the contest is allowed to be running.
+  const byClock = () => {
+    if (end && now > end) return "past";
+    if (start && now >= start) return "live";
+    if (regEnd && now > regEnd) return "closed"; // registration shut, not yet started
+    return "upcoming";
+  };
+
+  if (contest.lifecycleState) {
+    switch (contest.lifecycleState) {
+      case "draft": case "hidden": case "registrationOpen":
+        // Still taking registrations - but once the registration window shuts,
+        // say so rather than showing a Register button that the rules will
+        // reject (request.time <= registrationEnd is enforced server-side).
+        return regEnd && now > regEnd ? "closed" : "upcoming";
+      case "registrationClosed":
+        return "closed";
+      case "live":
+        return byClock();
+      default:
+        // submissionClosed, evaluation, resultsPublished, archived
+        return "past";
+    }
+  }
+  return byClock();
 }
 
 export function bucketContests(contests, now = new Date()) {
