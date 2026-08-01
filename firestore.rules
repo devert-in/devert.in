@@ -1140,7 +1140,16 @@ service cloud.firestore {
     // doc, so the pre-existing attempted/topicStats/bookmarks-only writes
     // (which never touch this field) are completely unaffected.
     match /user_aptitude_progress/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+      // isAdminOfStudent/isHod/isFaculty, matching user_codelab_progress,
+      // user_earnings, programming_progress and cscore_progress. This was the
+      // only progress collection that granted platform isAdmin() alone, which
+      // silently broke the whole Student Analytics dashboard for institution
+      // admins: fetchStudentAnalytics Promise.all's every summary together, so
+      // one denied read rejects the lot and the page shows "couldn't load this
+      // student's analytics" rather than an aptitude section that is merely
+      // missing. Read-only - the write rule below is untouched.
+      allow read: if isOwner(uid) || isAdmin()
+        || isAdminOfStudent(uid) || isHodOfStudent(uid) || isFacultyOfStudent(uid);
       allow write: if isAdmin() || (isOwner(uid)
         && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
     }

@@ -1921,3 +1921,32 @@ test("a disabled reviewer loses access without losing their attempt history", as
   // The record of what they already did survives for the admin.
   await assertSucceeds(paused.firestore().doc("contests/rev-off/dryRuns/paused-uid").get());
 });
+
+// user_aptitude_progress was the only progress collection granting platform
+// isAdmin() alone, with no isAdminOfStudent - so an institution admin opening
+// Student Analytics got a permission denial. fetchStudentAnalytics Promise.all's
+// every summary, so that one denied read rejected the whole page rather than
+// degrading to a missing aptitude section.
+test("an institution admin can read a student's aptitude progress, like every other progress collection", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("institutions/mrcet/admins/apt-admin-uid").set({ uid: "apt-admin-uid" });
+    await ctx.firestore().doc("institutions/mrcet/students/apt-student").set({ uid: "apt-student", status: "approved" });
+    await ctx.firestore().doc("users/apt-student").set({ institutionId: "mrcet" });
+    await ctx.firestore().doc("user_aptitude_progress/apt-student").set({ solved: 12 });
+    await ctx.firestore().doc("user_earnings/apt-student").set({ totalCoins: 5 });
+    await ctx.firestore().doc("institutions/other/admins/other-apt-admin").set({ uid: "other-apt-admin" });
+  });
+  const admin = testEnv.authenticatedContext("apt-admin-uid");
+  // The read that was failing, alongside a sibling that already worked - both
+  // must succeed for the analytics page to render at all.
+  await assertSucceeds(admin.firestore().doc("user_aptitude_progress/apt-student").get());
+  await assertSucceeds(admin.firestore().doc("user_earnings/apt-student").get());
+
+  // Still not public, and still not another institution's business.
+  const stranger = testEnv.authenticatedContext("nobody-uid");
+  await assertFails(stranger.firestore().doc("user_aptitude_progress/apt-student").get());
+  const otherAdmin = testEnv.authenticatedContext("other-apt-admin");
+  await assertFails(otherAdmin.firestore().doc("user_aptitude_progress/apt-student").get());
+  // And the widening was read-only.
+  await assertFails(admin.firestore().doc("user_aptitude_progress/apt-student").set({ solved: 999 }));
+});
