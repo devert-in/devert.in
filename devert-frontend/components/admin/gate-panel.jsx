@@ -336,7 +336,7 @@ export function GatePapersPanel() {
 
       {(adding || editingId) && (
         <FormBox>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Input label="CODE (e.g. CS, DA, EC)" value={form.code} onChange={v => setForm(p => ({ ...p, code: v }))} />
             <Input label="SHORT NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="GATE CS" />
             <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
@@ -345,7 +345,7 @@ export function GatePapersPanel() {
             placeholder="Computer Science and Information Technology"
             hint={`Known GATE codes: ${GATE_PAPER_CATALOG.map(p => p.code).join(", ")}`} />
           <Textarea label="DESCRIPTION" rows={2} value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <Input label="EXAM DATE" type="date" value={form.examDate} onChange={v => setForm(p => ({ ...p, examDate: v }))}
               hint="Blank = no countdown shown" />
             <Input label="TOTAL MARKS" type="number" value={form.totalMarks} onChange={v => setForm(p => ({ ...p, totalMarks: v }))} />
@@ -483,7 +483,7 @@ export function GateSubjectsPanel() {
           {(adding || editingId) && (
             <FormBox>
               <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Operating System" />
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
                 <Input label="WEIGHTAGE (MARKS)" type="number" value={form.weightageMarks} onChange={v => setForm(p => ({ ...p, weightageMarks: v }))}
                   hint="Historical average - shown as approximate" />
@@ -691,7 +691,7 @@ function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
             <Input label="MODULE (the syllabus sub-heading this sits under)" value={form.module}
               onChange={v => setForm(p => ({ ...p, module: v }))} placeholder="Scheduling" />
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
@@ -1031,7 +1031,7 @@ export function GatePyqPanel() {
 
           {(adding || editingId) && (
             <FormBox>
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <Input label="YEAR" type="number" value={form.year} onChange={v => setForm(p => ({ ...p, year: v }))} />
                 <div>
                   <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">TYPE</p>
@@ -1049,7 +1049,7 @@ export function GatePyqPanel() {
                     options={GATE_DIFFICULTIES} className="w-full" />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="SUBJECT ID" value={form.subjectId} onChange={v => setForm(p => ({ ...p, subjectId: v }))}
                   placeholder="operating-system" hint="Must match a subject id under this paper" />
                 <Input label="TOPIC ID" value={form.topicId} onChange={v => setForm(p => ({ ...p, topicId: v }))}
@@ -1198,7 +1198,7 @@ export function GateTestsPanel() {
             <FormBox>
               <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Full Length Mock 1" />
               <Textarea label="DESCRIPTION" rows={2} value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
                   <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">TYPE</p>
                   <Dropdown value={form.testType} onChange={v => setForm(p => ({ ...p, testType: v }))}
@@ -1424,7 +1424,7 @@ function GateTestQuestionsPanel({ test, onBack }) {
 
       {(adding || editingId) && (
         <FormBox>
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">TYPE</p>
               <Dropdown value={form.questionType} onChange={v => setForm(p => ({ ...p, questionType: v }))}
@@ -1451,7 +1451,7 @@ function GateTestQuestionsPanel({ test, onBack }) {
           <Textarea label="CODE SNIPPET (optional, rendered monospaced)" rows={4} value={form.codeSnippet} onChange={v => setForm(p => ({ ...p, codeSnippet: v }))} />
           <Input label="IMAGE URL (optional - for circuit/graph figures)" value={form.imageUrl} onChange={v => setForm(p => ({ ...p, imageUrl: v }))} />
           {form.questionType === "nat" ? (
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <Input label="ACCEPTED MIN" type="number" value={form.natMin} onChange={v => setForm(p => ({ ...p, natMin: v }))} />
               <Input label="ACCEPTED MAX" type="number" value={form.natMax} onChange={v => setForm(p => ({ ...p, natMax: v }))} />
               <Input label="UNIT (optional)" value={form.natUnit} onChange={v => setForm(p => ({ ...p, natUnit: v }))} />
@@ -1618,7 +1618,7 @@ export function GateFormulaPanel() {
 
           {(adding || editingId) && (
             <FormBox>
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
                   <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">KIND</p>
                   <Dropdown value={form.kind} onChange={v => setForm(p => ({ ...p, kind: v }))} options={FORMULA_KINDS.map(k => k.key)} className="w-full" />
@@ -1723,7 +1723,7 @@ export function GateResourcesPanel() {
               <p className="font-mono text-[11px]" style={{ color: ACCENT }}>RESOURCES ({resources.length})</p>
             </div>
             <FormBox>
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
                   <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">KIND</p>
                   <Dropdown value={rForm.kind} onChange={v => setRForm(p => ({ ...p, kind: v }))} options={RESOURCE_KINDS.map(k => k.key)} className="w-full" />

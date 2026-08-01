@@ -10,7 +10,7 @@
 export const PERMISSIONS = [
   "students.view", "students.edit",
   "dailyLearning.publish", "programming.manage", "csCore.manage", "dsa.manage",
-  "aptitude.manage", "companyPrep.manage", "assessments.manage",
+  "aptitude.manage", "fundamentals.manage", "companyPrep.manage", "assessments.manage",
   "analytics.view", "reports.export",
   "faculty.manage", "teachers.assign", "departments.manage", "classrooms.manage",
   "leaderboards.view", "announcements.manage", "contests.manage",
@@ -24,6 +24,7 @@ export const PERMISSION_LABELS = {
   "csCore.manage": "Manage CS Core",
   "dsa.manage": "Manage DSA",
   "aptitude.manage": "Manage Aptitude",
+  "fundamentals.manage": "Manage Fundamentals",
   "companyPrep.manage": "Manage Company Vault",
   "assessments.manage": "Manage Assessments",
   "analytics.view": "View Analytics",

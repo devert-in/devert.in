@@ -11,12 +11,13 @@ import {
   ChevronRight, Users, ArrowUpRight, Medal, Code2, Briefcase, ChevronDown,
   UserCircle2, TrendingUp, X as CloseIcon, PanelLeftClose, PanelLeftOpen,
   Activity, Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
-  AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator,
-  Zap, Coins as CoinsIcon, CheckCircle2, Shield, Sparkles,
+  AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator, PartyPopper,
+  Zap, Coins as CoinsIcon, CheckCircle2, Shield, Sparkles, Camera, Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { collection, query, where, orderBy, limit, getDocs, getCountFromServer, doc, onSnapshot } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchInstitutions, fetchInstitution, fetchMyMembership, requestToJoin,
@@ -45,6 +46,7 @@ import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
 import { fetchPublishedCompanies } from "@/lib/companyPrep";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
 import { CampusDailyLearningLanding, CampusDailyAssessmentsTab, CampusDayLeaderboard } from "@/components/campus/campus-daily-learning";
+import { CampusFundamentalsTab } from "@/components/campus/campus-fundamentals";
 import { CampusProgrammingTab } from "@/components/campus/campus-programming";
 import { CampusCsCoreTab } from "@/components/campus/campus-cscore";
 import { CampusAptitudeTab } from "@/components/campus/campus-aptitude";
@@ -1782,6 +1784,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             <ProfileTab userData={userData} totalCoins={totalCoins} membership={membership} institution={institution} isInstAdmin={isInstAdmin} staffScope={staffScope} />
           )}
           {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} sidebarSlot={sidebarEl} jumpToTrack={learningJump} onSearchSelect={handleSearchSelect} />}
+          {isTabAllowed("fundamentals") && tab === "fundamentals" && <CampusFundamentalsTab sidebarSlot={sidebarEl} />}
           {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab key={searchNonce} sidebarSlot={sidebarEl} />}
           {isTabAllowed("csCore") && tab === "csCore" && <CampusCsCoreTab key={searchNonce} sidebarSlot={sidebarEl} />}
           {isTabAllowed("aptitude") && tab === "aptitude" && <CampusAptitudeTab key={searchNonce} sidebarSlot={sidebarEl} />}
@@ -2118,6 +2121,10 @@ function CampusContextSidebar({
   return (
     <aside style={{ background: CAMPUS.surface, borderRight: `1px solid ${CAMPUS.line}` }}
       className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:self-start py-4 flex-col transition-[width] duration-200 ${collapsed ? "lg:w-[60px]" : "lg:w-[230px]"}`}>
+      {/* Institution logo/name also appears in CampusTopBar (the global
+          "where am I" chrome) - kept here too, at the requester's ask, so
+          the sidebar keeps its own identity marker even when scrolled past
+          the top bar or when the top bar's copy is out of view. */}
       <div className={`flex items-center gap-2.5 px-3 pb-4 mb-1 ${collapsed ? "justify-center" : ""}`} style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
         <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
           style={institution?.logoUrl
@@ -2140,6 +2147,10 @@ function CampusContextSidebar({
       <div className={`${collapsed ? "px-2" : "px-3"} pt-3 flex flex-col gap-1`}>
         <CampusSidebarSearch slug={slug} hiddenTabKeys={hiddenTabKeys} collapsed={collapsed}
           onSelect={onSearchSelect} onExpandSidebar={onExpandSidebar} />
+        {SIDEBAR_GLOBAL_ITEMS.filter(i => !hiddenTabKeys?.has(i.key)).map(item => (
+          <SidebarNavButton key={item.key} item={item} active={tab === item.key} collapsed={collapsed}
+            onClick={() => setTab(item.key)} />
+        ))}
       </div>
 
       {/* Portal target - deliberately empty here; whichever module is active
@@ -2312,6 +2323,9 @@ function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, 
           ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
           : institution.name?.slice(0, 2).toUpperCase()}
       </div>
+      {/* Institution branding lives only in CampusContextSidebar now - was
+          duplicated here briefly, but the ask was to move it, not show it
+          in both places. */}
       <CampusTopNavbar tab={tab} setTab={setTab} hiddenTabKeys={hiddenTabKeys} />
       <div className="lg:hidden flex-1" />
       <CampusThemeToggle />
@@ -2411,17 +2425,32 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
         style={{ background: CAMPUS.gradientHero, border: `1px solid ${CAMPUS.line}` }}>
         <div className="absolute -right-10 -top-16 w-56 h-56 rounded-full pointer-events-none" style={{ background: CAMPUS.teal, opacity: 0.14 }} aria-hidden="true" />
         <div className="absolute -right-4 bottom-[-40px] w-32 h-32 rounded-full pointer-events-none" style={{ background: CAMPUS.purple, opacity: 0.14 }} aria-hidden="true" />
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+        <div className="relative flex items-center justify-between gap-4 flex-wrap">
           <div>
             <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.teal }}>
               <Sparkles size={12} /> WELCOME BACK
             </span>
-            <h2 className="text-2xl sm:text-[28px] font-bold tracking-tight" style={{ color: CAMPUS.ink }}>
-              {(userData?.displayName || "there").split(" ")[0]} 👋
+            <h2 className="flex items-center gap-2 text-2xl sm:text-[28px] font-bold tracking-tight" style={{ color: CAMPUS.ink }}>
+              {(userData?.displayName || "there").split(" ")[0]} <PartyPopper size={22} style={{ color: CAMPUS.gold }} />
             </h2>
             <p className="text-[13.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>Keep learning, keep growing - you&apos;re doing great.</p>
           </div>
-          <CampusChip color={CAMPUS.teal}>{isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")}</CampusChip>
+          <div className="flex items-center gap-4">
+            {/* Decorative icon composition, not a literal illustration asset
+                (Campus's design system is Lucide-icons-only, see CLAUDE.md) -
+                a big icon in a gradient blob plus two small scattered accent
+                icons stands in for the "cute corner graphic" idea without
+                introducing an external illustration library or asset. Hidden
+                below sm: - a decorative flourish is the first thing to drop
+                on a cramped header, never the badge next to it. */}
+            <div className="hidden sm:flex relative w-16 h-16 rounded-2xl flex-shrink-0 items-center justify-center"
+              style={{ background: CAMPUS.gradientPrimary, boxShadow: "0 10px 26px rgba(99,102,241,0.3)" }} aria-hidden="true">
+              <GraduationCap size={30} color="#fff" strokeWidth={1.75} />
+              <Sparkles size={15} className="absolute -top-1.5 -right-1.5" style={{ color: CAMPUS.gold }} />
+              <Star size={11} className="absolute -bottom-1 -left-1.5 -rotate-12" style={{ color: CAMPUS.cyan }} fill={CAMPUS.cyan} />
+            </div>
+            <CampusChip color={CAMPUS.teal}>{isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")}</CampusChip>
+          </div>
         </div>
       </motion.div>
 
@@ -2442,30 +2471,33 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
           onProgramming={onProgramming} onCsCore={onCsCore} onAptitude={onAptitude} isInstAdmin={isInstAdmin} />
       </motion.div>
 
-      <motion.div variants={slideUp} className="grid md:grid-cols-2 gap-5 mb-6 items-stretch">
-        <div className="flex flex-col h-full">
+      {/* items-start, not items-stretch (grid's own default) - stretch was
+          forcing the shorter "Upcoming Contests" card to match "Continue
+          Learning"'s height whenever that side had more real content
+          (progress bar + next-lesson row), padding the shorter card with a
+          lot of empty space. In dark mode CAMPUS.surface barely contrasts
+          against CAMPUS.paper, so that empty stretched card read as a
+          blank gap in the page rather than an oversized card. */}
+      <motion.div variants={slideUp} className="grid md:grid-cols-2 gap-5 mb-6 items-start">
+        <div className="flex flex-col">
           <SectionHeading icon={Rocket} title="Continue Learning" />
-          <div className="flex-1 flex flex-col">
-            <ContinueLearningCard slug={slug} onContinue={onContinueLearning} />
-          </div>
+          <ContinueLearningCard slug={slug} onContinue={onContinueLearning} />
         </div>
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col">
           <SectionHeading icon={Trophy} title="Upcoming Contests" />
-          <div className="flex-1 flex flex-col">
-            {contestsLoading ? (
-              <CampusCard className="p-5 space-y-2.5 h-full">
-                <CampusSkeleton variant="rect" height={20} width="70%" />
-                <CampusSkeleton variant="rect" height={14} width="40%" />
-              </CampusCard>
-            ) : contests.length === 0 ? (
-              <CampusEmptyState size="sm" icon={Trophy} title="No contests scheduled"
-                description="Check back once your institution schedules a new contest." className="h-full" />
-            ) : (
-              <div className="space-y-2.5 h-full">
-                {contests.map(c => <UpcomingContestRow key={c.id} contest={c} onClick={onOpenContest} />)}
-              </div>
-            )}
-          </div>
+          {contestsLoading ? (
+            <CampusCard className="p-5 space-y-2.5">
+              <CampusSkeleton variant="rect" height={20} width="70%" />
+              <CampusSkeleton variant="rect" height={14} width="40%" />
+            </CampusCard>
+          ) : contests.length === 0 ? (
+            <CampusEmptyState size="sm" icon={Trophy} title="No contests scheduled"
+              description="Check back once your institution schedules a new contest." />
+          ) : (
+            <div className="space-y-2.5">
+              {contests.map(c => <UpcomingContestRow key={c.id} contest={c} onClick={onOpenContest} />)}
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -2479,7 +2511,7 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
         </motion.div>
       )}
 
-      <motion.div variants={slideUp} className="grid sm:grid-cols-2 gap-4">
+      <motion.div variants={slideUp} className="grid sm:grid-cols-2 gap-5 items-start">
         {noticeItem === null && (
           <CampusEmptyState size="sm" icon={Activity} color={CAMPUS.blue} title="Recent Activity"
             description="Your activity feed isn't live yet - it'll show your latest submissions, XP gains, and completions here." />
@@ -2527,13 +2559,69 @@ function ProfileRow({ icon: Icon, label, value }) {
   );
 }
 
+// Downscales to maxDim and re-encodes as JPEG via canvas - this also strips
+// EXIF (orientation/GPS/etc) as a side effect, since canvas drawing never
+// copies source metadata. Same technique as app/profile/page.jsx's avatar
+// upload, kept local here rather than shared - it's a single self-contained
+// helper, not a growing API.
+const resizeAvatarImage = (file, maxDim = 512) => new Promise((resolve, reject) => {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("canvas encode failed")), "image/jpeg", 0.9);
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load failed")); };
+  img.src = url;
+});
+
 function ProfileTab({ userData, totalCoins, membership, institution, isInstAdmin, staffScope }) {
+  const { user, updateProfile } = useAuth();
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+
+  const handleAvatarFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) { setAvatarError("Please choose an image file."); return; }
+    if (file.size > 2 * 1024 * 1024) { setAvatarError("Image must be under 2MB."); return; }
+    setAvatarError("");
+    setAvatarUploading(true);
+    try {
+      const resized = await resizeAvatarImage(file);
+      const sRef = storageRef(storage, `avatars/${user.uid}/avatar.jpg`);
+      await uploadBytes(sRef, resized);
+      const photoURL = await getDownloadURL(sRef);
+      await updateProfile({ photoURL });
+    } catch (err) {
+      console.error(err);
+      setAvatarError("Upload failed - try again.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   return (
     <motion.div variants={staggerContainer} initial="hidden" animate="visible">
       <motion.div variants={slideUp} className="flex items-center gap-4 mb-6">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold flex-shrink-0"
-          style={{ background: CAMPUS.goldTint, color: CAMPUS.gold }}>
-          {(userData?.displayName || "?").slice(0, 2).toUpperCase()}
+        <div className="relative w-16 h-16 flex-shrink-0">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold overflow-hidden"
+            style={{ background: CAMPUS.goldTint, color: CAMPUS.gold }}>
+            {userData?.photoURL
+              ? <img src={userData.photoURL} alt="" className="w-full h-full object-cover" />
+              : (userData?.displayName || "?").slice(0, 2).toUpperCase()}
+          </div>
+          <label title="Change photo" className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
+            style={{ background: CAMPUS.teal, color: "#fff", border: `2px solid ${CAMPUS.paper}` }}>
+            {avatarUploading ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />}
+            <input type="file" accept="image/*" className="hidden" disabled={avatarUploading} onChange={handleAvatarFile} />
+          </label>
         </div>
         <div className="min-w-0">
           <h2 className="text-xl font-semibold truncate" style={{ color: CAMPUS.ink }}>{userData?.displayName || "Your Profile"}</h2>
@@ -2543,6 +2631,7 @@ function ProfileTab({ userData, totalCoins, membership, institution, isInstAdmin
               {isInstAdmin ? "INSTITUTION ADMIN" : staffScope ? (ROLE_CATALOG[staffScope.role]?.label || "STAFF").toUpperCase() : "STUDENT"}
             </CampusChip>
           </span>
+          {avatarError && <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.bad }}>{avatarError}</p>}
         </div>
       </motion.div>
 

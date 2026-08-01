@@ -1,8 +1,28 @@
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import {
   collection, doc, addDoc, deleteDoc, getDocs, getDoc, setDoc, updateDoc, query, orderBy, where,
   limit, increment, serverTimestamp, getCountFromServer, writeBatch, documentId, runTransaction,
+  Timestamp,
 } from "firebase/firestore";
+
+// Firestore rejects the serverTimestamp() sentinel ANYWHERE inside an array
+// ("FieldValue.serverTimestamp() cannot be used inside of an array") - the
+// write throws before it leaves the client. lifecycleHistory is an array of
+// audit entries, so every entry's `at` has to be a concrete client-side
+// Timestamp instead. Using serverTimestamp() there made createContest and
+// EVERY lifecycle transition throw, which is why the only lifecycleHistory
+// entries in production were written by the "_migration" backfill and not one
+// by the app itself - an admin could never move a contest to Live at all.
+//
+// The tradeoff is deliberate and small: `at` is now the client's clock rather
+// than the server's, so a wrong device clock writes a wrong audit timestamp.
+// That is acceptable for a display-only audit trail, and it is the standard
+// workaround. It is NOT acceptable for anything a rule or a deadline depends
+// on - contestStart/contestEnd/registeredAt/submittedAt are all top-level
+// fields and deliberately keep using the real serverTimestamp().
+function historyStamp() {
+  return Timestamp.now();
+}
 
 export const CONTEST_CATEGORIES = [
   "Aptitude & Reasoning", "Programming Fundamentals", "Java", "Python", "C++", "SQL",
@@ -11,7 +31,12 @@ export const CONTEST_CATEGORIES = [
 ];
 
 export const CONTEST_DIFFICULTIES = ["Easy", "Medium", "Hard"];
-export const QUESTION_TYPES = ["mcq", "multiselect", "truefalse", "fillblank"];
+// "coding" is graded entirely differently from the other four - never
+// client-side (there's no answerKey for it; see gradeSubmission's coding
+// branch below) and never by a shared answerKeys doc, since hidden tests
+// can never be client-readable. See addContestQuestion/deleteContestQuestion
+// and the new fetchContestQuestionSampleTests/saveContestCodingTests below.
+export const QUESTION_TYPES = ["mcq", "multiselect", "truefalse", "fillblank", "coding"];
 
 export const CONTEST_STATUSES = [
   { v: "draft",     c: "rgba(255,255,255,0.4)" },
@@ -19,15 +44,83 @@ export const CONTEST_STATUSES = [
   { v: "archived",  c: "rgba(255,255,255,0.25)" },
 ];
 
+// What KIND of contest this is - purely descriptive/filtering metadata today
+// (doesn't gate which question types are allowed; a "coding" contest could
+// still add an MCQ question if an admin wants). Default stays "mixed" so an
+// existing contest with no contestType set reads the same as before.
+export const CONTEST_TYPES = [
+  { v: "coding",       label: "Coding" },
+  { v: "mcq",          label: "MCQ" },
+  { v: "mixed",        label: "Mixed (Coding + MCQ)" },
+  { v: "aptitude",     label: "Aptitude" },
+  { v: "placement",    label: "Placement Round" },
+  { v: "internalExam", label: "Internal Exam" },
+  { v: "practice",     label: "Practice" },
+  { v: "custom",       label: "Custom" },
+];
+
+// Real lifecycle state machine - see LIFECYCLE_TRANSITIONS below for the
+// legal moves between these. Distinct from (but kept in sync with) the
+// older `status` field: `status` is still what every existing read/rule
+// checks for "is this contest visible/published" (published ⇔ lifecycleState
+// is anywhere from registrationOpen through resultsPublished; archived ⇔
+// lifecycleState === "archived"), so nothing that reads `status` today
+// breaks. `lifecycleState` is the new, richer, admin-transitioned source of
+// truth going forward.
+export const LIFECYCLE_STATES = [
+  "draft", "hidden", "registrationOpen", "registrationClosed",
+  "live", "submissionClosed", "evaluation", "resultsPublished", "archived",
+];
+
+export const LIFECYCLE_LABELS = {
+  draft: "Draft", hidden: "Hidden", registrationOpen: "Registration Open",
+  registrationClosed: "Registration Closed", live: "Live",
+  submissionClosed: "Submission Closed", evaluation: "Evaluation",
+  resultsPublished: "Results Published", archived: "Archived",
+};
+
+// Legal next states from each state - both the forward path and the
+// explicit admin-controlled back-steps (Force End = an early live ->
+// submissionClosed; Resume = a submissionClosed -> live reopen; Restart -
+// see restartContest below - is handled separately since it clears
+// submissions rather than just moving state). Pause/Resume/Extend/Reduce
+// Time during Live do NOT change lifecycleState at all - see
+// pauseContest/resumeContest, a separate mechanism, since a contest is
+// still "live" while paused.
+const LIFECYCLE_TRANSITIONS = {
+  draft: ["hidden", "registrationOpen", "archived"],
+  hidden: ["registrationOpen", "draft", "archived"],
+  registrationOpen: ["registrationClosed", "hidden"],
+  registrationClosed: ["live", "registrationOpen"],
+  live: ["submissionClosed"],
+  submissionClosed: ["evaluation", "live"],
+  evaluation: ["resultsPublished", "submissionClosed"],
+  resultsPublished: ["archived", "evaluation"],
+  archived: [],
+};
+
+export function legalNextLifecycleStates(current) {
+  return LIFECYCLE_TRANSITIONS[current] || [];
+}
+
 // Shared by both the global admin ContestsPanel and Campus's institution-scoped
 // contest manager (components/campus/institution-contests-panel.jsx) - same
 // create/question-authoring shape either way, just optionally carrying an
 // institutionId.
+// Default target scope - "all" (institution-wide) is today's only behavior,
+// so a contest an admin never touches Step 3 for keeps working exactly as
+// before. `mode: "scoped"` is what actually activates the narrower filters.
+export function blankTargetScope() {
+  return { mode: "all", departments: [], years: [], sections: [], classroomIds: [], uids: [] };
+}
+
 export function blankContestForm() {
   return {
     title: "", category: CONTEST_CATEGORIES[0], difficulty: "Easy", bannerUrl: "",
     description: "", rules: "", eligibility: "", organizer: "", tags: "",
+    contestType: "mixed", targetScope: blankTargetScope(),
     registrationStart: "", registrationEnd: "", contestStart: "", contestEnd: "",
+    graceMinutes: "0", resultPublishAt: "", leaderboardPublishAt: "",
     // prizeXp/prizeCoins default to 0, not a nonzero placeholder - contests no
     // longer grant platform XP/Coins at all (see persistGrading), so these
     // fields are no longer collected in the authoring form; a stale nonzero
@@ -37,10 +130,43 @@ export function blankContestForm() {
   };
 }
 
+// Pure - does this student match a contest's target audience? "all"/missing
+// scope always matches (today's only behavior). Hierarchical filters
+// (department/year/section/classroom) AND together when more than one is
+// set, narrowing down exactly like the wizard's cascading picker implies;
+// `uids` is an explicit allowlist that ORs on top of the hierarchy (so an
+// admin can add a handful of extra specific students to a department-wide
+// contest) or, if it's the ONLY filter set, is the sole gate ("Selected Roll
+// Numbers"). A scoped contest with every filter left empty fails OPEN (matches
+// everyone) rather than silently excluding every student - an admin who
+// toggles "Specific Audience" but hasn't picked anything yet shouldn't
+// accidentally hide the contest from the whole institution.
+export function matchesTargetScope(scope, student) {
+  if (!scope || scope.mode !== "scoped") return true;
+  const hasHierarchy = !!(scope.departments?.length || scope.years?.length || scope.sections?.length || scope.classroomIds?.length);
+  const hasUids = !!scope.uids?.length;
+  if (!hasHierarchy && !hasUids) return true;
+  const inHierarchy = hasHierarchy
+    && (!scope.departments?.length || scope.departments.includes(student.department))
+    && (!scope.years?.length || scope.years.includes(student.year))
+    && (!scope.sections?.length || scope.sections.includes(student.section))
+    && (!scope.classroomIds?.length || scope.classroomIds.includes(student.classroomId));
+  const inUidList = hasUids && scope.uids.includes(student.uid);
+  if (hasHierarchy && hasUids) return inHierarchy || inUidList;
+  return hasHierarchy ? inHierarchy : inUidList;
+}
+
 export function blankContestQuestionForm(type = "mcq") {
   return {
     type, question: "", options: ["", "", "", ""], correctIndices: [0], correctText: "",
     marks: "1", negativeMarks: "0", explanation: "", topic: "", difficulty: "medium",
+    // Coding-only - sampleTests are client-visible (shown to the student
+    // during the attempt, same as problems/{id}/sampleTests); hiddenTests
+    // never leave this form/the admin wizard once saved (see
+    // saveContestCodingTests below - written straight to a subcollection
+    // firestore.rules makes admin-read-only, mirroring problems/{id}/hiddenTests).
+    sampleTests: type === "coding" ? [{ input: "", expectedOutput: "", explanation: "" }] : [],
+    hiddenTests: type === "coding" ? [{ input: "", expectedOutput: "" }] : [],
   };
 }
 
@@ -180,7 +306,23 @@ function toDate(v) {
   return typeof v.toDate === "function" ? v.toDate() : new Date(v);
 }
 
+// Prefers the real lifecycleState when a contest has one (set by
+// transitionContestLifecycle below) - only falls back to the old
+// timestamp-derived guess for contests created before this existed, so
+// neither path is a second parallel implementation of "what phase is this
+// contest in", just two ways of arriving at the same four buckets every
+// existing caller (bucketContests, the student Contests list, the admin
+// dashboard) already understands.
 export function contestPhase(contest, now = new Date()) {
+  if (contest.lifecycleState) {
+    switch (contest.lifecycleState) {
+      case "draft": case "hidden": return "upcoming";
+      case "registrationOpen": return "upcoming";
+      case "registrationClosed": return "closed";
+      case "live": return "live";
+      default: return "past"; // submissionClosed, evaluation, resultsPublished, archived
+    }
+  }
   const regEnd = toDate(contest.registrationEnd);
   const start = toDate(contest.contestStart);
   const end = toDate(contest.contestEnd);
@@ -353,7 +495,24 @@ export async function submitContestAnswers(contestId, uid, answers, timeTakenSec
 // Pure scoring - no Firestore reads/writes. Correctness is always keyed by stable
 // question.id / option.id, never array index, so client-side shuffling can never
 // affect grading.
-export function gradeSubmission(questions, answerKeys, answers) {
+// codingResults: { [questionId]: { score, testsPassed, testsTotal, verdict } } -
+// fetched separately via fetchContestCodingResults (see below - its own
+// submissions/{uid}/codingResults subcollection, NOT a field on the
+// submission doc itself: devert-backend writes a coding question's result
+// the moment a student hits Submit on it, which can happen well before the
+// final submitContestAnswers() plain setDoc() - if that result lived on the
+// submission doc directly, the backend's earlier write would make the doc
+// already exist by the time the final submit runs, and firestore.rules would
+// then evaluate it as an `update` rather than a `create`, which only permits
+// the later graded:false->true flip fields, not answers/maxScore. A separate
+// subcollection sidesteps that ordering trap entirely). Already server-
+// graded (the ONLY code path that ever sees hidden tests) and folded
+// straight in, not recomputed here - there is no answerKey for a coding
+// question and never will be, since correctness can only ever be judged by
+// actually running the code. A coding question with no codingResults entry
+// yet (student never hit Submit on it) counts toward maxScore but
+// contributes 0, same "unattempted" treatment as a blank MCQ.
+export function gradeSubmission(questions, answerKeys, answers, codingResults = {}) {
   let score = 0;
   let maxScore = 0;
   let correctCount = 0;
@@ -362,6 +521,16 @@ export function gradeSubmission(questions, answerKeys, answers) {
   for (const q of questions) {
     const marks = q.marks || 1;
     maxScore += marks;
+
+    if (q.type === "coding") {
+      const result = codingResults[q.id];
+      if (!result) continue;
+      attemptedCount++;
+      score += Math.max(0, Math.min(marks, result.score || 0));
+      if (result.verdict === "Accepted") correctCount++;
+      continue;
+    }
+
     const key = answerKeys[q.id];
     const given = answers?.[q.id];
     const isBlank = given === undefined || given === null || given === ""
@@ -423,6 +592,45 @@ export async function persistGrading(contestId, uid, grading) {
   return !alreadyGraded;
 }
 
+// ---------------- Staff dry runs ----------------
+
+// An admin taking the paper end-to-end to verify it, WITHOUT becoming a
+// participant.
+//
+// WHY A SEPARATE COLLECTION AND NOT AN isDryRun FLAG ON submissions. Every
+// analytics read - fetchLeaderboard, fetchMyRank's count aggregations, and the
+// dashboard's registration/submission/average cards - queries the submissions
+// collection. Excluding a flagged doc from all of those would mean:
+//   - Firestore's `!=` skips documents where the field is ABSENT, so every
+//     submission already written would be excluded too, silently emptying the
+//     leaderboards of the two contests that already ran.
+//   - or backfilling isDryRun:false onto every historical submission and
+//     adding the field to composite indexes, to solve a problem caused by a
+//     handful of staff runs.
+// Writing dry runs to their own path sidesteps both: nothing that reads
+// `submissions` can see them, with no query, index, or backfill change at all.
+// The cost is that a dry run does not get the real attempt's coding-grading
+// (devert-backend writes into submissions/{uid}/codingResults), so MCQ scoring
+// is authoritative here and coding is recorded as answered-but-ungraded.
+export async function submitContestDryRun(contestId, uid, payload) {
+  await setDoc(doc(db, "contests", contestId, "dryRuns", uid), {
+    ...payload,
+    isDryRun: true,
+    submittedAt: serverTimestamp(),
+  });
+}
+
+export async function fetchContestDryRuns(contestId) {
+  const snap = await getDocs(collection(db, "contests", contestId, "dryRuns"));
+  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+}
+
+// Deliberately deletable, unlike a real submission - a dry run is scratch data
+// an admin should be able to clear and redo as many times as they want.
+export async function deleteContestDryRun(contestId, uid) {
+  await deleteDoc(doc(db, "contests", contestId, "dryRuns", uid));
+}
+
 export async function fetchLeaderboard(contestId, topN = 50) {
   const snap = await getDocs(query(
     collection(db, "contests", contestId, "submissions"),
@@ -479,19 +687,129 @@ export async function createContest(form, institutionId, uid) {
   const contestEnd = new Date(form.contestEnd);
   const registrationEnd = form.registrationEnd ? new Date(form.registrationEnd) : contestStart;
   const registrationStart = form.registrationStart ? new Date(form.registrationStart) : new Date();
+  const initialStatus = form.status || "draft";
   const ref = await addDoc(collection(db, "contests"), {
     title: form.title.trim(), category: form.category, difficulty: form.difficulty,
     bannerUrl: form.bannerUrl.trim(), description: form.description.trim(), rules: form.rules.trim(),
     eligibility: form.eligibility.trim(), organizer: form.organizer.trim(),
     tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+    contestType: form.contestType || "mixed",
+    targetScope: form.targetScope || blankTargetScope(),
     registrationStart, registrationEnd, contestStart, contestEnd,
+    graceMinutes: parseInt(form.graceMinutes) || 0,
+    resultPublishAt: form.resultPublishAt ? new Date(form.resultPublishAt) : null,
+    leaderboardPublishAt: form.leaderboardPublishAt ? new Date(form.leaderboardPublishAt) : null,
     durationMinutes: parseInt(form.durationMinutes) || 60,
     prizeXp: parseInt(form.prizeXp) || 0, prizeCoins: parseInt(form.prizeCoins) || 0,
-    prizeText: form.prizeText.trim(), status: form.status || "draft",
+    prizeText: form.prizeText.trim(), status: initialStatus,
+    // New contests get a real lifecycleState from day one - "draft" status
+    // maps to lifecycleState "draft", "published" (the only other status the
+    // create form ever sets) maps to "registrationOpen", the first published
+    // state - an admin can immediately transition further if registration
+    // should already be closed.
+    lifecycleState: initialStatus === "published" ? "registrationOpen" : "draft",
+    lifecycleHistory: [{ state: initialStatus === "published" ? "registrationOpen" : "draft", at: historyStamp(), byUid: uid || "" }],
     institutionId, participantCount: 0, questionCount: 0,
     createdAt: serverTimestamp(), createdBy: uid || "",
   });
   return ref.id;
+}
+
+// ---------------- Lifecycle transitions ----------------
+
+// The one function every lifecycle-changing UI action goes through -
+// validates the move is legal (see LIFECYCLE_TRANSITIONS), keeps the older
+// `status` field in sync so every existing status-based read/rule keeps
+// working unchanged, and appends an audit entry. Rejects client-side before
+// ever hitting Firestore; firestore.rules independently re-checks
+// admin/institution-admin on the write itself (a rejected client-side check
+// is a UX nicety, never the real boundary).
+export async function transitionContestLifecycle(contestId, toState, uid) {
+  if (!LIFECYCLE_STATES.includes(toState)) throw new Error(`Unknown lifecycle state "${toState}".`);
+  const contestRef = doc(db, "contests", contestId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(contestRef);
+    if (!snap.exists()) throw new Error("Contest not found.");
+    const current = snap.data().lifecycleState || "draft";
+    if (!legalNextLifecycleStates(current).includes(toState)) {
+      throw new Error(`Cannot move from "${current}" to "${toState}".`);
+    }
+    const history = snap.data().lifecycleHistory || [];
+    const newStatus = toState === "archived" ? "archived"
+      : ["registrationOpen", "registrationClosed", "live", "submissionClosed", "evaluation", "resultsPublished"].includes(toState) ? "published"
+      : "draft";
+    tx.update(contestRef, {
+      lifecycleState: toState,
+      status: newStatus,
+      lifecycleHistory: [...history, { state: toState, at: historyStamp(), byUid: uid || "" }],
+    });
+  });
+}
+
+// Shared by pause/resume/extend/reduce/force-end below - every live-contest
+// admin action appends the same kind of audit entry as a real lifecycle
+// transition, just without necessarily changing lifecycleState itself.
+async function appendContestHistory(contestId, entry) {
+  const contestRef = doc(db, "contests", contestId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(contestRef);
+    if (!snap.exists()) throw new Error("Contest not found.");
+    const history = snap.data().lifecycleHistory || [];
+    tx.update(contestRef, { ...entry.patch, lifecycleHistory: [...history, { state: entry.state, at: historyStamp(), byUid: entry.uid || "" }] });
+  });
+}
+
+// Pause/Resume are deliberately NOT lifecycle transitions - a paused contest
+// is still "live" (still submissionClosed-bound by the same contestEnd), it
+// just tells the student attempt screen to freeze the countdown and block
+// further answering until resumed. See campus-contests.jsx's timer, which
+// reads this flag on every tick.
+export async function pauseContest(contestId, uid) {
+  await appendContestHistory(contestId, { state: "paused", uid, patch: { paused: true, pausedAt: serverTimestamp() } });
+}
+
+export async function resumeContest(contestId, uid) {
+  await appendContestHistory(contestId, { state: "resumed", uid, patch: { paused: false } });
+}
+
+// deltaMinutes may be negative (Reduce Time) - both push/pull the live
+// contestEnd timestamp directly, which is all the student attempt screen's
+// countdown needs (it already recomputes effectiveEnd from the contest doc
+// on every tick, not a value cached at mount).
+export async function extendContestTime(contestId, deltaMinutes, uid) {
+  const contestRef = doc(db, "contests", contestId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(contestRef);
+    if (!snap.exists()) throw new Error("Contest not found.");
+    const currentEnd = toDate(snap.data().contestEnd) || new Date();
+    const newEnd = new Date(currentEnd.getTime() + deltaMinutes * 60000);
+    const history = snap.data().lifecycleHistory || [];
+    tx.update(contestRef, {
+      contestEnd: newEnd,
+      lifecycleHistory: [...history, { state: deltaMinutes >= 0 ? "extended" : "reduced", at: historyStamp(), byUid: uid || "" }],
+    });
+  });
+}
+
+// Force End is just an early, admin-triggered live -> submissionClosed -
+// the same legal transition Restart's counterpart (submissionClosed -> live,
+// i.e. resumeContest... no, transitionContestLifecycle) already allows, just
+// invoked ahead of the scheduled contestEnd rather than after it.
+export async function forceEndContest(contestId, uid) {
+  await transitionContestLifecycle(contestId, "submissionClosed", uid);
+}
+
+// Restart - a live-only control (see the user-facing control list above),
+// distinct from Resume: clears every existing submission (a real do-over
+// for everyone, not just reopening a paused window) and unpauses if paused.
+// Doesn't touch lifecycleState at all - the contest is already "live" for
+// this control to even be shown, same reasoning as pause/resume. Institution-
+// admin/admin only, same authority as the single-student
+// resetContestAttempt above, just applied to every registrant at once.
+export async function restartContest(contestId, uid) {
+  const subSnap = await getDocs(collection(db, "contests", contestId, "submissions"));
+  await Promise.all(subSnap.docs.map(d => deleteDoc(d.ref)));
+  await appendContestHistory(contestId, { state: "restarted", uid, patch: { paused: false } });
 }
 
 export async function updateContest(contestId, patch) {
@@ -503,9 +821,16 @@ export async function duplicateContest(contest, uid) {
     getDocs(collection(db, "contests", contest.id, "questions")),
     getDocs(collection(db, "contests", contest.id, "answerKeys")),
   ]);
-  const { id, participantCount, createdAt, ...rest } = contest;
+  const { id, participantCount, createdAt, lifecycleState, lifecycleHistory, paused, pausedAt, ...rest } = contest;
   const newRef = await addDoc(collection(db, "contests"), {
     ...rest, title: `${contest.title} (Copy)`, status: "draft", participantCount: 0,
+    // A duplicate is a fresh draft, not a resurrection of wherever the
+    // original contest's lifecycle ended up (resultsPublished/archived/
+    // paused) - reset the whole lifecycle, same reasoning as status: "draft"
+    // right above, which this used to be inconsistent with before
+    // lifecycleState existed.
+    lifecycleState: "draft",
+    lifecycleHistory: [{ state: "draft", at: historyStamp(), byUid: uid || "" }],
     createdAt: serverTimestamp(), createdBy: uid || "",
   });
   await Promise.all([
@@ -585,9 +910,104 @@ export async function updateContestQuestion(contestId, questionId, patch, answer
   if (answerPatch) await updateDoc(doc(db, "contests", contestId, "answerKeys", questionId), answerPatch);
 }
 
+// Also clears a coding question's sampleTests/hiddenTests subcollections -
+// Firestore never cascade-deletes a subcollection on its own, and leaving
+// them behind would just be dead, unreadable-forever docs (harmless read of
+// two empty snapshots for every non-coding question, not worth branching on
+// q.type just to skip it).
 export async function deleteContestQuestion(contestId, questionId) {
-  await deleteDoc(doc(db, "contests", contestId, "questions", questionId));
-  await deleteDoc(doc(db, "contests", contestId, "answerKeys", questionId));
+  const [sampleSnap, hiddenSnap] = await Promise.all([
+    getDocs(collection(db, "contests", contestId, "questions", questionId, "sampleTests")),
+    getDocs(collection(db, "contests", contestId, "questions", questionId, "hiddenTests")),
+  ]);
+  const batch = writeBatch(db);
+  sampleSnap.docs.forEach(d => batch.delete(d.ref));
+  hiddenSnap.docs.forEach(d => batch.delete(d.ref));
+  batch.delete(doc(db, "contests", contestId, "questions", questionId));
+  batch.delete(doc(db, "contests", contestId, "answerKeys", questionId));
+  await batch.commit();
+}
+
+export async function fetchContestQuestionSampleTests(contestId, questionId) {
+  const snap = await getDocs(collection(db, "contests", contestId, "questions", questionId, "sampleTests"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Admin-only (see firestore.rules) - exists purely so the Contest Studio's
+// own "edit an existing coding question" flow can load back what an
+// institution admin already authored. Never called from the student attempt
+// path - that only ever reads sampleTests, and grading itself happens
+// server-side via devert-backend's firebase-admin SDK, which bypasses these
+// rules entirely (identical trust boundary to problems/{id}/hiddenTests).
+export async function fetchContestQuestionHiddenTests(contestId, questionId) {
+  const snap = await getDocs(collection(db, "contests", contestId, "questions", questionId, "hiddenTests"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Full-replace, not incremental per-test CRUD - mirrors how MCQ options are
+// always saved as one complete array rather than patched test-by-test.
+export async function saveContestCodingTests(contestId, questionId, sampleTests, hiddenTests) {
+  const sampleColl = collection(db, "contests", contestId, "questions", questionId, "sampleTests");
+  const hiddenColl = collection(db, "contests", contestId, "questions", questionId, "hiddenTests");
+  const [existingSample, existingHidden] = await Promise.all([getDocs(sampleColl), getDocs(hiddenColl)]);
+  const batch = writeBatch(db);
+  existingSample.docs.forEach(d => batch.delete(d.ref));
+  existingHidden.docs.forEach(d => batch.delete(d.ref));
+  (sampleTests || []).filter(t => t.input || t.expectedOutput).forEach(t =>
+    batch.set(doc(sampleColl), { input: t.input || "", expectedOutput: t.expectedOutput || "", explanation: t.explanation || "" }));
+  (hiddenTests || []).filter(t => t.input || t.expectedOutput).forEach(t =>
+    batch.set(doc(hiddenColl), { input: t.input || "", expectedOutput: t.expectedOutput || "" }));
+  await batch.commit();
+}
+
+function contestApiUrl() {
+  return process.env.NEXT_PUBLIC_API_URL || "";
+}
+
+// No separate "run against samples" endpoint here - a contest coding
+// question's sample tests are client-readable (fetchContestQuestionSampleTests),
+// same as problems/{id}/sampleTests, so the student attempt view runs them
+// exactly the way CampusProblemView already does: call lib/codelab.js's
+// generic, problem-agnostic runCode() once per sample test and compare
+// stdout against expectedOutput itself. Only grading against HIDDEN tests
+// needs a backend round-trip, since only the backend ever reads them.
+
+// Full grading against sample + hidden tests, scored against this question's
+// own marks - mirrors lib/codelab.js's submitCode(), but this is the ONLY
+// legal way a coding question's score is ever produced (there is no
+// answerKey to grade against client-side). The backend verifies the Firebase
+// ID token itself and writes the result into
+// contests/{contestId}/submissions/{uid}/codingResults/{questionId} - see
+// ContestGradingService on devert-backend and fetchContestCodingResults'
+// comment on why that's a separate subcollection, not a field on the parent
+// submission doc. Per-question, not part of the final MCQ
+// submitContestAnswers() - a coding question's compile/run round-trip can't
+// wait for one end-of-contest submit the way MCQs do.
+export async function submitContestCodingAnswer(contestId, questionId, language, code) {
+  const base = contestApiUrl();
+  if (!base) throw new Error("Submissions aren't configured yet.");
+  if (!auth.currentUser) throw new Error("Sign in to submit.");
+  const idToken = await auth.currentUser.getIdToken();
+  const res = await fetch(`${base}/api/contests/${contestId}/questions/${questionId}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+    body: JSON.stringify({ language, code }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Submission failed.");
+  return data;
+}
+
+// Owner (or admin/that institution's admin, or anyone once the contest has
+// ended - same visibility as the parent submission doc) reads back every
+// coding question this uid has ever submitted for this contest. Keyed by
+// questionId so gradeSubmission's codingResults param can be built directly
+// from this without any reshaping.
+export async function fetchContestCodingResults(contestId, uid) {
+  const snap = await getDocs(collection(db, "contests", contestId, "submissions", uid, "codingResults"));
+  const results = {};
+  snap.docs.forEach(d => { results[d.id] = d.data(); });
+  return results;
 }
 
 // Chunked writeBatch import (200 rows/batch, mirrors institution-contests-panel.jsx's

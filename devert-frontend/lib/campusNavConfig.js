@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, IdCard, BookOpen, CodeXml, BrainCircuit, Calculator,
-  Code2, Briefcase, ClipboardCheck, Trophy, BarChart3, ShieldCheck, GraduationCap,
+  Code2, Briefcase, ClipboardCheck, Trophy, BarChart3, ShieldCheck, GraduationCap, Layers,
 } from "lucide-react";
 
 // The single source of truth for every Campus workspace destination -
@@ -42,14 +42,24 @@ import {
 //   drawer) or "drawerOnly" (drawer only) - the bottom nav's set is
 //   always a strict subset of the drawer's by construction, not by
 //   remembering to keep two lists in sync.
-// - desktopVisibility: whether the desktop rail shows this item. Every
-//   current item is true; the field exists so a future mobile-only
-//   destination doesn't need a second parallel array to stay out of the
-//   rail.
+// - desktopVisibility: whether the desktop TOP NAVBAR (CampusTopNavbar)
+//   shows this item. Most items are true; "dashboard" and "learning" are
+//   false because sidebarGlobal already places them in the desktop
+//   CampusContextSidebar instead - a destination lives in exactly one of
+//   the two desktop surfaces, never both.
+// - sidebarGlobal: true for items pinned at the top of the desktop
+//   CampusContextSidebar (above the active module's own contextual
+//   sub-nav) rather than in the horizontal top navbar - see
+//   CampusContextSidebar in campus-app.jsx. Independent of mobile, which
+//   keeps its own bottomNav/drawerOnly placement regardless of this flag.
 export const NAV_ITEMS = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, parentGroup: "root", moduleKey: null, adminOnly: false, urlSegment: "", ownUrl: false, order: 10, mobileVisibility: "bottomNav", desktopVisibility: true },
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, parentGroup: "root", moduleKey: null, adminOnly: false, urlSegment: "", ownUrl: false, order: 10, mobileVisibility: "bottomNav", desktopVisibility: false, sidebarGlobal: true },
   { key: "profile", label: "Profile", icon: IdCard, parentGroup: "root", moduleKey: null, adminOnly: false, urlSegment: null, ownUrl: false, order: 20, mobileVisibility: "bottomNav", desktopVisibility: true },
-  { key: "learning", label: "Daily Learning", icon: BookOpen, parentGroup: "learn", moduleKey: "dailyLearning", adminOnly: false, urlSegment: "daily-learning", ownUrl: true, order: 30, mobileVisibility: "bottomNav", desktopVisibility: true },
+  { key: "learning", label: "Daily Learning", icon: BookOpen, parentGroup: "learn", moduleKey: "dailyLearning", adminOnly: false, urlSegment: "daily-learning", ownUrl: true, order: 30, mobileVisibility: "bottomNav", desktopVisibility: false, sidebarGlobal: true },
+  // Same course shell as the main site's /fundamentals route (components/se/
+  // se-app.jsx) - see CampusFundamentalsTab. ownUrl: true because it owns its
+  // own ?module=/?lesson= sub-state the same way Programming owns ?lang=/?topic=.
+  { key: "fundamentals", label: "Fundamentals", icon: Layers, parentGroup: "learn", moduleKey: "fundamentals", adminOnly: false, urlSegment: null, ownUrl: true, order: 35, mobileVisibility: "drawerOnly", desktopVisibility: true },
   { key: "programming", label: "Programming", icon: CodeXml, parentGroup: "learn", moduleKey: "programming", adminOnly: false, urlSegment: null, ownUrl: true, order: 40, mobileVisibility: "drawerOnly", desktopVisibility: true },
   { key: "csCore", label: "CS Core", icon: BrainCircuit, parentGroup: "learn", moduleKey: "csCore", adminOnly: false, urlSegment: null, ownUrl: true, order: 50, mobileVisibility: "drawerOnly", desktopVisibility: true },
   { key: "aptitude", label: "Aptitude", icon: Calculator, parentGroup: "learn", moduleKey: "aptitude", adminOnly: false, urlSegment: null, ownUrl: true, order: 60, mobileVisibility: "drawerOnly", desktopVisibility: true },
@@ -65,8 +75,8 @@ export const NAV_ITEMS = [
   { key: "companyVault", label: "Company Vault", icon: Briefcase, parentGroup: "learn", moduleKey: "companyPrep", adminOnly: false, urlSegment: "company-vault", ownUrl: false, order: 80, mobileVisibility: "drawerOnly", desktopVisibility: true },
   { key: "assessments", label: "Assessments", icon: ClipboardCheck, parentGroup: "learn", moduleKey: "dailyLearning", adminOnly: false, urlSegment: "assessments", ownUrl: true, order: 90, mobileVisibility: "drawerOnly", desktopVisibility: true },
   { key: "contests", label: "Contests", icon: Trophy, parentGroup: "compete", moduleKey: "contests", adminOnly: false, urlSegment: "contests", ownUrl: false, order: 100, mobileVisibility: "bottomNav", desktopVisibility: true },
-  { key: "leaderboard", label: "Leaderboard", icon: BarChart3, parentGroup: "compete", moduleKey: null, adminOnly: false, urlSegment: "leaderboard", ownUrl: false, order: 110, mobileVisibility: "drawerOnly", desktopVisibility: true },
-  { key: "manage", label: "Manage", icon: ShieldCheck, parentGroup: "admin", moduleKey: null, adminOnly: true, urlSegment: null, ownUrl: true, order: 120, mobileVisibility: "drawerOnly", desktopVisibility: true },
+  { key: "leaderboard", label: "Leaderboard", icon: BarChart3, parentGroup: "compete", moduleKey: null, adminOnly: false, urlSegment: "leaderboard", ownUrl: false, order: 110, mobileVisibility: "drawerOnly", desktopVisibility: false, sidebarGlobal: true },
+  { key: "manage", label: "Manage", icon: ShieldCheck, parentGroup: "admin", moduleKey: null, adminOnly: true, urlSegment: null, ownUrl: true, order: 120, mobileVisibility: "drawerOnly", desktopVisibility: false, sidebarGlobal: true },
 ];
 
 export const GROUP_ORDER = ["root", "learn", "compete", "admin"];

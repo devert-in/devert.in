@@ -597,7 +597,7 @@ function InstitutionsPanel() {
     const unsub = onSnapshot(collection(db, "institutions"), snap => {
       const countById = new Map(snap.docs.map(d => [d.id, d.data().studentCount]));
       setInstitutions(prev => prev.map(inst => countById.has(inst.id) ? { ...inst, studentCount: countById.get(inst.id) } : inst));
-    });
+    }, err => console.error("[onSnapshot:InstitutionsPanel:institutions]", err));
     return unsub;
   }, []);
 
@@ -1346,7 +1346,7 @@ function OpportunitiesPanel() {
             <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="GeeksforGeeks x MongoDB Campus Mantri - Level 2" />
             <Input label="ORGANIZATION NAME" value={form.organizationName} onChange={v => setForm(p => ({ ...p, organizationName: v }))} placeholder="GeeksforGeeks" />
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">TYPE</p>
               <Dropdown value={form.type} onChange={v => setForm(p => ({ ...p, type: v }))} options={OPPORTUNITY_TYPES} className="w-full" />
@@ -1380,12 +1380,12 @@ function OpportunitiesPanel() {
           <StringListField label="SKILLS REQUIRED" items={form.eligibility.skillsRequired} onChange={v => setForm(p => ({ ...p, eligibility: { ...p.eligibility, skillsRequired: v } }))} />
 
           <p className="font-mono text-[10px] text-white/40 tracking-widest pt-2">ADDITIONAL DETAILS</p>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Input label="STIPEND" value={form.details.stipend} onChange={v => setForm(p => ({ ...p, details: { ...p.details, stipend: v } }))} />
             <Input label="SALARY" value={form.details.salary} onChange={v => setForm(p => ({ ...p, details: { ...p.details, salary: v } }))} />
             <Input label="REWARDS" value={form.details.rewards} onChange={v => setForm(p => ({ ...p, details: { ...p.details, rewards: v } }))} />
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">WORK MODE</p>
               <Dropdown value={form.details.workMode} onChange={v => setForm(p => ({ ...p, details: { ...p.details, workMode: v } }))} options={WORK_MODES} className="w-full" />
@@ -3113,7 +3113,7 @@ function AptitudePanel() {
                           placeholder="GATE, Campus Placement" hint={`Recognized: ${APTITUDE_EXAM_TAGS.join(", ")}`} />
 
                         <p className="font-mono text-[9px] text-white/25 tracking-widest pt-1">TIMING &amp; MARKS (optional)</p>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <Input label="EST. TIME (sec)" type="number" value={qForm.estimatedTimeSec} onChange={v => setQForm(p => ({ ...p, estimatedTimeSec: v }))} placeholder="90" />
                           <Input label="MARKS" type="number" value={qForm.marks} onChange={v => setQForm(p => ({ ...p, marks: v }))} placeholder="1" />
                           <Input label="NEGATIVE MARKS" type="number" value={qForm.negativeMarks} onChange={v => setQForm(p => ({ ...p, negativeMarks: v }))} placeholder="0" />
@@ -3245,7 +3245,7 @@ function AptitudeTopicsPanel() {
       {editingId && (
         <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
           <h4 className="font-mono text-sm" style={{ color: "#00FFFF" }}>Editing: {topics.find(t => t.id === editingId)?.name}</h4>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
               <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={["Beginner", "Intermediate", "Advanced"]} className="w-full" />
@@ -3431,7 +3431,7 @@ function ProgrammingLanguagesPanel() {
         <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
           <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Java" />
           <p className="font-mono text-[10px] text-white/30 -mt-1.5">Icon is picked automatically from the name - no emoji, matches the rest of the app.</p>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
               <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={PROGRAMMING_DIFFICULTIES} className="w-full" />
@@ -3572,7 +3572,7 @@ function ProgrammingTopicsPanel({ langId, langName, onBack }) {
             <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Arrays" />
             <Input label="MODULE (groups topics in the roadmap tree)" value={form.module} onChange={v => setForm(p => ({ ...p, module: v }))} placeholder="Fundamentals" />
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: Number(v) || 0 }))} />
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
@@ -3718,7 +3718,7 @@ function CsCoreSubjectsPanel() {
         <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
           <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Operating Systems" />
           <p className="font-mono text-[10px] text-white/30 -mt-1.5">Icon is picked automatically from the name - no emoji, matches the rest of the app.</p>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
               <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={CS_CORE_DIFFICULTIES} className="w-full" />
@@ -3858,7 +3858,7 @@ function CsCoreTopicsPanel({ subjectId, subjectName, onBack }) {
             <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="CPU Scheduling" />
             <Input label="MODULE (groups topics in the roadmap tree)" value={form.module} onChange={v => setForm(p => ({ ...p, module: v }))} placeholder="Process Management" />
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: Number(v) || 0 }))} />
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
@@ -4646,7 +4646,7 @@ function CompanyPrepCategoryRow({ companyId, roundId, category, expanded, onTogg
                   </div>
                 ))}
                 <Textarea label="EXPLANATION (optional)" value={qForm.explanation} onChange={v => setQForm(p => ({ ...p, explanation: v }))} rows={2} placeholder="Why the correct answer is right..." />
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
                     <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
                     <Dropdown value={qForm.difficulty} onChange={v => setQForm(p => ({ ...p, difficulty: v }))}

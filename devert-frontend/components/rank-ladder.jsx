@@ -51,8 +51,8 @@ export function RankLadder() {
               className="mb-3"
             >
               <div
-                className="relative flex items-center gap-4 px-4 py-3 border border-white/6 rounded-lg transition-colors group cursor-default"
-                style={{ width: t.width, background: "rgba(255,255,255,0.02)" }}
+                className="relative flex items-center gap-4 px-4 py-3 border border-white/6 rounded-lg transition-colors group cursor-default max-w-full"
+                style={{ width: t.width, minWidth: 240, background: "rgba(255,255,255,0.02)" }}
               >
                 {/* Glow bar on left */}
                 <div
@@ -63,14 +63,14 @@ export function RankLadder() {
                 <div className="flex-1 min-w-0 ml-2">
                   <div className="flex items-center gap-2">
                     <span
-                      className="font-mono text-xs font-bold tracking-wider"
+                      className="font-mono text-xs font-bold tracking-wider truncate"
                       style={{ color: t.color }}
                     >
                       {t.tier}
                     </span>
-                    {t.locked && <Lock size={10} style={{ color: "rgba(255,255,255,0.2)" }} />}
+                    {t.locked && <Lock size={10} className="flex-shrink-0" style={{ color: "rgba(255,255,255,0.2)" }} />}
                   </div>
-                  <p className="font-mono text-[10px] text-white/30 mt-0.5">{t.req}</p>
+                  <p className="font-mono text-[10px] text-white/30 mt-0.5 truncate">{t.req}</p>
                 </div>
 
                 <span className="font-mono text-[10px] text-white/25 flex-shrink-0">{t.xp} XP</span>

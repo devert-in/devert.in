@@ -14,8 +14,19 @@ import { LanguageLogo } from "@/components/campus/language-logo";
 import { APTITUDE_CATEGORIES } from "@/lib/aptitude";
 import { GATE_SECTIONS } from "@/components/campus/gate/gate-app";
 import { CODELAB_CATEGORIES } from "@/lib/codelab";
+import { fetchPublishedCompanies } from "@/lib/companyPrep";
+import { fetchWeekTests, todayISO } from "@/lib/dailyLearning";
 
 const COLLAPSE_STORAGE_KEY = "campus-drawer-collapsed-groups";
+// Same 4 phase filters as ContestsSidebarList in campus-app.jsx - small and
+// static enough that duplicating the literal array here is simpler than
+// exporting it across an app-shell/peer-component boundary for 4 strings.
+const CONTEST_PHASES = [
+  { key: "all", label: "All Contests" },
+  { key: "live", label: "Live" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "past", label: "Past" },
+];
 
 // The hamburger drawer - full parity with the desktop rail by construction
 // (it renders every NAV_ITEMS entry, the rail's own filter is just a subset
@@ -27,7 +38,8 @@ const COLLAPSE_STORAGE_KEY = "campus-drawer-collapsed-groups";
 // CampusTopNavbar/CampusBottomNav all share.
 export function CampusMobileDrawer({
   open, onClose, institution, slug, tab, goTab, isInstAdmin, hiddenTabKeys,
-  onJumpToManage, onJumpToTrack, onJumpToDsaCategory, onSearchSelect, onRequestExit, themeToggle, onSignOut,
+  onJumpToManage, onJumpToTrack, onJumpToDsaCategory, onJumpToCompany, onJumpToContestPhase, onJumpToAssessment,
+  onSearchSelect, onRequestExit, themeToggle, onSignOut,
 }) {
   const prefersReducedMotion = useReducedMotion();
   // Lazy initializer, not a mount effect - localStorage is already
@@ -61,10 +73,14 @@ export function CampusMobileDrawer({
   // their nav item the same way Manage/Daily Learning already are.
   const [languages, setLanguages] = useState(null);
   const [subjects, setSubjects] = useState(null);
+  const [companies, setCompanies] = useState(null);
+  const [assessmentTests, setAssessmentTests] = useState(null);
   useEffect(() => {
     if (!open) return;
     if (languages === null) fetchLanguages().then(setLanguages).catch(() => setLanguages([]));
     if (subjects === null) fetchSubjects().then(setSubjects).catch(() => setSubjects([]));
+    if (companies === null) fetchPublishedCompanies().then(setCompanies).catch(() => setCompanies([]));
+    if (assessmentTests === null) fetchWeekTests(slug).then(setAssessmentTests).catch(() => setAssessmentTests([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const panelRef = useRef(null);
@@ -139,6 +155,9 @@ export function CampusMobileDrawer({
   const jumpToGateSection = (key) => { onSearchSelect({ tab: "gate", params: { section: key } }); handleClose(); };
   const jumpToAptitude = () => { goTab("aptitude"); handleClose(); };
   const jumpToDsaCat = (cat) => { onJumpToDsaCategory(cat); handleClose(); };
+  const jumpToCompanyItem = (companyId) => { onJumpToCompany(companyId); handleClose(); };
+  const jumpToContestPhaseItem = (phase) => { onJumpToContestPhase(phase); handleClose(); };
+  const jumpToAssessmentItem = (date) => { onJumpToAssessment(date); handleClose(); };
 
   const rowStyle = (active) => ({
     background: active ? CAMPUS.gradientPrimary : "transparent",
@@ -202,7 +221,7 @@ export function CampusMobileDrawer({
                     )}
                     {!collapsed && group.items.map(item => {
                       const hasNested = (item.key === "manage" && isInstAdmin)
-                        || ["learning", "programming", "csCore", "aptitude", "gate", "dsa"].includes(item.key);
+                        || ["learning", "programming", "csCore", "aptitude", "gate", "dsa", "companyVault", "contests", "assessments"].includes(item.key);
                       const nestedOpen = expandedNested.has(item.key);
                       return (
                       <div key={item.key}>
@@ -286,6 +305,45 @@ export function CampusMobileDrawer({
                                 className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
                                 style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
                                 {cat}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "companyVault" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3 max-h-[50vh] overflow-y-auto" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {companies === null ? (
+                              <p className="px-3 py-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>Loading...</p>
+                            ) : companies.map(c => (
+                              <button key={c.id} onClick={() => jumpToCompanyItem(c.id)}
+                                className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                {c.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "contests" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {CONTEST_PHASES.map(f => (
+                              <button key={f.key} onClick={() => jumpToContestPhaseItem(f.key)}
+                                className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.key === "assessments" && nestedOpen && (
+                          <div className="flex flex-col gap-0.5 ml-4 pl-3" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
+                            {assessmentTests === null ? (
+                              <p className="px-3 py-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>Loading...</p>
+                            ) : assessmentTests.length === 0 ? (
+                              <p className="px-3 py-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>None published yet</p>
+                            ) : assessmentTests.map(t => (
+                              <button key={t.date} disabled={t.date > todayISO()} onClick={() => jumpToAssessmentItem(t.date)}
+                                className="flex items-center rounded-lg px-3 text-[12.5px] font-medium text-left transition-colors disabled:opacity-50"
+                                style={{ minHeight: 40, color: CAMPUS.inkSoft }}>
+                                {t.title}
                               </button>
                             ))}
                           </div>

@@ -23,8 +23,8 @@ import com.google.firebase.cloud.FirestoreClient;
 public class FirebaseConfig {
 
     // FIREBASE_SERVICE_ACCOUNT_JSON holds the service-account.json content, either as
-    // raw JSON or base64-encoded (to make pasting a multi-line secret into Render's
-    // dashboard easier) - both are accepted.
+    // raw JSON or base64-encoded (to make pasting a multi-line secret into Cloud
+    // Run's console easier) - both are accepted.
     @Value("${firebase.service-account-json:}")
     private String serviceAccountJson;
 

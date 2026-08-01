@@ -90,7 +90,7 @@ export default function AnalyticsTab({ uid }) {
       </ModuleCard>
 
       <ModuleCard icon={Code2} title="DSA / CODELAB" color="#00FF41" empty={dsa.problemsSolved === 0}>
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div><p className="font-mono text-lg font-bold text-white">{dsa.problemsSolved}</p><p className="font-mono text-[9px] text-white/30">SOLVED</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{dsa.acceptanceRate ?? "-"}{dsa.acceptanceRate != null && "%"}</p><p className="font-mono text-[9px] text-white/30">ACCEPTANCE RATE</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{dsa.totalSubmissions}</p><p className="font-mono text-[9px] text-white/30">SUBMISSIONS</p></div>
@@ -115,7 +115,7 @@ export default function AnalyticsTab({ uid }) {
       </ModuleCard>
 
       <ModuleCard icon={BookOpen} title="DAILY LEARNING" color="#00FF41" empty={dailyLearning.daysCompleted === 0}>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div><p className="font-mono text-lg font-bold text-white">{dailyLearning.daysCompleted}</p><p className="font-mono text-[9px] text-white/30">DAYS DONE</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{dailyLearning.avgMcqScorePct ?? "-"}{dailyLearning.avgMcqScorePct != null && "%"}</p><p className="font-mono text-[9px] text-white/30">AVG QUIZ SCORE</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{dailyLearning.totalProblemsSolved}</p><p className="font-mono text-[9px] text-white/30">PROBLEMS SOLVED</p></div>
@@ -124,7 +124,7 @@ export default function AnalyticsTab({ uid }) {
       </ModuleCard>
 
       <ModuleCard icon={Calculator} title="APTITUDE" color="#FF9500" empty={aptitude.questionsAttempted === 0}>
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
           <div><p className="font-mono text-lg font-bold text-white">{aptitude.topicsCompleted}</p><p className="font-mono text-[9px] text-white/30">TOPICS DONE</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{aptitude.questionsAttempted}</p><p className="font-mono text-[9px] text-white/30">ATTEMPTED</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{aptitude.overallAccuracyPct ?? "-"}{aptitude.overallAccuracyPct != null && "%"}</p><p className="font-mono text-[9px] text-white/30">ACCURACY</p></div>
@@ -145,7 +145,7 @@ export default function AnalyticsTab({ uid }) {
       </ModuleCard>
 
       <ModuleCard icon={Cpu} title="PROGRAMMING" color="#00FFFF" empty={programming.languagesEnrolled === 0}>
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div><p className="font-mono text-lg font-bold text-white">{programming.languagesEnrolled}</p><p className="font-mono text-[9px] text-white/30">LANGUAGES</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{programming.totalTopicsCompleted}</p><p className="font-mono text-[9px] text-white/30">TOPICS DONE</p></div>
           <div><p className="font-mono text-sm font-bold text-white truncate">{programming.currentLanguage || "-"}</p><p className="font-mono text-[9px] text-white/30">CURRENT</p></div>
@@ -168,7 +168,7 @@ export default function AnalyticsTab({ uid }) {
       </ModuleCard>
 
       <ModuleCard icon={Briefcase} title="COMPANY VAULT" color="#FFD700" empty={companyVault.companiesStarted === 0}>
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div><p className="font-mono text-lg font-bold text-white">{companyVault.totalSolved}</p><p className="font-mono text-[9px] text-white/30">SOLVED</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{companyVault.companiesCompleted}/{companyVault.companiesStarted}</p><p className="font-mono text-[9px] text-white/30">COMPANIES DONE</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{companyVault.totalBookmarked}</p><p className="font-mono text-[9px] text-white/30">BOOKMARKED</p></div>

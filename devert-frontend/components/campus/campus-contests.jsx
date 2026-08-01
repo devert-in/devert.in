@@ -1,17 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle } from "lucide-react";
+import dynamic from "next/dynamic";
+import { CheckCircle2, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle, Pause, Play, Send } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchContest, fetchContestQuestions, fetchContestAnswerKeys, fetchMyRegistration,
   fetchMySubmission, registerForContest, submitContestAnswers, contestPhase,
   gradeSubmission, persistGrading, fetchLeaderboard, fetchMyRank,
   getContestSettings, isSettingReleased, isAnswerCorrect,
+  fetchContestCodingResults, submitContestCodingAnswer,
+  fetchContestQuestionSampleTests,
 } from "@/lib/contests";
+import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
+import { ContestShareButton } from "@/components/campus/contest-share";
 import { seededShuffle } from "@/lib/quizRandom";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusBreadcrumb, CampusButton, CampusSkeleton, CampusEmptyState, CampusTable } from "@/components/campus/campus-ui";
+
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 // Native, light-themed port of components/contests/{attempt,details,results}-view.jsx
 // for DeVert Campus - reuses every read/write/grading/shuffle function from
@@ -283,6 +290,73 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
               <ListChecks size={14} /> leaderboard
             </button>
           )}
+          {/* Shown in every phase, including past - a finished contest's link
+              is still worth passing around for its results and leaderboard. */}
+          <ContestShareButton contestId={contestId} title={contest.title}
+            startText={start ? start.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : ""} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------- Attempt: coding question panel ----------------
+
+function ContestCodingPanel({ state, isPaused, onLanguageChange, onCodeChange, onRun, onSubmit }) {
+  if (!state) return <CampusSkeleton variant="rect" height={300} />;
+  const { language, code, sampleTests, sampleTestsLoaded, running, runResults, submitting, result, error } = state;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-1.5 flex-wrap">
+        {CODELAB_LANGUAGES.map(l => (
+          <button key={l.id} disabled={isPaused} onClick={() => onLanguageChange(l.id)}
+            className="text-[11px] font-mono px-2.5 py-1 rounded-lg disabled:opacity-40"
+            style={{ color: language === l.id ? CAMPUS.teal : CAMPUS.inkSoft, background: language === l.id ? CAMPUS.tealTint : CAMPUS.surface, border: `1px solid ${language === l.id ? CAMPUS.teal : CAMPUS.line}` }}>
+            {l.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}`, height: 320 }}>
+        <MonacoEditor height="100%" language={CODELAB_LANGUAGES.find(l => l.id === language)?.monacoId || "plaintext"}
+          theme="light" value={code} onChange={v => onCodeChange(v || "")}
+          options={{ fontSize: 13, minimap: { enabled: false }, automaticLayout: true, wordWrap: "on", readOnly: isPaused }} />
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={onRun} disabled={running || isPaused || !sampleTestsLoaded || sampleTests.length === 0}
+          className="flex-1 text-xs font-semibold py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+          style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+          <Play size={12} /> {running ? "running..." : "run sample tests"}
+        </button>
+        <button onClick={onSubmit} disabled={submitting || isPaused}
+          className="flex-1 text-xs font-semibold py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+          style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
+          <Send size={12} /> {submitting ? "submitting..." : "submit for grading"}
+        </button>
+      </div>
+
+      {error && <p className="text-[11px]" style={{ color: CAMPUS.bad }}>{error}</p>}
+
+      {runResults && (
+        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
+          {runResults.map((r, i) => (
+            <div key={i} className="px-3 py-2 text-[11.5px]" style={{ background: CAMPUS.surface, borderTop: i > 0 ? `1px solid ${CAMPUS.line}` : "none" }}>
+              <span className="flex items-center gap-1.5" style={{ color: r.passed ? CAMPUS.good : CAMPUS.bad }}>
+                {r.passed ? <CheckCircle2 size={12} /> : <XCircle size={12} />} {r.label}: {r.passed ? "Passed" : "Failed"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {result && (
+        <div className="rounded-lg p-3" style={{ background: result.verdict === "Accepted" ? CAMPUS.goodTint : CAMPUS.warnTint }}>
+          <p className="text-[12.5px] font-semibold" style={{ color: result.verdict === "Accepted" ? CAMPUS.good : CAMPUS.warn }}>
+            {result.verdict} - {result.testsPassed}/{result.testsTotal} tests passed - {result.score}/{result.maxScore} marks
+          </p>
+          <p className="text-[10.5px] mt-1" style={{ color: CAMPUS.inkFaint }}>You can keep editing and resubmit - the latest submission is what counts.</p>
         </div>
       )}
     </div>
@@ -304,6 +378,19 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // Admin Pause/Extend/Reduce Time (campus-contest-dashboard.jsx's Lifecycle
+  // panel) write straight to the contest doc - this screen has to actually
+  // notice, not just gate entry once at load(). isPaused freezes the tick
+  // effect below (no countdown, no auto-submit); the poll effect refreshes
+  // secondsLeft from the contest doc's current contestEnd so an Extend/
+  // Reduce mid-attempt takes effect without the student reloading the page.
+  const [isPaused, setIsPaused] = useState(false);
+  // Coding questions live outside `answers` entirely - keyed by questionId:
+  // { language, code, sampleTests, running, runResults, submitting, result, error }.
+  // Submitted per-question (submitContestCodingAnswer), not part of the final
+  // handleSubmit() below - a compile/run round-trip can't wait for one
+  // end-of-contest submit the way MCQs do.
+  const [codingByQuestion, setCodingByQuestion] = useState({});
 
   const answersRef = useRef({});
   const startedAtRef = useRef(null);
@@ -328,6 +415,58 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
   };
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
+
+  // Lazy-init a coding question's editor state (+ fetch its client-visible
+  // sample tests) the first time it's actually visited, not for every
+  // question up front - most contests mix a handful of coding questions with
+  // many MCQs.
+  useEffect(() => {
+    const q = questions[qIndex];
+    if (!q || q.type !== "coding" || codingByQuestion[q.id]) return;
+    setCodingByQuestion(p => ({ ...p, [q.id]: {
+      language: "java", code: STARTER_CODE.java, sampleTests: [], sampleTestsLoaded: false,
+      running: false, runResults: null, submitting: false, result: null, error: "",
+    } }));
+    fetchContestQuestionSampleTests(contestId, q.id).then(tests => {
+      setCodingByQuestion(p => ({ ...p, [q.id]: { ...p[q.id], sampleTests: tests, sampleTestsLoaded: true } }));
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qIndex, questions]);
+
+  const patchCoding = (questionId, patch) =>
+    setCodingByQuestion(p => ({ ...p, [questionId]: { ...p[questionId], ...patch } }));
+
+  const handleCodingRun = async (questionId) => {
+    const c = codingByQuestion[questionId];
+    if (!c) return;
+    patchCoding(questionId, { running: true, error: "", runResults: null });
+    try {
+      const results = await Promise.all(c.sampleTests.map(async (t, i) => {
+        const res = await runCode({ language: c.language, code: c.code, stdin: t.input });
+        const pass = (res.stdout || "").trim() === (t.expectedOutput || "").trim();
+        return { label: `Sample ${i + 1}`, passed: pass, expected: t.expectedOutput, actual: res.stdout, stderr: res.stderr };
+      }));
+      patchCoding(questionId, { runResults: results });
+    } catch (e) {
+      patchCoding(questionId, { error: e.message || "Run failed." });
+    } finally {
+      patchCoding(questionId, { running: false });
+    }
+  };
+
+  const handleCodingSubmit = async (questionId) => {
+    const c = codingByQuestion[questionId];
+    if (!c) return;
+    patchCoding(questionId, { submitting: true, error: "" });
+    try {
+      const result = await submitContestCodingAnswer(contestId, questionId, c.language, c.code);
+      patchCoding(questionId, { result });
+    } catch (e) {
+      patchCoding(questionId, { error: e.message || "Submission failed." });
+    } finally {
+      patchCoding(questionId, { submitting: false });
+    }
+  };
 
   const [loadError, setLoadError] = useState(false);
 
@@ -362,6 +501,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
 
       setContest(c);
       setQuestions(shuffled);
+      setIsPaused(!!c.paused);
       setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
       questionEnteredAtRef.current = Date.now();
       setLoading(false);
@@ -398,11 +538,35 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
 
   useEffect(() => {
     if (secondsLeft === null || submitted) return;
+    if (isPaused) return; // frozen - no countdown, no auto-submit while paused
     if (secondsLeft <= 0) { handleSubmit(); return; }
     const t = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [secondsLeft, submitted]);
+  }, [secondsLeft, submitted, isPaused]);
+
+  // Re-checks the contest doc periodically (not a live listener - a 10s poll
+  // is plenty fresh for a pause/extend/reduce admin action, and far cheaper
+  // than an onSnapshot per concurrent test-taker on contest day) so Pause/
+  // Resume/Extend/Reduce Time actually reach a student already mid-attempt,
+  // not just one who hasn't loaded the page yet.
+  useEffect(() => {
+    if (loading || blocked || submitted || !contest) return;
+    const poll = setInterval(async () => {
+      try {
+        const c = await fetchContest(contestId);
+        if (!c) return;
+        setIsPaused(!!c.paused);
+        const end = toDate(c.contestEnd).getTime();
+        const capEnd = startedAtRef.current + (c.durationMinutes || 60) * 60 * 1000;
+        const effectiveEnd = Math.min(end, capEnd);
+        setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
+      } catch {
+        // transient - next poll retries, no need to surface a blip to the student
+      }
+    }, 10000);
+    return () => clearInterval(poll);
+  }, [loading, blocked, submitted, contest, contestId]);
 
   if (!user) return <SignInPrompt message="You'll need a DeVert account to take this contest." />;
 
@@ -467,27 +631,42 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
         <p className="text-lg font-bold font-mono" style={{ color: timerColor }}>{h > 0 ? `${pad(h)}:` : ""}{pad(m)}:{pad(s)}</p>
       </div>
 
+      {isPaused && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg mb-5" style={{ background: CAMPUS.warnTint, color: CAMPUS.warn }}>
+          <Pause size={14} className="flex-shrink-0" />
+          <p className="text-[12.5px] font-semibold">Paused by your institution admin - the timer is frozen, hang tight.</p>
+        </div>
+      )}
+
       <div className="flex gap-1.5 flex-wrap mb-5">
-        {questions.map((qq, i) => (
-          <button key={qq.id} onClick={() => goToQuestion(i)}
-            className="w-7 h-7 rounded-lg text-[11px] font-semibold flex items-center justify-center transition-colors"
-            style={{
-              color: i === qIndex ? "#fff" : !isBlank(answers[qq.id]) ? CAMPUS.good : CAMPUS.inkFaint,
-              background: i === qIndex ? CAMPUS.teal : !isBlank(answers[qq.id]) ? CAMPUS.goodTint : CAMPUS.paper,
-              border: `1px solid ${i === qIndex ? CAMPUS.teal : CAMPUS.line}`,
-            }}>
-            {i + 1}
-          </button>
-        ))}
+        {questions.map((qq, i) => {
+          const answered = qq.type === "coding" ? !!codingByQuestion[qq.id]?.result : !isBlank(answers[qq.id]);
+          return (
+            <button key={qq.id} disabled={isPaused} onClick={() => goToQuestion(i)}
+              className="w-7 h-7 rounded-lg text-[11px] font-semibold flex items-center justify-center transition-colors disabled:opacity-40"
+              style={{
+                color: i === qIndex ? "#fff" : answered ? CAMPUS.good : CAMPUS.inkFaint,
+                background: i === qIndex ? CAMPUS.teal : answered ? CAMPUS.goodTint : CAMPUS.paper,
+                border: `1px solid ${i === qIndex ? CAMPUS.teal : CAMPUS.line}`,
+              }}>
+              {i + 1}
+            </button>
+          );
+        })}
       </div>
 
       <CampusCard className="p-5">
         <p className="text-[13px] leading-relaxed mb-5 whitespace-pre-wrap" style={{ color: CAMPUS.ink }}>{q.question}</p>
 
-        {q.type === "fillblank" ? (
-          <input value={answers[q.id] || ""} onChange={e => setAnswer(e.target.value)}
+        {q.type === "coding" ? (
+          <ContestCodingPanel state={codingByQuestion[q.id]} isPaused={isPaused}
+            onLanguageChange={lang => patchCoding(q.id, { language: lang, code: STARTER_CODE[lang] || "" })}
+            onCodeChange={code => patchCoding(q.id, { code })}
+            onRun={() => handleCodingRun(q.id)} onSubmit={() => handleCodingSubmit(q.id)} />
+        ) : q.type === "fillblank" ? (
+          <input value={answers[q.id] || ""} onChange={e => setAnswer(e.target.value)} disabled={isPaused}
             placeholder="type your answer..."
-            className="w-full text-sm px-4 py-3 rounded-lg outline-none"
+            className="w-full text-sm px-4 py-3 rounded-lg outline-none disabled:opacity-50"
             style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
         ) : (
           <div className="space-y-2">
@@ -496,7 +675,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
               const current = answers[q.id];
               const isSelected = isMulti ? (current || []).includes(opt.id) : current === opt.id;
               return (
-                <button key={opt.id} onClick={() => {
+                <button key={opt.id} disabled={isPaused} onClick={() => {
                   if (isMulti) {
                     const arr = answers[q.id] || [];
                     setAnswer(arr.includes(opt.id) ? arr.filter(i => i !== opt.id) : [...arr, opt.id]);
@@ -504,7 +683,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
                     setAnswer(opt.id);
                   }
                 }}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 rounded-lg text-left transition-colors"
+                  className="w-full flex items-center gap-2.5 px-4 py-3 rounded-lg text-left transition-colors disabled:opacity-50"
                   style={{
                     background: isSelected ? CAMPUS.tealTint : CAMPUS.paper,
                     border: `1px solid ${isSelected ? CAMPUS.teal + "60" : CAMPUS.line}`,
@@ -523,19 +702,19 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
         )}
 
         <div className="flex gap-3 mt-6">
-          <button onClick={() => goToQuestion(Math.max(0, qIndex - 1))} disabled={qIndex === 0}
+          <button onClick={() => goToQuestion(Math.max(0, qIndex - 1))} disabled={qIndex === 0 || isPaused}
             className="text-xs px-4 py-2.5 rounded-lg transition-colors disabled:opacity-30"
             style={{ color: CAMPUS.inkFaint, border: `1px solid ${CAMPUS.line}` }}>
             ← prev
           </button>
           {qIndex < questions.length - 1 ? (
-            <button onClick={() => goToQuestion(Math.min(questions.length - 1, qIndex + 1))}
-              className="flex-1 text-xs font-semibold py-2.5 rounded-lg transition-colors"
+            <button onClick={() => goToQuestion(Math.min(questions.length - 1, qIndex + 1))} disabled={isPaused}
+              className="flex-1 text-xs font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-30"
               style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
               next →
             </button>
           ) : (
-            <button onClick={handleSubmit} disabled={submitting}
+            <button onClick={handleSubmit} disabled={submitting || isPaused}
               className="flex-1 text-xs font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
               style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
               {submitting ? "submitting..." : "submit contest"}
@@ -547,7 +726,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults }) {
       {submitError && <p className="text-[11px] mt-3 text-center" style={{ color: CAMPUS.bad }}>{submitError}</p>}
 
       <button onClick={() => { if (window.confirm("Submit your contest now? You can't change answers after this.")) handleSubmit(); }}
-        disabled={submitting}
+        disabled={submitting || isPaused}
         className="w-full mt-4 text-[11px] transition-colors disabled:opacity-30"
         style={{ color: CAMPUS.inkFaint }}>
         submit early
@@ -775,7 +954,8 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
           if (!sub.graded) {
             setGrading(true);
             try {
-              const result = gradeSubmission(qs, keys, sub.answers);
+              const codingResults = await fetchContestCodingResults(contestId, user.uid).catch(() => ({}));
+              const result = gradeSubmission(qs, keys, sub.answers, codingResults);
               await persistGrading(contestId, user.uid, result);
               sub = { ...sub, graded: true, ...result };
               refreshProfile?.();

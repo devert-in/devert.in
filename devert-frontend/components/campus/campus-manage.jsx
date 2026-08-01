@@ -60,6 +60,7 @@ export const MANAGE_TABS = [
   { key: "manageAdmins", label: "Manage Admins" },
   { key: "contests",  label: "Contests" },
   { key: "dailyLearning", label: "Daily Learning" },
+  { key: "fundamentals", label: "Fundamentals" },
   { key: "programming", label: "Programming" },
   { key: "csCore", label: "CS Core" },
   { key: "aptitude", label: "Aptitude" },
@@ -76,7 +77,7 @@ export const MANAGE_TABS = [
 // this table.
 export const MANAGE_TAB_SEGMENT = {
   students: "students", departments: "departments", manageAdmins: "manage-admins", contests: "contests", dailyLearning: "daily-learning",
-  programming: "programming", csCore: "cs-core", aptitude: "aptitude", practice: "practice-dsa",
+  fundamentals: "fundamentals", programming: "programming", csCore: "cs-core", aptitude: "aptitude", practice: "practice-dsa",
   companyPrep: "company-vault", leaderboards: "leaderboards", branding: "branding",
 };
 export const SEGMENT_TO_MANAGE_TAB = Object.fromEntries(Object.entries(MANAGE_TAB_SEGMENT).map(([k, v]) => [v, k]));
@@ -96,6 +97,7 @@ const MANAGE_TAB_PERMISSION = {
   manageAdmins: "faculty.manage",
   contests: "contests.manage",
   dailyLearning: "dailyLearning.publish",
+  fundamentals: "fundamentals.manage",
   programming: "programming.manage",
   csCore: "csCore.manage",
   aptitude: "aptitude.manage",
@@ -256,6 +258,8 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
       {tab === "manageAdmins" && <CampusManageAdmins institutionId={institutionId} />}
       {tab === "contests" && <CampusContestsTab institutionId={institutionId} />}
       {tab === "dailyLearning" && <ManageDailyLearning institutionId={institutionId} />}
+      {tab === "fundamentals" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="fundamentals" moduleLabel="Fundamentals"
+        description="Fundamentals' curriculum is authored once, platform-wide, in Platform Admin - not per campus. What you control here is which of your classrooms can currently open the module at all." />}
       {tab === "programming" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="programming" moduleLabel="Programming"
         description="Programming's language/topic curriculum is authored once, platform-wide, in Platform Admin - not per campus. What you control here is which of your classrooms can currently open the module at all." />}
       {tab === "csCore" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="csCore" moduleLabel="CS Core"

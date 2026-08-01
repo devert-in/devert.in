@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Check, Trash2, Upload, Download, Search, X, AlertTriangle, CheckCircle2, BookOpen,
 } from "lucide-react";
@@ -9,14 +9,16 @@ import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState } from "@/components/campus/campus-ui";
 import Dropdown from "@/components/dropdown";
 import {
-  CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES,
-  blankContestForm, blankContestQuestionForm, CONTEST_CSV_HELP,
+  CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES, CONTEST_TYPES,
+  blankContestForm, blankTargetScope, blankContestQuestionForm, CONTEST_CSV_HELP,
   downloadContestCsvTemplate, csvRowsToContestQuestions, parseCSV, xlsxToCsvText,
-  createContest, updateContest, fetchContest, validateContestForPublish,
+  createContest, updateContest, fetchContest, validateContestForPublish, transitionContestLifecycle,
   addContestQuestion, updateContestQuestion, deleteContestQuestion, importContestQuestionsBatch,
   setContestQuestionCount, fetchContestQuestions, fetchContestAnswerKeys,
   fetchQuestionBank, saveToQuestionBank,
+  saveContestCodingTests, fetchContestQuestionSampleTests, fetchContestQuestionHiddenTests,
 } from "@/lib/contests";
+import { DEPARTMENTS, YEARS, fetchClassrooms, fetchRosterStudents } from "@/lib/institutions";
 
 function toDatetimeLocal(v) {
   if (!v) return "";
@@ -33,7 +35,10 @@ function toDatetimeLocal(v) {
 // reached it, so an admin can't jump to "Publish" before there's anything to
 // publish.
 const STEPS = [
-  { key: "details",   label: "Contest Details" },
+  { key: "basic",     label: "Basic Info" },
+  { key: "type",      label: "Contest Type" },
+  { key: "audience",  label: "Target Audience" },
+  { key: "schedule",  label: "Schedule" },
   { key: "questions", label: "Questions" },
   { key: "preview",   label: "Preview" },
   { key: "publish",   label: "Publish" },
@@ -48,6 +53,10 @@ export function questionFormToPayload(qForm) {
   } else if (qForm.type === "truefalse") {
     options = [{ id: "true", text: "True" }, { id: "false", text: "False" }];
     correctOptionIds = [qForm.correctIndices[0] === 1 ? "false" : "true"];
+  } else if (qForm.type === "coding") {
+    // No answerKey at all - see gradeSubmission's dedicated coding branch in
+    // lib/contests.js. sampleTests/hiddenTests are saved separately via
+    // saveContestCodingTests, not part of this payload.
   } else {
     const texts = qForm.options.map(o => o.trim());
     options = LETTERS.map((id, idx) => ({ id, text: texts[idx] })).filter(o => o.text);
@@ -68,6 +77,7 @@ function questionFormValid(qForm) {
   if (!qForm.question.trim()) return false;
   if (qForm.type === "fillblank") return !!qForm.correctText.trim();
   if (qForm.type === "truefalse") return true;
+  if (qForm.type === "coding") return (qForm.hiddenTests || []).some(t => t.input.trim() && t.expectedOutput.trim());
   const texts = qForm.options.map(o => o.trim()).filter(Boolean);
   return texts.length >= 2 && qForm.correctIndices.length > 0;
 }
@@ -96,6 +106,11 @@ export function questionToForm(q) {
     explanation: q.explanation || "", topic: q.topic || "", difficulty: q.difficulty || "medium",
     category: q.category || "", tags: (q.tags || []).join(", "),
     estimatedTimeSec: q.estimatedTimeSec ? String(q.estimatedTimeSec) : "", hintText: q.hintText || "",
+    // Populated separately (fetchContestQuestionSampleTests/HiddenTests are
+    // async, this function isn't) - callers editing an existing coding
+    // question fetch and merge these in right after calling this.
+    sampleTests: q.sampleTests || (q.type === "coding" ? [{ input: "", expectedOutput: "", explanation: "" }] : []),
+    hiddenTests: q.hiddenTests || (q.type === "coding" ? [{ input: "", expectedOutput: "" }] : []),
   };
 }
 
@@ -170,10 +185,11 @@ function StepIndicator({ step, maxStep, onJump }) {
   );
 }
 
-// ---------------- Step 1: Contest Details ----------------
+// ---------------- Step 1: Basic Info ----------------
 
-function ContestDetailsStep({ form, setForm, error, saving, onNext }) {
+function BasicInfoStep({ form, setForm, onNext }) {
   const set = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+  const valid = form.title.trim().length > 0;
   return (
     <CampusCard className="p-5 space-y-4">
       <Field label="Title" value={form.title} onChange={set("title")} placeholder="Weekly Aptitude Challenge #1" />
@@ -188,6 +204,243 @@ function ContestDetailsStep({ form, setForm, error, saving, onNext }) {
         <Field label="Organizer" value={form.organizer} onChange={set("organizer")} placeholder="Placement Cell" />
       </div>
       <Field label="Banner image URL" value={form.bannerUrl} onChange={set("bannerUrl")} placeholder="https://..." />
+      <Field label="Tags (comma separated)" value={form.tags} onChange={set("tags")} placeholder="placement, aptitude" />
+      <p className="text-[11px] -mb-1" style={{ color: CAMPUS.inkFaint }}>
+        Contests no longer grant platform XP/Coins (only Daily Learning, Programming, and CS Core do) - describe any real prize below instead.
+      </p>
+      <Field label="Prize details (optional)" value={form.prizeText} onChange={set("prizeText")} placeholder="Top 3 get certificates" />
+
+      <div className="flex justify-end pt-2">
+        <button onClick={onNext} disabled={!valid}
+          className="text-[13px] font-semibold px-5 py-2.5 rounded-lg disabled:opacity-50"
+          style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
+          Next: Contest Type →
+        </button>
+      </div>
+    </CampusCard>
+  );
+}
+
+// ---------------- Step 2: Contest Type ----------------
+// Purely descriptive/filtering metadata (see CONTEST_TYPES in lib/contests.js)
+// - doesn't gate which question types Step 5 lets an admin add.
+
+function ContestTypeStep({ contestType, setContestType, onNext, onBack }) {
+  return (
+    <div className="space-y-4">
+      <CampusCard className="p-5">
+        <p className="text-[12.5px] mb-4" style={{ color: CAMPUS.inkSoft }}>
+          What kind of contest is this? This only affects how it&apos;s labeled and filtered on the Contests list.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-2.5">
+          {CONTEST_TYPES.map(t => (
+            <button key={t.v} onClick={() => setContestType(t.v)}
+              className="text-left text-[13px] font-semibold px-4 py-3 rounded-xl transition-colors"
+              style={{
+                background: contestType === t.v ? CAMPUS.gradientPrimary : CAMPUS.surface,
+                color: contestType === t.v ? "#fff" : CAMPUS.ink,
+                border: `1px solid ${contestType === t.v ? "transparent" : CAMPUS.line}`,
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </CampusCard>
+      <div className="flex justify-between">
+        <button onClick={onBack} className="text-[13px] font-semibold px-4 py-2.5 rounded-lg" style={{ color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
+          ← Back
+        </button>
+        <button onClick={onNext} className="text-[13px] font-semibold px-5 py-2.5 rounded-lg" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
+          Next: Target Audience →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Step 3: Target Audience ----------------
+// "All Students" (default) keeps every existing contest's only-ever behavior
+// unchanged. "Specific Audience" narrows via matchesTargetScope's exact
+// AND-hierarchy/OR-uids semantics (lib/contests.js) - firestore.rules'
+// isInContestAudience() enforces this same shape server-side, so the wizard
+// can never merely LOOK like it narrowed access without the rule backing it.
+
+function TargetAudienceStep({ institutionId, scope, setScope, onNext, onBack }) {
+  const [classrooms, setClassrooms] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [studentSearch, setStudentSearch] = useState("");
+
+  useEffect(() => {
+    Promise.all([fetchClassrooms(institutionId), fetchRosterStudents(institutionId)])
+      .then(([cls, stu]) => { setClassrooms(cls); setStudents(stu); })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [institutionId]);
+
+  const toggleMode = (mode) => setScope(p => ({ ...p, mode }));
+  const toggleInArray = (key, value) => setScope(p => {
+    const arr = p[key] || [];
+    return { ...p, [key]: arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value] };
+  });
+
+  // Cascading: Section options narrow to what Department/Year picked so far
+  // actually have; Classroom options narrow further still - never a fixed
+  // enum, since sections/classrooms are per-institution real data
+  // (classrooms are one doc per Department x Year x Section combo that
+  // actually exists, see ensureClassroom in lib/institutions.js).
+  const availableSections = useMemo(() => [...new Set(
+    classrooms
+      .filter(c => (scope.departments.length === 0 || scope.departments.includes(c.department))
+        && (scope.years.length === 0 || scope.years.includes(c.year)))
+      .map(c => c.section)
+  )].sort(), [classrooms, scope.departments, scope.years]);
+
+  const availableClassrooms = useMemo(() => classrooms.filter(c =>
+    (scope.departments.length === 0 || scope.departments.includes(c.department))
+    && (scope.years.length === 0 || scope.years.includes(c.year))
+    && (scope.sections.length === 0 || scope.sections.includes(c.section))
+  ), [classrooms, scope.departments, scope.years, scope.sections]);
+
+  const filteredStudents = useMemo(() => {
+    const q = studentSearch.trim().toLowerCase();
+    if (!q) return [];
+    return students.filter(s => s.name?.toLowerCase().includes(q) || s.rollNumber?.toLowerCase().includes(q));
+  }, [students, studentSearch]);
+
+  const pickerBtn = (active) => ({
+    className: "text-[11.5px] font-mono px-2.5 py-1.5 rounded-lg",
+    style: { color: active ? CAMPUS.teal : CAMPUS.inkSoft, background: active ? CAMPUS.tealTint : CAMPUS.surface, border: `1px solid ${active ? CAMPUS.teal : CAMPUS.line}` },
+  });
+
+  return (
+    <div className="space-y-4">
+      <CampusCard className="p-5 space-y-4">
+        <div className="flex gap-2">
+          <button onClick={() => toggleMode("all")} className="flex-1 text-[12.5px] font-semibold px-4 py-3 rounded-lg transition-colors"
+            style={{ background: scope.mode === "all" ? CAMPUS.gradientPrimary : "transparent", color: scope.mode === "all" ? "#fff" : CAMPUS.inkSoft, border: `1px solid ${scope.mode === "all" ? "transparent" : CAMPUS.line}` }}>
+            All Students
+          </button>
+          <button onClick={() => toggleMode("scoped")} className="flex-1 text-[12.5px] font-semibold px-4 py-3 rounded-lg transition-colors"
+            style={{ background: scope.mode === "scoped" ? CAMPUS.gradientPrimary : "transparent", color: scope.mode === "scoped" ? "#fff" : CAMPUS.inkSoft, border: `1px solid ${scope.mode === "scoped" ? "transparent" : CAMPUS.line}` }}>
+            Specific Audience
+          </button>
+        </div>
+        <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+          {scope.mode === "all"
+            ? "Every approved student at your institution can see and register for this contest."
+            : "Only students matching the filters below (or individually added) can see and register. Leaving every filter empty still matches everyone - pick at least one to actually narrow it down."}
+        </p>
+      </CampusCard>
+
+      {scope.mode === "scoped" && (loading ? (
+        <CampusCard className="p-5"><CampusSkeleton variant="rect" height={120} /></CampusCard>
+      ) : (
+        <>
+          <CampusCard className="p-5 space-y-4">
+            <div>
+              <p className="text-[11px] font-mono tracking-wide mb-2" style={{ color: CAMPUS.inkFaint }}>DEPARTMENT</p>
+              <div className="flex flex-wrap gap-1.5">
+                {DEPARTMENTS.map(d => (
+                  <button key={d} onClick={() => toggleInArray("departments", d)} {...pickerBtn(scope.departments.includes(d))}>{d}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] font-mono tracking-wide mb-2" style={{ color: CAMPUS.inkFaint }}>YEAR</p>
+              <div className="flex flex-wrap gap-1.5">
+                {YEARS.map(y => (
+                  <button key={y} onClick={() => toggleInArray("years", y)} {...pickerBtn(scope.years.includes(y))}>{y}</button>
+                ))}
+              </div>
+            </div>
+            {availableSections.length > 0 && (
+              <div>
+                <p className="text-[11px] font-mono tracking-wide mb-2" style={{ color: CAMPUS.inkFaint }}>SECTION</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {availableSections.map(s => (
+                    <button key={s} onClick={() => toggleInArray("sections", s)} {...pickerBtn(scope.sections.includes(s))}>Section {s}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {availableClassrooms.length > 0 && (
+              <div>
+                <p className="text-[11px] font-mono tracking-wide mb-2" style={{ color: CAMPUS.inkFaint }}>SPECIFIC CLASSROOM (optional, narrows further)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {availableClassrooms.map(c => (
+                    <button key={c.id} onClick={() => toggleInArray("classroomIds", c.id)} {...pickerBtn(scope.classroomIds.includes(c.id))}>
+                      {c.department} · {c.year} · {c.section}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CampusCard>
+
+          <CampusCard className="p-5 space-y-3">
+            <p className="text-[12.5px] font-semibold" style={{ color: CAMPUS.ink }}>
+              Add specific students {scope.uids.length > 0 && `(${scope.uids.length} added)`}
+            </p>
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CAMPUS.inkFaint }} />
+              <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)} placeholder="Search by name or roll number..."
+                className="w-full text-[12.5px] pl-8 pr-3 py-2 rounded-lg outline-none"
+                style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+            </div>
+            {studentSearch.trim() && (
+              <div className="rounded-lg overflow-hidden max-h-56 overflow-y-auto" style={{ border: `1px solid ${CAMPUS.line}` }}>
+                {filteredStudents.length === 0 ? (
+                  <p className="text-[12px] px-3 py-3" style={{ color: CAMPUS.inkFaint }}>No matching students.</p>
+                ) : filteredStudents.slice(0, 30).map((s, i) => (
+                  <label key={s.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer"
+                    style={{ background: CAMPUS.surface, borderTop: i > 0 ? `1px solid ${CAMPUS.line}` : "none" }}>
+                    <input type="checkbox" checked={scope.uids.includes(s.id)} onChange={() => toggleInArray("uids", s.id)} />
+                    <span className="text-[12.5px] flex-1 truncate" style={{ color: CAMPUS.ink }}>{s.name}</span>
+                    <span className="text-[10.5px] font-mono flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{s.rollNumber}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {scope.uids.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {scope.uids.map(uid => {
+                  const s = students.find(st => st.id === uid);
+                  return (
+                    <CampusChip key={uid} color={CAMPUS.teal}>
+                      {s?.name || uid}
+                      <button onClick={() => toggleInArray("uids", uid)}><X size={10} /></button>
+                    </CampusChip>
+                  );
+                })}
+              </div>
+            )}
+          </CampusCard>
+        </>
+      ))}
+
+      <div className="flex justify-between">
+        <button onClick={onBack} className="text-[13px] font-semibold px-4 py-2.5 rounded-lg" style={{ color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
+          ← Back
+        </button>
+        <button onClick={onNext} className="text-[13px] font-semibold px-5 py-2.5 rounded-lg" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
+          Next: Schedule →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Step 4: Schedule ----------------
+// The one step that actually persists the contest (create on first visit,
+// update on every subsequent one) - by now every required field (title,
+// contestType, targetScope, and the dates collected right here) is known,
+// so there's no half-configured draft written earlier in the flow.
+
+function ContestScheduleStep({ form, setForm, error, saving, onNext, onBack }) {
+  const set = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+  return (
+    <CampusCard className="p-5 space-y-4">
       <div className="grid sm:grid-cols-2 gap-3">
         <Field label="Registration start" type="datetime-local" value={form.registrationStart} onChange={set("registrationStart")} />
         <Field label="Registration end" type="datetime-local" value={form.registrationEnd} onChange={set("registrationEnd")} />
@@ -198,16 +451,22 @@ function ContestDetailsStep({ form, setForm, error, saving, onNext }) {
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         <Field label="Duration (minutes)" type="number" value={form.durationMinutes} onChange={set("durationMinutes")} />
-        <Field label="Tags (comma separated)" value={form.tags} onChange={set("tags")} placeholder="placement, aptitude" />
+        <Field label="Grace period (minutes)" type="number" value={form.graceMinutes} onChange={set("graceMinutes")} placeholder="0" />
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Field label="Publish results at (optional)" type="datetime-local" value={form.resultPublishAt} onChange={set("resultPublishAt")} />
+        <Field label="Publish leaderboard at (optional)" type="datetime-local" value={form.leaderboardPublishAt} onChange={set("leaderboardPublishAt")} />
       </div>
       <p className="text-[11px] -mb-1" style={{ color: CAMPUS.inkFaint }}>
-        Contests no longer grant platform XP/Coins (only Daily Learning, Programming, and CS Core do) - describe any real prize below instead.
+        Leave the two publish fields empty to release results/leaderboard immediately once evaluation finishes.
       </p>
-      <Field label="Prize details (optional)" value={form.prizeText} onChange={set("prizeText")} placeholder="Top 3 get certificates" />
 
       {error && <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>{error}</p>}
 
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-between pt-2">
+        <button onClick={onBack} className="text-[13px] font-semibold px-4 py-2.5 rounded-lg" style={{ color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
+          ← Back
+        </button>
         <button onClick={onNext} disabled={saving}
           className="text-[13px] font-semibold px-5 py-2.5 rounded-lg disabled:opacity-50"
           style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
@@ -218,13 +477,49 @@ function ContestDetailsStep({ form, setForm, error, saving, onNext }) {
   );
 }
 
-// ---------------- Step 2: Questions ----------------
+// ---------------- Step 5: Questions ----------------
 
 const ADD_MODES = [
   { key: "manual", label: "Add Manually" },
   { key: "bank",   label: "From Question Bank" },
   { key: "bulk",   label: "Bulk Upload" },
 ];
+
+// Shared by a coding question's sample (client-visible) and hidden
+// (grading-only, never shown to a student) test case lists - same
+// input/expectedOutput shape saveContestCodingTests writes to Firestore,
+// edited as a plain in-memory array until the question itself is saved.
+function CodingTestCaseList({ label, hint, tests, setTests, includeExplanation = false }) {
+  const update = (idx, field, value) => setTests(tests.map((t, i) => i === idx ? { ...t, [field]: value } : t));
+  const addRow = () => setTests([...tests, includeExplanation ? { input: "", expectedOutput: "", explanation: "" } : { input: "", expectedOutput: "" }]);
+  const removeRow = (idx) => setTests(tests.filter((_, i) => i !== idx));
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-mono tracking-wide" style={{ color: CAMPUS.inkFaint }}>{label}</p>
+        <button onClick={addRow} className="text-[11px] font-semibold" style={{ color: CAMPUS.teal }}>+ add test case</button>
+      </div>
+      {hint && <p className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{hint}</p>}
+      {tests.map((t, i) => (
+        <div key={i} className="rounded-lg p-3 space-y-2" style={{ border: `1px solid ${CAMPUS.line}` }}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>Test {i + 1}</span>
+            {tests.length > 1 && (
+              <button onClick={() => removeRow(i)} style={{ color: CAMPUS.bad }}><Trash2 size={12} /></button>
+            )}
+          </div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <Field label="Input (stdin)" value={t.input} onChange={v => update(i, "input", v)} textarea />
+            <Field label="Expected output" value={t.expectedOutput} onChange={v => update(i, "expectedOutput", v)} textarea />
+          </div>
+          {includeExplanation && (
+            <Field label="Explanation (optional, shown to student)" value={t.explanation || ""} onChange={v => update(i, "explanation", v)} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function QuestionEditorForm({ qForm, setQForm, onSave, saving, submitLabel = "Add question" }) {
   const valid = questionFormValid(qForm);
@@ -252,6 +547,15 @@ export function QuestionEditorForm({ qForm, setQForm, onSave, saving, submitLabe
             </button>
           ))}
         </div>
+      ) : qForm.type === "coding" ? (
+        <div className="space-y-4">
+          <CodingTestCaseList label="SAMPLE TEST CASES (visible to students)" tests={qForm.sampleTests || []}
+            setTests={arr => setQForm(p => ({ ...p, sampleTests: arr }))} includeExplanation
+            hint="Shown alongside the problem statement so a student can sanity-check their code before submitting." />
+          <CodingTestCaseList label="HIDDEN TEST CASES (used for grading only)" tests={qForm.hiddenTests || []}
+            setTests={arr => setQForm(p => ({ ...p, hiddenTests: arr }))}
+            hint="Never shown to students - these are what actually determine the score." />
+        </div>
       ) : (
         qForm.options.map((opt, oi) => (
           <div key={oi} className="flex items-center gap-2">
@@ -277,10 +581,14 @@ export function QuestionEditorForm({ qForm, setQForm, onSave, saving, submitLabe
           </div>
         ))
       )}
-      <Field label="Explanation" value={qForm.explanation} onChange={v => setQForm(p => ({ ...p, explanation: v }))} placeholder="Why is this the correct answer?" textarea />
+      {qForm.type !== "coding" && (
+        <Field label="Explanation" value={qForm.explanation} onChange={v => setQForm(p => ({ ...p, explanation: v }))} placeholder="Why is this the correct answer?" textarea />
+      )}
       <div className="grid sm:grid-cols-2 gap-2">
         <Field label="Marks" type="number" value={qForm.marks} onChange={v => setQForm(p => ({ ...p, marks: v }))} />
-        <Field label="Negative marks" type="number" value={qForm.negativeMarks} onChange={v => setQForm(p => ({ ...p, negativeMarks: v }))} />
+        {qForm.type !== "coding" && (
+          <Field label="Negative marks" type="number" value={qForm.negativeMarks} onChange={v => setQForm(p => ({ ...p, negativeMarks: v }))} />
+        )}
       </div>
       <div className="grid sm:grid-cols-2 gap-2">
         <Field label="Topic" value={qForm.topic} onChange={v => setQForm(p => ({ ...p, topic: v }))} placeholder="Binary Search" />
@@ -296,7 +604,10 @@ export function QuestionEditorForm({ qForm, setQForm, onSave, saving, submitLabe
       </div>
       {!valid && qForm.question.trim() && (
         <p className="text-[11.5px]" style={{ color: CAMPUS.warn }}>
-          {qForm.type === "fillblank" ? "Add at least one accepted answer." : qForm.type === "truefalse" ? "" : "Add at least 2 options and mark a correct one."}
+          {qForm.type === "fillblank" ? "Add at least one accepted answer."
+            : qForm.type === "truefalse" ? ""
+            : qForm.type === "coding" ? "Add at least one hidden test case with both an input and expected output."
+            : "Add at least 2 options and mark a correct one."}
         </p>
       )}
       <button onClick={onSave} disabled={saving || !valid}
@@ -497,8 +808,16 @@ function ContestQuestionsStep({ institutionId, contestId, questions, setQuestion
     setSaving(true); setError("");
     try {
       const payload = questionFormToPayload(qForm);
-      await addContestQuestion(contestId, payload, questions.length);
-      if (saveToBank) await saveToQuestionBank(institutionId, payload, user?.uid).catch(() => {});
+      const newQuestionId = await addContestQuestion(contestId, payload, questions.length);
+      if (payload.type === "coding") {
+        await saveContestCodingTests(contestId, newQuestionId, qForm.sampleTests, qForm.hiddenTests);
+        // Not saved to the question bank - the bank only stores the plain
+        // MCQ-shaped payload (no sampleTests/hiddenTests subcollections), so
+        // reusing a coding question from it would silently come back with no
+        // test cases at all.
+      } else if (saveToBank) {
+        await saveToQuestionBank(institutionId, payload, user?.uid).catch(() => {});
+      }
       await refresh();
       setQForm(blankContestQuestionForm(qForm.type));
     } catch (e) {
@@ -574,10 +893,12 @@ function ContestQuestionsStep({ institutionId, contestId, questions, setQuestion
         {addMode === "manual" && (
           <div className="space-y-3">
             <QuestionEditorForm qForm={qForm} setQForm={setQForm} onSave={handleAddManual} saving={saving} submitLabel="Add question" />
-            <label className="flex items-center gap-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
-              <input type="checkbox" checked={saveToBank} onChange={e => setSaveToBank(e.target.checked)} />
-              Also save to this institution&apos;s question bank for reuse
-            </label>
+            {qForm.type !== "coding" && (
+              <label className="flex items-center gap-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+                <input type="checkbox" checked={saveToBank} onChange={e => setSaveToBank(e.target.checked)} />
+                Also save to this institution&apos;s question bank for reuse
+              </label>
+            )}
             {error && <p className="text-[12px]" style={{ color: CAMPUS.bad }}>{error}</p>}
           </div>
         )}
@@ -609,7 +930,7 @@ function ContestQuestionsStep({ institutionId, contestId, questions, setQuestion
   );
 }
 
-// ---------------- Step 3: Preview ----------------
+// ---------------- Step 6: Preview ----------------
 
 const DEFAULT_TIME_SEC = { easy: 45, medium: 75, hard: 120 };
 
@@ -630,7 +951,18 @@ function ContestPreviewStep({ contestId, questions, setQuestions, onNext, onBack
   const categories = [...new Set(questions.map(q => q.category).filter(Boolean))];
   const negCount = questions.filter(q => (q.negativeMarks || 0) > 0).length;
 
-  const handleEdit = (q) => { setExpanded(q.id); setEditForm(questionToForm(q)); };
+  const handleEdit = async (q) => {
+    setExpanded(q.id);
+    const form = questionToForm(q);
+    if (q.type === "coding") {
+      const [sampleTests, hiddenTests] = await Promise.all([
+        fetchContestQuestionSampleTests(contestId, q.id), fetchContestQuestionHiddenTests(contestId, q.id),
+      ]);
+      form.sampleTests = sampleTests.length ? sampleTests : form.sampleTests;
+      form.hiddenTests = hiddenTests.length ? hiddenTests : form.hiddenTests;
+    }
+    setEditForm(form);
+  };
 
   const handleSaveEdit = async (questionId) => {
     setSaving(true);
@@ -644,6 +976,9 @@ function ContestPreviewStep({ contestId, questions, setQuestions, onNext, onBack
       }, {
         correctOptionIds: payload.correctOptionIds, correctText: payload.correctText, explanation: payload.explanation,
       });
+      if (payload.type === "coding") {
+        await saveContestCodingTests(contestId, questionId, editForm.sampleTests, editForm.hiddenTests);
+      }
       await refresh();
       setEditForm(null);
     } finally {
@@ -713,7 +1048,7 @@ function ContestPreviewStep({ contestId, questions, setQuestions, onNext, onBack
   );
 }
 
-// ---------------- Step 4: Publish ----------------
+// ---------------- Step 7: Publish ----------------
 
 function ContestPublishStep({ form, questions, publishing, onPublish, onBack }) {
   const { valid, errors } = validateContestForPublish(form, questions);
@@ -758,8 +1093,8 @@ function ContestPublishStep({ form, questions, publishing, onPublish, onBack }) 
 
 export function CampusContestStudio({ institutionId, contestId: initialContestId, onDone, onCancel }) {
   const { user } = useAuth();
-  const [step, setStep] = useState(initialContestId ? 1 : 0);
-  const [maxStep, setMaxStep] = useState(initialContestId ? 3 : 0);
+  const [step, setStep] = useState(initialContestId ? 4 : 0);
+  const [maxStep, setMaxStep] = useState(initialContestId ? 6 : 0);
   const [form, setForm] = useState(blankContestForm());
   const [contestId, setContestId] = useState(initialContestId || null);
   const [questions, setQuestions] = useState([]);
@@ -767,6 +1102,11 @@ export function CampusContestStudio({ institutionId, contestId: initialContestId
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
+
+  const setContestType = (v) => setForm(p => ({ ...p, contestType: v }));
+  const setTargetScope = (updater) => setForm(p => ({
+    ...p, targetScope: typeof updater === "function" ? updater(p.targetScope || blankTargetScope()) : updater,
+  }));
 
   useEffect(() => {
     if (!initialContestId) return;
@@ -777,8 +1117,11 @@ export function CampusContestStudio({ institutionId, contestId: initialContestId
           title: c.title || "", category: c.category || CONTEST_CATEGORIES[0], difficulty: c.difficulty || "Easy",
           bannerUrl: c.bannerUrl || "", description: c.description || "", rules: c.rules || "",
           eligibility: c.eligibility || "", organizer: c.organizer || "", tags: (c.tags || []).join(", "),
+          contestType: c.contestType || "mixed", targetScope: c.targetScope || blankTargetScope(),
           registrationStart: toDatetimeLocal(c.registrationStart), registrationEnd: toDatetimeLocal(c.registrationEnd),
           contestStart: toDatetimeLocal(c.contestStart), contestEnd: toDatetimeLocal(c.contestEnd),
+          graceMinutes: String(c.graceMinutes ?? 0),
+          resultPublishAt: toDatetimeLocal(c.resultPublishAt), leaderboardPublishAt: toDatetimeLocal(c.leaderboardPublishAt),
           durationMinutes: String(c.durationMinutes || 60), prizeXp: String(c.prizeXp || 0), prizeCoins: String(c.prizeCoins || 0),
           prizeText: c.prizeText || "", status: c.status || "draft",
         });
@@ -802,7 +1145,13 @@ export function CampusContestStudio({ institutionId, contestId: initialContestId
     );
   }
 
-  const handleDetailsNext = async () => {
+  // The one save point in the whole wizard - by Step 4 (Schedule), Basic
+  // Info/Contest Type/Target Audience have all only ever touched local
+  // `form` state, so this is the first moment every field createContest()
+  // needs (title, contestStart/End) is actually known. Editing an existing
+  // contest re-saves the full accumulated form here too, not just the
+  // schedule fields, since earlier steps could have changed any of them.
+  const handleScheduleNext = async () => {
     if (!form.title.trim() || !form.contestStart || !form.contestEnd) {
       setError("Title, contest start, and contest end are required.");
       return;
@@ -819,9 +1168,13 @@ export function CampusContestStudio({ institutionId, contestId: initialContestId
           bannerUrl: form.bannerUrl.trim(), description: form.description.trim(), rules: form.rules.trim(),
           eligibility: form.eligibility.trim(), organizer: form.organizer.trim(),
           tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+          contestType: form.contestType || "mixed", targetScope: form.targetScope || blankTargetScope(),
           registrationStart: form.registrationStart ? new Date(form.registrationStart) : new Date(),
           registrationEnd: form.registrationEnd ? new Date(form.registrationEnd) : new Date(form.contestStart),
           contestStart: new Date(form.contestStart), contestEnd: new Date(form.contestEnd),
+          graceMinutes: parseInt(form.graceMinutes) || 0,
+          resultPublishAt: form.resultPublishAt ? new Date(form.resultPublishAt) : null,
+          leaderboardPublishAt: form.leaderboardPublishAt ? new Date(form.leaderboardPublishAt) : null,
           durationMinutes: parseInt(form.durationMinutes) || 60,
           prizeXp: parseInt(form.prizeXp) || 0, prizeCoins: parseInt(form.prizeCoins) || 0,
           prizeText: form.prizeText.trim(),
@@ -830,9 +1183,9 @@ export function CampusContestStudio({ institutionId, contestId: initialContestId
         const id = await createContest(form, institutionId, user?.uid);
         setContestId(id);
       }
-      advance(1);
+      advance(4);
     } catch (e) {
-      setError(e.message || "Failed to save contest details.");
+      setError(e.message || "Failed to save contest schedule.");
     } finally {
       setSaving(false);
     }
@@ -841,7 +1194,13 @@ export function CampusContestStudio({ institutionId, contestId: initialContestId
   const handlePublish = async () => {
     setPublishing(true);
     try {
-      await updateContest(contestId, { status: "published" });
+      // Goes through transitionContestLifecycle, not a raw status write - it
+      // keeps lifecycleState in lockstep with status atomically (draft ->
+      // registrationOpen), so a freshly-published contest never gets stuck
+      // reporting lifecycleState "draft" while status already says
+      // "published" - the dashboard's Lifecycle panel reads lifecycleState
+      // as the source of truth for which transitions to offer next.
+      await transitionContestLifecycle(contestId, "registrationOpen", user?.uid);
       onDone?.(contestId);
     } catch (e) {
       setError(e.message || "Failed to publish.");
@@ -865,19 +1224,30 @@ export function CampusContestStudio({ institutionId, contestId: initialContestId
       <StepIndicator step={step} maxStep={maxStep} onJump={goTo} />
 
       {step === 0 && (
-        <ContestDetailsStep form={form} setForm={setForm} error={error} saving={saving} onNext={handleDetailsNext} />
+        <BasicInfoStep form={form} setForm={setForm} onNext={() => advance(1)} />
       )}
-      {step === 1 && contestId && (
-        <ContestQuestionsStep institutionId={institutionId} contestId={contestId} questions={questions} setQuestions={setQuestions}
+      {step === 1 && (
+        <ContestTypeStep contestType={form.contestType} setContestType={setContestType}
           onNext={() => advance(2)} onBack={() => setStep(0)} />
       )}
       {step === 2 && (
-        <ContestPreviewStep contestId={contestId} questions={questions} setQuestions={setQuestions}
+        <TargetAudienceStep institutionId={institutionId} scope={form.targetScope || blankTargetScope()} setScope={setTargetScope}
           onNext={() => advance(3)} onBack={() => setStep(1)} />
       )}
       {step === 3 && (
+        <ContestScheduleStep form={form} setForm={setForm} error={error} saving={saving} onNext={handleScheduleNext} onBack={() => setStep(2)} />
+      )}
+      {step === 4 && contestId && (
+        <ContestQuestionsStep institutionId={institutionId} contestId={contestId} questions={questions} setQuestions={setQuestions}
+          onNext={() => advance(5)} onBack={() => setStep(3)} />
+      )}
+      {step === 5 && (
+        <ContestPreviewStep contestId={contestId} questions={questions} setQuestions={setQuestions}
+          onNext={() => advance(6)} onBack={() => setStep(4)} />
+      )}
+      {step === 6 && (
         <>
-          <ContestPublishStep form={form} questions={questions} publishing={publishing} onPublish={handlePublish} onBack={() => setStep(2)} />
+          <ContestPublishStep form={form} questions={questions} publishing={publishing} onPublish={handlePublish} onBack={() => setStep(5)} />
           {error && <p className="text-[12.5px] mt-3 text-center" style={{ color: CAMPUS.bad }}>{error}</p>}
         </>
       )}

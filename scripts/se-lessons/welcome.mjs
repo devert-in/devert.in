@@ -95,13 +95,13 @@ That means reading code somebody else wrote, working out which layer a bug lives
 Interviews reflect this. "Build a component" is a junior screen. "Walk me through what happens when a user submits this form" is the question that decides the offer, and it is a systems question wearing an implementation costume.`,
     devertCaseStudy: `DeVert is a live example of a decision this course will teach you to reason about.
 
-It has **no application server in the request path**. The frontend is a static export - plain HTML, CSS and JavaScript on a CDN - and it talks to Firestore directly from the browser. There is no Express or Spring Boot sitting in the middle for the vast majority of what the platform does.
+For the vast majority of what the platform does, **there is no application server in the request path**: the frontend is a static export - plain HTML, CSS and JavaScript on a CDN - and it talks to Firestore directly from the browser, with no Express or Spring Boot sitting in the middle.
 
-That is an unusual choice, and it has a consequence you will meet properly in Module 4: if the browser talks straight to the database, then **the database itself has to enforce every rule**. Who may read what, who may write what, how much a value may change by. In DeVert that lives in a single file of Firestore security rules, and if a rule there is wrong, that is not a small bug - it is the entire vulnerability, because nothing else is checking.
+But DeVert does have a real backend - **a Spring Boot service, deployed on Google Cloud Run** - and what it does is instructive: only the things a browser genuinely cannot be trusted with. Sending email with real SMTP credentials. Grading code against hidden test cases the student must never see. That is the whole list.
 
-There *is* a small backend, and what it does is instructive: only the things a browser genuinely cannot be trusted with. Sending email with real SMTP credentials. Grading code against hidden test cases the student must never see. That is the whole list.
+That split has a consequence you will meet properly in Module 4: if the browser talks straight to the database for everything else, then **the database itself has to enforce every rule**. Who may read what, who may write what, how much a value may change by. In DeVert that lives in a single file of Firestore security rules, and if a rule there is wrong, that is not a small bug - it is the entire vulnerability, because nothing else is checking.
 
-By Module 4 you will be able to say whether that was a good trade. By Module 6 you will understand what it costs.`,
+By Module 4 you will be able to say whether that split was a good trade. By Module 6 you will understand what it costs.`,
     knowledgeChecks: [
       {
         "question": "What gap does this course primarily aim to close?",
@@ -381,7 +381,7 @@ What is genuinely useful about it for an engineer is not the prediction but the 
 It also explains a career fact worth knowing: the highest-leverage engineering work is usually not making something faster, but removing a step that a human was doing because nothing else could.`,
     devertCaseStudy: `DeVert exists because of exactly this property, and its architecture is an unusually literal example.
 
-The platform serves its entire frontend as static files from a CDN and talks to a managed database directly from the browser. There is no application server to scale for the majority of what it does. The practical consequence: the cost of the thousandth student is close to indistinguishable from the cost of the tenth, and the cost of the hundred-thousandth is not much worse.
+The platform serves its entire frontend as static files from a CDN and talks to a managed database directly from the browser, so there is no application server to scale for the majority of what it does - the one exception, a small Spring Boot service on Google Cloud Run for email and code grading, is deliberately kept out of that path (see Module 1). The practical consequence: the cost of the thousandth student is close to indistinguishable from the cost of the tenth, and the cost of the hundred-thousandth is not much worse.
 
 That is what makes it possible for a student to build a learning platform at all. Twenty years ago the same product needed a server rack, a sysadmin and a monthly bill that a college student could not carry. The reason DeVert can exist is that almost every expensive part of it is now someone else's commodity.
 

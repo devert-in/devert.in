@@ -57,7 +57,7 @@ export function subscribeToProblemNotes(uid, callback) {
     const map = {};
     snap.docs.forEach(d => { map[d.data().problemId] = { id: d.id, ...d.data() }; });
     callback(map);
-  });
+  }, err => console.error("[onSnapshot:problemNotes]", err));
 }
 
 export async function upsertProblemNote(uid, problemId, patch) {

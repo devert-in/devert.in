@@ -119,9 +119,9 @@ Request → Learning API → Check Content Access Rules → Render
 **That API tier does not exist, and CLAUDE.md says it deliberately should not.**
 DeVert is a Next.js static export on Firebase Hosting; the browser talks to
 Firestore directly through the client SDK, mostly via live `onSnapshot`
-listeners. The Spring service on Render exists only for SMTP and Judge0 — it is
-on the free plan, in Singapore, and is explicitly designed to fail soft because
-nothing critical depends on it.
+listeners. The Spring service on Google Cloud Run exists only for SMTP and
+Judge0 — it runs as a single instance in `asia-south1` (Mumbai) and is
+explicitly designed to fail soft because nothing critical depends on it.
 
 That leaves two enforcement strategies.
 
@@ -129,8 +129,8 @@ That leaves two enforcement strategies.
 
 Route every content read through a server that evaluates access rules.
 
-- Every lesson open becomes a network round trip to a free-tier Render box,
-  with cold starts measured in seconds
+- Every lesson open becomes a network round trip to a single Cloud Run
+  instance in Mumbai, with cold starts measured in seconds
 - It becomes a hard dependency between students and their content, where today
   there is none
 - It throws away the live-listener model the whole app is built on

@@ -555,7 +555,7 @@ function CampusDailyLearningWeek({ slug, items, trackId = "dsa" }) {
 
 // ---------------- Assessments tab (Saturday master tests) ----------------
 
-export function CampusDailyAssessmentsTab({ slug }) {
+export function CampusDailyAssessmentsTab({ slug, sidebarSlot, jumpToAssessment }) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [tests, setTests] = useState(undefined);
@@ -578,6 +578,22 @@ export function CampusDailyAssessmentsTab({ slug }) {
     fetchWeekTests(slug).then(setTests).catch(() => setTestsError(true));
   };
   useEffect(loadTests, [slug]);
+
+  // Mobile drawer's nested assessment list (see campus-mobile-drawer.jsx)
+  // jumps here the same nonce way Manage/Daily Learning already do - if
+  // `tests` is already loaded this resolves immediately, otherwise it
+  // reuses the exact same pendingTestDateRef the ?test= URL param already
+  // relies on below.
+  useEffect(() => {
+    if (!jumpToAssessment?.date) return;
+    if (tests?.length) {
+      const match = tests.find(t => t.date === jumpToAssessment.date);
+      if (match) setOpenTest(match);
+    } else {
+      pendingTestDateRef.current = jumpToAssessment.date;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpToAssessment?.nonce]);
 
   useEffect(() => {
     if (!tests?.length || !pendingTestDateRef.current) return;
@@ -608,23 +624,37 @@ export function CampusDailyAssessmentsTab({ slug }) {
   useCampusBackHandler(2, !!openTest, () => setOpenTest(null));
   useCampusBackHandler(3, openProblemId !== null, () => setOpenProblemId(null));
 
+  // Portaled into the sidebar the same way every other module's sub-nav is -
+  // computed once and prepended to every branch below (loading/error/open
+  // test/empty/list) so it's visible for the whole time this tab is active,
+  // not just on the plain list view.
+  const sidebar = sidebarSlot && createPortal(
+    <AssessmentsSidebarList tests={tests} logs={logs} activeDate={openTest?.date}
+      onSelect={(t) => setOpenTest(t)} />,
+    sidebarSlot
+  );
+
   if (testsError) {
     return (
-      <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load assessments"
-        description="Check your connection and try again."
-        action={<CampusButton variant="secondary" size="sm" onClick={loadTests}>Retry</CampusButton>} />
+      <>
+        {sidebar}
+        <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load assessments"
+          description="Check your connection and try again."
+          action={<CampusButton variant="secondary" size="sm" onClick={loadTests}>Retry</CampusButton>} />
+      </>
     );
   }
-  if (tests === undefined) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
+  if (tests === undefined) return <>{sidebar}<CampusCard className="p-5"><CampusSkeleton variant="rect" height={54} /></CampusCard></>;
 
   // suppressReward stays true here for the same reason as the Daily Learning
   // week view - the flat per-problem reward is granted separately by
   // CampusDailyLearningItemView's own solved-problem subscription, not by
   // CodeLab's standalone grading path.
-  if (openProblemId) return <CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel={openTest?.title || "Assessments"} suppressReward />;
+  if (openProblemId) return <>{sidebar}<CampusProblemView problemId={openProblemId} onBack={() => setOpenProblemId(null)} backLabel={openTest?.title || "Assessments"} suppressReward /></>;
   if (openTest) {
     return (
       <div>
+        {sidebar}
         <CampusBackButton onClick={() => setOpenTest(null)} label="Back to assessments" />
         <CampusDailyLearningItemView slug={slug} item={openTest} log={logs[openTest.date]}
           onLogged={(log) => setLogs(prev => ({ ...prev, [openTest.date]: log }))}
@@ -634,33 +664,69 @@ export function CampusDailyAssessmentsTab({ slug }) {
   }
 
   if (tests.length === 0) {
-    return <CampusEmptyState icon={ClipboardCheck} title="No assessments scheduled yet" description="Your institution hasn't published a weekly test yet - check back soon." />;
+    return <>{sidebar}<CampusEmptyState icon={ClipboardCheck} title="No assessments scheduled yet" description="Your institution hasn't published a weekly test yet - check back soon." /></>;
   }
 
   return (
-    <div className="grid sm:grid-cols-2 gap-3">
-      {tests.map(t => {
+    <div>
+      {sidebar}
+      <div className="grid sm:grid-cols-2 gap-3">
+        {tests.map(t => {
+          const log = logs[t.date];
+          const locked = t.date > todayISO();
+          return (
+            <button key={t.date} disabled={locked} onClick={() => setOpenTest(t)} className="text-left disabled:cursor-not-allowed">
+              <CampusCard hover={!locked} className="p-5 h-full" style={locked ? { opacity: 0.55 } : undefined}>
+                <div className="flex items-center gap-2 mb-2">
+                  <ClipboardCheck size={14} style={{ color: CAMPUS.purple }} />
+                  <span className="text-[10px] font-mono" style={{ color: CAMPUS.inkFaint }}>{t.date}</span>
+                  {log && <CampusChip color={CAMPUS.good} icon={CheckCircle2} className="ml-auto">DONE</CampusChip>}
+                  {locked && !log && <CampusChip color={CAMPUS.inkFaint} icon={Lock} className="ml-auto">LOCKED</CampusChip>}
+                </div>
+                <b className="block text-[14.5px] mb-1.5" style={{ color: CAMPUS.ink }}>{t.title}</b>
+                <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+                  {(t.problemIds || []).length} coding problems · {(t.mcqs || []).length} MCQs
+                  {log && ` · scored ${log.mcqScore}/${log.mcqTotal}`}
+                </p>
+              </CampusCard>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Assessments' own sidebar - the published weekly tests, portaled the same
+// way Daily Learning's own track list is (see DailyLearningSidebarList
+// above), so a phone/desktop user can jump straight to a specific week's
+// test without going through the list view first.
+function AssessmentsSidebarList({ tests, logs, activeDate, onSelect }) {
+  return (
+    <>
+      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>ASSESSMENTS</div>
+      {tests === undefined ? (
+        <CampusSkeleton height={100} className="mx-1" />
+      ) : tests.length === 0 ? (
+        <p className="px-3 py-2 text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>None published yet</p>
+      ) : tests.map(t => {
         const log = logs[t.date];
         const locked = t.date > todayISO();
+        const active = activeDate === t.date;
         return (
-          <button key={t.date} disabled={locked} onClick={() => setOpenTest(t)} className="text-left disabled:cursor-not-allowed">
-            <CampusCard hover={!locked} className="p-5 h-full" style={locked ? { opacity: 0.55 } : undefined}>
-              <div className="flex items-center gap-2 mb-2">
-                <ClipboardCheck size={14} style={{ color: CAMPUS.purple }} />
-                <span className="text-[10px] font-mono" style={{ color: CAMPUS.inkFaint }}>{t.date}</span>
-                {log && <CampusChip color={CAMPUS.good} icon={CheckCircle2} className="ml-auto">DONE</CampusChip>}
-                {locked && !log && <CampusChip color={CAMPUS.inkFaint} icon={Lock} className="ml-auto">LOCKED</CampusChip>}
-              </div>
-              <b className="block text-[14.5px] mb-1.5" style={{ color: CAMPUS.ink }}>{t.title}</b>
-              <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
-                {(t.problemIds || []).length} coding problems · {(t.mcqs || []).length} MCQs
-                {log && ` · scored ${log.mcqScore}/${log.mcqTotal}`}
-              </p>
-            </CampusCard>
+          <button key={t.date} disabled={locked} onClick={() => onSelect(t)}
+            className="campus-btn flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: active ? CAMPUS.gradientPrimary : "transparent",
+              color: active ? "#fff" : CAMPUS.inkSoft,
+              boxShadow: active ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+            }}>
+            {locked ? <Lock size={13} className="flex-shrink-0" /> : log ? <CheckCircle2 size={13} className="flex-shrink-0" /> : <ClipboardCheck size={13} className="flex-shrink-0" />}
+            <span className="text-[13px] font-medium truncate">{t.title}</span>
           </button>
         );
       })}
-    </div>
+    </>
   );
 }
 

@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Users, BarChart3, Trophy, Download, Pencil, Copy, Archive, Medal, Settings, ChevronDown, ChevronUp, Award, X, Printer, RotateCcw, AlertTriangle } from "lucide-react";
+import { Users, BarChart3, Trophy, Download, Pencil, Copy, Medal, Settings, ChevronDown, ChevronUp, Award, X, Printer, RotateCcw, AlertTriangle, Workflow, Play, Pause } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton, ReportDownloadButton } from "@/components/campus/campus-ui";
 import {
   fetchContest, contestPhase, fetchContestRegistrations, fetchContestSubmissions,
-  fetchLeaderboard, duplicateContest, updateContest, fetchContestQuestions, fetchContestAnswerKeys,
+  fetchLeaderboard, duplicateContest, fetchContestQuestions, fetchContestAnswerKeys,
   isAnswerCorrect, getContestSettings, updateContestSettings, setManualRelease, resetContestAttempt,
+  LIFECYCLE_LABELS, legalNextLifecycleStates, transitionContestLifecycle,
+  pauseContest, resumeContest, extendContestTime, forceEndContest, restartContest,
 } from "@/lib/contests";
 import { fetchApprovedStudents, fetchInstitution } from "@/lib/institutions";
 import { gatherContestResultsReport } from "@/lib/campusReports";
+import { ContestPreviewButton } from "@/components/campus/contest-preview";
 import { useAuth } from "@/context/AuthContext";
 
 function toDate(v) {
@@ -218,6 +221,103 @@ function CampusContestSettingsPanel({ contest, onSaved }) {
   );
 }
 
+// The real admin-driven lifecycle state machine (lib/contests.js's
+// LIFECYCLE_TRANSITIONS) replaces the old hardcoded Publish/Archive action
+// pair - "Archive" now only ever appears here, as whichever legal
+// next-state button it actually is from the current state (draft/hidden/
+// resultsPublished), which keeps lifecycleState and the older `status`
+// field from ever drifting apart the way a raw status toggle could.
+// Un-archiving is intentionally not offered - archived is a terminal state
+// (see LIFECYCLE_TRANSITIONS); "Duplicate" in the header above is the
+// escape hatch for "run this again."
+function CampusContestLifecyclePanel({ contest, uid, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const current = contest.lifecycleState || "draft";
+  const nextStates = legalNextLifecycleStates(current);
+  const isLive = current === "live";
+  const isPaused = !!contest.paused;
+
+  const run = async (fn) => {
+    setBusy(true); setError("");
+    try { await fn(); await onChanged(); }
+    catch (e) { setError(e.message || "That action failed."); }
+    finally { setBusy(false); }
+  };
+
+  const handleExtend = (sign) => {
+    const raw = window.prompt(`${sign > 0 ? "Extend" : "Reduce"} the contest end time by how many minutes?`, "5");
+    const minutes = parseInt(raw);
+    if (!minutes || minutes <= 0) return;
+    run(() => extendContestTime(contest.id, sign * minutes, uid));
+  };
+
+  const handleForceEnd = () => {
+    if (!window.confirm("End submissions right now, ahead of the scheduled end time? Students will no longer be able to submit.")) return;
+    run(() => forceEndContest(contest.id, uid));
+  };
+
+  const handleRestart = () => {
+    if (!window.confirm("Restart this contest? This deletes EVERY existing submission so every registrant can attempt again from scratch. This cannot be undone.")) return;
+    run(() => restartContest(contest.id, uid));
+  };
+
+  return (
+    <CampusCard className="p-4 my-4">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <p className="text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: CAMPUS.ink }}>
+          <Workflow size={13} /> Lifecycle:
+        </p>
+        <CampusChip color={isLive ? CAMPUS.good : CAMPUS.teal}>{LIFECYCLE_LABELS[current] || current}</CampusChip>
+        {isPaused && <CampusChip color={CAMPUS.warn}>PAUSED</CampusChip>}
+      </div>
+
+      {nextStates.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-1">
+          {nextStates.map(s => (
+            <button key={s} disabled={busy} onClick={() => run(() => transitionContestLifecycle(contest.id, s, uid))}
+              className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+              style={{ background: CAMPUS.surface, color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}` }}>
+              → {LIFECYCLE_LABELS[s] || s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isLive && (
+        <div className="mt-3 pt-3 space-y-2" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+          <p className="text-[11px] font-mono tracking-wide" style={{ color: CAMPUS.inkFaint }}>LIVE CONTROLS</p>
+          <div className="flex flex-wrap gap-1.5">
+            <button disabled={busy} onClick={() => run(() => (isPaused ? resumeContest : pauseContest)(contest.id, uid))}
+              className="flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+              style={{ background: isPaused ? CAMPUS.goodTint : CAMPUS.warnTint, color: isPaused ? CAMPUS.good : CAMPUS.warn }}>
+              {isPaused ? <><Play size={12} /> Resume</> : <><Pause size={12} /> Pause</>}
+            </button>
+            <button disabled={busy} onClick={() => handleExtend(1)}
+              className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+              + Extend Time
+            </button>
+            <button disabled={busy} onClick={() => handleExtend(-1)}
+              className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+              − Reduce Time
+            </button>
+            <button disabled={busy} onClick={handleForceEnd}
+              className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>
+              Force End
+            </button>
+            <button disabled={busy} onClick={handleRestart}
+              className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>
+              Restart
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-[12px] mt-2" style={{ color: CAMPUS.bad }}>{error}</p>}
+    </CampusCard>
+  );
+}
+
 // Post-publish landing page for a single contest - the thing that makes
 // "no reason to ever open /admin" actually true: everything a Campus admin
 // would need to check on a live/ended contest lives here.
@@ -286,16 +386,6 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
     try {
       const newId = await duplicateContest(contest, user?.uid);
       onDuplicated?.(newId);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleArchive = async () => {
-    setBusy(true);
-    try {
-      await updateContest(contestId, { status: contest.status === "archived" ? "published" : "archived" });
-      await load();
     } finally {
       setBusy(false);
     }
@@ -399,17 +489,18 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
         </div>
         <div className="flex gap-2 flex-wrap">
           <ReportDownloadButton label="Full Report" size="sm" getReport={() => gatherContestResultsReport(contestId, contest.title)} />
-          <button onClick={() => onEdit?.(contestId)} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+          <ContestPreviewButton contestId={contestId} questionCount={contest.questionCount} />
+          <button onClick={() => onEdit?.(contestId)} title="Edit name, schedule, duration, audience and questions"
+            className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
             <Pencil size={12} /> Edit
           </button>
           <button onClick={handleDuplicate} disabled={busy} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
             <Copy size={12} /> Duplicate
           </button>
-          <button onClick={handleArchive} disabled={busy} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>
-            <Archive size={12} /> {contest.status === "archived" ? "Unarchive" : "Archive"}
-          </button>
         </div>
       </div>
+
+      <CampusContestLifecyclePanel contest={contest} uid={user?.uid} onChanged={load} />
 
       {countdown && (
         <CampusCard className="p-4 text-center my-4">

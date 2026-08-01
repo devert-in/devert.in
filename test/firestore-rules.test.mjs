@@ -778,6 +778,67 @@ test("an institution-scoped contest's questions/answerKeys/submissions/registrat
   await assertSucceeds(outsider.firestore().doc("contests/global-ended/questions/q1").get());
 });
 
+test("a contest's targetScope narrows an institution-scoped contest to matching students only, AND-ing hierarchy filters together", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedContest(ctx, "scoped-contest", {
+      institutionId: "mrcet",
+      targetScope: { mode: "scoped", departments: ["CSE"], years: ["III Year"], sections: [], classroomIds: [], uids: [] },
+    });
+    // Matches both department AND year.
+    await ctx.firestore().doc("institutions/mrcet/students/match-uid").set({ uid: "match-uid", status: "approved", department: "CSE", year: "III Year" });
+    // Right department, wrong year - hierarchy filters AND together, so this must fail.
+    await ctx.firestore().doc("institutions/mrcet/students/wrong-year-uid").set({ uid: "wrong-year-uid", status: "approved", department: "CSE", year: "II Year" });
+    // Wrong department entirely.
+    await ctx.firestore().doc("institutions/mrcet/students/wrong-dept-uid").set({ uid: "wrong-dept-uid", status: "approved", department: "ECE", year: "III Year" });
+  });
+
+  await assertSucceeds(testEnv.authenticatedContext("match-uid").firestore().doc("contests/scoped-contest").get());
+  await assertFails(testEnv.authenticatedContext("wrong-year-uid").firestore().doc("contests/scoped-contest").get());
+  await assertFails(testEnv.authenticatedContext("wrong-dept-uid").firestore().doc("contests/scoped-contest").get());
+});
+
+test("a contest's targetScope.uids grants access to specifically-listed students on top of (not instead of) the hierarchy filters", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedContest(ctx, "scoped-with-uids", {
+      institutionId: "mrcet", contestEnd: FUTURE, registrationEnd: FUTURE,
+      targetScope: { mode: "scoped", departments: ["CSE"], years: [], sections: [], classroomIds: [], uids: ["allowlisted-uid"] },
+    });
+    // Outside the department filter, but explicitly allowlisted by uid.
+    await ctx.firestore().doc("institutions/mrcet/students/allowlisted-uid").set({ uid: "allowlisted-uid", status: "approved", department: "MECH", year: "I Year" });
+    // Outside both the department filter and the allowlist.
+    await ctx.firestore().doc("institutions/mrcet/students/neither-uid").set({ uid: "neither-uid", status: "approved", department: "MECH", year: "I Year" });
+  });
+
+  await assertSucceeds(testEnv.authenticatedContext("allowlisted-uid").firestore().doc("contests/scoped-with-uids/registrations/allowlisted-uid").set({ registeredAt: new Date() }));
+  await assertFails(testEnv.authenticatedContext("neither-uid").firestore().doc("contests/scoped-with-uids/registrations/neither-uid").set({ registeredAt: new Date() }));
+});
+
+test("a scoped contest with every targetScope filter left empty fails open (matches every approved student), not closed", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedContest(ctx, "scoped-but-empty", {
+      institutionId: "mrcet",
+      targetScope: { mode: "scoped", departments: [], years: [], sections: [], classroomIds: [], uids: [] },
+    });
+    await ctx.firestore().doc("institutions/mrcet/students/any-uid").set({ uid: "any-uid", status: "approved", department: "CIVIL", year: "IV Year" });
+  });
+  await assertSucceeds(testEnv.authenticatedContext("any-uid").firestore().doc("contests/scoped-but-empty").get());
+});
+
+test("a student's bounded +-1 participantCount self-update cannot smuggle a lifecycleState/targetScope change alongside it", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedContest(ctx, "lifecycle-c1", { participantCount: 0, lifecycleState: "registrationOpen" });
+  });
+  const user = testEnv.authenticatedContext("random-uid");
+  // participantCount alone, by exactly +1 - still allowed, unchanged from before.
+  await assertSucceeds(user.firestore().doc("contests/lifecycle-c1").update({ participantCount: 1 }));
+  // Same bounded +1, but riding along with a lifecycleState/targetScope change - rejected,
+  // since the self-service branch requires affectedKeys().hasOnly(['participantCount']).
+  await assertFails(user.firestore().doc("contests/lifecycle-c1").update({ participantCount: 1, lifecycleState: "live" }));
+  await assertFails(user.firestore().doc("contests/lifecycle-c1").update({
+    participantCount: 1, targetScope: { mode: "scoped", departments: [], years: [], sections: [], classroomIds: [], uids: ["random-uid"] },
+  }));
+});
+
 // --- Company Prep ---
 
 async function seedCompanyQuestion(ctx, companyId, { status = "published" } = {}) {

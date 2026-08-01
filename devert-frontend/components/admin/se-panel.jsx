@@ -184,7 +184,7 @@ export function SeModulesPanel() {
 
       {(adding || editingId) && (
         <FormBox>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Input label="NUMBER" type="number" value={form.number} onChange={v => setForm(p => ({ ...p, number: v }))} />
             <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
             <Input label="EST. HOURS" type="number" value={form.estimatedHours} onChange={v => setForm(p => ({ ...p, estimatedHours: v }))} />
@@ -355,7 +355,7 @@ function SeLessonsPanel({ moduleId, moduleTitle, onBack }) {
             <Input label="SUBTITLE (one line, shown under the title)" value={form.subtitle}
               onChange={v => setForm(p => ({ ...p, subtitle: v }))}
               placeholder="How a name becomes a number" />
-            <div className="grid grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
               <div>
                 <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>

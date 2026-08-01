@@ -9,8 +9,11 @@ no application server in the request path.
 - `devert-frontend/` — the actual product. Next.js 16 App Router, `output:
   'export'` (static export, no server-side rendering, no API routes).
 - `devert-backend/` — a small Spring Boot service that does ONLY things a
-  browser can't safely do. Deployed on Render (`render.yaml`, free plan,
-  Singapore region). Two jobs:
+  browser can't safely do. Deployed on Google Cloud Run (`asia-south1`/Mumbai
+  — see `NEXT_PUBLIC_API_URL` in `.github/workflows/deploy-prod.yml` and
+  `deploy-mock.yml`, both pointed at the same `*.run.app` URL). `render.yaml`
+  is still in the repo but is not what's actually live — don't trust it as
+  the deployment source of truth. Two jobs:
   - Send real emails (payout status, hackathon registration confirmation)
     using SMTP credentials that must stay server-side. The frontend calls
     this via `NEXT_PUBLIC_API_URL` and no-ops silently if that's unset, so

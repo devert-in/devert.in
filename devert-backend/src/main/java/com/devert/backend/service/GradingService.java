@@ -291,6 +291,25 @@ public class GradingService {
         }).get();
     }
 
+    // Third caller of runProblemTests(), alongside gradeSubmission/gradeArenaSubmission -
+    // ContestGradingService passes a contests/{id}/questions/{qid} reference instead of a
+    // problems/{id} one. Works unmodified because that question doc has the exact same
+    // sampleTests/hiddenTests subcollection shape (input/expectedOutput) as a CodeLab
+    // problem - see lib/contests.js's saveContestCodingTests on the frontend. Returns a
+    // plain Map rather than the private ProblemGradeResult type so a caller in another
+    // class never needs that type visible.
+    public Map<String, Object> gradeAgainstTests(DocumentReference testsOwnerRef, String language, String code) throws Exception {
+        ProblemGradeResult grade = runProblemTests(testsOwnerRef, language.toLowerCase(), code);
+        Map<String, Object> result = new HashMap<>();
+        result.put("verdict", grade.verdict);
+        result.put("testsPassed", grade.passed);
+        result.put("testsTotal", grade.totalTests);
+        result.put("runtimeMs", grade.maxTimeMs);
+        result.put("memoryKb", grade.maxMemoryKb);
+        result.put("accepted", grade.accepted);
+        return result;
+    }
+
     // Shared grading core: runs every sample + hidden test for a problem and
     // aggregates pass/fail - used by both CodeLab's gradeSubmission and Arena's
     // gradeArenaSubmission, which differ only in what happens after (reward shape,

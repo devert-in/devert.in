@@ -474,6 +474,7 @@ export async function fetchLeaderboardSnapshot(institutionId, weekId) {
 // (hide the tab, block the in-app route), not a new content-read boundary.
 export const MODULES = [
   { key: "dailyLearning", label: "Daily Learning" },
+  { key: "fundamentals", label: "Software Engineering Fundamentals" },
   { key: "programming", label: "Programming" },
   { key: "csCore", label: "CS Core" },
   { key: "aptitude", label: "Aptitude" },

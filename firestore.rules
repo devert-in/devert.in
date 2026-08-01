@@ -334,9 +334,56 @@ service cloud.firestore {
       return isAuth() && exists(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid))
         && get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(request.auth.uid)).data.get('contestRestricted', false) == true;
     }
+    // Server-side mirror of matchesTargetScope() in lib/contests.js - keep
+    // both in exact sync. `scope` is a contest's whole targetScope map;
+    // hierarchical filters (departments/years/sections/classroomIds) AND
+    // together when more than one is populated, `uids` ORs on top of that
+    // when both are set or is the sole gate when it's the only filter set,
+    // and a "scoped" contest with every filter left empty fails OPEN
+    // (matches everyone) - same "admin toggled Specific Audience but hasn't
+    // picked anything yet" default as the client. Takes institutionId + uid
+    // directly (not a contestId) so both the contest doc's own list()-safe
+    // inline read rule below (which already has resource.data, no spare
+    // get() needed) and isInContestAudience() right after this (which does
+    // have a contestId to spare) can share one implementation.
+    function contestScopeHasHierarchy(scope) {
+      return scope.get('departments', []).size() > 0 || scope.get('years', []).size() > 0
+        || scope.get('sections', []).size() > 0 || scope.get('classroomIds', []).size() > 0;
+    }
+    function contestScopeHierarchyMatches(scope, institutionId, uid) {
+      return exists(/databases/$(database)/documents/institutions/$(institutionId)/students/$(uid))
+        && (scope.get('departments', []).size() == 0
+          || get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(uid)).data.get('department', '') in scope.get('departments', []))
+        && (scope.get('years', []).size() == 0
+          || get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(uid)).data.get('year', '') in scope.get('years', []))
+        && (scope.get('sections', []).size() == 0
+          || get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(uid)).data.get('section', '') in scope.get('sections', []))
+        && (scope.get('classroomIds', []).size() == 0
+          || get(/databases/$(database)/documents/institutions/$(institutionId)/students/$(uid)).data.get('classroomId', '') in scope.get('classroomIds', []));
+    }
+    function matchesContestScope(scope, institutionId, uid) {
+      return scope.get('mode', 'all') != 'scoped'
+        || !(contestScopeHasHierarchy(scope) || scope.get('uids', []).size() > 0)
+        || (contestScopeHasHierarchy(scope) && scope.get('uids', []).size() > 0
+          ? (contestScopeHierarchyMatches(scope, institutionId, uid) || uid in scope.get('uids', []))
+          : (contestScopeHasHierarchy(scope)
+            ? contestScopeHierarchyMatches(scope, institutionId, uid)
+            : uid in scope.get('uids', [])));
+    }
+    // contestId-based convenience wrapper - re-fetches the contest doc (cheap;
+    // Firestore rules cache repeated get()s to the same path within one
+    // evaluation, same trade-off contestInstitutionId()/isContestInstitutionAdmin()
+    // already make) so every subcollection rule below can pass just a
+    // contestId instead of threading targetScope/institutionId through.
+    function isInContestAudience(contestId, uid) {
+      return matchesContestScope(
+        get(/databases/$(database)/documents/contests/$(contestId)).data.get('targetScope', {}),
+        contestInstitutionId(contestId), uid);
+    }
     function isApprovedForContest(contestId) {
       return contestInstitutionId(contestId) == ''
-        || (isApprovedStudent(contestInstitutionId(contestId)) && !isContestRestricted(contestInstitutionId(contestId)));
+        || (isApprovedStudent(contestInstitutionId(contestId)) && !isContestRestricted(contestInstitutionId(contestId))
+          && isInContestAudience(contestId, request.auth.uid));
     }
 
     // A single write may never move a user's own XP or credits by more than
@@ -1090,7 +1137,9 @@ service cloud.firestore {
       allow read: if isAdmin()
         || isInstitutionAdmin(resource.data.get('institutionId', ''))
         || (resource != null && resource.data.status == 'published'
-          && (!('institutionId' in resource.data) || isApprovedStudent(resource.data.institutionId)));
+          && (!('institutionId' in resource.data)
+            || (isApprovedStudent(resource.data.institutionId)
+              && matchesContestScope(resource.data.get('targetScope', {}), resource.data.institutionId, request.auth.uid))));
       allow create: if isAdmin()
         || (isAuth() && request.resource.data.get('institutionId', '') != ''
           && isInstitutionAdmin(request.resource.data.institutionId));
@@ -1109,6 +1158,20 @@ service cloud.firestore {
       match /questions/{questionId} {
         allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isApprovedForContest(contestId);
         allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
+
+        // Coding-question test cases - same trust split as problems/{id}'s own
+        // sampleTests (world/contest-readable, needed to render + let a student
+        // sanity-check their code) vs hiddenTests (admin-only, NEVER read by any
+        // client path - devert-backend's ContestGradingService reads these via
+        // the admin SDK, which bypasses these rules entirely).
+        match /sampleTests/{testId} {
+          allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isApprovedForContest(contestId);
+          allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
+        }
+        match /hiddenTests/{testId} {
+          allow read:  if isAdmin() || isContestInstitutionAdmin(contestId);
+          allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
+        }
       }
 
       match /answerKeys/{questionId} {
@@ -1181,6 +1244,22 @@ service cloud.firestore {
         // lets the student attempt the contest again; only that institution's
         // own admin (or platform isAdmin()) can do this.
         allow delete: if isContestInstitutionAdmin(contestId) || isAdmin();
+
+        // Per-question coding-question results - written ONLY by
+        // devert-backend's ContestGradingService via the admin SDK (bypasses
+        // these rules entirely, allow write: false is real here, not just a
+        // client-side nicety), since an honest score can only ever come from
+        // actually running the hidden tests server-side. Deliberately its own
+        // subcollection rather than a field on this submission doc - see
+        // lib/contests.js's fetchContestCodingResults comment on why a
+        // pre-submit write into the parent doc would break the create-vs-
+        // update rule branch the final MCQ submit above depends on. Same read
+        // visibility as the parent submission doc.
+        match /codingResults/{questionId} {
+          allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId) || (isApprovedForContest(contestId) &&
+            isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
+          allow write: if false;
+        }
       }
     }
 

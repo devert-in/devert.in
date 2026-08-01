@@ -17,9 +17,10 @@ import { SE_ACCENTS } from "@/lib/seCurriculum";
 import { SE_ACCENT, SeLessonBody, SeConcept, Inline } from "@/components/se/se-lesson-blocks";
 import {
   SeCard, SeChip, SeLabel, SeButton, SeEmpty, SeTerminal,
-  SeReadingBar, SeVideoSlot,
+  SeReadingBar, SeVideoSlot, usePalette, useCampusAccent,
 } from "@/components/se/se-ui";
 import { useSe } from "@/components/se/se-app";
+import { CAMPUS } from "@/lib/campus-theme";
 
 // The lesson reader.
 //
@@ -48,11 +49,15 @@ const SECTION_ICON = {
 };
 
 export function SeLessonReader() {
-  const { tree, progress, screen, go, reloadProgress, user } = useSe();
+  const { tree, progress, screen, go, reloadProgress, user, campusMode } = useSe();
   const { moduleId, lessonId } = screen;
+  const p = usePalette();
 
   const mod = useMemo(() => tree.find(m => m.id === moduleId), [tree, moduleId]);
-  const accent = SE_ACCENTS[mod?.accent] || SE_ACCENT.green;
+  const accent = useCampusAccent(SE_ACCENTS[mod?.accent] || SE_ACCENT.green);
+  const goldAccent = useCampusAccent(SE_ACCENT.gold);
+  const orangeAccent = useCampusAccent(SE_ACCENT.orange);
+  const greenAccent = useCampusAccent(SE_ACCENT.green);
 
   const [lesson, setLesson] = useState(null);
   const [missing, setMissing] = useState(false);
@@ -146,11 +151,12 @@ export function SeLessonReader() {
   }
 
   if (!lesson) {
+    const skeletonBg = campusMode ? CAMPUS.line : "rgba(255,255,255,0.04)";
     return (
       <div className="space-y-4 max-w-3xl">
-        <div className="h-4 w-40 animate-pulse rounded bg-white/[0.04]" />
-        <div className="h-9 w-3/4 animate-pulse rounded bg-white/[0.04]" />
-        <SeCard className="p-6"><div className="h-64 animate-pulse rounded bg-white/[0.03]" /></SeCard>
+        <div className="h-4 w-40 animate-pulse rounded" style={{ background: skeletonBg }} />
+        <div className="h-9 w-3/4 animate-pulse rounded" style={{ background: skeletonBg }} />
+        <SeCard className="p-6"><div className="h-64 animate-pulse rounded" style={{ background: skeletonBg }} /></SeCard>
       </div>
     );
   }
@@ -162,15 +168,15 @@ export function SeLessonReader() {
     <div className="max-w-3xl">
       {/* breadcrumb */}
       <nav className="flex items-center gap-1.5 font-mono text-[11px] mb-5 flex-wrap">
-        <button onClick={() => go({ moduleId: null, lessonId: null })} className="text-white/25 hover:text-white/60 transition-colors">
+        <button onClick={() => go({ moduleId: null, lessonId: null })} className="transition-colors" style={{ color: p.inkFaint }}>
           Fundamentals
         </button>
-        <span className="text-white/15">/</span>
-        <button onClick={() => go({ moduleId, lessonId: null })} className="text-white/25 hover:text-white/60 transition-colors">
+        <span style={{ color: p.inkFainter }}>/</span>
+        <button onClick={() => go({ moduleId, lessonId: null })} className="transition-colors" style={{ color: p.inkFaint }}>
           Module {mod?.number}
         </button>
-        <span className="text-white/15">/</span>
-        <span className="text-white/50">{lesson.title}</span>
+        <span style={{ color: p.inkFainter }}>/</span>
+        <span style={{ color: p.inkSoft }}>{lesson.title}</span>
       </nav>
 
       {/* header */}
@@ -178,20 +184,20 @@ export function SeLessonReader() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <SeChip color={accent}>MODULE {mod?.number}</SeChip>
-              {lesson.difficulty && <SeChip color="rgba(255,255,255,0.28)">{lesson.difficulty.toUpperCase()}</SeChip>}
+              <SeChip color={SE_ACCENTS[mod?.accent] || SE_ACCENT.green}>MODULE {mod?.number}</SeChip>
+              {lesson.difficulty && <SeChip>{lesson.difficulty.toUpperCase()}</SeChip>}
               {lesson.estimatedMinutes > 0 && (
-                <span className="flex items-center gap-1 font-mono text-[10.5px] text-white/25">
+                <span className="flex items-center gap-1 font-mono text-[10.5px]" style={{ color: p.inkFaint }}>
                   <Clock size={10} /> {lesson.estimatedMinutes} min read
                 </span>
               )}
               {neighbours.index >= 0 && (
-                <span className="font-mono text-[10.5px] text-white/20">
+                <span className="font-mono text-[10.5px]" style={{ color: p.inkFainter }}>
                   {neighbours.index + 1} of {neighbours.total}
                 </span>
               )}
             </div>
-            <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-white/95 leading-tight">
+            <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight leading-tight" style={{ color: p.ink }}>
               {lesson.title}
             </h1>
             {lesson.subtitle && (
@@ -206,7 +212,7 @@ export function SeLessonReader() {
               }}
               title={bookmarked ? "Remove bookmark" : "Bookmark this lesson"}
               className="p-1.5 rounded flex-shrink-0 transition-colors"
-              style={{ color: bookmarked ? SE_ACCENT.gold : "rgba(255,255,255,0.25)" }}>
+              style={{ color: bookmarked ? goldAccent : p.inkFaint }}>
               {bookmarked ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
             </button>
           )}
@@ -310,12 +316,12 @@ export function SeLessonReader() {
 
           {/* 14. summary */}
           {lesson.summary?.trim() && (
-            <SeCard className="p-5" style={{ background: `${SE_ACCENT.green}0A`, border: `1px solid ${SE_ACCENT.green}2E` }}>
+            <SeCard className="p-5" style={{ background: `${greenAccent}0A`, border: `1px solid ${greenAccent}2E` }}>
               <div className="flex items-center gap-2 mb-2.5">
-                <CheckCircle2 size={13} style={{ color: SE_ACCENT.green }} />
+                <CheckCircle2 size={13} style={{ color: greenAccent }} />
                 <SeLabel color={SE_ACCENT.green}>THE WHOLE LESSON IN ONE PARAGRAPH</SeLabel>
               </div>
-              <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap text-white/70">
+              <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap" style={{ color: p.inkSoft }}>
                 <Inline text={lesson.summary} />
               </p>
             </SeCard>
@@ -332,15 +338,15 @@ export function SeLessonReader() {
             <SeCard className="p-4">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
-                  <Notebook size={13} className="text-white/25" />
+                  <Notebook size={13} style={{ color: p.inkFaint }} />
                   <SeLabel>YOUR NOTES ON THIS LESSON</SeLabel>
                 </div>
-                {noteSaved && <span className="font-mono text-[10px]" style={{ color: SE_ACCENT.green }}>saved</span>}
+                {noteSaved && <span className="font-mono text-[10px]" style={{ color: greenAccent }}>saved</span>}
               </div>
               <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} maxLength={4000}
                 placeholder="Your own wording beats anyone else's. What clicked, what didn't?"
-                className="w-full text-[13px] px-3 py-2 rounded-lg outline-none resize-y text-white/80 placeholder:text-white/20"
-                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)" }} />
+                className="w-full text-[13px] px-3 py-2 rounded-lg outline-none resize-y"
+                style={{ background: campusMode ? CAMPUS.paper : "rgba(0,0,0,0.3)", border: `1px solid ${p.cardBorder}`, color: p.inkSoft }} />
               <SeButton size="sm" variant="secondary" className="mt-2"
                 onClick={async () => {
                   await saveLessonNote({ uid: user.uid, lessonId, text: note }).catch(() => {});
@@ -357,22 +363,22 @@ export function SeLessonReader() {
           <SeCard className="p-5">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="min-w-0">
-                <b className="text-[14px] text-white/90 block">
+                <b className="text-[14px] block" style={{ color: p.ink }}>
                   {done ? "Lesson complete" : "Mark this lesson complete"}
                 </b>
                 {!done && (
-                  <p className="flex items-center gap-3 font-mono text-[11px] mt-1 text-white/35">
+                  <p className="flex items-center gap-3 font-mono text-[11px] mt-1" style={{ color: p.inkFaint }}>
                     <span className="flex items-center gap-1"><Zap size={11} /> +{lesson.xpReward || 20} XP</span>
                     <span className="flex items-center gap-1"><Coins size={11} /> +{lesson.coinReward || 8} coins</span>
                   </p>
                 )}
                 {!done && checksPending && (
-                  <p className="text-[11.5px] mt-1.5" style={{ color: SE_ACCENT.orange }}>
+                  <p className="text-[11.5px] mt-1.5" style={{ color: orangeAccent }}>
                     Answer the knowledge check above to unlock this.
                   </p>
                 )}
                 {!user && (
-                  <p className="text-[11.5px] mt-1.5 text-white/35">Sign in to track progress and earn XP.</p>
+                  <p className="text-[11.5px] mt-1.5" style={{ color: p.inkFaint }}>Sign in to track progress and earn XP.</p>
                 )}
               </div>
               {done ? (
@@ -391,7 +397,7 @@ export function SeLessonReader() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.28, ease: "easeOut" }}
               className="text-[12.5px] text-center px-3 py-2.5 rounded-lg flex items-center justify-center gap-2"
-              style={{ background: `${SE_ACCENT.green}14`, color: SE_ACCENT.green }}>
+              style={{ background: `${greenAccent}14`, color: greenAccent }}>
               <Sparkles size={13} /> Lesson complete. XP and coins added.
             </motion.p>
           )}
@@ -399,15 +405,14 @@ export function SeLessonReader() {
       )}
 
       {/* prev / next */}
-      <div className="flex items-center justify-between gap-3 mt-8 pt-6"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="flex items-center justify-between gap-3 mt-8 pt-6" style={{ borderTop: `1px solid ${p.rowBorder}` }}>
         {neighbours.prev ? (
           <button onClick={() => go({ moduleId: neighbours.prev.moduleId, lessonId: neighbours.prev.id })}
             className="flex items-center gap-2 text-left min-w-0 group">
-            <ChevronLeft size={15} className="text-white/25 flex-shrink-0 group-hover:text-white/60 transition-colors" />
+            <ChevronLeft size={15} className="flex-shrink-0 transition-colors" style={{ color: p.inkFaint }} />
             <span className="min-w-0">
-              <span className="block font-mono text-[9.5px] tracking-wider text-white/25">PREVIOUS</span>
-              <span className="block text-[12.5px] text-white/60 truncate group-hover:text-white/90 transition-colors">
+              <span className="block font-mono text-[9.5px] tracking-wider" style={{ color: p.inkFaint }}>PREVIOUS</span>
+              <span className="block text-[12.5px] truncate transition-colors" style={{ color: p.inkSoft }}>
                 {neighbours.prev.title}
               </span>
             </span>
@@ -417,12 +422,12 @@ export function SeLessonReader() {
           <button onClick={() => go({ moduleId: neighbours.next.moduleId, lessonId: neighbours.next.id })}
             className="flex items-center gap-2 text-right min-w-0 group ml-auto">
             <span className="min-w-0">
-              <span className="block font-mono text-[9.5px] tracking-wider text-white/25">NEXT</span>
-              <span className="block text-[12.5px] text-white/60 truncate group-hover:text-white/90 transition-colors">
+              <span className="block font-mono text-[9.5px] tracking-wider" style={{ color: p.inkFaint }}>NEXT</span>
+              <span className="block text-[12.5px] truncate transition-colors" style={{ color: p.inkSoft }}>
                 {neighbours.next.title}
               </span>
             </span>
-            <ArrowRight size={15} className="text-white/25 flex-shrink-0 group-hover:text-white/60 transition-colors" />
+            <ArrowRight size={15} className="flex-shrink-0 transition-colors" style={{ color: p.inkFaint }} />
           </button>
         ) : <span />}
       </div>
@@ -434,32 +439,36 @@ export function SeLessonReader() {
 
 function TextSection({ sectionKey, title, color, text, footnote }) {
   const Icon = SECTION_ICON[sectionKey] || Lightbulb;
+  const p = usePalette();
+  const resolvedColor = useCampusAccent(color);
   return (
-    <SeCard className="p-5" style={{ background: `${color}08`, border: `1px solid ${color}26` }}>
+    <SeCard className="p-5" style={{ background: `${resolvedColor}08`, border: `1px solid ${resolvedColor}26` }}>
       <div className="flex items-center gap-2 mb-3">
-        <Icon size={13} style={{ color }} />
+        <Icon size={13} style={{ color: resolvedColor }} />
         <SeLabel color={color}>{title.toUpperCase()}</SeLabel>
       </div>
       <SeConcept text={text} />
-      {footnote && <p className="text-[11px] mt-3 leading-relaxed text-white/30">{footnote}</p>}
+      {footnote && <p className="text-[11px] mt-3 leading-relaxed" style={{ color: p.inkFainter }}>{footnote}</p>}
     </SeCard>
   );
 }
 
 function ListSection({ sectionKey, title, items, color, checkItems = false }) {
   const Icon = SECTION_ICON[sectionKey] || ListChecks;
+  const p = usePalette();
+  const resolvedColor = useCampusAccent(color);
   return (
-    <SeCard className="p-4" style={{ background: `${color}08`, border: `1px solid ${color}26` }}>
+    <SeCard className="p-4" style={{ background: `${resolvedColor}08`, border: `1px solid ${resolvedColor}26` }}>
       <div className="flex items-center gap-2 mb-2.5">
-        <Icon size={13} style={{ color }} />
+        <Icon size={13} style={{ color: resolvedColor }} />
         <SeLabel color={color}>{title.toUpperCase()}</SeLabel>
       </div>
       <ul className="space-y-1.5">
         {items.map((it, i) => (
-          <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed text-white/65">
+          <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: p.inkSoft }}>
             {checkItems
-              ? <CheckCircle2 size={13} className="flex-shrink-0 mt-[3px]" style={{ color }} />
-              : <span className="mt-[8px] w-1 h-1 rounded-full flex-shrink-0" style={{ background: color }} />}
+              ? <CheckCircle2 size={13} className="flex-shrink-0 mt-[3px]" style={{ color: resolvedColor }} />
+              : <span className="mt-[8px] w-1 h-1 rounded-full flex-shrink-0" style={{ background: resolvedColor }} />}
             <span><Inline text={it} /></span>
           </li>
         ))}
@@ -476,6 +485,8 @@ function ListSection({ sectionKey, title, items, color, checkItems = false }) {
 // half-working Run button.
 function CodeBlock({ example }) {
   const [copied, setCopied] = useState(false);
+  const p = usePalette();
+  const cyanAccent = useCampusAccent(SE_ACCENT.cyan);
   const copy = () => {
     navigator.clipboard?.writeText(example.code);
     setCopied(true);
@@ -483,21 +494,23 @@ function CodeBlock({ example }) {
   };
   return (
     <SeTerminal label={`demo.${example.language || "txt"}`} accent={SE_ACCENT.cyan}>
-      <div className="flex items-center justify-between px-4 py-2"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <span className="font-mono text-[10px] tracking-wider" style={{ color: SE_ACCENT.cyan }}>
+      <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: `1px solid ${p.rowBorder}` }}>
+        <span className="font-mono text-[10px] tracking-wider" style={{ color: cyanAccent }}>
           {(example.language || "code").toUpperCase()}
         </span>
-        <button onClick={copy} className="flex items-center gap-1 font-mono text-[10px] text-white/30 hover:text-white/60 transition-colors">
+        <button onClick={copy} className="flex items-center gap-1 font-mono text-[10px] transition-colors" style={{ color: p.inkFaint }}>
           <Copy size={10} /> {copied ? "copied" : "copy"}
         </button>
       </div>
+      {/* Code area stays a fixed dark terminal block regardless of page theme -
+          same convention Campus's own CodeExampleBlock uses (a code surface
+          reads as "code" precisely because it doesn't repaint with the page). */}
       <pre className="font-mono text-[12.5px] leading-relaxed p-4 overflow-x-auto text-white/75"
         style={{ background: "rgba(0,0,0,0.35)" }}>{example.code}</pre>
       {example.expectedOutput && (
-        <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="px-4 py-3" style={{ borderTop: `1px solid ${p.rowBorder}` }}>
           <SeLabel color={SE_ACCENT.green} className="mb-1.5">OUTPUT</SeLabel>
-          <pre className="font-mono text-[12px] whitespace-pre-wrap text-white/60">{example.expectedOutput}</pre>
+          <pre className="font-mono text-[12px] whitespace-pre-wrap" style={{ color: p.inkFaint }}>{example.expectedOutput}</pre>
         </div>
       )}
     </SeTerminal>
@@ -512,46 +525,50 @@ function KnowledgeCheck({ checks, seedKey, answers, submitted, onAnswer, onSubmi
   const shuffled = useMemo(() => shuffleQuizForAttempt(checks, seedKey), [checks, seedKey]);
   const score = checks.reduce((n, q, i) => n + (answers[i] === q.correctIndex ? 1 : 0), 0);
   const allAnswered = Object.keys(answers).length >= checks.length;
+  const p = usePalette();
+  const goldAccent = useCampusAccent(SE_ACCENT.gold);
+  const greenAccent = useCampusAccent(SE_ACCENT.green);
+  const redAccent = useCampusAccent(SE_ACCENT.red);
+  const cyanAccent = useCampusAccent(SE_ACCENT.cyan);
 
   return (
     <SeTerminal label="knowledge_check.sh" accent={SE_ACCENT.gold}>
       <div className="p-5">
         <div className="flex items-center gap-2 mb-4">
-          <ListChecks size={14} style={{ color: SE_ACCENT.gold }} />
+          <ListChecks size={14} style={{ color: goldAccent }} />
           <SeLabel color={SE_ACCENT.gold}>KNOWLEDGE CHECK</SeLabel>
         </div>
 
         <div className="space-y-5">
           {shuffled.map((q, i) => (
             <div key={q._origIndex}>
-              <p className="text-[13.5px] font-medium mb-2.5 text-white/85">{i + 1}. {q.question}</p>
+              <p className="text-[13.5px] font-medium mb-2.5" style={{ color: p.ink }}>{i + 1}. {q.question}</p>
               <div className="space-y-1.5">
                 {q.options.map(opt => {
                   const selected = answers[q._origIndex] === opt.originalIndex;
                   const isCorrect = submitted && opt.originalIndex === q.correctIndex;
                   const isWrong = submitted && selected && opt.originalIndex !== q.correctIndex;
-                  const border = isCorrect ? SE_ACCENT.green : isWrong ? SE_ACCENT.red
-                    : selected ? SE_ACCENT.cyan : "rgba(255,255,255,0.1)";
+                  const border = isCorrect ? greenAccent : isWrong ? redAccent
+                    : selected ? cyanAccent : p.cardBorder;
                   return (
                     <button key={opt.originalIndex} disabled={submitted}
                       onClick={() => onAnswer(q._origIndex, opt.originalIndex)}
                       className="w-full flex items-start gap-2 text-left text-[12.5px] px-3 py-2 rounded-lg transition-colors"
                       style={{
-                        background: isCorrect ? `${SE_ACCENT.green}12` : isWrong ? `${SE_ACCENT.red}12`
-                          : selected ? `${SE_ACCENT.cyan}12` : "rgba(255,255,255,0.02)",
+                        background: isCorrect ? `${greenAccent}12` : isWrong ? `${redAccent}12`
+                          : selected ? `${cyanAccent}12` : p.cardBg,
                         border: `1px solid ${border}`,
-                        color: "rgba(255,255,255,0.8)",
+                        color: p.inkSoft,
                       }}>
-                      {isCorrect && <CheckCircle2 size={12} className="flex-shrink-0 mt-[2px]" style={{ color: SE_ACCENT.green }} />}
-                      {isWrong && <XCircle size={12} className="flex-shrink-0 mt-[2px]" style={{ color: SE_ACCENT.red }} />}
+                      {isCorrect && <CheckCircle2 size={12} className="flex-shrink-0 mt-[2px]" style={{ color: greenAccent }} />}
+                      {isWrong && <XCircle size={12} className="flex-shrink-0 mt-[2px]" style={{ color: redAccent }} />}
                       <span className="flex-1">{opt.text}</span>
                     </button>
                   );
                 })}
               </div>
               {submitted && checks[q._origIndex]?.explanation && (
-                <p className="text-[12px] leading-relaxed mt-2 px-3 py-2 rounded-lg text-white/50"
-                  style={{ background: "rgba(255,255,255,0.02)" }}>
+                <p className="text-[12px] leading-relaxed mt-2 px-3 py-2 rounded-lg" style={{ color: p.inkFaint, background: p.cardBg }}>
                   {checks[q._origIndex].explanation}
                 </p>
               )}
@@ -565,14 +582,13 @@ function KnowledgeCheck({ checks, seedKey, answers, submitted, onAnswer, onSubmi
               Submit answers
             </SeButton>
             {!allAnswered && (
-              <p className="font-mono text-[10.5px] mt-2 text-white/25">
+              <p className="font-mono text-[10.5px] mt-2" style={{ color: p.inkFainter }}>
                 {checks.length - Object.keys(answers).length} question(s) left
               </p>
             )}
           </div>
         ) : (
-          <p className="text-[13px] font-semibold mt-4"
-            style={{ color: score === checks.length ? SE_ACCENT.green : SE_ACCENT.gold }}>
+          <p className="text-[13px] font-semibold mt-4" style={{ color: score === checks.length ? greenAccent : goldAccent }}>
             {score} / {checks.length} correct
             {score === checks.length ? " - all right." : " - read the explanations above."}
           </p>
@@ -583,36 +599,38 @@ function KnowledgeCheck({ checks, seedKey, answers, submitted, onAnswer, onSubmi
 }
 
 function LabSection({ lab, done, canToggle, onToggle }) {
+  const p = usePalette();
+  const greenAccent = useCampusAccent(SE_ACCENT.green);
   return (
     <SeTerminal label="lab.sh" accent={SE_ACCENT.green}>
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <FlaskConical size={14} style={{ color: SE_ACCENT.green }} />
+            <FlaskConical size={14} style={{ color: greenAccent }} />
             <SeLabel color={SE_ACCENT.green}>HANDS-ON LAB</SeLabel>
           </div>
           {canToggle && (
             <button onClick={onToggle}
               className="flex items-center gap-1.5 font-mono text-[10.5px] px-2.5 py-1 rounded-full transition-colors"
               style={{
-                background: done ? `${SE_ACCENT.green}14` : "rgba(255,255,255,0.03)",
-                border: `1px solid ${done ? `${SE_ACCENT.green}55` : "rgba(255,255,255,0.1)"}`,
-                color: done ? SE_ACCENT.green : "rgba(255,255,255,0.4)",
+                background: done ? `${greenAccent}14` : p.cardBg,
+                border: `1px solid ${done ? `${greenAccent}55` : p.cardBorder}`,
+                color: done ? greenAccent : p.inkFainter,
               }}>
               {done ? <><Check size={10} /> DONE</> : "MARK AS DONE"}
             </button>
           )}
         </div>
 
-        {lab.title && <b className="block text-[14px] text-white/90 mb-2">{lab.title}</b>}
+        {lab.title && <b className="block text-[14px] mb-2" style={{ color: p.ink }}>{lab.title}</b>}
         {lab.brief && <div className="mb-3"><SeConcept text={lab.brief} /></div>}
 
         {lab.steps?.length > 0 && (
           <ol className="space-y-2 mt-3">
             {lab.steps.map((s, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-[12.5px] leading-relaxed text-white/60">
+              <li key={i} className="flex items-start gap-2.5 text-[12.5px] leading-relaxed" style={{ color: p.inkSoft }}>
                 <span className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 font-mono text-[10px] font-bold mt-[1px]"
-                  style={{ background: `${SE_ACCENT.green}14`, color: SE_ACCENT.green }}>{i + 1}</span>
+                  style={{ background: `${greenAccent}14`, color: greenAccent }}>{i + 1}</span>
                 <span><Inline text={s} /></span>
               </li>
             ))}
@@ -639,26 +657,28 @@ const ASSIGNMENT_PARTS = [
 ];
 
 function AssignmentSection({ assignment }) {
-  const parts = ASSIGNMENT_PARTS.filter(p => assignment[p.key]?.trim());
+  const parts = ASSIGNMENT_PARTS.filter(part => assignment[part.key]?.trim());
+  const p = usePalette();
+  const purpleAccent = useCampusAccent(SE_ACCENT.purple);
   if (parts.length === 0) return null;
   return (
-    <SeCard className="p-5" style={{ background: `${SE_ACCENT.purple}08`, border: `1px solid ${SE_ACCENT.purple}26` }}>
+    <SeCard className="p-5" style={{ background: `${purpleAccent}08`, border: `1px solid ${purpleAccent}26` }}>
       <div className="flex items-center gap-2 mb-3">
-        <Target size={13} style={{ color: SE_ACCENT.purple }} />
+        <Target size={13} style={{ color: purpleAccent }} />
         <SeLabel color={SE_ACCENT.purple}>ASSIGNMENT</SeLabel>
       </div>
       <div className="space-y-3">
-        {parts.map(p => (
-          <div key={p.key} className="flex items-start gap-2.5">
+        {parts.map(part => (
+          <div key={part.key} className="flex items-start gap-2.5">
             <span className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-[1px]"
-              style={{ background: `${SE_ACCENT.purple}14`, color: SE_ACCENT.purple }}>
-              <p.icon size={12} />
+              style={{ background: `${purpleAccent}14`, color: purpleAccent }}>
+              <part.icon size={12} />
             </span>
             <div className="min-w-0">
-              <span className="block font-mono text-[9.5px] tracking-wider mb-0.5" style={{ color: `${SE_ACCENT.purple}CC` }}>
-                {p.label.toUpperCase()}
+              <span className="block font-mono text-[9.5px] tracking-wider mb-0.5" style={{ color: `${purpleAccent}CC` }}>
+                {part.label.toUpperCase()}
               </span>
-              <p className="text-[12.5px] leading-relaxed text-white/60"><Inline text={assignment[p.key]} /></p>
+              <p className="text-[12.5px] leading-relaxed" style={{ color: p.inkSoft }}><Inline text={assignment[part.key]} /></p>
             </div>
           </div>
         ))}
@@ -669,16 +689,18 @@ function AssignmentSection({ assignment }) {
 
 function GoingDeeper({ text }) {
   const [open, setOpen] = useState(false);
+  const p = usePalette();
+  const purpleAccent = useCampusAccent(SE_ACCENT.purple);
   return (
     <SeCard className="overflow-hidden">
       <button onClick={() => setOpen(o => !o)} aria-expanded={open}
         className="w-full flex items-center gap-2 p-4 text-left">
-        <TrendingUp size={14} style={{ color: SE_ACCENT.purple, flexShrink: 0 }} />
-        <span className="flex-1 text-[13px] font-semibold text-white/85">Going deeper</span>
+        <TrendingUp size={14} style={{ color: purpleAccent, flexShrink: 0 }} />
+        <span className="flex-1 text-[13px] font-semibold" style={{ color: p.ink }}>Going deeper</span>
         <SeChip color={SE_ACCENT.purple}>OPTIONAL</SeChip>
       </button>
       {open && (
-        <div className="px-5 pb-5 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="px-5 pb-5 pt-4" style={{ borderTop: `1px solid ${p.rowBorder}` }}>
           <SeConcept text={text} />
         </div>
       )}
@@ -689,6 +711,8 @@ function GoingDeeper({ text }) {
 const RESOURCE_ICON = { pdf: Download, cheatsheet: FileText, notes: FileText, video: Film, link: ExternalLink, code: Terminal };
 
 function ResourceList({ resources }) {
+  const p = usePalette();
+  const cyanAccent = useCampusAccent(SE_ACCENT.cyan);
   return (
     <div>
       <SeLabel className="mb-2.5">RESOURCES</SeLabel>
@@ -698,14 +722,14 @@ function ResourceList({ resources }) {
           const inner = (
             <div className="flex items-start gap-3">
               <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: `${SE_ACCENT.cyan}12`, color: SE_ACCENT.cyan }}>
+                style={{ background: `${cyanAccent}12`, color: cyanAccent }}>
                 <Icon size={14} />
               </span>
               <div className="min-w-0 flex-1">
-                <b className="block text-[12.5px] text-white/85 truncate">{r.title}</b>
-                {r.description && <span className="block text-[11px] mt-0.5 text-white/35">{r.description}</span>}
+                <b className="block text-[12.5px] truncate" style={{ color: p.ink }}>{r.title}</b>
+                {r.description && <span className="block text-[11px] mt-0.5" style={{ color: p.inkFaint }}>{r.description}</span>}
               </div>
-              {r.url && <ExternalLink size={12} className="text-white/20 flex-shrink-0" />}
+              {r.url && <ExternalLink size={12} className="flex-shrink-0" style={{ color: p.inkFainter }} />}
             </div>
           );
           // rel="noreferrer": these are admin-authored links off-platform, and a

@@ -48,8 +48,8 @@ export function CampusThemeToggle({ className = "" }) {
   return (
     <button onClick={toggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
       className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${className}`}
-      style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
-      {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
+      style={{ color: CAMPUS.inkSoft }}>
+      {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
     </button>
   );
 }

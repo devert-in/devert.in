@@ -8,32 +8,25 @@ import {
   Quote, RotateCcw, ScrollText, Sparkles, Target, X as XIcon,
 } from "lucide-react";
 import { parseLesson, parseLessonBlocks, tokenizeInline } from "@/lib/lessonBlocks";
+import { useSe } from "@/components/se/se-app";
+import { usePalette, useCampusAccent } from "@/components/se/se-ui";
+import { CAMPUS } from "@/lib/campus-theme";
+import { SE_ACCENT as ACCENT } from "@/lib/seCurriculum";
 
-// The DARK renderer for the shared lesson format.
+// The renderer for the shared lesson format, used both by the standalone
+// /fundamentals route (permanently dark, neon accents, terminal chrome - see
+// app/globals.css and CLAUDE.md's design system) and DeVert Campus's
+// "Fundamentals" tab (Campus's own light-capable CAMPUS.* tokens) - see
+// se-app.jsx's file header for the campusMode mechanism shared across all
+// four se/ files. lib/lessonBlocks.js parses; this draws.
 //
-// lib/lessonBlocks.js parses; this draws. That split already existed for a
-// reason - components/campus/lesson-blocks.jsx is the other renderer - and it is
-// exactly why this course could reuse the authoring format without touching it.
-// The parser is pure and theme-free; only the drawing differs.
-//
-// Why a second renderer instead of making the Campus one theme-aware: the Campus
-// renderer styles everything off CAMPUS.* CSS vars, which swap with that
-// surface's light/dark toggle. The core platform is permanently dark with neon
-// accents and a terminal chrome vocabulary (see app/globals.css and CLAUDE.md's
-// design system). Threading a theme through the Campus renderer would mean
-// touching a component five learning modules already depend on, to serve one new
-// one. A separate renderer over a shared parser is the cheaper and safer seam.
-
-const ACCENT = {
-  green: "#00FF41",
-  cyan: "#00FFFF",
-  orange: "#FF9500",
-  purple: "#C77DFF",
-  gold: "#FFD700",
-  red: "#FF5050",
-  blue: "#3B82F6",
-  violet: "#A78BFA",
-};
+// components/campus/lesson-blocks.jsx is a SEPARATE, pre-existing Campus-
+// native renderer over the same shared parser, used by Programming/CS Core's
+// own lessons - not reused here because it doesn't cover this course's extra
+// block types (flow diagrams, timelines, checkpoints, pseudocode), and this
+// renderer already had to learn campusMode for its callouts/cards/etc
+// regardless, so a second fork would only add a maintenance seam without
+// saving any work.
 
 // variant -> icon + accent + label. The label is the TEACHING frame ("REAL-LIFE
 // ANALOGY", "COMMON MISTAKE") so a learner skimming can tell what kind of help
@@ -69,17 +62,19 @@ function useBlockMotion() {
 // trusted-ish, but there is no reason to open an injection path for typography.
 export function Inline({ text }) {
   const tokens = useMemo(() => tokenizeInline(text), [text]);
+  const p = usePalette();
+  const cyanAccent = useCampusAccent(ACCENT.cyan);
   return tokens.map((t, i) => {
     if (t.type === "code") {
       return (
         <code key={i} className="font-mono text-[0.9em] px-1.5 py-[1px] rounded"
-          style={{ background: "rgba(0,255,255,0.08)", border: "1px solid rgba(0,255,255,0.18)", color: ACCENT.cyan }}>
+          style={{ background: `${cyanAccent}14`, border: `1px solid ${cyanAccent}30`, color: cyanAccent }}>
           {t.text}
         </code>
       );
     }
-    if (t.type === "bold") return <b key={i} className="text-white/95 font-semibold">{t.text}</b>;
-    if (t.type === "italic") return <i key={i} className="text-white/70">{t.text}</i>;
+    if (t.type === "bold") return <b key={i} className="font-semibold" style={{ color: p.ink }}>{t.text}</b>;
+    if (t.type === "italic") return <i key={i} style={{ color: p.inkSoft }}>{t.text}</i>;
     return <span key={i}>{t.text}</span>;
   });
 }
@@ -88,33 +83,35 @@ export function Inline({ text }) {
 
 function Callout({ variant, title, blocks }) {
   const motionProps = useBlockMotion();
+  const p = usePalette();
+  const greenAccent = useCampusAccent(ACCENT.green);
+  const rawStyle = CALLOUT_STYLE[variant] || { icon: Info, color: null, label: variant.toUpperCase() };
+  const styleColor = useCampusAccent(rawStyle.color) || p.inkFaint;
 
   // A pull quote is a callout to the parser but not visually a card - the one
   // variant meant to interrupt the reading rhythm rather than sit beside it.
   if (variant === "quote") {
     return (
-      <motion.blockquote {...motionProps} className="pl-4 py-1 my-1"
-        style={{ borderLeft: `2px solid ${ACCENT.green}` }}>
-        <Quote size={14} style={{ color: ACCENT.green }} className="mb-1.5" />
-        <div className="text-[15px] leading-relaxed font-medium text-white/85">
+      <motion.blockquote {...motionProps} className="pl-4 py-1 my-1" style={{ borderLeft: `2px solid ${greenAccent}` }}>
+        <Quote size={14} style={{ color: greenAccent }} className="mb-1.5" />
+        <div className="text-[15px] leading-relaxed font-medium" style={{ color: p.inkSoft }}>
           <LessonBlocks blocks={blocks} />
         </div>
-        {title && <footer className="font-mono text-[11px] mt-2 text-white/30">{title}</footer>}
+        {title && <footer className="font-mono text-[11px] mt-2" style={{ color: p.inkFaint }}>{title}</footer>}
       </motion.blockquote>
     );
   }
 
-  const style = CALLOUT_STYLE[variant] || { icon: Info, color: "rgba(255,255,255,0.35)", label: variant.toUpperCase() };
-  const Icon = style.icon;
+  const Icon = rawStyle.icon;
 
   return (
     <motion.div {...motionProps} className="rounded-xl p-4"
-      style={{ background: `${style.color}0A`, border: `1px solid ${style.color}2E` }}>
+      style={{ background: `${styleColor}0A`, border: `1px solid ${styleColor}2E` }}>
       <div className="flex items-center gap-2 mb-2">
-        <Icon size={13} style={{ color: style.color, flexShrink: 0 }} />
-        <span className="font-mono text-[9.5px] tracking-[0.15em]" style={{ color: style.color }}>{style.label}</span>
+        <Icon size={13} style={{ color: styleColor, flexShrink: 0 }} />
+        <span className="font-mono text-[9.5px] tracking-[0.15em]" style={{ color: styleColor }}>{rawStyle.label}</span>
       </div>
-      {title && <b className="block text-[13.5px] text-white/90 mb-1.5">{title}</b>}
+      {title && <b className="block text-[13.5px] mb-1.5" style={{ color: p.ink }}>{title}</b>}
       <LessonBlocks blocks={blocks} />
     </motion.div>
   );
@@ -126,30 +123,31 @@ function CardGrid({ title, items }) {
   const [open, setOpen] = useState(null);
   const motionProps = useBlockMotion();
   const reduce = useReducedMotion();
+  const p = usePalette();
+  const greenAccent = useCampusAccent(ACCENT.green);
 
   return (
     <motion.div {...motionProps}>
       {title && (
-        <p className="font-mono text-[10px] tracking-[0.15em] text-white/30 mb-2.5">{title.toUpperCase()}</p>
+        <p className="font-mono text-[10px] tracking-[0.15em] mb-2.5" style={{ color: p.inkFaint }}>{title.toUpperCase()}</p>
       )}
       <div className="grid sm:grid-cols-2 gap-2.5">
         {items.map((item, i) => {
           const isOpen = open === i;
           const expandable = !!item.body;
           return (
-            <div key={i} className="rounded-xl overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div key={i} className="rounded-xl overflow-hidden" style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}` }}>
               <button onClick={() => expandable && setOpen(isOpen ? null : i)}
                 aria-expanded={expandable ? isOpen : undefined} disabled={!expandable}
                 className="w-full flex items-center gap-2.5 p-3.5 text-left">
                 <span className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(0,255,65,0.08)", color: ACCENT.green }}>
+                  style={{ background: `${greenAccent}14`, color: greenAccent }}>
                   <Layers size={14} />
                 </span>
-                <b className="flex-1 text-[12.5px] text-white/85"><Inline text={item.term} /></b>
+                <b className="flex-1 text-[12.5px]" style={{ color: p.inkSoft }}><Inline text={item.term} /></b>
                 {expandable && (
-                  <ChevronDown size={13} className="text-white/25 flex-shrink-0"
-                    style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: reduce ? "none" : "transform 0.18s" }} />
+                  <ChevronDown size={13} className="flex-shrink-0" style={{ color: p.inkFainter,
+                    transform: isOpen ? "rotate(180deg)" : "none", transition: reduce ? "none" : "transform 0.18s" }} />
                 )}
               </button>
               <AnimatePresence initial={false}>
@@ -159,7 +157,7 @@ function CardGrid({ title, items }) {
                     animate={reduce ? {} : { height: "auto", opacity: 1 }}
                     exit={reduce ? {} : { height: 0, opacity: 0 }}
                     transition={{ duration: 0.2, ease: "easeOut" }} style={{ overflow: "hidden" }}>
-                    <p className="text-[12.5px] leading-relaxed px-3.5 pb-3.5 pt-0.5 text-white/55">
+                    <p className="text-[12.5px] leading-relaxed px-3.5 pb-3.5 pt-0.5" style={{ color: p.inkFaint }}>
                       <Inline text={item.body} />
                     </p>
                   </motion.div>
@@ -185,13 +183,15 @@ function FlowDiagram({ title, steps }) {
   const motionProps = useBlockMotion();
   const hasCaptions = steps.some(s => s.body);
   const horizontal = !hasCaptions && steps.length <= 5;
+  const p = usePalette();
+  const greenAccent = useCampusAccent(ACCENT.green);
 
   const node = (step, i) => (
     <div key={i} className="rounded-xl px-3.5 py-2.5 text-center flex-1"
-      style={{ background: "rgba(0,255,65,0.04)", border: "1px solid rgba(0,255,65,0.2)" }}>
-      <b className="text-[12.5px] block text-white/90"><Inline text={step.term} /></b>
+      style={{ background: `${greenAccent}0A`, border: `1px solid ${greenAccent}33` }}>
+      <b className="text-[12.5px] block" style={{ color: p.ink }}><Inline text={step.term} /></b>
       {step.body && (
-        <span className="text-[11.5px] block mt-0.5 text-white/45"><Inline text={step.body} /></span>
+        <span className="text-[11.5px] block mt-0.5" style={{ color: p.inkFaint }}><Inline text={step.body} /></span>
       )}
     </div>
   );
@@ -199,7 +199,7 @@ function FlowDiagram({ title, steps }) {
   return (
     <motion.figure {...motionProps} className="my-1">
       {title && (
-        <figcaption className="font-mono text-[10px] tracking-[0.15em] text-white/30 mb-2.5">
+        <figcaption className="font-mono text-[10px] tracking-[0.15em] mb-2.5" style={{ color: p.inkFaint }}>
           {title.toUpperCase()}
         </figcaption>
       )}
@@ -209,7 +209,7 @@ function FlowDiagram({ title, steps }) {
           <div key={i} className="flex flex-col items-stretch gap-1.5">
             {node(step, i)}
             {i < steps.length - 1 && (
-              <ArrowDown size={13} className="self-center" style={{ color: ACCENT.green }} aria-hidden="true" />
+              <ArrowDown size={13} className="self-center" style={{ color: greenAccent }} aria-hidden="true" />
             )}
           </div>
         ))}
@@ -221,7 +221,7 @@ function FlowDiagram({ title, steps }) {
             <div key={i} className="flex items-center gap-1.5 flex-1">
               {node(step, i)}
               {i < steps.length - 1 && (
-                <ArrowRight size={13} className="flex-shrink-0" style={{ color: ACCENT.green }} aria-hidden="true" />
+                <ArrowRight size={13} className="flex-shrink-0" style={{ color: greenAccent }} aria-hidden="true" />
               )}
             </div>
           ))}
@@ -235,24 +235,26 @@ function FlowDiagram({ title, steps }) {
 
 function Timeline({ title, steps }) {
   const motionProps = useBlockMotion();
+  const p = usePalette();
+  const cyanAccent = useCampusAccent(ACCENT.cyan);
   return (
     <motion.figure {...motionProps} className="my-1">
       {title && (
-        <figcaption className="font-mono text-[10px] tracking-[0.15em] text-white/30 mb-3">
+        <figcaption className="font-mono text-[10px] tracking-[0.15em] mb-3" style={{ color: p.inkFaint }}>
           {title.toUpperCase()}
         </figcaption>
       )}
       <ol className="relative pl-7">
-        <span className="absolute left-[11px] top-1.5 bottom-1.5 w-px" style={{ background: "rgba(255,255,255,0.1)" }} aria-hidden="true" />
+        <span className="absolute left-[11px] top-1.5 bottom-1.5 w-px" style={{ background: p.track }} aria-hidden="true" />
         {steps.map((step, i) => (
           <li key={i} className={i === steps.length - 1 ? "relative" : "relative pb-4"}>
             <span className="absolute left-[-27px] top-0 w-[23px] h-[23px] rounded-full flex items-center justify-center font-mono text-[10px] font-bold"
-              style={{ background: "rgba(0,255,255,0.08)", border: `1px solid ${ACCENT.cyan}55`, color: ACCENT.cyan }}>
+              style={{ background: `${cyanAccent}14`, border: `1px solid ${cyanAccent}55`, color: cyanAccent }}>
               {i + 1}
             </span>
-            <b className="text-[13px] block text-white/90"><Inline text={step.term} /></b>
+            <b className="text-[13px] block" style={{ color: p.ink }}><Inline text={step.term} /></b>
             {step.body && (
-              <span className="text-[12.5px] leading-relaxed block mt-0.5 text-white/55">
+              <span className="text-[12.5px] leading-relaxed block mt-0.5" style={{ color: p.inkSoft }}>
                 <Inline text={step.body} />
               </span>
             )}
@@ -275,17 +277,21 @@ function Checkpoint({ title, question, options, explanation }) {
   const motionProps = useBlockMotion();
   const answered = picked !== null;
   const wasRight = answered && options[picked]?.correct;
+  const p = usePalette();
+  const cyanAccent = useCampusAccent(ACCENT.cyan);
+  const greenAccent = useCampusAccent(ACCENT.green);
+  const redAccent = useCampusAccent(ACCENT.red);
+  const orangeAccent = useCampusAccent(ACCENT.orange);
 
   return (
-    <motion.div {...motionProps} className="rounded-xl p-4"
-      style={{ background: "rgba(0,255,255,0.04)", border: `1px solid ${ACCENT.cyan}2E` }}>
+    <motion.div {...motionProps} className="rounded-xl p-4" style={{ background: `${cyanAccent}0A`, border: `1px solid ${cyanAccent}2E` }}>
       <div className="flex items-center gap-2 mb-2">
-        <HelpCircle size={13} style={{ color: ACCENT.cyan, flexShrink: 0 }} />
-        <span className="font-mono text-[9.5px] tracking-[0.15em]" style={{ color: ACCENT.cyan }}>QUICK CHECK</span>
+        <HelpCircle size={13} style={{ color: cyanAccent, flexShrink: 0 }} />
+        <span className="font-mono text-[9.5px] tracking-[0.15em]" style={{ color: cyanAccent }}>QUICK CHECK</span>
       </div>
-      {title && <b className="block text-[13.5px] text-white/90 mb-1.5">{title}</b>}
+      {title && <b className="block text-[13.5px] mb-1.5" style={{ color: p.ink }}>{title}</b>}
       {question && (
-        <p className="text-[13px] leading-relaxed mb-3 whitespace-pre-wrap text-white/80">
+        <p className="text-[13px] leading-relaxed mb-3 whitespace-pre-wrap" style={{ color: p.inkSoft }}>
           <Inline text={question} />
         </p>
       )}
@@ -297,17 +303,17 @@ function Checkpoint({ title, question, options, explanation }) {
           // guessed wrong still learns which one was right without re-answering.
           const showCorrect = answered && opt.correct;
           const showWrong = isPicked && !opt.correct;
-          const accent = showCorrect ? ACCENT.green : showWrong ? ACCENT.red : "rgba(255,255,255,0.12)";
+          const accent = showCorrect ? greenAccent : showWrong ? redAccent : p.cardBorder;
           return (
             <button key={i} onClick={() => !answered && setPicked(i)} disabled={answered}
               className="w-full flex items-center gap-2 text-left text-[12.5px] px-3 py-2 rounded-lg transition-colors"
               style={{
-                background: showCorrect ? "rgba(0,255,65,0.08)" : showWrong ? "rgba(255,80,80,0.08)" : "rgba(255,255,255,0.02)",
+                background: showCorrect ? `${greenAccent}14` : showWrong ? `${redAccent}14` : p.cardBg,
                 border: `1px solid ${accent}`,
-                color: "rgba(255,255,255,0.85)",
+                color: p.inkSoft,
               }}>
-              {showCorrect && <CheckCircle2 size={13} style={{ color: ACCENT.green, flexShrink: 0 }} />}
-              {showWrong && <XIcon size={13} style={{ color: ACCENT.red, flexShrink: 0 }} />}
+              {showCorrect && <CheckCircle2 size={13} style={{ color: greenAccent, flexShrink: 0 }} />}
+              {showWrong && <XIcon size={13} style={{ color: redAccent, flexShrink: 0 }} />}
               <span className="flex-1"><Inline text={opt.text} /></span>
             </button>
           );
@@ -317,14 +323,14 @@ function Checkpoint({ title, question, options, explanation }) {
       <div aria-live="polite">
         {answered && (
           <div className="mt-3">
-            <p className="text-[12px] font-semibold mb-1" style={{ color: wasRight ? ACCENT.green : ACCENT.orange }}>
+            <p className="text-[12px] font-semibold mb-1" style={{ color: wasRight ? greenAccent : orangeAccent }}>
               {wasRight ? "Exactly right." : "Not quite - here's why."}
             </p>
             {explanation && (
-              <p className="text-[12.5px] leading-relaxed text-white/55"><Inline text={explanation} /></p>
+              <p className="text-[12.5px] leading-relaxed" style={{ color: p.inkFaint }}><Inline text={explanation} /></p>
             )}
             <button onClick={() => setPicked(null)}
-              className="inline-flex items-center gap-1 font-mono text-[10.5px] mt-2 text-white/30 hover:text-white/60 transition-colors">
+              className="inline-flex items-center gap-1 font-mono text-[10.5px] mt-2 transition-colors" style={{ color: p.inkFainter }}>
               <RotateCcw size={11} /> try again
             </button>
           </div>
@@ -339,15 +345,16 @@ function Checkpoint({ title, question, options, explanation }) {
 function Reveal({ title, blocks }) {
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
+  const p = usePalette();
+  const goldAccent = useCampusAccent(ACCENT.gold);
   return (
-    <div className="rounded-xl overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
+    <div className="rounded-xl overflow-hidden" style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}` }}>
       <button onClick={() => setOpen(o => !o)} aria-expanded={open}
         className="w-full flex items-center gap-2 p-3.5 text-left">
-        <Lightbulb size={14} style={{ color: ACCENT.gold, flexShrink: 0 }} />
-        <span className="flex-1 text-[13px] font-semibold text-white/85">{title || "Reveal the answer"}</span>
-        <ChevronDown size={14} className="text-white/25 flex-shrink-0"
-          style={{ transform: open ? "rotate(180deg)" : "none", transition: reduce ? "none" : "transform 0.18s" }} />
+        <Lightbulb size={14} style={{ color: goldAccent, flexShrink: 0 }} />
+        <span className="flex-1 text-[13px] font-semibold" style={{ color: p.inkSoft }}>{title || "Reveal the answer"}</span>
+        <ChevronDown size={14} className="flex-shrink-0" style={{ color: p.inkFainter,
+          transform: open ? "rotate(180deg)" : "none", transition: reduce ? "none" : "transform 0.18s" }} />
       </button>
       <AnimatePresence initial={false}>
         {open && (
@@ -356,7 +363,7 @@ function Reveal({ title, blocks }) {
             animate={reduce ? {} : { height: "auto", opacity: 1 }}
             exit={reduce ? {} : { height: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }} style={{ overflow: "hidden" }}>
-            <div className="px-3.5 pb-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="px-3.5 pb-3.5" style={{ borderTop: `1px solid ${p.rowBorder}` }}>
               <div className="pt-3"><LessonBlocks blocks={blocks} /></div>
             </div>
           </motion.div>
@@ -370,20 +377,22 @@ function Reveal({ title, blocks }) {
 
 function Pseudocode({ text }) {
   const [copied, setCopied] = useState(false);
+  const p = usePalette();
   const copy = () => {
     navigator.clipboard?.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-      <div className="flex items-center justify-between px-3 py-1.5"
-        style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <span className="font-mono text-[9px] tracking-[0.15em] text-white/25">PSEUDOCODE</span>
-        <button onClick={copy} className="flex items-center gap-1 font-mono text-[9.5px] text-white/30 hover:text-white/60 transition-colors">
+    <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${p.cardBorder}` }}>
+      <div className="flex items-center justify-between px-3 py-1.5" style={{ background: p.cardBg, borderBottom: `1px solid ${p.rowBorder}` }}>
+        <span className="font-mono text-[9px] tracking-[0.15em]" style={{ color: p.inkFainter }}>PSEUDOCODE</span>
+        <button onClick={copy} className="flex items-center gap-1 font-mono text-[9.5px] transition-colors" style={{ color: p.inkFaint }}>
           <Copy size={10} /> {copied ? "copied" : "copy"}
         </button>
       </div>
+      {/* Fixed dark code surface regardless of page theme - see CodeBlock's
+          identical convention in se-lesson.jsx. */}
       <pre className="font-mono text-[12px] p-3 overflow-x-auto text-white/70"
         style={{ background: "rgba(0,0,0,0.3)" }}>{text}</pre>
     </div>
@@ -393,22 +402,24 @@ function Pseudocode({ text }) {
 // ---------------- block dispatch ----------------
 
 export function LessonBlocks({ blocks }) {
+  const p = usePalette();
+  const greenAccent = useCampusAccent(ACCENT.green);
   return (
     <div className="space-y-3.5">
       {blocks.map((b, i) => {
         switch (b.type) {
           case "heading":
             return b.level === 2
-              ? <h2 key={i} id={b.id} className="text-[17px] font-bold text-white/95 pt-1 scroll-mt-28">{b.text}</h2>
-              : <h3 key={i} id={b.id} className="text-[14px] font-bold text-white/85 pt-0.5 scroll-mt-28">{b.text}</h3>;
+              ? <h2 key={i} id={b.id} className="text-[17px] font-bold pt-1 scroll-mt-28" style={{ color: p.ink }}>{b.text}</h2>
+              : <h3 key={i} id={b.id} className="text-[14px] font-bold pt-0.5 scroll-mt-28" style={{ color: p.inkSoft }}>{b.text}</h3>;
           case "code":
             return <Pseudocode key={i} text={b.text} />;
           case "list":
             return (
               <ul key={i} className="space-y-1.5 pl-1">
                 {b.items.map((it, j) => (
-                  <li key={j} className="flex items-start gap-2 text-[13.5px] leading-relaxed text-white/60">
-                    <span className="mt-[8px] w-1 h-1 rounded-full flex-shrink-0" style={{ background: ACCENT.green }} />
+                  <li key={j} className="flex items-start gap-2 text-[13.5px] leading-relaxed" style={{ color: p.inkSoft }}>
+                    <span className="mt-[8px] w-1 h-1 rounded-full flex-shrink-0" style={{ background: greenAccent }} />
                     <span><Inline text={it} /></span>
                   </li>
                 ))}
@@ -428,7 +439,7 @@ export function LessonBlocks({ blocks }) {
             return <Reveal key={i} title={b.title} blocks={b.blocks} />;
           default:
             return (
-              <p key={i} className="text-[14px] leading-[1.8] whitespace-pre-wrap text-white/65">
+              <p key={i} className="text-[14px] leading-[1.8] whitespace-pre-wrap" style={{ color: p.inkSoft }}>
                 <Inline text={b.text} />
               </p>
             );
@@ -469,6 +480,8 @@ function useActiveSection(ids) {
 
 function SectionRail({ sections, active }) {
   const reduce = useReducedMotion();
+  const p = usePalette();
+  const greenAccent = useCampusAccent(ACCENT.green);
   const jump = (id) => document.getElementById(id)?.scrollIntoView({
     behavior: reduce ? "auto" : "smooth", block: "start",
   });
@@ -480,9 +493,9 @@ function SectionRail({ sections, active }) {
           <button key={s.id} onClick={() => jump(s.id)} aria-current={isActive ? "true" : undefined}
             className="font-mono text-[10.5px] px-2.5 py-1.5 rounded-full whitespace-nowrap flex-shrink-0 transition-colors"
             style={{
-              background: isActive ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.03)",
-              border: `1px solid ${isActive ? `${ACCENT.green}55` : "rgba(255,255,255,0.08)"}`,
-              color: isActive ? ACCENT.green : "rgba(255,255,255,0.4)",
+              background: isActive ? `${greenAccent}18` : p.cardBg,
+              border: `1px solid ${isActive ? `${greenAccent}55` : p.cardBorder}`,
+              color: isActive ? greenAccent : p.inkFainter,
             }}>
             {s.title}
           </button>
@@ -500,6 +513,8 @@ export function SeLessonBody({ text }) {
   const titled = sections.filter(s => s.title);
   const ids = useMemo(() => titled.map(s => s.id), [titled]);
   const active = useActiveSection(ids);
+  const { campusMode } = useSe();
+  const p = usePalette();
 
   if (sections.length === 0) return null;
 
@@ -507,7 +522,7 @@ export function SeLessonBody({ text }) {
     <div>
       {titled.length >= 2 && (
         <div className="mb-4 sticky top-0 z-10 py-2 -mx-1 px-1 backdrop-blur"
-          style={{ background: "rgba(5,5,5,0.85)" }}>
+          style={{ background: campusMode ? CAMPUS.paper : "rgba(5,5,5,0.85)" }}>
           <SectionRail sections={titled} active={active} />
         </div>
       )}
@@ -515,7 +530,7 @@ export function SeLessonBody({ text }) {
         {sections.map(section => (
           <section key={section.id} id={section.id} className="scroll-mt-28 space-y-3.5">
             {section.title && (
-              <h2 className="text-[18px] font-bold text-white/95">{section.title}</h2>
+              <h2 className="text-[18px] font-bold" style={{ color: p.ink }}>{section.title}</h2>
             )}
             <LessonBlocks blocks={section.blocks} />
           </section>

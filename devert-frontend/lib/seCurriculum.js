@@ -30,6 +30,27 @@ function slug(text) {
 export { SE_ACCENTS, SE_MODULES, countCurriculum } from "@/lib/se-curriculum-data.mjs";
 import { SE_MODULES } from "@/lib/se-curriculum-data.mjs";
 
+// Lives here (a dependency-free data module), not in se-lesson-blocks.jsx
+// where it used to be re-exported from - se-app.jsx needed it from there
+// while se-lesson-blocks.jsx separately imports useSe from se-app.jsx,
+// which is a genuine two-file import cycle Turbopack won't tolerate (fails
+// at module-eval time with "Cannot access 'ACCENT'/'SE_ACCENT' before
+// initialization" the moment the two files load in the wrong order - this
+// is not cosmetic, it broke the entire Campus workspace, not just
+// Fundamentals). se-lesson-blocks.jsx still re-exports SE_ACCENT from here
+// for its own existing consumers (se-lesson.jsx, se-ui.jsx,
+// admin/se-panel.jsx), so only se-app.jsx's own import needed to move.
+export const SE_ACCENT = {
+  green: "#00FF41",
+  cyan: "#00FFFF",
+  orange: "#FF9500",
+  purple: "#C77DFF",
+  gold: "#FFD700",
+  red: "#FF5050",
+  blue: "#3B82F6",
+  violet: "#A78BFA",
+};
+
 // Order is gapped by 10 at both levels, matching lib/campusNavConfig.js's
 // convention: inserting a lesson between two existing ones later never requires
 // renumbering its siblings.

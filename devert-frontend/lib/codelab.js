@@ -112,7 +112,7 @@ export async function saveCodeDraft(uid, problemId, { language, code, consoleTex
 export function subscribeToCodelabProgress(uid, callback) {
   return onSnapshot(doc(db, "user_codelab_progress", uid), snap => {
     callback(snap.exists() ? snap.data() : { solvedProblems: {}, languageUsage: {}, totalSubmissions: 0, problemsSolvedCount: 0 });
-  });
+  }, err => console.error("[onSnapshot:codelabProgress]", err));
 }
 
 // Distinct problem ids a user has ever submitted for, regardless of verdict -

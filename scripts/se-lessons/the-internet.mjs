@@ -97,9 +97,9 @@ This is also the entire commercial premise of content delivery networks: not mak
 
 The frontend is served from Firebase Hosting's CDN, so the HTML, CSS and JavaScript come from a location near the user. A student in Hyderabad is not fetching the interface from Virginia.
 
-The backend is not. It runs on Render's **Singapore** region - a single instance, one location. That was a deliberate choice: Singapore is the closest low-cost region to India, and the backend handles only email and code grading, neither of which is on the critical path of reading a page. A student browsing lessons never touches it.
+The backend is not. It runs on Google Cloud Run's **asia-south1** region - Mumbai, a single instance, one location. That was a deliberate choice: most of DeVert's traffic is from India, and the backend handles only email and code grading, neither of which is on the critical path of reading a page. A student browsing lessons never touches it.
 
-But it does mean that submitting code in CodeLab carries a round trip to Singapore on top of the actual execution time. For a feature where the user already expects a wait, that is an acceptable trade. For page loads it would not have been - which is why the pages are not served that way.`,
+But it does mean that submitting code in CodeLab carries a round trip to Mumbai on top of the actual execution time. For a feature where the user already expects a wait, that is an acceptable trade. For page loads it would not have been - which is why the pages are not served that way.`,
     knowledgeChecks: [
       {
         question: "How does the overwhelming majority of intercontinental internet traffic travel?",
@@ -257,7 +257,7 @@ Because the frontend is static files on a CDN and the browser talks straight to 
 
 That is the right call, and for reasons this lesson explains: with NAT, an IP address is a poor identifier. An entire college computer lab shares one public address. Rate limiting DeVert by IP would throttle a whole classroom the moment one student was active; identifying a student by IP would be simply wrong.
 
-The one place addresses do matter is the Render-hosted backend, where the platform's CORS configuration controls which *origins* may call it - a different mechanism, and one you will meet properly in Module 7.`,
+The one place addresses do matter is the Cloud Run-hosted backend, where the platform's CORS configuration controls which *origins* may call it - a different mechanism, and one you will meet properly in Module 7.`,
     knowledgeChecks: [
       {
         question: "How many bits is an IPv4 address, and roughly how many addresses does that allow?",
@@ -436,7 +436,7 @@ Packet switching was developed independently by Paul Baran in the United States 
 The endpoint-only nature of TCP is also why **HTTP/3 exists**. TCP's ordering guarantee means one lost packet blocks every stream sharing that connection, so HTTP/3 moved to QUIC, which runs over UDP and reimplements reliability per stream. That is a direct consequence of this lesson: when the guarantee lives at the endpoints, you are free to build a different one.`,
     devertCaseStudy: `DeVert's code execution feature is where this becomes visible to a student.
 
-When code is submitted in CodeLab, the browser makes an HTTPS request to the backend in Singapore, which forwards it to an execution provider, waits for the result, and returns it. Every one of those hops is packets over best-effort IP, and any of them can be slow or lossy.
+When code is submitted in CodeLab, the browser makes an HTTPS request to the backend in Mumbai, which forwards it to an execution provider, waits for the result, and returns it. Every one of those hops is packets over best-effort IP, and any of them can be slow or lossy.
 
 So the client does not assume success. \`runCode\` in \`lib/codelab.js\` treats a failure as a real possibility, and the lesson code blocks elsewhere on the platform fall back to a pre-authored expected output the moment a run genuinely fails - never a fabricated result, and never a dead Run button left behind.
 
@@ -640,7 +640,7 @@ In October 2021 **Facebook** withdrew the network routes to its own DNS servers 
 The engineering lesson in both is the same: DNS is a dependency almost nobody lists in their architecture diagram, and it can take down services that are otherwise perfectly healthy.`,
     devertCaseStudy: `DeVert's own DNS is a small worked example of records doing different jobs.
 
-\`devert.in\` resolves to Firebase Hosting's CDN, which is why the interface loads from somewhere near the user. But the platform also uses \`NEXT_PUBLIC_API_URL\` to reach its backend, hosted on Render under a completely different name - so a single product spans two providers, joined only by DNS.
+\`devert.in\` resolves to Firebase Hosting's CDN, which is why the interface loads from somewhere near the user. But the platform also uses \`NEXT_PUBLIC_API_URL\` to reach its backend, hosted on Google Cloud Run under a completely different name (a \`*.run.app\` domain) - so a single product spans two providers, joined only by DNS.
 
 The interesting operational consequence is what happens when that name cannot be resolved. The frontend is written so that a missing or unreachable API URL is not a crash: email notifications silently no-op, and lesson code examples fall back to their pre-authored expected output. A student browsing lessons never notices, because DNS failure for the backend degrades exactly one feature rather than the site.
 
