@@ -70,9 +70,9 @@ function exportRegistrationsCsv(registrations, title) {
 // HOD or class teacher actually wants, rather than the top 3 the card shows.
 function exportClasswiseCsv(classwise, title) {
   const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = "class,classRank,name,rollNumber,score,maxScore,percent,accuracy,timeTaken,timeTakenSeconds";
+  const header = "class,classRank,name,rollNumber,score,maxScore,percent,correct,attempted,accuracy,timeTaken,timeTakenSeconds";
   const rows = classwise.flatMap(cls => cls.rows.map((r, i) =>
-    [cls.label, i + 1, r.name, r.rollNumber, r.score, r.maxScore, r.pct, r.accuracy,
+    [cls.label, i + 1, r.name, r.rollNumber, r.score, r.maxScore, r.pct, r.correct, r.attempted, r.accuracy,
      formatDuration(r.timeTakenSeconds), r.timeTakenSeconds ?? ""].map(esc).join(",")
   ));
   const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
@@ -81,6 +81,92 @@ function exportClasswiseCsv(classwise, title) {
   a.href = url; a.download = `${title.replace(/\s+/g, "-").toLowerCase()}-classwise-results.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// One ranked block - the printable classwise report's layout brought in-app:
+// a heading carrying the class's own summary, then the full table (rank, name,
+// roll number, score, %, correct, attempted, accuracy, time) with the top three
+// tinted gold/silver/bronze.
+//
+// `limit` caps a section that is only ever a preview (the overall Top 25).
+// A CLASS section is never silently truncated - a class teacher reading their
+// own class's results must see every student in it - so a long class collapses
+// behind an explicit "show all N", which states the count it is hiding rather
+// than quietly cutting the list off.
+function ClasswiseSection({ group, title, limit, open, onToggle }) {
+  const collapsible = typeof onToggle === "function";
+  const PREVIEW = 5;
+  const rows = limit ? group.rows.slice(0, limit)
+    : (collapsible && !open) ? group.rows.slice(0, PREVIEW)
+    : group.rows;
+  const hidden = group.rows.length - rows.length;
+  const medalTint = (i) => i === 0 ? `${CAMPUS.gold}1F` : i === 1 ? "#9CA3AF1F" : i === 2 ? "#B873331F" : "transparent";
+  const th = "text-[9.5px] uppercase tracking-wide font-semibold py-1 whitespace-nowrap";
+
+  return (
+    <div className="mt-4">
+      <div className="flex items-baseline justify-between gap-2 flex-wrap pb-1.5 mb-1"
+        style={{ borderBottom: `2px solid ${CAMPUS.purple}` }}>
+        <p className="text-[11.5px] font-bold" style={{ color: CAMPUS.purple }}>{title || group.label}</p>
+        <p className="text-[10px]" style={{ color: CAMPUS.inkFaint }}>
+          {group.rows.length} students &middot; avg {group.avgPct}% &middot; avg time {formatDuration(group.avgTime)}
+          {!title && <> &middot; top: <b style={{ color: CAMPUS.inkSoft }}>{group.rows[0].name}</b> ({group.rows[0].pct}%)</>}
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr style={{ color: CAMPUS.inkFaint }}>
+              <th className={`${th} text-left pr-2`}>#</th>
+              <th className={`${th} text-left`}>Name</th>
+              <th className={`${th} text-right pl-2`}>Score</th>
+              <th className={`${th} text-right pl-2`}>%</th>
+              <th className={`${th} text-right pl-2`}>Correct</th>
+              <th className={`${th} text-right pl-2`}>Att.</th>
+              <th className={`${th} text-right pl-2`}>Acc.</th>
+              <th className={`${th} text-right pl-2`}>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.uid} style={{ borderTop: `1px solid ${CAMPUS.line}`, background: medalTint(i) }}>
+                <td className="text-[11px] py-1.5 pr-2 w-7">
+                  {i < 3
+                    ? <span className="flex items-center gap-0.5 font-bold" style={{ color: i === 0 ? CAMPUS.gold : i === 1 ? "#9CA3AF" : "#B87333" }}><Medal size={10} /> {i + 1}</span>
+                    : <span style={{ color: CAMPUS.inkFaint }}>{i + 1}</span>}
+                </td>
+                <td className="text-[11px] py-1.5 min-w-0" style={{ color: CAMPUS.ink }}>
+                  <span className="block truncate">{r.name}</span>
+                  {r.rollNumber && <span className="block font-mono text-[9.5px]" style={{ color: CAMPUS.inkFaint }}>{r.rollNumber}</span>}
+                </td>
+                <td className="text-[11px] py-1.5 pl-2 text-right font-mono whitespace-nowrap" style={{ color: CAMPUS.teal }}>{r.score}/{r.maxScore}</td>
+                <td className="text-[11px] py-1.5 pl-2 text-right font-mono" style={{ color: CAMPUS.ink }}>{r.pct}%</td>
+                <td className="text-[11px] py-1.5 pl-2 text-right font-mono" style={{ color: CAMPUS.inkFaint }}>{r.correct}</td>
+                <td className="text-[11px] py-1.5 pl-2 text-right font-mono" style={{ color: CAMPUS.inkFaint }}>{r.attempted}</td>
+                <td className="text-[11px] py-1.5 pl-2 text-right font-mono" style={{ color: CAMPUS.inkFaint }}>{r.accuracy}%</td>
+                <td className="text-[11px] py-1.5 pl-2 text-right font-mono whitespace-nowrap" style={{ color: CAMPUS.inkFaint }}>{formatDuration(r.timeTakenSeconds)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {collapsible && hidden > 0 && (
+        <button onClick={onToggle} className="text-[10.5px] mt-1 flex items-center gap-1" style={{ color: CAMPUS.teal }}>
+          <ChevronDown size={11} /> show all {group.rows.length}
+        </button>
+      )}
+      {collapsible && open && (
+        <button onClick={onToggle} className="text-[10.5px] mt-1 flex items-center gap-1" style={{ color: CAMPUS.teal }}>
+          <ChevronUp size={11} /> collapse
+        </button>
+      )}
+      {limit && group.rows.length > limit && (
+        <p className="text-[10px] mt-1" style={{ color: CAMPUS.inkFaint }}>
+          showing top {limit} of {group.rows.length} - per-class tables below cover everyone
+        </p>
+      )}
+    </div>
+  );
 }
 
 // A tiny inline bar - no charting library anywhere in this codebase, and one
@@ -485,24 +571,40 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
         rollNumber: r.rollNumber || s.rollNumber || "",
         score: s.score || 0, maxScore: max,
         pct: max > 0 ? Math.round(((s.score || 0) / max) * 1000) / 10 : 0,
+        correct: s.correctCount ?? 0,
+        // Not stored on the submission - derived the same way gradeSubmission
+        // counts it, so "attempted" here means the same thing as the accuracy
+        // denominator rather than merely "has a key in answers".
+        attempted: Object.values(s.answers || {}).filter(v =>
+          !(v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0))).length,
         accuracy: s.accuracy ?? 0,
         timeTakenSeconds: s.timeTakenSeconds,
       };
       if (!groups.has(label)) groups.set(label, []);
       groups.get(label).push(row);
     }
-    return [...groups.entries()]
-      .map(([label, rows]) => {
-        rows.sort((a, b) => b.pct - a.pct || b.score - a.score
-          || ((a.timeTakenSeconds ?? Infinity) - (b.timeTakenSeconds ?? Infinity)));
-        const timed = rows.filter(r => typeof r.timeTakenSeconds === "number");
-        return {
-          label, rows,
-          avgPct: Math.round((rows.reduce((a, r) => a + r.pct, 0) / rows.length) * 10) / 10,
-          avgTime: timed.length ? Math.round(timed.reduce((a, r) => a + r.timeTakenSeconds, 0) / timed.length) : null,
-        };
-      })
+    const byRank = (a, b) => b.pct - a.pct || b.score - a.score
+      || ((a.timeTakenSeconds ?? Infinity) - (b.timeTakenSeconds ?? Infinity));
+    const summarise = (label, rows) => {
+      rows.sort(byRank);
+      const timed = rows.filter(r => typeof r.timeTakenSeconds === "number");
+      return {
+        label, rows,
+        avgPct: Math.round((rows.reduce((a, r) => a + r.pct, 0) / rows.length) * 10) / 10,
+        avgTime: timed.length ? Math.round(timed.reduce((a, r) => a + r.timeTakenSeconds, 0) / timed.length) : null,
+      };
+    };
+    const classes = [...groups.entries()]
+      .map(([label, rows]) => summarise(label, rows))
       .sort((a, b) => a.label.localeCompare(b.label));
+    // Whether a single paper had more than one maxScore - drives the footnote
+    // explaining why ranking is on percentage rather than raw score.
+    const mixedPapers = new Set(graded.map(s => s.maxScore)).size > 1;
+    return {
+      classes,
+      overall: graded.length ? summarise("Overall", [...classes.flatMap(c => c.rows)]) : null,
+      mixedPapers,
+    };
   }, [submissions, roster]);
 
   const handleResetAttempt = async (uid) => {
@@ -828,65 +930,34 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
         </CampusCard>
       </div>
 
-      {classwise.length > 0 && (
+      {classwise.overall && (
         <CampusCard className="p-4 mt-4 min-w-0">
-          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
             <p className="text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: CAMPUS.ink }}>
               <Users size={13} /> Classwise Results
-              <span className="font-normal" style={{ color: CAMPUS.inkFaint }}>({classwise.length} {classwise.length === 1 ? "class" : "classes"})</span>
+              <span className="font-normal" style={{ color: CAMPUS.inkFaint }}>
+                {classwise.overall.rows.length} students &middot; {classwise.classes.length} {classwise.classes.length === 1 ? "class" : "classes"}
+              </span>
             </p>
-            <button onClick={() => exportClasswiseCsv(classwise, contest.title)}
+            <button onClick={() => exportClasswiseCsv(classwise.classes, contest.title)}
               className="flex items-center gap-1 text-[11px]" style={{ color: CAMPUS.teal }}>
               <Download size={11} /> export csv
             </button>
           </div>
-          <div className="space-y-3">
-            {classwise.map(cls => {
-              const open = expandedClass === cls.label;
-              const shown = open ? cls.rows : cls.rows.slice(0, 3);
-              return (
-                <div key={cls.label} className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
-                  <button onClick={() => setExpandedClass(open ? null : cls.label)}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left" style={{ background: CAMPUS.paper }}>
-                    <span className="text-[11.5px] font-semibold min-w-0 truncate" style={{ color: CAMPUS.ink }}>{cls.label}</span>
-                    <span className="text-[10.5px] flex-shrink-0 flex items-center gap-2" style={{ color: CAMPUS.inkFaint }}>
-                      <span>{cls.rows.length} students</span>
-                      <span>avg {cls.avgPct}%</span>
-                      <span className="font-mono">{formatDuration(cls.avgTime)}</span>
-                      {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    </span>
-                  </button>
-                  <div className="px-3 py-2 overflow-x-auto">
-                    <table className="w-full">
-                      <tbody>
-                        {shown.map((r, i) => (
-                          <tr key={r.uid} style={{ borderTop: i === 0 ? "none" : `1px solid ${CAMPUS.line}` }}>
-                            <td className="text-[11px] py-1 pr-2 w-7">
-                              {i < 3
-                                ? <span className="flex items-center gap-0.5 font-bold" style={{ color: i === 0 ? CAMPUS.gold : i === 1 ? "#9CA3AF" : "#B87333" }}><Medal size={10} /> {i + 1}</span>
-                                : <span style={{ color: CAMPUS.inkFaint }}>{i + 1}</span>}
-                            </td>
-                            <td className="text-[11px] py-1 truncate" style={{ color: CAMPUS.ink }}>
-                              {r.name}
-                              {r.rollNumber && <span className="block font-mono text-[9.5px]" style={{ color: CAMPUS.inkFaint }}>{r.rollNumber}</span>}
-                            </td>
-                            <td className="text-[11px] py-1 text-right whitespace-nowrap" style={{ color: CAMPUS.teal }}>{r.score}/{r.maxScore}</td>
-                            <td className="text-[11px] py-1 pl-2 text-right font-mono" style={{ color: CAMPUS.inkFaint }}>{r.pct}%</td>
-                            <td className="text-[11px] py-1 pl-2 text-right font-mono whitespace-nowrap" style={{ color: CAMPUS.inkFaint }}>{formatDuration(r.timeTakenSeconds)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {!open && cls.rows.length > 3 && (
-                      <button onClick={() => setExpandedClass(cls.label)} className="text-[10.5px] mt-1" style={{ color: CAMPUS.teal }}>
-                        show all {cls.rows.length} →
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {classwise.mixedPapers && (
+            <p className="text-[10.5px] mb-3 px-2.5 py-1.5 rounded-md"
+              style={{ color: CAMPUS.inkSoft, background: `${CAMPUS.warn}14`, borderLeft: `2px solid ${CAMPUS.warn}` }}>
+              Students sat papers of different lengths, so ranking is by <b>percentage</b> - ranking on raw score
+              would place a perfect 10/10 below a 12/20.
+            </p>
+          )}
+
+          <ClasswiseSection group={classwise.overall} title="Overall - Top 25" limit={25} />
+          {classwise.classes.map(cls => (
+            <ClasswiseSection key={cls.label} group={cls}
+              open={expandedClass === cls.label}
+              onToggle={() => setExpandedClass(expandedClass === cls.label ? null : cls.label)} />
+          ))}
         </CampusCard>
       )}
 
