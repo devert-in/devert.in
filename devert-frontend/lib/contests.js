@@ -623,10 +623,30 @@ export async function persistGrading(contestId, uid, grading) {
     alreadyGraded = !!snap.data()?.graded;
     if (alreadyGraded) return;
 
+    // maxScore is deliberately NOT written. It is locked at create time and is
+    // absent from firestore.rules' update allowlist
+    // (['graded','score','accuracy','correctCount','xpEarned','coinsEarned']),
+    // which is the whole point of locking it - the same rule bounds score and
+    // correctCount AGAINST it, so a write that could restate maxScore could
+    // also raise its own ceiling.
+    //
+    // THE BUG THIS FIXES. Writing it here was harmless only while a contest's
+    // question set never changed after the first submission: the value written
+    // equalled the value stored, so it never appeared in affectedKeys() and
+    // hasOnly() was satisfied by accident. The moment a paper is edited
+    // mid-contest, every already-submitted student's stored maxScore stops
+    // matching the recomputed one, maxScore becomes an affected key, and EVERY
+    // grading write - student's own and the admin sweep alike - is denied with
+    // "Missing or insufficient permissions", with no way to grade them from the
+    // UI ever again. Found on a live 122-student contest whose paper was
+    // changed mid-event: 74 submissions graded and 12 were permanently stuck.
+    //
+    // A submission is scored against the paper the student actually sat, which
+    // is exactly what the stored maxScore records - so leaving it alone is also
+    // the honest behaviour, not merely the permitted one.
     tx.update(submissionRef, {
       graded: true,
       score: grading.score,
-      maxScore: grading.maxScore,
       accuracy: grading.accuracy,
       correctCount: grading.correctCount,
     });
