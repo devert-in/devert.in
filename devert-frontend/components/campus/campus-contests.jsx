@@ -14,6 +14,7 @@ import {
 } from "@/lib/contests";
 import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
 import { ContestShareButton } from "@/components/campus/contest-share";
+import { Inline } from "@/components/campus/lesson-blocks";
 import { seededShuffle } from "@/lib/quizRandom";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusBreadcrumb, CampusButton, CampusSkeleton, CampusEmptyState, CampusTable } from "@/components/campus/campus-ui";
@@ -224,11 +225,11 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
       )}
 
       <CampusCard className="p-5 space-y-4 mb-5">
-        {contest.description && <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{contest.description}</p>}
+        {contest.description && <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}><Inline text={contest.description} /></p>}
         {contest.rules && (
           <div>
             <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>RULES</p>
-            <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{contest.rules}</p>
+            <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}><Inline text={contest.rules} /></p>
           </div>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
@@ -689,7 +690,15 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
       </div>
 
       <CampusCard className="p-5">
-        <p className="text-[13px] leading-relaxed mb-5 whitespace-pre-wrap" style={{ color: CAMPUS.ink }}>{q.question}</p>
+        {/* Question bodies are authored in the same light markdown the rest of
+            Campus uses (**bold**, `code`), so they render through the shared
+            Inline tokenizer rather than as raw text - otherwise a problem
+            statement shows literal asterisks to every student sitting it.
+            whitespace-pre-wrap still carries the line breaks; Inline never
+            emits HTML, so this opens no injection path. */}
+        <p className="text-[13px] leading-relaxed mb-5 whitespace-pre-wrap" style={{ color: CAMPUS.ink }}>
+          <Inline text={q.question} />
+        </p>
 
         {q.type === "coding" ? (
           <ContestCodingPanel state={codingByQuestion[q.id]} isPaused={isPaused}

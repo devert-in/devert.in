@@ -106,6 +106,15 @@ export function slugifyHeading(text) {
 // **bold** wins over *italic*, and an unmatched delimiter never starts a run.
 const INLINE = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*/g;
 
+// Markdown-authored text rendered somewhere that cannot show formatting - a
+// truncated one-line label, a CSV cell, a document title. Strips the
+// delimiters rather than leaking them, so an analytics row reads "Valid
+// Palindrome" instead of "**Valid Palindrome**". Reuses the same tokenizer as
+// the renderer, so the two can never disagree about what is a delimiter.
+export function plainInline(text) {
+  return tokenizeInline(text).map(t => t.text).join("");
+}
+
 export function tokenizeInline(text) {
   if (!text) return [];
   const tokens = [];

@@ -1843,3 +1843,81 @@ test("a student can grade their own submission with the payload persistGrading a
     graded: true, score: 10, accuracy: 40, correctCount: 5, xpEarned: 250,
   }));
 });
+
+// Mock Reviewers - people the contest admin lists to test a paper end to end
+// before it opens. A reviewer is usually a student who is deliberately OUTSIDE
+// the target audience, so the whole feature hinges on granting exactly enough
+// to sit the paper and nothing that touches production.
+test("a mock reviewer can sit a contest they are not eligible for, without touching production data", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("contests/rev-contest").set({
+      title: "Bi-Weekly #1", status: "published", audiences: ["legacy"], institutionId: "mrcet",
+      contestEnd: new Date(Date.now() + 3600_000), registrationEnd: new Date(Date.now() + 1800_000),
+      // III Year only - the reviewer below is II Year, i.e. genuinely ineligible.
+      targetScope: { mode: "scoped", departments: [], years: ["III Year"], sections: [], classroomIds: [], uids: [] },
+    });
+    await ctx.firestore().doc("contests/rev-contest/questions/q1").set({ type: "mcq", question: "Q", marks: 1, order: 0 });
+    await ctx.firestore().doc("contests/rev-contest/answerKeys/q1").set({ correctOptionIds: ["b"] });
+    await ctx.firestore().doc("institutions/mrcet/admins/mrcet-admin-uid").set({ uid: "mrcet-admin-uid" });
+    await ctx.firestore().doc("institutions/mrcet/students/reviewer-uid").set({ uid: "reviewer-uid", status: "approved", year: "II Year" });
+    await ctx.firestore().doc("institutions/mrcet/students/outsider-uid").set({ uid: "outsider-uid", status: "approved", year: "II Year" });
+    await ctx.firestore().doc("contests/rev-contest/reviewers/reviewer-uid").set({ uid: "reviewer-uid", enabled: true });
+  });
+
+  const reviewer = testEnv.authenticatedContext("reviewer-uid");
+  const outsider = testEnv.authenticatedContext("outsider-uid");
+
+  // Can open the contest and read the paper despite being out of audience.
+  await assertSucceeds(reviewer.firestore().doc("contests/rev-contest").get());
+  await assertSucceeds(reviewer.firestore().doc("contests/rev-contest/questions/q1").get());
+  // An equally-ineligible non-reviewer still cannot - being listed is what grants it.
+  await assertFails(outsider.firestore().doc("contests/rev-contest/questions/q1").get());
+
+  // Answer keys are NOT readable up front - review access must not be a way to
+  // read the answers early, which matters because a reviewer is often a student.
+  await assertFails(reviewer.firestore().doc("contests/rev-contest/answerKeys/q1").get());
+
+  // Can record their own dry run...
+  await assertSucceeds(reviewer.firestore().doc("contests/rev-contest/dryRuns/reviewer-uid").set({
+    isDryRun: true, answers: { q1: "b" }, score: 1, maxScore: 1, timeTakenSeconds: 60,
+  }));
+  // ...and only then see the keys, to check the paper is correctly keyed.
+  await assertSucceeds(reviewer.firestore().doc("contests/rev-contest/answerKeys/q1").get());
+
+  // ISOLATION. None of this may reach production.
+  await assertFails(reviewer.firestore().doc("contests/rev-contest/submissions/reviewer-uid").set({
+    graded: false, maxScore: 1, answers: {}, timeTakenSeconds: 60,
+  }));
+  await assertFails(reviewer.firestore().doc("contests/rev-contest/registrations/reviewer-uid").set({ registeredAt: new Date() }));
+  await assertFails(reviewer.firestore().doc("contests/rev-contest").update({ participantCount: 99 }));
+
+  // Cannot fabricate an attempt for anyone else, nor read theirs.
+  await assertFails(reviewer.firestore().doc("contests/rev-contest/dryRuns/someone-else").set({ isDryRun: true, score: 25 }));
+  await assertFails(reviewer.firestore().doc("contests/rev-contest/dryRuns/mrcet-admin-uid").get());
+  // Cannot add themselves, or anyone, to the reviewer roster.
+  await assertFails(reviewer.firestore().doc("contests/rev-contest/reviewers/outsider-uid").set({ uid: "outsider-uid", enabled: true }));
+  // May read their own roster entry, so the client can show review mode.
+  await assertSucceeds(reviewer.firestore().doc("contests/rev-contest/reviewers/reviewer-uid").get());
+
+  // A non-reviewer cannot dry-run at all.
+  await assertFails(outsider.firestore().doc("contests/rev-contest/dryRuns/outsider-uid").set({ isDryRun: true, score: 1 }));
+});
+
+test("a disabled reviewer loses access without losing their attempt history", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("contests/rev-off").set({
+      title: "Suspended reviewer", status: "published", audiences: ["legacy"], institutionId: "mrcet",
+      contestEnd: new Date(Date.now() + 3600_000),
+      targetScope: { mode: "scoped", departments: [], years: ["III Year"], sections: [], classroomIds: [], uids: [] },
+    });
+    await ctx.firestore().doc("contests/rev-off/questions/q1").set({ type: "mcq", question: "Q", marks: 1, order: 0 });
+    await ctx.firestore().doc("institutions/mrcet/students/paused-uid").set({ uid: "paused-uid", status: "approved", year: "II Year" });
+    await ctx.firestore().doc("contests/rev-off/reviewers/paused-uid").set({ uid: "paused-uid", enabled: false });
+    await ctx.firestore().doc("contests/rev-off/dryRuns/paused-uid").set({ isDryRun: true, score: 12 });
+  });
+  const paused = testEnv.authenticatedContext("paused-uid");
+  await assertFails(paused.firestore().doc("contests/rev-off/questions/q1").get());
+  await assertFails(paused.firestore().doc("contests/rev-off/dryRuns/paused-uid").set({ isDryRun: true, score: 20 }));
+  // The record of what they already did survives for the admin.
+  await assertSucceeds(paused.firestore().doc("contests/rev-off/dryRuns/paused-uid").get());
+});

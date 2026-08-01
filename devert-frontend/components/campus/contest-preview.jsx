@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import { CampusChip, CampusSkeleton } from "@/components/campus/campus-ui";
+import { Inline } from "@/components/campus/lesson-blocks";
 import { useKeyedFetch } from "@/lib/useKeyedFetch";
 import {
   fetchContestQuestions, fetchContestAnswerKeys,
@@ -188,7 +189,11 @@ function QuestionCard({ q, keyDoc, tests, showAnswers }) {
         {q.topic && <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>{q.topic}</span>}
       </div>
 
-      <p className="text-[12.5px] whitespace-pre-wrap leading-relaxed mb-2" style={{ color: CAMPUS.ink }}>{q.question}</p>
+      {/* Same Inline renderer the student attempt uses, so the preview shows
+          exactly what they will see rather than a differently-formatted copy. */}
+      <p className="text-[12.5px] whitespace-pre-wrap leading-relaxed mb-2" style={{ color: CAMPUS.ink }}>
+        <Inline text={q.question} />
+      </p>
 
       {!isCoding && (q.options || []).length > 0 && (
         <div className="space-y-1 mb-1">

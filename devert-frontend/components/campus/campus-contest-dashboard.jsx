@@ -17,6 +17,8 @@ import { gatherContestResultsReport } from "@/lib/campusReports";
 import { ContestPreviewButton } from "@/components/campus/contest-preview";
 import { ContestInfoCard } from "@/components/campus/contest-info-editor";
 import { CampusContestAttempt } from "@/components/campus/campus-contests";
+import { ContestReviewersPanel } from "@/components/campus/contest-reviewers";
+import { plainInline } from "@/lib/lessonBlocks";
 import { useAuth } from "@/context/AuthContext";
 
 function toDate(v) {
@@ -650,7 +652,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
             <div className="max-h-56 overflow-y-auto space-y-1">
               {registrations.slice(0, 100).map(r => (
                 <div key={r.uid} className="flex items-center justify-between gap-2 text-[11.5px]">
-                  <span className="truncate flex-1" style={{ color: CAMPUS.inkSoft }}>{participantLabel(r)}</span>
+                  <span className="truncate flex-1 min-w-0" style={{ color: CAMPUS.inkSoft }}>{participantLabel(r)}</span>
                   {r.rollNumber && <span className="font-mono flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{r.rollNumber}</span>}
                   {submittedUids.has(r.uid) && (
                     <button onClick={() => handleResetAttempt(r.uid)} disabled={resettingUid === r.uid} title="Reset attempt"
@@ -703,25 +705,30 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
         </CampusCard>
       </div>
 
+      {/* min-w-0 on the grid children below is load-bearing: `truncate` sets
+          white-space:nowrap, and a grid item defaults to min-width:auto, so
+          without it the item refuses to shrink below one very long unwrapped
+          question line and pushes the whole page into a horizontal scroll on
+          mobile. */}
       {analytics.perQuestion.length > 0 && (
         <div className="grid lg:grid-cols-2 gap-4 mt-4">
-          <CampusCard className="p-4">
+          <CampusCard className="p-4 min-w-0">
             <p className="text-[12.5px] font-semibold mb-3" style={{ color: CAMPUS.ink }}>Most Incorrect Questions</p>
             <div className="space-y-2.5">
               {analytics.mostIncorrect.map(q => (
                 <div key={q.id}>
-                  <p className="text-[11.5px] truncate mb-1" style={{ color: CAMPUS.inkSoft }}>{q.question}</p>
+                  <p className="text-[11.5px] truncate mb-1" style={{ color: CAMPUS.inkSoft }}>{plainInline(q.question)}</p>
                   <div className="flex items-center gap-2"><Bar pct={q.accuracy ?? 0} color={CAMPUS.bad} /><span className="text-[10px] font-mono" style={{ color: CAMPUS.inkFaint }}>{q.incorrect} wrong</span></div>
                 </div>
               ))}
             </div>
           </CampusCard>
-          <CampusCard className="p-4">
+          <CampusCard className="p-4 min-w-0">
             <p className="text-[12.5px] font-semibold mb-3" style={{ color: CAMPUS.ink }}>Most Skipped Questions</p>
             <div className="space-y-2.5">
               {analytics.mostSkipped.map(q => (
                 <div key={q.id}>
-                  <p className="text-[11.5px] truncate mb-1" style={{ color: CAMPUS.inkSoft }}>{q.question}</p>
+                  <p className="text-[11.5px] truncate mb-1" style={{ color: CAMPUS.inkSoft }}>{plainInline(q.question)}</p>
                   <div className="flex items-center gap-2"><Bar pct={analytics.submitted ? (q.skipped / analytics.submitted) * 100 : 0} color={CAMPUS.warn} /><span className="text-[10px] font-mono" style={{ color: CAMPUS.inkFaint }}>{q.skipped} skipped</span></div>
                 </div>
               ))}
@@ -752,6 +759,8 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
       )}
 
       <CampusContestSettingsPanel contest={contest} onSaved={load} />
+
+      <ContestReviewersPanel contestId={contestId} roster={roster} adminUid={user?.uid} />
 
       <ContestInfoCard contest={contest} onSaved={load} />
 

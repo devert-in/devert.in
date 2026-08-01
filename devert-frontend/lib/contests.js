@@ -688,6 +688,47 @@ export async function submitContestDryRun(contestId, uid, payload) {
   });
 }
 
+// ---------------- Mock Reviewers ----------------
+
+// Per-contest, not a global role: being trusted to review one paper says
+// nothing about any other, and a reviewer is very often a student who will sit
+// a different contest for real. firestore.rules enforces the whole boundary -
+// a reviewer may read this contest and write their own dryRun, and may not
+// register, submit, or touch anyone else's anything.
+export async function addContestReviewer(contestId, uid, meta = {}, byUid = "") {
+  await setDoc(doc(db, "contests", contestId, "reviewers", uid), {
+    uid,
+    name: meta.name || "", rollNumber: meta.rollNumber || "", email: meta.email || "",
+    enabled: true, addedAt: serverTimestamp(), addedBy: byUid || "",
+  }, { merge: true });
+}
+
+export async function removeContestReviewer(contestId, uid) {
+  await deleteDoc(doc(db, "contests", contestId, "reviewers", uid));
+}
+
+// Suspends access without losing what they already tested - the roster doc is
+// also the record of who reviewed, so deleting it to pause someone would throw
+// that away.
+export async function setContestReviewerEnabled(contestId, uid, enabled) {
+  await updateDoc(doc(db, "contests", contestId, "reviewers", uid), { enabled: !!enabled });
+}
+
+export async function fetchContestReviewers(contestId) {
+  const snap = await getDocs(collection(db, "contests", contestId, "reviewers"));
+  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+}
+
+// Lets the attempt screen show the review-mode banner. Returns null for
+// everyone who isn't a listed, enabled reviewer.
+export async function fetchMyContestReviewer(contestId, uid) {
+  if (!contestId || !uid) return null;
+  const snap = await getDoc(doc(db, "contests", contestId, "reviewers", uid)).catch(() => null);
+  if (!snap?.exists()) return null;
+  const data = snap.data();
+  return data.enabled === false ? null : { uid, ...data };
+}
+
 export async function fetchContestDryRuns(contestId) {
   const snap = await getDocs(collection(db, "contests", contestId, "dryRuns"));
   return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
@@ -1062,7 +1103,24 @@ export async function submitContestCodingAnswer(contestId, questionId, language,
     body: JSON.stringify({ language, code }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Submission failed.");
+  if (!res.ok) {
+    // A 404 here does not mean "your code is wrong" - it means this backend
+    // build predates ContestGradingController, so the grading endpoint is not
+    // deployed at all. Spring's bare "Not Found" surfaced straight to students
+    // mid-contest, which reads like their submission was rejected. The backend
+    // deploys separately from the frontend (CI ships hosting + functions only,
+    // Cloud Run is manual), so the two genuinely can drift.
+    if (res.status === 404) {
+      throw new Error("Code grading isn't available right now - this is a server problem, not your code. Tell your Training & Placement Cell; your answers are still saved.");
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Your session expired. Refresh the page and submit again - your code is saved.");
+    }
+    if (res.status >= 500) {
+      throw new Error("The grading server had a problem. Wait a moment and submit again - your code is saved.");
+    }
+    throw new Error(data.error || `Submission failed (${res.status}).`);
+  }
   return data;
 }
 

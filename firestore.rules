@@ -398,6 +398,29 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/contests/$(contestId)).data.get('settings', {}).get('leaderboardEnabled', true) == true
         && get(/databases/$(database)/documents/contests/$(contestId)).data.get('settings', {}).get('rankingVisibility', 'campus_only') != 'hidden';
     }
+    // A Mock Reviewer - somebody the contest's admin has explicitly listed to
+    // test the paper end to end before it opens. Deliberately a per-contest
+    // roster rather than a global role: being trusted to review one contest
+    // says nothing about any other, and a reviewer is very often a student who
+    // will sit a DIFFERENT contest for real next week.
+    //
+    // `enabled` defaults true so simply adding the doc grants access; setting
+    // it false suspends a reviewer without losing their attempt history.
+    function isContestReviewer(contestId) {
+      return isAuth()
+        && exists(/databases/$(database)/documents/contests/$(contestId)/reviewers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/contests/$(contestId)/reviewers/$(request.auth.uid)).data.get('enabled', true) == true;
+    }
+    // Answer keys are released to a reviewer only AFTER they have submitted
+    // their own dry run - the same "you have already committed your answers"
+    // gate hasSubmittedGateTest() applies to GATE tests. A reviewer needs to
+    // see the keys to check the paper is correctly keyed, but handing them out
+    // up front would turn "review this contest" into "here are the answers",
+    // which matters because a reviewer is frequently a student.
+    function hasSubmittedContestDryRun(contestId) {
+      return isAuth()
+        && exists(/databases/$(database)/documents/contests/$(contestId)/dryRuns/$(request.auth.uid));
+    }
     function isApprovedForContest(contestId) {
       return contestInstitutionId(contestId) == ''
         || (isApprovedStudent(contestInstitutionId(contestId)) && !isContestRestricted(contestInstitutionId(contestId))
@@ -1157,7 +1180,11 @@ service cloud.firestore {
         || (resource != null && resource.data.status == 'published'
           && (!('institutionId' in resource.data)
             || (isApprovedStudent(resource.data.institutionId)
-              && matchesContestScope(resource.data.get('targetScope', {}), resource.data.institutionId, request.auth.uid))));
+              && matchesContestScope(resource.data.get('targetScope', {}), resource.data.institutionId, request.auth.uid))
+            // A listed Mock Reviewer sees the contest regardless of the target
+            // audience - reviewing a III Year paper is the whole job, and a
+            // reviewer is usually deliberately outside that audience.
+            || isContestReviewer(contestId)));
       allow create: if isAdmin()
         || (isAuth() && request.resource.data.get('institutionId', '') != ''
           && isInstitutionAdmin(request.resource.data.institutionId));
@@ -1174,7 +1201,8 @@ service cloud.firestore {
           && (request.resource.data.get('participantCount', 0) - resource.data.get('participantCount', 0)) in [-1, 1]);
 
       match /questions/{questionId} {
-        allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isApprovedForContest(contestId);
+        allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isApprovedForContest(contestId)
+          || isContestReviewer(contestId);
         allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
 
         // Coding-question test cases - same trust split as problems/{id}'s own
@@ -1183,7 +1211,8 @@ service cloud.firestore {
         // client path - devert-backend's ContestGradingService reads these via
         // the admin SDK, which bypasses these rules entirely).
         match /sampleTests/{testId} {
-          allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isApprovedForContest(contestId);
+          allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isApprovedForContest(contestId)
+            || isContestReviewer(contestId);
           allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
         }
         match /hiddenTests/{testId} {
@@ -1194,7 +1223,11 @@ service cloud.firestore {
 
       match /answerKeys/{questionId} {
         allow read: if isAdmin() || isContestInstitutionAdmin(contestId) || (isApprovedForContest(contestId) &&
-          isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
+          isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd)
+          // A reviewer checking the paper is correctly keyed - but only after
+          // committing their own dry run, so review access is never a way to
+          // read the answers early.
+          || (isContestReviewer(contestId) && hasSubmittedContestDryRun(contestId));
         allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
       }
 
@@ -1237,8 +1270,23 @@ service cloud.firestore {
       // participation record and nobody should be able to mint one for
       // themselves. Unlike a real submission it is freely deletable and
       // re-writable: it is scratch data an admin should be able to redo.
+      // The Mock Reviewer roster. Admin-managed; a reviewer may read their own
+      // entry so the client can tell them they are in review mode, but may not
+      // add themselves or touch anyone else's.
+      match /reviewers/{uid} {
+        allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isOwner(uid);
+        allow write: if isAdmin() || isContestInstitutionAdmin(contestId);
+      }
+
+      // A dry run is writable by the contest's admin OR by a listed reviewer,
+      // and only ever at their OWN uid - a reviewer cannot fabricate an attempt
+      // for somebody else. Reviewers may read only their own; the admin reads
+      // all of them. Deliberately outside `submissions`, so none of this can
+      // reach the leaderboard, participantCount, or any average.
       match /dryRuns/{uid} {
-        allow read, write: if isAdmin() || isContestInstitutionAdmin(contestId);
+        allow read:  if isAdmin() || isContestInstitutionAdmin(contestId) || isOwner(uid);
+        allow write: if isAdmin() || isContestInstitutionAdmin(contestId)
+          || (isOwner(uid) && isContestReviewer(contestId));
       }
 
       match /submissions/{uid} {
