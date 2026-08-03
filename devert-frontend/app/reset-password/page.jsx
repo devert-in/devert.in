@@ -12,15 +12,54 @@ import { CampusShell } from "@/components/campus/campus-theme-provider";
 // Firebase Hosting's default password-reset page lives at
 // <project>.firebaseapp.com/__/auth/action - functional, but it exposes
 // Firebase's own domain/branding to what should read as a DeVert flow. This
-// page is that branded replacement: devert-backend's AdminAccountService
-// (and CampusStaffLogin's own "Forgot password") now both generate reset
-// links whose continue URL points HERE instead, carrying the same
-// `mode`/`oobCode` Firebase always appends (that's what actually verifies
-// and completes the reset - only the domain around it changes) plus two
-// plain routing hints, `campus`/`role`, so the success screen can send
-// someone straight back to their own role's login page without ever needing
-// to sign them in first just to look up where they belong.
+// page is the branded replacement, and devert-backend's AdminAccountService
+// (plus CampusStaffLogin's own "Forgot password") both aim their reset links
+// at it via ActionCodeSettings, carrying two plain routing hints -
+// `campus`/`role` - so whoever lands here ends up on their own role's login
+// page without ever needing to sign in first just to look up where they
+// belong.
+//
+// Whether this page runs the reset itself or only catches the user afterwards
+// depends on a console setting outside this repo - see routingHints() below,
+// which is why it handles a link with no `oobCode` as a normal outcome rather
+// than an error.
 const ROLE_LABELS = { principal: "Principal", hod: "Head of Department", faculty: "Faculty / Class Teacher" };
+
+const CAMPUS_SLUG = /^[a-z0-9][a-z0-9-]*$/i;
+
+// `role` gets interpolated straight into a path, and both params are just URL
+// text anyone can edit - keep them to the exact shapes a real login page has
+// (a slug, and one of the three known role segments) so a crafted link can't
+// steer the redirect below anywhere but a DeVert Campus login page.
+function loginHrefFor(campus, role) {
+  if (!campus || !CAMPUS_SLUG.test(campus) || !ROLE_LABELS[role]) return null;
+  return `/campus/${campus}/${role}`;
+}
+
+// Two link shapes reach this page, and which one you get depends on a Firebase
+// Console setting (Auth -> Templates -> "Customize action URL"), not on
+// anything in this repo:
+//   1. Not customized (what's live today): the email points at Firebase's own
+//      __/auth/action handler, which completes the reset itself and then sends
+//      the user HERE with only ?campus=&role= - no mode/oobCode, because
+//      there's nothing left to verify. See the effect below.
+//   2. Customized to /reset-password: the email lands here directly with
+//      mode/oobCode, and campus/role ride along nested inside `continueUrl`.
+// Reading the routing hints from either place keeps the destination right
+// under both, so flipping that console setting needs no code change.
+function routingHints(searchParams) {
+  const campus = searchParams.get("campus");
+  const role = searchParams.get("role");
+  if (campus && role) return { campus, role };
+  const continueUrl = searchParams.get("continueUrl");
+  if (!continueUrl) return { campus, role };
+  try {
+    const nested = new URL(continueUrl, "https://devert.in").searchParams;
+    return { campus: campus || nested.get("campus"), role: role || nested.get("role") };
+  } catch {
+    return { campus, role };
+  }
+}
 
 function friendlyError(code) {
   switch (code) {
@@ -44,11 +83,11 @@ function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const oobCode = searchParams.get("oobCode");
   const mode = searchParams.get("mode");
-  const campus = searchParams.get("campus");
-  const role = searchParams.get("role");
+  const { campus, role } = routingHints(searchParams);
   const roleLabel = ROLE_LABELS[role] || null;
+  const loginHref = loginHrefFor(campus, role);
 
-  const [status, setStatus] = useState("verifying"); // verifying | form | success | error
+  const [status, setStatus] = useState("verifying"); // verifying | form | success | redirecting | error
   const [email, setEmail] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [password, setPassword] = useState("");
@@ -58,6 +97,16 @@ function ResetPasswordContent() {
 
   useEffect(() => {
     if (mode !== "resetPassword" || !oobCode) {
+      // No code to verify. With campus/role in hand this is link shape 1 above
+      // - Firebase already took the new password and just bounced the user
+      // here - so finish the job by putting them on their own role's login
+      // page, instead of showing a "bad link" error for a reset that in fact
+      // succeeded. Only a link with no routing hints at all is genuinely broken.
+      if (loginHref) {
+        setStatus("redirecting");
+        router.replace(loginHref);
+        return;
+      }
       setErrorMsg("This link is missing required information. Contact your administrator for a new one.");
       setStatus("error");
       return;
@@ -65,7 +114,7 @@ function ResetPasswordContent() {
     verifyPasswordResetCode(auth, oobCode)
       .then((verifiedEmail) => { setEmail(verifiedEmail); setStatus("form"); })
       .catch((e) => { setErrorMsg(friendlyError(e.code)); setStatus("error"); });
-  }, [mode, oobCode]);
+  }, [mode, oobCode, loginHref, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -84,8 +133,8 @@ function ResetPasswordContent() {
     }
   };
 
-  const continueHref = campus && role ? `/campus/${campus}/${role}` : "/login";
-  const continueLabel = campus && role ? `Continue to ${roleLabel || "Login"} →` : "Continue to Sign In →";
+  const continueHref = loginHref || "/login";
+  const continueLabel = loginHref ? `Continue to ${roleLabel} Login →` : "Continue to Sign In →";
 
   return (
     <CampusShell>
@@ -94,6 +143,21 @@ function ResetPasswordContent() {
           <div className="flex flex-col items-center text-center gap-4 py-4">
             <CampusSkeleton className="h-10 w-10 rounded-full" />
             <CampusSkeleton className="h-4 w-40" />
+          </div>
+        )}
+
+        {status === "redirecting" && (
+          <div className="flex flex-col items-center text-center gap-3 py-3">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>
+              <CheckCircle2 size={24} />
+            </div>
+            <h3 className="text-[17px] font-semibold" style={{ color: CAMPUS.ink }}>Your password is set</h3>
+            <p className="text-[13px]" style={{ color: CAMPUS.inkSoft }}>
+              Taking you to the {roleLabel} login page…
+            </p>
+            <CampusButton onClick={() => router.replace(loginHref)} icon={ArrowRight} className="w-full mt-2">
+              Go to Login →
+            </CampusButton>
           </div>
         )}
 
@@ -141,7 +205,7 @@ function ResetPasswordContent() {
                 {roleLabel.toUpperCase()}
               </span>
             )}
-            <CampusButton onClick={() => router.push(continueHref)} icon={ArrowRight} className="w-full mt-3">
+            <CampusButton onClick={() => router.replace(continueHref)} icon={ArrowRight} className="w-full mt-3">
               {continueLabel}
             </CampusButton>
             <p className="text-[11px] mt-1" style={{ color: CAMPUS.inkFaint }}>
