@@ -125,8 +125,11 @@ adarisamuelprasad-portfolio/
 nandhakishor-portfolio/
 
 # Ad-hoc scratch checks (scripts/_tmp-*.mjs) - one-off Firestore probes, kept
-# locally but never committed.
+# locally but never committed. The same convention applies under test/ for
+# throwaway emulator reproductions (test/_tmp-*.test.mjs), which would otherwise
+# be swept in by `git add -A` and then run as part of the real suite.
 scripts/_tmp-*
+test/_tmp-*
 
 # Generated contest reports. These contain real students' names, roll numbers
 # and individual scores - personal data that has no business in version
