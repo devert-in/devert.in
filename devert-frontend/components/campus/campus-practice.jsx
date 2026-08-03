@@ -48,7 +48,7 @@ import {
   scheduleRevision, clearRevisionSchedule, isRevisionDue, formatRevisionLabel,
   CONFIDENCE_LEVELS, SUGGESTED_TAGS, REVISION_PRESETS,
 } from "@/lib/problemNotes";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusBreadcrumb, CampusSkeleton, CampusEmptyState, CampusButton } from "@/components/campus/campus-ui";
 
 // Native, light-themed port of components/codelab/problem-view.jsx for
@@ -421,7 +421,7 @@ function ProblemStudyMenu({ problem, note, uid, onClose, onOpenProblem }) {
           return (
             <button key={c.key} onClick={() => setConfidence(uid, problem.id, active ? null : c.key)}
               className="text-[10px] font-semibold px-2 py-1 rounded-full transition-colors"
-              style={{ background: active ? `${color}18` : CAMPUS.paper, color: active ? color : CAMPUS.inkFaint, border: `1px solid ${active ? `${color}40` : CAMPUS.line}` }}>
+              style={{ background: active ? tint(color, 14) : CAMPUS.paper, color: active ? color : CAMPUS.inkFaint, border: `1px solid ${active ? tint(color, 34) : CAMPUS.line}` }}>
               {c.label}
             </button>
           );
@@ -438,7 +438,7 @@ function ProblemStudyMenu({ problem, note, uid, onClose, onOpenProblem }) {
               return (
                 <button key={d} onClick={() => setPersonalDifficulty(uid, problem.id, active ? null : d)}
                   className="text-[10px] font-semibold w-6 h-6 rounded-full"
-                  style={{ background: active ? `${color}18` : CAMPUS.paper, color: active ? color : CAMPUS.inkFaint, border: `1px solid ${active ? `${color}40` : CAMPUS.line}` }}>
+                  style={{ background: active ? tint(color, 14) : CAMPUS.paper, color: active ? color : CAMPUS.inkFaint, border: `1px solid ${active ? tint(color, 34) : CAMPUS.line}` }}>
                   {d[0]}
                 </button>
               );
@@ -1445,7 +1445,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
             </h1>
 
             {activeSolution && problem.solutions?.[activeSolution]?.explanation && (
-              <div className="rounded-lg p-3.5 mb-4" style={{ background: CAMPUS.purpleTint, border: `1px solid ${CAMPUS.purple}30` }}>
+              <div className="rounded-lg p-3.5 mb-4" style={{ background: CAMPUS.purpleTint, border: `1px solid ${tint(CAMPUS.purple, 26)}` }}>
                 <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{problem.solutions[activeSolution].explanation}</p>
                 {(problem.solutions[activeSolution].timeComplexity || problem.solutions[activeSolution].spaceComplexity) && (
                   <div className="flex items-center gap-4 text-[11px] font-mono mt-2.5 pt-2.5" style={{ color: CAMPUS.purple, borderTop: `1px solid ${CAMPUS.purple}25` }}>
@@ -1597,7 +1597,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
                   <button key={l.id} onClick={() => handleLanguageChange(l.id)}
                     className="text-[11.5px] font-mono font-semibold px-3 py-1.5 rounded-lg transition-all"
                     style={{
-                      background: active ? `${color}20` : `${color}0d`,
+                      background: active ? tint(color, 18) : tint(color, 6),
                       color,
                       border: `1.5px solid ${active ? color : `${color}35`}`,
                       boxShadow: active ? CAMPUS.shadow : "none",

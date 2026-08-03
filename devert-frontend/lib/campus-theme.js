@@ -53,6 +53,26 @@ export const CAMPUS = {
   gradientHero: "var(--campus-gradient-hero)",
 };
 
+// Translucent tint of any color, for the "tinted icon chip / soft pill"
+// idiom used all over Campus (CampusChip, CampusStat, CampusEmptyState,
+// SectionHeader...). Exists because the obvious shorthand those call sites
+// used - string-concatenating an 8-bit alpha suffix, `${color}18` - only ever
+// worked for literal hex. Every CAMPUS.* token is a var() reference, so
+// `${CAMPUS.purple}18` produced the string "var(--campus-purple)18", which is
+// not a valid <color>: browsers dropped the whole declaration and the chip
+// rendered fully transparent instead of tinted. color-mix() composes with
+// var() correctly, so this works for both a token and a raw hex (e.g. an
+// institution's heroAccentColor, or NEON_ACCENT_HEX below).
+//
+// `pct` is the color's own share of the mix - tint(CAMPUS.teal, 12) is a 12%
+// teal wash over whatever sits behind it, matching the ~0x18/255 ≈ 9-10% the
+// old suffix was reaching for, nudged up slightly since it now actually
+// renders. Alpha-composites over the parent background rather than blending to
+// a fixed white, so a tint stays correct in both light and dark themes.
+export function tint(color, pct = 12) {
+  return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+}
+
 // Fixed literal hex, deliberately NOT CAMPUS.* var() references - an
 // institution's heroAccentColor is a brand color stored as a plain hex
 // string in Firestore and rendered on public-facing banners that must look

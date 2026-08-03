@@ -18,7 +18,7 @@ import {
 } from "@/lib/companyPrep";
 import { ConceptRenderer, InfoListCard } from "@/components/campus/lesson-blocks";
 import { seededShuffle, buildQuizSeedKey } from "@/lib/quizRandom";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusBreadcrumb, CampusEmptyState, CampusSkeleton, CampusButton } from "@/components/campus/campus-ui";
 import Dropdown from "@/components/dropdown";
 
@@ -655,7 +655,7 @@ function CompanyQuestionCard({ q, seedKey, selected, submitted, solved, bookmark
       </div>
 
       {submitted && q.explanation && (
-        <div className="rounded-lg p-3 mb-4" style={{ background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.teal}30` }}>
+        <div className="rounded-lg p-3 mb-4" style={{ background: CAMPUS.tealTint, border: `1px solid ${tint(CAMPUS.teal, 26)}` }}>
           <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.teal }}>EXPLANATION</p>
           <p className="text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{q.explanation}</p>
         </div>

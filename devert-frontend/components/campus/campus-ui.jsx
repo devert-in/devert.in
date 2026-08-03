@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ChevronRight, Download } from "lucide-react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 
 // Shared Material-3-ish primitives for DeVert Campus - built once here so
 // every screen (directory, workspace, profile) draws from the same visual
@@ -47,7 +47,7 @@ export function CampusChip({ children, color = CAMPUS.inkFaint, icon: Icon, clas
   return (
     <span
       className={`inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${className}`}
-      style={{ color, background: `${color}18`, border: `1px solid ${color}30` }}
+      style={{ color, background: tint(color, 14), border: `1px solid ${tint(color, 26)}` }}
     >
       {Icon && <Icon size={10} />}
       {children}
@@ -87,7 +87,7 @@ export function CampusStat({ label, value, color, hint, icon: Icon, trend }) {
       )}
       <div className="flex items-start justify-between gap-2 mb-2.5">
         {Icon ? (
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${accent}18`, color: accent }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: tint(accent, 14), color: accent }}>
             <Icon size={16} />
           </div>
         ) : (
@@ -144,7 +144,7 @@ export function CampusEmptyState({ icon: Icon, title, description, action, secon
       <div className="flex items-start gap-3.5">
         {Icon && (
           <div className={`${compact ? "w-8 h-8" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0`}
-            style={{ background: `${color}18`, color }}>
+            style={{ background: tint(color, 14), color }}>
             <Icon size={compact ? 15 : 18} />
           </div>
         )}
@@ -200,6 +200,40 @@ export function CampusButton({ variant = "primary", size = "md", rounded = "lg",
       {Icon && <Icon size={size === "sm" ? 12 : 14} />}
       {children}
     </button>
+  );
+}
+
+// Segmented control for in-page tab switching (department/classroom/admin
+// dashboards, Manage sub-tabs). The idiom every Campus screen had been
+// hand-rolling was a row of independently-bordered pills with a solid-fill
+// active state; this instead sinks the whole row into a CAMPUS.paper track and
+// LIFTS the active tab out of it with surface + shadow, which is the premium-SaaS
+// treatment the rest of this design system uses (same construction as the
+// range/metric switchers on the dashboard chart).
+//
+// `tabs`: [{ key, label, icon? }]. Renders real <button>s in a tablist, so
+// keyboard focus order and screen-reader semantics come for free - the previous
+// hand-rolled rows were divs of buttons with no tablist role.
+export function CampusTabBar({ tabs, value, onChange, className = "", size = "md" }) {
+  const compact = size === "sm";
+  return (
+    <div role="tablist" aria-orientation="horizontal"
+      className={`inline-flex items-center gap-1 p-1 rounded-xl max-w-full overflow-x-auto ${className}`}
+      style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+      {tabs.map(t => {
+        const active = t.key === value;
+        return (
+          <button key={t.key} role="tab" aria-selected={active} onClick={() => onChange(t.key)}
+            className={`inline-flex items-center gap-1.5 font-semibold rounded-lg whitespace-nowrap flex-shrink-0 transition-all duration-200 ${compact ? "px-2.5 py-1 text-[11.5px]" : "px-3 py-1.5 text-[12.5px]"}`}
+            style={active
+              ? { background: CAMPUS.surface, color: CAMPUS.ink, boxShadow: CAMPUS.shadow }
+              : { background: "transparent", color: CAMPUS.inkFaint }}>
+            {t.icon && <t.icon size={compact ? 11 : 13} style={{ color: active ? CAMPUS.teal : "currentColor" }} />}
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

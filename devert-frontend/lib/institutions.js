@@ -196,6 +196,19 @@ export async function fetchApprovedStudentCount(institutionId) {
   return snap.data().count;
 }
 
+// Department-scoped counterpart, for an HOD. The unscoped count above is
+// DENIED outright for one: firestore.rules clears a roster doc for an HOD only
+// when that doc's own department matches theirs, and an aggregate is evaluated
+// against the whole matched set, so one other-department row fails the lot.
+// That denial is what made Manage -> Daily Learning read "0 APPROVED
+// STUDENTS" for a 304-student department. Uses the existing
+// students(department, status) composite index - no new index needed.
+export async function fetchApprovedStudentCountByDepartment(institutionId, department) {
+  const snap = await getCountFromServer(query(collection(db, "institutions", institutionId, "students"),
+    where("department", "==", department), where("status", "==", "approved")));
+  return snap.data().count;
+}
+
 // The Students management list needs approved AND suspended rows - a
 // suspended student must stay visible/reactivatable, not vanish from the
 // roster entirely. Deliberately a separate function from
@@ -268,6 +281,20 @@ export async function ensureClassroom(institutionId, { department, year, section
 // combination an institution actually has) - no pagination needed.
 export async function fetchClassrooms(institutionId) {
   const snap = await getDocs(collection(db, "institutions", institutionId, "classrooms"));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Department-scoped counterpart, same reason as
+// fetchApprovedStudentCountByDepartment above: the classrooms read rule
+// resolves an HOD's access from each classroom's OWN department field, so the
+// unscoped list dies all-or-nothing on the first other-department row and the
+// caller saw "No classrooms yet". An HOD's Manage Access list is supposed to
+// be their own department's classrooms anyway - this is the query that says so
+// rather than fetching everything and filtering client-side (which would still
+// be denied).
+export async function fetchClassroomsByDepartment(institutionId, department) {
+  const snap = await getDocs(query(collection(db, "institutions", institutionId, "classrooms"),
+    where("department", "==", department)));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
@@ -515,8 +542,15 @@ export async function copyClassroomModuleAccess(institutionId, fromClassroomId, 
 // One module, every classroom, in a single batch - "Enable All"/"Disable
 // All" from a module's Manage Access view. Small, bounded collection (see
 // fetchClassrooms), so one batch covers even a large campus.
-export async function bulkSetModuleAccess(institutionId, moduleKey, enabled) {
-  const classrooms = await fetchClassrooms(institutionId);
+// scopeDepartment confines "Enable/Disable All" to one department's own
+// classrooms. Required for an HOD, not cosmetic: a batch is atomic, so a single
+// update to another department's classroom makes the ENTIRE commit fail - the
+// HOD would have flipped nothing at all, while the optimistic UI showed every
+// row as flipped.
+export async function bulkSetModuleAccess(institutionId, moduleKey, enabled, scopeDepartment = null) {
+  const classrooms = scopeDepartment
+    ? await fetchClassroomsByDepartment(institutionId, scopeDepartment)
+    : await fetchClassrooms(institutionId);
   const batch = writeBatch(db);
   classrooms.forEach(c => {
     batch.update(doc(db, "institutions", institutionId, "classrooms", c.id), { [`moduleAccess.${moduleKey}`]: enabled });

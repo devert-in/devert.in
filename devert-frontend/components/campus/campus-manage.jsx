@@ -9,7 +9,8 @@ import {
   MoreVertical, UserMinus, CalendarClock, Mail, Ban, Medal,
 } from "lucide-react";
 import {
-  fetchPendingStudents, fetchApprovedStudents, fetchApprovedStudentCount, fetchRosterStudents, approveStudent, rejectStudent,
+  fetchPendingStudents, fetchApprovedStudents, fetchApprovedStudentCount, fetchApprovedStudentCountByDepartment,
+  fetchRosterStudents, approveStudent, rejectStudent,
   bulkAssignByRollNumber, updateStudentIdentity, suspendStudent, sendAnnouncement,
   fetchAnnouncements, deleteAnnouncement, isAnnouncementActive, announcementStatus,
   removeStudentFromInstitution, setContestRestriction, DEPARTMENTS, YEARS,
@@ -127,22 +128,41 @@ const ADMIN_ONLY_MANAGE_TABS = new Set(["branding"]);
 //     list for the WHOLE institution, the Manage Admins console, and the
 //     leaderboard config - the opposite of department-scoped.
 //
-//  2. What rules actually permit. dailyLearning (and learningTracks/{id}/
-//     items) are the only content collections whose firestore.rules
-//     create/update accept a scoped staff writer at all, via
-//     isHodOfDepartment(scopeDepartment). Programming languages, CS Core,
-//     Aptitude topics, DSA problems, Fundamentals courses, Company Vault and
-//     Contests carry no scope field and have no HOD disjunct - their docs are
-//     institution-wide (often platform-wide) catalog content. Listing those
-//     tabs here would render a fully working editor whose Save is then denied
-//     by rules, which is worse than not offering it.
+//  2. What rules actually permit. This is per-tab, and the distinction is
+//     what the tab actually EDITS - not what its label suggests:
 //
-// So a wider HOD content surface is a rules + data-model change (a scope
-// field per collection, plus a forge-proof write rule for it), not a line in
-// this table. Faculty/Class Teacher is deliberately absent entirely - it has
-// its own classroom dashboard and no Manage nav item.
+//     - dailyLearning authors real content, and it is the only content
+//       collection whose firestore.rules create/update accepts a scoped staff
+//       writer, via isHodOfDepartment(scopeDepartment).
+//     - fundamentals/programming/csCore/aptitude author NOTHING. Each renders
+//       ManageModuleAccessOnly, whose only write is `moduleAccess.<key>` on a
+//       classroom - and the classrooms update rule already accepts an HOD for
+//       their OWN department's classrooms, bounded to
+//       hasOnly(['moduleAccess','leaderboardVisibility']) plus a
+//       classrooms.manage permission check. Safe to list, as long as the
+//       classroom list they render is department-scoped (scopeDepartment
+//       below) - an unscoped one is denied all-or-nothing and shows a
+//       misleading "No classrooms yet".
+//     - practice/companyPrep LOOK like the four above but are not: they render
+//       ManagePracticePreview/ManageCompanyPrepPreview, which read the
+//       unscoped roster (fetchApprovedStudents - denied for a scoped caller)
+//       and contentVisibility, whose read rule covers approved students and
+//       institution admins but NOT staff roles. Both failures are swallowed
+//       into empty state, so an HOD would get a cohort-analytics screen
+//       quietly claiming zero students. Out until those two reads are scoped.
+//     - students/departments/manageAdmins/contests/leaderboards/branding stay
+//       out: institution-wide surfaces whose queries or writes have no scoped
+//       path. students specifically is read-scopeable but its UPDATE rule is
+//       admin-only, so the roster's approve/reject/edit/CSV controls would all
+//       fail - a read-only department roster belongs on the HOD dashboard
+//       (which already has one), not in Manage.
+//
+// So widening this table is only safe where a scoped rules path already
+// exists; anything else is a rules + data-model change first. Faculty/Class
+// Teacher is deliberately absent entirely - it has its own classroom
+// dashboard and no Manage nav item.
 const SCOPED_ROLE_MANAGE_TABS = {
-  hod: new Set(["dailyLearning"]),
+  hod: new Set(["dailyLearning", "fundamentals", "programming", "csCore", "aptitude"]),
 };
 
 // Manage's own sub-navigation, portaled into CampusContextSidebar's slot
@@ -326,12 +346,16 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
       {tab === "contests" && <CampusContestsTab institutionId={institutionId} />}
       {tab === "dailyLearning" && <ManageDailyLearning institutionId={institutionId} scopeDepartment={scopedTabs ? department : null} />}
       {tab === "fundamentals" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="fundamentals" moduleLabel="Fundamentals"
+        scopeDepartment={scopedTabs ? department : null}
         description="Fundamentals' curriculum is authored once, platform-wide, in Platform Admin - not per campus. What you control here is which of your classrooms can currently open the module at all." />}
       {tab === "programming" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="programming" moduleLabel="Programming"
+        scopeDepartment={scopedTabs ? department : null}
         description="Programming's language/topic curriculum is authored once, platform-wide, in Platform Admin - not per campus. What you control here is which of your classrooms can currently open the module at all." />}
       {tab === "csCore" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="csCore" moduleLabel="CS Core"
+        scopeDepartment={scopedTabs ? department : null}
         description="CS Core's subject/topic curriculum is authored once, platform-wide, in Platform Admin - not per campus. What you control here is which of your classrooms can currently open the module at all." />}
       {tab === "aptitude" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="aptitude" moduleLabel="Aptitude"
+        scopeDepartment={scopedTabs ? department : null}
         description="Aptitude's topic curriculum is authored once, platform-wide, in Platform Admin - not per campus. What you control here is which of your classrooms can currently open the module at all." />}
       {tab === "practice" && <ManagePracticePreview institutionId={institutionId} />}
       {tab === "companyPrep" && <ManageCompanyPrepPreview institutionId={institutionId} />}
@@ -612,12 +636,18 @@ function ManageLeaderboards({ institutionId, institution }) {
 // surfacing that module's classroom access control in the same place every
 // other module's lives, not standing up a parallel content-editing surface
 // this campus was never meant to have.
-function ManageModuleAccessOnly({ institutionId, moduleKey, moduleLabel, description }) {
+function ManageModuleAccessOnly({ institutionId, moduleKey, moduleLabel, description, scopeDepartment = null }) {
   return (
     <div className="max-w-2xl">
       <h2 className="text-lg font-semibold mb-1" style={{ color: CAMPUS.ink }}>{moduleLabel}</h2>
       <p className="text-[12.5px] mb-4" style={{ color: CAMPUS.inkFaint }}>{description}</p>
-      <ModuleAccessSummary institutionId={institutionId} moduleKey={moduleKey} moduleLabel={moduleLabel} />
+      {scopeDepartment && (
+        <p className="text-[11px] font-mono tracking-widest mb-3" style={{ color: CAMPUS.inkFaint }}>
+          SCOPED TO {scopeDepartment.toUpperCase()}
+        </p>
+      )}
+      <ModuleAccessSummary institutionId={institutionId} moduleKey={moduleKey} moduleLabel={moduleLabel}
+        scopeDepartment={scopeDepartment} />
     </div>
   );
 }
@@ -660,7 +690,12 @@ function ToggleSwitch({ value, onChange }) {
   );
 }
 
-function DailyLearningCard({ item, stat, approvedCount, onToggleStatus, onEdit, onDuplicate, onDelete }) {
+// readOnly is for a department-scoped viewer (HOD). firestore.rules' split is
+// "admins/Principal author, HOD/Faculty gate access" - a scoped role's write to
+// an institution-wide item is denied, so rendering these controls would just
+// produce buttons that fail. The publish toggle is included in that: it's an
+// update to the item itself, not an access setting.
+function DailyLearningCard({ item, stat, approvedCount, onToggleStatus, onEdit, onDuplicate, onDelete, readOnly = false }) {
   const published = item.status !== "draft";
 
   return (
@@ -670,7 +705,9 @@ function DailyLearningCard({ item, stat, approvedCount, onToggleStatus, onEdit, 
           {item.type === "test" ? <ClipboardCheck size={13} style={{ color: CAMPUS.purple }} /> : <BookOpen size={13} style={{ color: CAMPUS.teal }} />}
           <span className="text-[11px] font-mono font-semibold" style={{ color: CAMPUS.inkFaint }}>{DOW_LABELS[item.dow].toUpperCase()} - {item.date}</span>
         </div>
-        <ToggleSwitch value={published} onChange={(v) => onToggleStatus(v ? "published" : "draft")} />
+        {readOnly
+          ? <CampusChip color={published ? CAMPUS.good : CAMPUS.inkFaint}>{published ? "PUBLISHED" : "DRAFT"}</CampusChip>
+          : <ToggleSwitch value={published} onChange={(v) => onToggleStatus(v ? "published" : "draft")} />}
       </div>
 
       <b className="block text-[13.5px] mb-2" style={{ color: CAMPUS.ink }}>{item.title}</b>
@@ -686,22 +723,28 @@ function DailyLearningCard({ item, stat, approvedCount, onToggleStatus, onEdit, 
         </div>
       )}
 
-      <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-        <button onClick={onEdit} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.teal }}>
-          <Pencil size={10} /> edit
-        </button>
-        <button onClick={onDuplicate} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.purple }}>
-          <Copy size={10} /> duplicate
-        </button>
-        <button onClick={onDelete} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg ml-auto" style={{ color: CAMPUS.bad }}>
-          <Trash2 size={10} /> delete
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-1.5 pt-2" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+          <button onClick={onEdit} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.teal }}>
+            <Pencil size={10} /> edit
+          </button>
+          <button onClick={onDuplicate} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.purple }}>
+            <Copy size={10} /> duplicate
+          </button>
+          <button onClick={onDelete} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg ml-auto" style={{ color: CAMPUS.bad }}>
+            <Trash2 size={10} /> delete
+          </button>
+        </div>
+      )}
     </CampusCard>
   );
 }
 
-function ManageDailyLearning({ institutionId }) {
+// scopeDepartment is set for a department-scoped role (HOD) and null for an
+// Institution Admin/Principal. It does two things here: narrows the reads that
+// are otherwise denied outright for a scoped caller, and turns the authoring
+// controls read-only (see DailyLearningCard's readOnly comment).
+function ManageDailyLearning({ institutionId, scopeDepartment = null }) {
   const searchParams = useSearchParams();
   const [weekOffset, setWeekOffset] = useState(() => {
     const w = Number(searchParams.get("week"));
@@ -750,16 +793,28 @@ function ManageDailyLearning({ institutionId }) {
   }, [weekOffset, trackId, editorState, showPreview]);
   const weekId = shiftWeek(mondayOf(), weekOffset);
 
+  // allSettled, NOT Promise.all: these three reads have independent rules
+  // outcomes, and one rejection used to blank all three at once. That is
+  // literally what an HOD saw - the unscoped student count is denied for a
+  // scoped caller, so its rejection dropped the whole chain into
+  // `.catch(() => setItems([]))` and the screen reported "0 APPROVED STUDENTS"
+  // AND "Nothing authored for this week" for a department with 304 students and
+  // a fully authored week. Each read now stands or falls on its own.
   const reload = () => {
-    Promise.all([
+    Promise.allSettled([
       fetchWeekItems(institutionId, weekId, { includeUnpublished: true }, trackId),
       fetchModuleConfig(institutionId),
-      fetchApprovedStudentCount(institutionId),
-    ]).then(([rows, cfg, count]) => {
-      setItems(rows);
-      setModuleEnabledState(cfg.enabled !== false);
-      setApprovedCount(count);
-    }).catch(() => setItems([]));
+      // The unscoped count is denied for a department-scoped caller (an
+      // aggregate is evaluated over the whole matched set, and the roster read
+      // rule only clears that caller's own department's rows).
+      scopeDepartment
+        ? fetchApprovedStudentCountByDepartment(institutionId, scopeDepartment)
+        : fetchApprovedStudentCount(institutionId),
+    ]).then(([itemsRes, cfgRes, countRes]) => {
+      setItems(itemsRes.status === "fulfilled" ? itemsRes.value : []);
+      if (cfgRes.status === "fulfilled") setModuleEnabledState(cfgRes.value.enabled !== false);
+      if (countRes.status === "fulfilled") setApprovedCount(countRes.value);
+    });
   };
 
   useEffect(reload, [institutionId, weekId, trackId]);
@@ -842,32 +897,47 @@ function ManageDailyLearning({ institutionId }) {
         ))}
       </div>
 
-      <CampusCard className="p-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <Power size={15} style={{ color: moduleEnabled ? CAMPUS.good : CAMPUS.inkFaint }} />
-          <div>
-            <p className="text-[13.5px] font-semibold" style={{ color: CAMPUS.ink }}>Daily Learning module</p>
-            <p className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>When disabled, students see the generic course catalog instead of this week-wise program.</p>
+      {/* The module kill switch writes dailyLearning/_module, an
+          institution-WIDE doc with no scope field - so rules deny it for a
+          department-scoped role, and showing the toggle would mean an HOD
+          flipping the whole campus's module off in the UI while the write
+          silently failed. A scoped role gets per-classroom access control
+          (below) instead, which is the equivalent power at their own scope. */}
+      {!scopeDepartment && (
+        <CampusCard className="p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <Power size={15} style={{ color: moduleEnabled ? CAMPUS.good : CAMPUS.inkFaint }} />
+            <div>
+              <p className="text-[13.5px] font-semibold" style={{ color: CAMPUS.ink }}>Daily Learning module</p>
+              <p className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>When disabled, students see the generic course catalog instead of this week-wise program.</p>
+            </div>
           </div>
-        </div>
-        <ToggleSwitch value={moduleEnabled} onChange={toggleModule} />
-      </CampusCard>
+          <ToggleSwitch value={moduleEnabled} onChange={toggleModule} />
+        </CampusCard>
+      )}
 
-      <ModuleAccessSummary institutionId={institutionId} moduleKey="dailyLearning" moduleLabel="Daily Learning" />
+      <ModuleAccessSummary institutionId={institutionId} moduleKey="dailyLearning" moduleLabel="Daily Learning"
+        scopeDepartment={scopeDepartment} />
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <button onClick={() => setWeekOffset(w => w - 1)} className="text-[11px] font-mono px-2 py-1 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>&larr; prev</button>
           <p className="text-[11px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>
             WEEK OF {weekId} {weekOffset === 0 && "(CURRENT)"} - {approvedCount} APPROVED STUDENTS
+            {scopeDepartment ? ` IN ${scopeDepartment.toUpperCase()}` : ""}
           </p>
           <button onClick={() => setWeekOffset(w => w + 1)} className="text-[11px] font-mono px-2 py-1 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>next &rarr;</button>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setEditorState("new")} className="flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg"
-            style={{ color: "#fff", background: CAMPUS.teal }}>
-            <Plus size={12} /> add day
-          </button>
+          {/* Authoring is admin/Principal-only by design (see firestore.rules'
+              dailyLearning comment). A scoped role reads the catalog and
+              controls which of its own classrooms can open it. */}
+          {!scopeDepartment && (
+            <button onClick={() => setEditorState("new")} className="flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg"
+              style={{ color: "#fff", background: CAMPUS.teal }}>
+              <Plus size={12} /> add day
+            </button>
+          )}
           <button onClick={() => setShowPreview(true)} className="flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg"
             style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
             <Eye size={12} /> preview as student
@@ -881,6 +951,7 @@ function ManageDailyLearning({ institutionId }) {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {items.map(item => (
             <DailyLearningCard key={item.date} item={item} stat={stats[item.date]} approvedCount={approvedCount}
+              readOnly={!!scopeDepartment}
               onToggleStatus={(s) => toggleDayStatus(item.date, s)}
               onEdit={() => setEditorState(item)}
               onDuplicate={() => handleDuplicate(item)}

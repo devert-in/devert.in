@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2, Users, GraduationCap, Download, LayoutGrid, BarChart3,
-  Settings as SettingsIcon, ChevronRight, Star, AlertTriangle, TrendingUp, RefreshCw,
+  Settings as SettingsIcon, ChevronRight, Star, AlertTriangle, TrendingUp, RefreshCw, Medal,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import {
   fetchRosterStudents, fetchRosterStudentsByDepartment, fetchRoleAssignments, fetchRoleAssignmentsByDepartment,
   fetchDepartments, fetchDepartment, updateDepartment, departmentKey,
@@ -14,7 +14,9 @@ import { fetchClassroomAnalytics, fetchCampusAverages } from "@/lib/classroomAna
 import { useCampusBackHandler } from "@/lib/campusNav";
 import {
   CampusCard, CampusChip, CampusBreadcrumb, CampusEmptyState, CampusSkeleton, CampusStat, CampusButton,
+  CampusTabBar, CampusProgressBar,
 } from "@/components/campus/campus-ui";
+import { StaffDashboardHero } from "@/components/campus/campus-dashboard-widgets";
 import { buildClassroomTree, ClassroomDashboard } from "@/components/campus/campus-classrooms";
 import { StudentAnalyticsDashboard } from "@/components/campus/campus-student-dashboard";
 import { useHasPermission } from "@/lib/campusPermissions";
@@ -231,21 +233,32 @@ export function DepartmentDashboard({ institutionId, department, students, hod, 
   }
 
   return (
-    <div>
+    <div className="space-y-5">
       <CampusBreadcrumb items={[{ label: "Departments", onClick: onBack }, { label: department }]} />
-      <h2 className="text-lg font-semibold mb-4" style={{ color: CAMPUS.ink }}>
-        {department} <span style={{ color: CAMPUS.inkFaint }}>({students.length})</span>
-      </h2>
 
-      <div className="flex items-center gap-1.5 flex-wrap mb-4 overflow-x-auto">
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
-            style={{ color: tab === t.key ? "#fff" : CAMPUS.inkSoft, background: tab === t.key ? CAMPUS.teal : "transparent", border: `1px solid ${tab === t.key ? CAMPUS.teal : CAMPUS.line}` }}>
-            <t.icon size={12} /> {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Was a plain <h2>Department (n)</h2>. Both an HOD and a Principal land
+          directly on this screen as their whole dashboard, so it opens with the
+          same gradient hero band the student dashboard does rather than a bare
+          heading - and the counts that used to be a parenthetical now read as
+          chips. */}
+      <StaffDashboardHero
+        icon={Building2}
+        title={department}
+        subtitle={`${students.length} student${students.length === 1 ? "" : "s"} in this cohort`}
+        meta={
+          <>
+            <CampusChip color={CAMPUS.teal} icon={Users}>{students.length} STUDENTS</CampusChip>
+            <CampusChip color={hod ? CAMPUS.blue : CAMPUS.inkFaint} icon={GraduationCap}>
+              {hod ? hod.displayName : "HOD UNASSIGNED"}
+            </CampusChip>
+            {faculty?.length > 0 && (
+              <CampusChip color={CAMPUS.purple} icon={Users}>{faculty.length} FACULTY</CampusChip>
+            )}
+          </>
+        }
+      />
+
+      <CampusTabBar tabs={tabs} value={tab} onChange={setTab} />
 
       {analytics === false ? (
         <CampusEmptyState icon={AlertTriangle} title="Couldn't load analytics"
@@ -269,42 +282,81 @@ export function DepartmentDashboard({ institutionId, department, students, hod, 
   );
 }
 
+// Header for a card that lists people - tinted icon chip + title + optional
+// count badge, matching the SectionHeader idiom the student analytics dashboard
+// uses. Replaces the bare 10px mono micro-label these two cards had, which was
+// the one place on this screen that still read as the old terminal design.
+function DeptCardHeader({ icon: Icon, title, color, count }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-3.5">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: tint(color, 14), color }}>
+        <Icon size={15} />
+      </div>
+      <h3 className="text-[14.5px] font-semibold flex-1 min-w-0" style={{ color: CAMPUS.ink }}>{title}</h3>
+      {count != null && <CampusChip color={color}>{count}</CampusChip>}
+    </div>
+  );
+}
+
 function DeptOverviewTab({ analytics, hod }) {
   const { kpis, topPerformers, fallingBehind } = analytics;
+  // Bars are relative to the top scorer, not to an absolute ceiling - there
+  // is no max score in the data model, so the leader is the only meaningful
+  // 100% reference.
+  const topScore = topPerformers[0]?.score || 0;
+  const activePct = kpis.totalStudents ? Math.round((kpis.activeThisWeek / kpis.totalStudents) * 100) : 0;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <CampusStat label="Students" value={kpis.totalStudents} icon={Users} color={CAMPUS.teal} />
         <CampusStat label="HOD" value={hod ? hod.displayName : "Unassigned"} icon={GraduationCap} color={CAMPUS.blue} />
         <CampusStat label="Avg Score" value={kpis.avgScore.toLocaleString()} icon={Star} color={CAMPUS.purple} />
-        <CampusStat label="Active This Week" value={`${kpis.activeThisWeek}/${kpis.totalStudents}`} icon={TrendingUp} color={CAMPUS.good} />
+        <CampusStat label="Active This Week" value={`${kpis.activeThisWeek}/${kpis.totalStudents}`} icon={TrendingUp}
+          color={CAMPUS.good} hint={`${activePct}% of this cohort has been active in the last 7 days.`} />
       </div>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <CampusCard className="p-4">
-          <p className="text-[10px] font-mono tracking-widest mb-3 flex items-center gap-1.5" style={{ color: CAMPUS.inkFaint }}>
-            <Star size={11} /> TOP PERFORMERS
-          </p>
-          {topPerformers.length === 0 ? <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>No score earned yet.</p> : (
-            <div className="space-y-2">
+
+      <div className="grid lg:grid-cols-2 gap-5 items-start">
+        <CampusCard className="p-5">
+          <DeptCardHeader icon={Star} title="Top Performers" color={CAMPUS.gold} count={topPerformers.length || null} />
+          {topPerformers.length === 0 ? (
+            <p className="text-[12.5px]" style={{ color: CAMPUS.inkFaint }}>No score earned yet.</p>
+          ) : (
+            <div className="space-y-2.5">
               {topPerformers.map((s, i) => (
-                <div key={s.uid} className="flex items-center justify-between gap-2">
-                  <span className="text-[12.5px] font-medium truncate" style={{ color: CAMPUS.ink }}>
-                    <span className="font-mono mr-1.5" style={{ color: CAMPUS.gold }}>#{i + 1}</span>{s.name}
+                <div key={s.uid} className="flex items-center gap-3">
+                  {/* Lucide Medal for the top three rather than a "#1" string -
+                      CLAUDE.md calls out medal rankings specifically as an
+                      icon, never an emoji or a bare glyph. */}
+                  <span className="w-6 flex-shrink-0 flex items-center justify-center">
+                    {i < 3
+                      ? <Medal size={15} style={{ color: [CAMPUS.gold, CAMPUS.inkFaint, CAMPUS.warn][i] }} />
+                      : <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>{i + 1}</span>}
                   </span>
-                  <span className="text-[11.5px] font-mono font-semibold flex-shrink-0" style={{ color: CAMPUS.purple }}>{s.score.toLocaleString()} pts</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-medium truncate" style={{ color: CAMPUS.ink }}>{s.name}</p>
+                    <div className="mt-1"><CampusProgressBar pct={topScore ? (s.score / topScore) * 100 : 0} color={CAMPUS.purple} /></div>
+                  </div>
+                  <span className="text-[11.5px] font-mono font-semibold flex-shrink-0 tabular-nums" style={{ color: CAMPUS.purple }}>
+                    {s.score.toLocaleString()}
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </CampusCard>
-        <CampusCard className="p-4">
-          <p className="text-[10px] font-mono tracking-widest mb-3 flex items-center gap-1.5" style={{ color: CAMPUS.bad }}>
-            <AlertTriangle size={11} /> AT RISK - NO ACTIVITY THIS WEEK
-          </p>
-          {fallingBehind.length === 0 ? <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>Everyone has been active this week.</p> : (
-            <div className="space-y-2 max-h-[180px] overflow-y-auto">
+
+        <CampusCard className="p-5">
+          <DeptCardHeader icon={AlertTriangle} title="At Risk" color={CAMPUS.bad} count={fallingBehind.length || null} />
+          <p className="text-[11.5px] -mt-2 mb-3" style={{ color: CAMPUS.inkFaint }}>No activity in the last 7 days</p>
+          {fallingBehind.length === 0 ? (
+            <p className="text-[12.5px]" style={{ color: CAMPUS.good }}>Everyone has been active this week.</p>
+          ) : (
+            <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
               {fallingBehind.map(s => (
-                <div key={s.uid} className="flex items-center justify-between gap-2">
+                <div key={s.uid} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg"
+                  style={{ background: CAMPUS.paper }}>
                   <span className="text-[12.5px] font-medium truncate" style={{ color: CAMPUS.ink }}>{s.name}</span>
                   <span className="text-[11px] font-mono flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{s.rollNumber}</span>
                 </div>

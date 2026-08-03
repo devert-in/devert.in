@@ -6,13 +6,17 @@ import {
   ExternalLink, CodeXml, BrainCircuit, ListChecks, Building2, GraduationCap, User,
   Trophy, Zap, Coins,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { useAuth } from "@/context/AuthContext";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
   CampusSkeleton, CampusProgressBar,
 } from "@/components/campus/campus-ui";
 import { fetchStudentAnalytics } from "@/lib/studentAnalytics";
+// The activityType -> friendly-label map lives in lib/campusDashboard.js so
+// this admin-facing timeline and the student's own Recent Activity feed render
+// the same ledger with the same vocabulary instead of two drifting copies.
+import { activityLabel } from "@/lib/campusDashboard";
 import {
   updateStudentIdentity, suspendStudent, approveStudent, setContestRestriction,
   removeStudentFromInstitution, sendStudentPasswordReset, sendAnnouncement,
@@ -329,23 +333,6 @@ function QuickActions({ institutionId, student, profile, adminUid, onChanged }) 
   );
 }
 
-// Human-readable label per reward_grants activityType - keeps this the ONE
-// place a new reward-granting module's type string gets a friendly name,
-// rather than every consumer of the ledger inventing its own mapping.
-const ACTIVITY_LABELS = {
-  daily_learning_day: "Daily Learning - Day Completed",
-  daily_learning_problem: "Daily Learning - Practice Problem",
-  programming_topic: "Programming Lesson",
-  cscore_topic: "CS Core Lesson",
-  contest: "Contest",
-  arena_match: "Arena Solo Challenge",
-  codelab_problem: "DSA / CodeLab Problem",
-  learning_task: "Learning Module Task",
-  aptitude_question: "Aptitude Question",
-  admin_manual: "Manual Admin Adjustment",
-  duplicate_reversal: "Duplicate Reward Correction",
-};
-
 function formatGrantedAt(ts) {
   if (!ts?.toDate) return "-";
   return ts.toDate().toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
@@ -376,7 +363,7 @@ function RewardsSection({ rewards, timeline }) {
             <div key={t.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}` }}>
               <div className="min-w-0">
                 <p className="text-[12.5px] font-medium truncate" style={{ color: CAMPUS.ink }}>
-                  {ACTIVITY_LABELS[t.activityType] || t.activityType}
+                  {activityLabel(t.activityType)}
                 </p>
                 <p className="text-[10.5px] font-mono truncate" style={{ color: CAMPUS.inkFaint }}>
                   {formatGrantedAt(t.grantedAt)}
@@ -407,7 +394,7 @@ function RewardsSection({ rewards, timeline }) {
 function SectionHeader({ icon: Icon, title, color }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}18`, color }}>
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: tint(color, 14), color }}>
         <Icon size={14} />
       </div>
       <h3 className="text-[14.5px] font-semibold" style={{ color: CAMPUS.ink }}>{title}</h3>

@@ -4,13 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { MoreVertical, RotateCcw, Copy, Settings2 } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
-  fetchClassrooms, YEARS, isModuleEnabledForClassroom,
+  fetchClassrooms, fetchClassroomsByDepartment, YEARS, isModuleEnabledForClassroom,
   setClassroomModuleAccess, resetClassroomModuleAccess, copyClassroomModuleAccess, bulkSetModuleAccess,
 } from "@/lib/institutions";
 import { CampusCard, CampusButton, CampusEmptyState, CampusSkeleton } from "@/components/campus/campus-ui";
 
 function classroomLabel(c) {
   return `${(c.year || "?").replace(" Year", "")} ${c.department} - ${c.section}`;
+}
+
+// One place both components below resolve "which classrooms am I allowed to
+// see" - an unscoped list is denied all-or-nothing for a department-scoped
+// caller (firestore.rules matches each classroom's own department against
+// theirs), which surfaced as "No classrooms yet" rather than an error.
+function loadScopedClassrooms(institutionId, scopeDepartment) {
+  return scopeDepartment
+    ? fetchClassroomsByDepartment(institutionId, scopeDepartment)
+    : fetchClassrooms(institutionId);
 }
 
 function ToggleSwitch({ value, onChange }) {
@@ -27,11 +37,16 @@ function ToggleSwitch({ value, onChange }) {
 // "Available to: X/Y classrooms", expanding into the full per-classroom
 // manager below. One shared component instead of six bespoke ones, per
 // "every module should have a consistent access management experience".
-export function ModuleAccessSummary({ institutionId, moduleKey, moduleLabel }) {
+// scopeDepartment (set for an HOD, null for an Institution Admin/Principal)
+// narrows every read AND write below to that one department - see
+// loadScopedClassrooms.
+export function ModuleAccessSummary({ institutionId, moduleKey, moduleLabel, scopeDepartment = null }) {
   const [open, setOpen] = useState(false);
   const [classrooms, setClassrooms] = useState(null);
 
-  useEffect(() => { fetchClassrooms(institutionId).then(setClassrooms).catch(() => setClassrooms([])); }, [institutionId]);
+  useEffect(() => {
+    loadScopedClassrooms(institutionId, scopeDepartment).then(setClassrooms).catch(() => setClassrooms([]));
+  }, [institutionId, scopeDepartment]);
 
   const enabledCount = classrooms?.filter(c => isModuleEnabledForClassroom(c, moduleKey)).length ?? 0;
   const total = classrooms?.length ?? 0;
@@ -52,7 +67,8 @@ export function ModuleAccessSummary({ institutionId, moduleKey, moduleLabel }) {
       </button>
       {open && (
         <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-          <ClassroomAccessManager institutionId={institutionId} moduleKey={moduleKey} moduleLabel={moduleLabel} />
+          <ClassroomAccessManager institutionId={institutionId} moduleKey={moduleKey} moduleLabel={moduleLabel}
+            scopeDepartment={scopeDepartment} />
         </div>
       )}
     </CampusCard>
@@ -69,14 +85,16 @@ export function ModuleAccessSummary({ institutionId, moduleKey, moduleLabel }) {
 // Leaderboards here - those already exist one click away under Students ->
 // Classrooms, and re-navigating there from a menu item would just be a
 // second path to the same screen.
-export function ClassroomAccessManager({ institutionId, moduleKey, moduleLabel }) {
+export function ClassroomAccessManager({ institutionId, moduleKey, moduleLabel, scopeDepartment = null }) {
   const [classrooms, setClassrooms] = useState(null);
   const [menuFor, setMenuFor] = useState(null);
   const [copySource, setCopySource] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = () => { fetchClassrooms(institutionId).then(setClassrooms).catch(() => setClassrooms([])); };
-  useEffect(load, [institutionId]);
+  const load = () => {
+    loadScopedClassrooms(institutionId, scopeDepartment).then(setClassrooms).catch(() => setClassrooms([]));
+  };
+  useEffect(load, [institutionId, scopeDepartment]);
 
   const sorted = useMemo(() => {
     if (!classrooms) return [];
@@ -94,7 +112,7 @@ export function ClassroomAccessManager({ institutionId, moduleKey, moduleLabel }
   const bulkSet = async (enabled) => {
     setBusy(true);
     setClassrooms(cs => cs.map(c => ({ ...c, moduleAccess: { ...c.moduleAccess, [moduleKey]: enabled } })));
-    try { await bulkSetModuleAccess(institutionId, moduleKey, enabled); } finally { setBusy(false); }
+    try { await bulkSetModuleAccess(institutionId, moduleKey, enabled, scopeDepartment); } finally { setBusy(false); }
   };
 
   const handleReset = async (classroomId) => {

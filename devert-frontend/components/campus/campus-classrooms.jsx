@@ -16,7 +16,9 @@ import { fetchClassroomAnalytics, fetchCampusAverages } from "@/lib/classroomAna
 import { useCampusBackHandler } from "@/lib/campusNav";
 import {
   CampusCard, CampusChip, CampusBreadcrumb, CampusEmptyState, CampusSkeleton, CampusStat, CampusButton,
+  CampusTabBar,
 } from "@/components/campus/campus-ui";
+import { StaffDashboardHero } from "@/components/campus/campus-dashboard-widgets";
 import { StudentAnalyticsDashboard } from "@/components/campus/campus-student-dashboard";
 
 const SCOPE_META = {
@@ -345,30 +347,33 @@ export function ClassroomDashboard({ institutionId, year, department, section, s
   }, [institutionId, year, department, section, students]);
 
   return (
-    <div>
+    <div className="space-y-5">
       <CampusBreadcrumb items={[
         { label: "Classrooms", onClick: onBack },
         { label: year },
         { label: department },
         { label: `Section ${section}` },
       ]} />
-      <h2 className="text-lg font-semibold mb-4" style={{ color: CAMPUS.ink }}>
-        {year} · {department} · Section {section} <span style={{ color: CAMPUS.inkFaint }}>({students.length})</span>
-      </h2>
 
-      <div className="flex items-center gap-1.5 flex-wrap mb-4 overflow-x-auto">
-        {DASHBOARD_TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
-            style={{
-              color: tab === t.key ? "#fff" : CAMPUS.inkSoft,
-              background: tab === t.key ? CAMPUS.teal : "transparent",
-              border: `1px solid ${tab === t.key ? CAMPUS.teal : CAMPUS.line}`,
-            }}>
-            <t.icon size={12} /> {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Same treatment as DepartmentDashboard's header: a Faculty class teacher
+          lands here as their entire dashboard, so it opens with the shared
+          gradient hero rather than a dot-separated heading, and the student
+          count becomes a chip instead of a parenthetical. */}
+      <StaffDashboardHero
+        icon={GraduationCap}
+        title={`Section ${section}`}
+        subtitle={`${year} · ${department}`}
+        meta={
+          <>
+            <CampusChip color={CAMPUS.teal} icon={Users}>
+              {students.length} STUDENT{students.length === 1 ? "" : "S"}
+            </CampusChip>
+            <CampusChip color={CAMPUS.purple}>{year}</CampusChip>
+          </>
+        }
+      />
+
+      <CampusTabBar tabs={DASHBOARD_TABS} value={tab} onChange={setTab} />
 
       {analytics === false ? (
         <CampusEmptyState icon={AlertTriangle} title="Couldn't load analytics" description="Something went wrong fetching this classroom's data. Try again." />

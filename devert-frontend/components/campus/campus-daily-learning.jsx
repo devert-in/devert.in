@@ -25,6 +25,7 @@ import {
 import { CampusProblemView } from "@/components/campus/campus-practice";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
 import { useCampusBackHandler } from "@/lib/campusNav";
+import { useCampusScope } from "@/lib/campusPermissions";
 import { LessonBody, InfoListCard, CodeExampleBlock } from "@/components/campus/lesson-blocks";
 
 // Institution-scoped Mon-Sat structured learning, backed by
@@ -92,6 +93,7 @@ const TRACK_ICONS = { Code2, Calculator };
 
 function TrackProgressCard({ slug, track, onOpen }) {
   const { user } = useAuth();
+  const { role, isInstAdmin } = useCampusScope();
   const [progress, setProgress] = useState(undefined); // undefined = loading
 
   useEffect(() => {
@@ -101,6 +103,15 @@ function TrackProgressCard({ slug, track, onOpen }) {
 
   const Icon = TRACK_ICONS[track.icon] || BookOpen;
   const empty = progress && progress.totalCount === 0;
+  // Anyone who isn't a learner - HOD, Faculty/Class Teacher, Principal,
+  // Institution Admin. Their own completedCount is structurally always 0, so
+  // the student-facing "Day N - X% Complete" read as if the series were brand
+  // new and empty (the exact confusion this replaced). Staff get the SERIES'
+  // published state instead: how many days exist, and how many have landed as
+  // of today. Both numbers already come back from fetchTrackProgress -
+  // currentDayIndex counts published days dated on or before today - so this
+  // needs no extra read.
+  const isStaffViewer = !!role || isInstAdmin;
 
   return (
     <button onClick={() => onOpen(track.key)} className="w-full text-left">
@@ -113,7 +124,13 @@ function TrackProgressCard({ slug, track, onOpen }) {
           {progress === undefined ? (
             <CampusSkeleton variant="rect" height={14} className="mt-1.5 w-2/3" />
           ) : empty ? (
-            <p className="text-[12px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>Coming soon for your batch</p>
+            <p className="text-[12px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>
+              {isStaffViewer ? "No days published yet" : "Coming soon for your batch"}
+            </p>
+          ) : isStaffViewer ? (
+            <p className="text-[12px] mt-0.5" style={{ color: CAMPUS.inkSoft }}>
+              Day {Math.max(1, progress?.currentDayIndex || 1)} of {progress.totalCount} published
+            </p>
           ) : (
             <p className="text-[12px] mt-0.5" style={{ color: CAMPUS.inkSoft }}>
               Day {Math.max(1, progress?.currentDayIndex || 1)} &middot; {progress?.percentComplete || 0}% Complete

@@ -5,7 +5,7 @@ import {
   Check, Trash2, Upload, Download, Search, X, AlertTriangle, CheckCircle2, BookOpen,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState } from "@/components/campus/campus-ui";
 import Dropdown from "@/components/dropdown";
 import {
@@ -750,7 +750,7 @@ function BulkUploadPanel({ existingTexts, bankTexts, onImport }) {
             {rows.duplicates.length > 0 && <span style={{ color: CAMPUS.warn }}>{rows.duplicates.length} duplicate{rows.duplicates.length === 1 ? "" : "s"} skipped</span>}
           </div>
           {rows.invalid.length > 0 && (
-            <div className="rounded-lg p-3 space-y-1" style={{ background: CAMPUS.badTint, border: `1px solid ${CAMPUS.bad}30` }}>
+            <div className="rounded-lg p-3 space-y-1" style={{ background: CAMPUS.badTint, border: `1px solid ${tint(CAMPUS.bad, 26)}` }}>
               {rows.invalid.map((e, i) => (
                 <p key={i} className="text-[11px] flex items-start gap-1.5" style={{ color: CAMPUS.bad }}>
                   <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" /> {e}
@@ -760,7 +760,7 @@ function BulkUploadPanel({ existingTexts, bankTexts, onImport }) {
             </div>
           )}
           {rows.duplicates.length > 0 && (
-            <div className="rounded-lg p-3 space-y-1" style={{ background: CAMPUS.warnTint, border: `1px solid ${CAMPUS.warn}30` }}>
+            <div className="rounded-lg p-3 space-y-1" style={{ background: CAMPUS.warnTint, border: `1px solid ${tint(CAMPUS.warn, 26)}` }}>
               {rows.duplicates.slice(0, 5).map((q, i) => (
                 <p key={i} className="text-[11px] truncate" style={{ color: CAMPUS.warn }}>Duplicate: {q.question}</p>
               ))}

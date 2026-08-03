@@ -1,0 +1,1922 @@
+{
+  "Arrays": [
+    {
+      "leetcode": 1,
+      "sheetTitle": "Two Sum",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "rMresXdByVqMcW2asqvM",
+      "dbTitle": "Two Sum",
+      "difficulty": "Easy",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 121,
+      "sheetTitle": "Best Time to Buy and Sell Stock",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "wffj72WETPw87Z3PVdnL",
+      "dbTitle": "Best Time to Buy and Sell Stock",
+      "difficulty": "Easy",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 53,
+      "sheetTitle": "Maximum Subarray",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "sGHNowaPaF9c4FfrU5n0",
+      "dbTitle": "Find Maximum Product Subarray",
+      "difficulty": "Medium",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 88,
+      "sheetTitle": "Merge Sorted Array",
+      "tier": "REVIEW",
+      "score": 0.58,
+      "problemId": "Tp9LNf3CVYPdnLuwF0RD",
+      "dbTitle": "Squares of a Sorted Array",
+      "difficulty": "Medium",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 26,
+      "sheetTitle": "Remove Duplicates from Sorted Array",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "Kxhj7325JDvkaXvmNE3F",
+      "dbTitle": "Remove Duplicates from Sorted Array In-Place",
+      "difficulty": "Easy",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 189,
+      "sheetTitle": "Rotate Array",
+      "tier": "LIKELY",
+      "score": 0.85,
+      "problemId": "IlljauUQ0XKT9FZl6PpA",
+      "dbTitle": "Cyclically Rotate an Array by One",
+      "difficulty": "Easy",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 238,
+      "sheetTitle": "Product of Array Except Self",
+      "tier": "UNRESOLVED",
+      "score": 0.42,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 169,
+      "sheetTitle": "Majority Element",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "OWpzLGC8WpQZuhFosBrO",
+      "dbTitle": "Majority Element",
+      "difficulty": "Easy",
+      "dbCategory": "Hashing"
+    },
+    {
+      "leetcode": 283,
+      "sheetTitle": "Move Zeroes",
+      "tier": "LIKELY",
+      "score": 0.92,
+      "problemId": "s0XqExBGyeWzvumVm0j1",
+      "dbTitle": "Move Zeroes to the End",
+      "difficulty": "Easy",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 217,
+      "sheetTitle": "Contains Duplicate",
+      "tier": "UNRESOLVED",
+      "score": 0.31,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 268,
+      "sheetTitle": "Missing Number",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "0tfvp0Mykg61d2ch1utH",
+      "dbTitle": "Find the Repeating and the Missing Number",
+      "difficulty": "Medium",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 448,
+      "sheetTitle": "Find All Numbers Disappeared in an Array",
+      "tier": "UNRESOLVED",
+      "score": 0.47,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 75,
+      "sheetTitle": "Sort Colors",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "jTX4gjiCGCwvsnPijEXb",
+      "dbTitle": "Sort an Array of Three Colors",
+      "difficulty": "Medium",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 31,
+      "sheetTitle": "Next Permutation",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "JJ6nwrcbG2nNvP47KqkG",
+      "dbTitle": "Next Permutation",
+      "difficulty": "Medium",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 42,
+      "sheetTitle": "Trapping Rain Water",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "4jN8wbcnn3ejnhMrjw0R",
+      "dbTitle": "Trapping Rain Water",
+      "difficulty": "Medium",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 11,
+      "sheetTitle": "Container With Most Water",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "6ZP3VNKlSTPLcB5YKhmc",
+      "dbTitle": "Container With Most Water",
+      "difficulty": "Medium",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 134,
+      "sheetTitle": "Gas Station",
+      "tier": "UNRESOLVED",
+      "score": 0.29,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 55,
+      "sheetTitle": "Jump Game",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 45,
+      "sheetTitle": "Jump Game II",
+      "tier": "UNRESOLVED",
+      "score": 0.21,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 135,
+      "sheetTitle": "Candy",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    }
+  ],
+  "Strings": [
+    {
+      "leetcode": 242,
+      "sheetTitle": "Valid Anagram",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 125,
+      "sheetTitle": "Valid Palindrome",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "B4SkXaNmZe6AZI7xhfEe",
+      "dbTitle": "Valid Palindrome Ignoring Punctuation",
+      "difficulty": "Easy",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 14,
+      "sheetTitle": "Longest Common Prefix",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "H94KCmH0LAOKZO1kfuI8",
+      "dbTitle": "Longest Common Prefix",
+      "difficulty": "Easy",
+      "dbCategory": "Strings"
+    },
+    {
+      "leetcode": 344,
+      "sheetTitle": "Reverse String",
+      "tier": "LIKELY",
+      "score": 1,
+      "problemId": "3E0mepxT7b7XCuyIRPiV",
+      "dbTitle": "Reverse a String",
+      "difficulty": "Easy",
+      "dbCategory": "Strings"
+    },
+    {
+      "leetcode": 151,
+      "sheetTitle": "Reverse Words in a String",
+      "tier": "REVIEW",
+      "score": 0.67,
+      "problemId": "3E0mepxT7b7XCuyIRPiV",
+      "dbTitle": "Reverse a String",
+      "difficulty": "Easy",
+      "dbCategory": "Strings"
+    },
+    {
+      "leetcode": 28,
+      "sheetTitle": "Implement strStr",
+      "tier": "UNRESOLVED",
+      "score": 0.33,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 5,
+      "sheetTitle": "Longest Palindromic Substring",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "rBoZO8CCQs6qFoZefYpV",
+      "dbTitle": "Longest Palindromic Substring",
+      "difficulty": "Medium",
+      "dbCategory": "Strings"
+    },
+    {
+      "leetcode": 3,
+      "sheetTitle": "Longest Substring Without Repeating Characters",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "rUZIE4lOt4tpXakOqWH2",
+      "dbTitle": "Longest Substring Without Repeating Characters",
+      "difficulty": "Medium",
+      "dbCategory": "Sliding Window"
+    },
+    {
+      "leetcode": 49,
+      "sheetTitle": "Group Anagrams",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "4YIZOHnZ2nmy8A93lzGJ",
+      "dbTitle": "Group Anagrams",
+      "difficulty": "Medium",
+      "dbCategory": "Hashing"
+    },
+    {
+      "leetcode": 20,
+      "sheetTitle": "Valid Parentheses",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "sNSiErDomdYCPmwrcoxM",
+      "dbTitle": "Longest Valid Parentheses Substring",
+      "difficulty": "Hard",
+      "dbCategory": "Stack"
+    },
+    {
+      "leetcode": 8,
+      "sheetTitle": "String to Integer atoi",
+      "tier": "UNRESOLVED",
+      "score": 0.21,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 12,
+      "sheetTitle": "Integer to Roman",
+      "tier": "LIKELY",
+      "score": 0.92,
+      "problemId": "K1lnKpVrB5UeK4nlubGH",
+      "dbTitle": "Roman Numeral to Integer",
+      "difficulty": "Easy",
+      "dbCategory": "Strings"
+    },
+    {
+      "leetcode": 13,
+      "sheetTitle": "Roman to Integer",
+      "tier": "LIKELY",
+      "score": 0.92,
+      "problemId": "K1lnKpVrB5UeK4nlubGH",
+      "dbTitle": "Roman Numeral to Integer",
+      "difficulty": "Easy",
+      "dbCategory": "Strings"
+    },
+    {
+      "leetcode": 6,
+      "sheetTitle": "Zigzag Conversion",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 76,
+      "sheetTitle": "Minimum Window Substring",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "Dp2MkN4UYmyTd5yDaBtE",
+      "dbTitle": "Minimum Window Substring",
+      "difficulty": "Hard",
+      "dbCategory": "Sliding Window"
+    },
+    {
+      "leetcode": 438,
+      "sheetTitle": "Find All Anagrams in a String",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 205,
+      "sheetTitle": "Isomorphic Strings",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "o877tBjY6ATBkitic0hW",
+      "dbTitle": "Isomorphic Strings",
+      "difficulty": "Medium",
+      "dbCategory": "Hashing"
+    },
+    {
+      "leetcode": 290,
+      "sheetTitle": "Word Pattern",
+      "tier": "UNRESOLVED",
+      "score": 0.33,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 394,
+      "sheetTitle": "Decode String",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 271,
+      "sheetTitle": "Encode and Decode Strings",
+      "tier": "UNRESOLVED",
+      "score": 0.21,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    }
+  ],
+  "Binary Search": [
+    {
+      "leetcode": 704,
+      "sheetTitle": "Binary Search",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "JLoJfks3EbU2PSW3uxTY",
+      "dbTitle": "Optimal Binary Search Tree",
+      "difficulty": "Hard",
+      "dbCategory": "Dynamic Programming"
+    },
+    {
+      "leetcode": 35,
+      "sheetTitle": "Search Insert Position",
+      "tier": "LIKELY",
+      "score": 0.9,
+      "problemId": "fFZr4HhspS4eeEvZPfmY",
+      "dbTitle": "Search Insert Position in a Sorted Array",
+      "difficulty": "Easy",
+      "dbCategory": "Binary Search"
+    },
+    {
+      "leetcode": 74,
+      "sheetTitle": "Search a 2D Matrix",
+      "tier": "LIKELY",
+      "score": 0.9,
+      "problemId": "jBLKom1BW3WfyYvR9ckX",
+      "dbTitle": "Search in a Sorted 2D Matrix (Staircase Search)",
+      "difficulty": "Medium",
+      "dbCategory": "Searching"
+    },
+    {
+      "leetcode": 34,
+      "sheetTitle": "Find First and Last Position of Element in Sorted Array",
+      "tier": "LIKELY",
+      "score": 1,
+      "problemId": "csbWG8TELQz1gdWk5Y9d",
+      "dbTitle": "Find First and Last Position of an Element in a Sorted Array",
+      "difficulty": "Medium",
+      "dbCategory": "Binary Search"
+    },
+    {
+      "leetcode": 33,
+      "sheetTitle": "Search in Rotated Sorted Array",
+      "tier": "LIKELY",
+      "score": 1,
+      "problemId": "sZYJbfP3mpc91PmzI4xn",
+      "dbTitle": "Search in a Rotated Sorted Array",
+      "difficulty": "Medium",
+      "dbCategory": "Binary Search"
+    },
+    {
+      "leetcode": 81,
+      "sheetTitle": "Search in Rotated Sorted Array II",
+      "tier": "REVIEW",
+      "score": 0.8,
+      "problemId": "sZYJbfP3mpc91PmzI4xn",
+      "dbTitle": "Search in a Rotated Sorted Array",
+      "difficulty": "Medium",
+      "dbCategory": "Binary Search"
+    },
+    {
+      "leetcode": 153,
+      "sheetTitle": "Find Minimum in Rotated Sorted Array",
+      "tier": "REVIEW",
+      "score": 0.72,
+      "problemId": "4pjpRjIOJzyDccpWqMBZ",
+      "dbTitle": "Find the Pivot Element in a Sorted Rotated Array",
+      "difficulty": "Medium",
+      "dbCategory": "Binary Search"
+    },
+    {
+      "leetcode": 162,
+      "sheetTitle": "Find Peak Element",
+      "tier": "LIKELY",
+      "score": 0.94,
+      "problemId": "A15ButHKgjWYYurcxpRa",
+      "dbTitle": "Find a Peak Element in an Array",
+      "difficulty": "Medium",
+      "dbCategory": "Binary Search"
+    },
+    {
+      "leetcode": 875,
+      "sheetTitle": "Koko Eating Bananas",
+      "tier": "UNRESOLVED",
+      "score": 0.11,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1011,
+      "sheetTitle": "Capacity To Ship Packages Within D Days",
+      "tier": "LIKELY",
+      "score": 0.94,
+      "problemId": "uzCHhKn1MFtt7CLLM3gn",
+      "dbTitle": "Minimum Ship Capacity to Deliver Packages Within D Days",
+      "difficulty": "Medium",
+      "dbCategory": "Binary Search"
+    },
+    {
+      "leetcode": 410,
+      "sheetTitle": "Split Array Largest Sum",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 4,
+      "sheetTitle": "Median of Two Sorted Arrays",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "J5HLJWPqmQ2pVRJXnuwH",
+      "dbTitle": "Median of Two Sorted Arrays",
+      "difficulty": "Hard",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 69,
+      "sheetTitle": "Sqrt x",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 367,
+      "sheetTitle": "Valid Perfect Square",
+      "tier": "UNRESOLVED",
+      "score": 0.17,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 287,
+      "sheetTitle": "Find the Duplicate Number",
+      "tier": "UNRESOLVED",
+      "score": 0.54,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    }
+  ],
+  "Two Pointers & Sliding Window": [
+    {
+      "leetcode": 125,
+      "sheetTitle": "Valid Palindrome",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "B4SkXaNmZe6AZI7xhfEe",
+      "dbTitle": "Valid Palindrome Ignoring Punctuation",
+      "difficulty": "Easy",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 167,
+      "sheetTitle": "Two Sum II Input Array Is Sorted",
+      "tier": "UNRESOLVED",
+      "score": 0.4,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 11,
+      "sheetTitle": "Container With Most Water",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "6ZP3VNKlSTPLcB5YKhmc",
+      "dbTitle": "Container With Most Water",
+      "difficulty": "Medium",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 15,
+      "sheetTitle": "3Sum",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 18,
+      "sheetTitle": "4Sum",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 26,
+      "sheetTitle": "Remove Duplicates from Sorted Array",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "Kxhj7325JDvkaXvmNE3F",
+      "dbTitle": "Remove Duplicates from Sorted Array In-Place",
+      "difficulty": "Easy",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 283,
+      "sheetTitle": "Move Zeroes",
+      "tier": "LIKELY",
+      "score": 0.92,
+      "problemId": "s0XqExBGyeWzvumVm0j1",
+      "dbTitle": "Move Zeroes to the End",
+      "difficulty": "Easy",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 75,
+      "sheetTitle": "Sort Colors",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "jTX4gjiCGCwvsnPijEXb",
+      "dbTitle": "Sort an Array of Three Colors",
+      "difficulty": "Medium",
+      "dbCategory": "Two Pointer"
+    },
+    {
+      "leetcode": 3,
+      "sheetTitle": "Longest Substring Without Repeating Characters",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "rUZIE4lOt4tpXakOqWH2",
+      "dbTitle": "Longest Substring Without Repeating Characters",
+      "difficulty": "Medium",
+      "dbCategory": "Sliding Window"
+    },
+    {
+      "leetcode": 424,
+      "sheetTitle": "Longest Repeating Character Replacement",
+      "tier": "UNRESOLVED",
+      "score": 0.42,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 567,
+      "sheetTitle": "Permutation in String",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 438,
+      "sheetTitle": "Find All Anagrams in a String",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 209,
+      "sheetTitle": "Minimum Size Subarray Sum",
+      "tier": "REVIEW",
+      "score": 0.65,
+      "problemId": "AgcN2ngnsr0p9PB98MC4",
+      "dbTitle": "Maximum Sum Subarray of Size K",
+      "difficulty": "Easy",
+      "dbCategory": "Sliding Window"
+    },
+    {
+      "leetcode": 76,
+      "sheetTitle": "Minimum Window Substring",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "Dp2MkN4UYmyTd5yDaBtE",
+      "dbTitle": "Minimum Window Substring",
+      "difficulty": "Hard",
+      "dbCategory": "Sliding Window"
+    },
+    {
+      "leetcode": 904,
+      "sheetTitle": "Fruit Into Baskets",
+      "tier": "UNRESOLVED",
+      "score": 0.15,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 239,
+      "sheetTitle": "Sliding Window Maximum",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "3eAvHqairqUyLzQHWClM",
+      "dbTitle": "Sliding Window Maximum",
+      "difficulty": "Hard",
+      "dbCategory": "Sliding Window"
+    },
+    {
+      "leetcode": 713,
+      "sheetTitle": "Subarray Product Less Than K",
+      "tier": "REVIEW",
+      "score": 0.68,
+      "problemId": "OxWhTML24hXmRZXXxpOI",
+      "dbTitle": "Count All Subsequences Having Product Less Than K",
+      "difficulty": "Medium",
+      "dbCategory": "Dynamic Programming"
+    },
+    {
+      "leetcode": 1004,
+      "sheetTitle": "Max Consecutive Ones III",
+      "tier": "UNRESOLVED",
+      "score": 0.08,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1438,
+      "sheetTitle": "Longest Continuous Subarray With Absolute Diff Less Than or Equal to Limit",
+      "tier": "UNRESOLVED",
+      "score": 0.25,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 42,
+      "sheetTitle": "Trapping Rain Water",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "4jN8wbcnn3ejnhMrjw0R",
+      "dbTitle": "Trapping Rain Water",
+      "difficulty": "Medium",
+      "dbCategory": "Arrays"
+    }
+  ],
+  "Bit Manipulation": [
+    {
+      "leetcode": 136,
+      "sheetTitle": "Single Number",
+      "tier": "UNRESOLVED",
+      "score": 0.33,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 137,
+      "sheetTitle": "Single Number II",
+      "tier": "UNRESOLVED",
+      "score": 0.17,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 268,
+      "sheetTitle": "Missing Number",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "0tfvp0Mykg61d2ch1utH",
+      "dbTitle": "Find the Repeating and the Missing Number",
+      "difficulty": "Medium",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 191,
+      "sheetTitle": "Number of 1 Bits",
+      "tier": "UNRESOLVED",
+      "score": 0.5,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 338,
+      "sheetTitle": "Counting Bits",
+      "tier": "UNRESOLVED",
+      "score": 0.31,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 190,
+      "sheetTitle": "Reverse Bits",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 231,
+      "sheetTitle": "Power of Two",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 342,
+      "sheetTitle": "Power of Four",
+      "tier": "UNRESOLVED",
+      "score": 0.3,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 201,
+      "sheetTitle": "Bitwise AND of Numbers Range",
+      "tier": "LIKELY",
+      "score": 0.94,
+      "problemId": "2ivZxNipE3woJpjoo0GU",
+      "dbTitle": "Bitwise AND of All Numbers in a Range",
+      "difficulty": "Medium",
+      "dbCategory": "Bit Manipulation"
+    },
+    {
+      "leetcode": 371,
+      "sheetTitle": "Sum of Two Integers",
+      "tier": "REVIEW",
+      "score": 0.67,
+      "problemId": "rMresXdByVqMcW2asqvM",
+      "dbTitle": "Two Sum",
+      "difficulty": "Easy",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 29,
+      "sheetTitle": "Divide Two Integers",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "IknFRnnU8w3t3hLqGyPC",
+      "dbTitle": "Divide Two Integers Without Using *, /, or %",
+      "difficulty": "Medium",
+      "dbCategory": "Bit Manipulation"
+    },
+    {
+      "leetcode": 78,
+      "sheetTitle": "Subsets",
+      "tier": "REVIEW",
+      "score": 0.8,
+      "problemId": "KEiJ3x9C1A9SABpVbj2e",
+      "dbTitle": "Count Subsets With a Given XOR Value",
+      "difficulty": "Medium",
+      "dbCategory": "Bit Manipulation"
+    },
+    {
+      "leetcode": 89,
+      "sheetTitle": "Gray Code",
+      "tier": "REVIEW",
+      "score": 0.82,
+      "problemId": "dY2hbus8mAWEcyX4ppoA",
+      "dbTitle": "Generate the Full n-bit Gray Code Sequence",
+      "difficulty": "Medium",
+      "dbCategory": "Bit Manipulation"
+    },
+    {
+      "leetcode": 421,
+      "sheetTitle": "Maximum XOR of Two Numbers in an Array",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "9Oj40F15ZNybKeQnoxGO",
+      "dbTitle": "Maximum XOR of Two Numbers in an Array",
+      "difficulty": "Hard",
+      "dbCategory": "Trie"
+    },
+    {
+      "leetcode": 393,
+      "sheetTitle": "UTF-8 Validation",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1442,
+      "sheetTitle": "Count Triplets That Can Form Two Arrays of Equal XOR",
+      "tier": "UNRESOLVED",
+      "score": 0.31,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1318,
+      "sheetTitle": "Minimum Flips to Make a OR b Equal to c",
+      "tier": "UNRESOLVED",
+      "score": 0.25,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1835,
+      "sheetTitle": "Find XOR Sum of All Pairs Bitwise AND",
+      "tier": "REVIEW",
+      "score": 0.62,
+      "problemId": "eL0uOb5hpx7JsUpq8nog",
+      "dbTitle": "Find All Pairs With a Given Sum",
+      "difficulty": "Easy",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 1720,
+      "sheetTitle": "Decode XORed Array",
+      "tier": "UNRESOLVED",
+      "score": 0.21,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1310,
+      "sheetTitle": "XOR Queries of a Subarray",
+      "tier": "UNRESOLVED",
+      "score": 0.15,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    }
+  ],
+  "Hashing & Prefix Sum": [
+    {
+      "leetcode": 1,
+      "sheetTitle": "Two Sum",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "rMresXdByVqMcW2asqvM",
+      "dbTitle": "Two Sum",
+      "difficulty": "Easy",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 217,
+      "sheetTitle": "Contains Duplicate",
+      "tier": "UNRESOLVED",
+      "score": 0.31,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 242,
+      "sheetTitle": "Valid Anagram",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 49,
+      "sheetTitle": "Group Anagrams",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "4YIZOHnZ2nmy8A93lzGJ",
+      "dbTitle": "Group Anagrams",
+      "difficulty": "Medium",
+      "dbCategory": "Hashing"
+    },
+    {
+      "leetcode": 347,
+      "sheetTitle": "Top K Frequent Elements",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "dGW5xqsShCKIKxlUcdOc",
+      "dbTitle": "Top K Frequent Elements",
+      "difficulty": "Medium",
+      "dbCategory": "Heap"
+    },
+    {
+      "leetcode": 128,
+      "sheetTitle": "Longest Consecutive Sequence",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "xYIZmWYkGhJTGFo9HsH4",
+      "dbTitle": "Longest Consecutive Sequence",
+      "difficulty": "Medium",
+      "dbCategory": "Hashing"
+    },
+    {
+      "leetcode": 202,
+      "sheetTitle": "Happy Number",
+      "tier": "UNRESOLVED",
+      "score": 0.33,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 205,
+      "sheetTitle": "Isomorphic Strings",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "o877tBjY6ATBkitic0hW",
+      "dbTitle": "Isomorphic Strings",
+      "difficulty": "Medium",
+      "dbCategory": "Hashing"
+    },
+    {
+      "leetcode": 560,
+      "sheetTitle": "Subarray Sum Equals K",
+      "tier": "REVIEW",
+      "score": 0.69,
+      "problemId": "HxOV4u1lHMlHPyqTk6KZ",
+      "dbTitle": "Longest Subarray With Sum K",
+      "difficulty": "Medium",
+      "dbCategory": "Hashing"
+    },
+    {
+      "leetcode": 523,
+      "sheetTitle": "Continuous Subarray Sum",
+      "tier": "UNRESOLVED",
+      "score": 0.54,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 325,
+      "sheetTitle": "Maximum Size Subarray Sum Equals K",
+      "tier": "REVIEW",
+      "score": 0.83,
+      "problemId": "AgcN2ngnsr0p9PB98MC4",
+      "dbTitle": "Maximum Sum Subarray of Size K",
+      "difficulty": "Easy",
+      "dbCategory": "Sliding Window"
+    },
+    {
+      "leetcode": 525,
+      "sheetTitle": "Contiguous Array",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 724,
+      "sheetTitle": "Find Pivot Index",
+      "tier": "UNRESOLVED",
+      "score": 0.5,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 303,
+      "sheetTitle": "Range Sum Query Immutable",
+      "tier": "UNRESOLVED",
+      "score": 0.13,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 238,
+      "sheetTitle": "Product of Array Except Self",
+      "tier": "UNRESOLVED",
+      "score": 0.42,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 438,
+      "sheetTitle": "Find All Anagrams in a String",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 383,
+      "sheetTitle": "Ransom Note",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 349,
+      "sheetTitle": "Intersection of Two Arrays",
+      "tier": "LIKELY",
+      "score": 0.9,
+      "problemId": "WXscZSWf8IoYTemuOese",
+      "dbTitle": "Union and Intersection of Two Sorted Arrays",
+      "difficulty": "Medium",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 350,
+      "sheetTitle": "Intersection of Two Arrays II",
+      "tier": "REVIEW",
+      "score": 0.65,
+      "problemId": "WXscZSWf8IoYTemuOese",
+      "dbTitle": "Union and Intersection of Two Sorted Arrays",
+      "difficulty": "Medium",
+      "dbCategory": "Arrays"
+    },
+    {
+      "leetcode": 169,
+      "sheetTitle": "Majority Element",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "OWpzLGC8WpQZuhFosBrO",
+      "dbTitle": "Majority Element",
+      "difficulty": "Easy",
+      "dbCategory": "Hashing"
+    }
+  ],
+  "Linked Lists": [
+    {
+      "leetcode": 206,
+      "sheetTitle": "Reverse Linked List",
+      "tier": "LIKELY",
+      "score": 1,
+      "problemId": "3aE1ULAwGb8fH2L6OJb8",
+      "dbTitle": "Reverse a Linked List",
+      "difficulty": "Easy",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 21,
+      "sheetTitle": "Merge Two Sorted Lists",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "6aBkS0l17l0x2q0nrdk7",
+      "dbTitle": "Merge Two Sorted Linked Lists",
+      "difficulty": "Easy",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 141,
+      "sheetTitle": "Linked List Cycle",
+      "tier": "REVIEW",
+      "score": 0.58,
+      "problemId": "3aE1ULAwGb8fH2L6OJb8",
+      "dbTitle": "Reverse a Linked List",
+      "difficulty": "Easy",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 142,
+      "sheetTitle": "Linked List Cycle II",
+      "tier": "UNRESOLVED",
+      "score": 0.42,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 876,
+      "sheetTitle": "Middle of the Linked List",
+      "tier": "LIKELY",
+      "score": 0.94,
+      "problemId": "2T9mZlOrel9OWlcLSYhW",
+      "dbTitle": "Find the Middle of a Linked List",
+      "difficulty": "Easy",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 19,
+      "sheetTitle": "Remove Nth Node From End of List",
+      "tier": "REVIEW",
+      "score": 0.72,
+      "problemId": "wJZXBjmCqwAeGDycxBsp",
+      "dbTitle": "Find the Nth Node From the End of a Linked List",
+      "difficulty": "Easy",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 234,
+      "sheetTitle": "Palindrome Linked List",
+      "tier": "LIKELY",
+      "score": 0.9,
+      "problemId": "VZiC1YeWeaTacwYWW99f",
+      "dbTitle": "Check if a Linked List Is a Palindrome",
+      "difficulty": "Medium",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 160,
+      "sheetTitle": "Intersection of Two Linked Lists",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "KBliX531mIUQd1EUxQqI",
+      "dbTitle": "Intersection of Two Sorted Linked Lists",
+      "difficulty": "Easy",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 2,
+      "sheetTitle": "Add Two Numbers",
+      "tier": "LIKELY",
+      "score": 0.86,
+      "problemId": "GFknMByYltbnyXmdOkvv",
+      "dbTitle": "Add Two Numbers Represented by Linked Lists",
+      "difficulty": "Medium",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 23,
+      "sheetTitle": "Merge k Sorted Lists",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "SmDwWsoMRx9NOr7iRgtN",
+      "dbTitle": "Merge K Sorted Linked Lists",
+      "difficulty": "Medium",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 138,
+      "sheetTitle": "Copy List with Random Pointer",
+      "tier": "UNRESOLVED",
+      "score": 0.08,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 143,
+      "sheetTitle": "Reorder List",
+      "tier": "UNRESOLVED",
+      "score": 0.33,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 24,
+      "sheetTitle": "Swap Nodes in Pairs",
+      "tier": "UNRESOLVED",
+      "score": 0.15,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 25,
+      "sheetTitle": "Reverse Nodes in k-Group",
+      "tier": "UNRESOLVED",
+      "score": 0.35,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 61,
+      "sheetTitle": "Rotate List",
+      "tier": "REVIEW",
+      "score": 0.83,
+      "problemId": "TRkEL1W4EbflKsSbDcdi",
+      "dbTitle": "Rotate a Linked List by N Nodes",
+      "difficulty": "Medium",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 86,
+      "sheetTitle": "Partition List",
+      "tier": "UNRESOLVED",
+      "score": 0.33,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 83,
+      "sheetTitle": "Remove Duplicates from Sorted List",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "JvhFjgzgTW0D5D6SMNSo",
+      "dbTitle": "Remove Duplicates From a Sorted Linked List",
+      "difficulty": "Easy",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 237,
+      "sheetTitle": "Delete Node in a Linked List",
+      "tier": "REVIEW",
+      "score": 0.69,
+      "problemId": "gT7wM4JjaUJMZUY499el",
+      "dbTitle": "Delete Loop in a Linked List",
+      "difficulty": "Medium",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 148,
+      "sheetTitle": "Sort List",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "ORtghDqQG8XHsxD7V18F",
+      "dbTitle": "Merge Sort on a Linked List",
+      "difficulty": "Medium",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 430,
+      "sheetTitle": "Flatten a Multilevel Doubly Linked List",
+      "tier": "REVIEW",
+      "score": 0.6,
+      "problemId": "tuE35VLK7mDpoA2Rmybb",
+      "dbTitle": "Flatten a Linked List",
+      "difficulty": "Hard",
+      "dbCategory": "Linked List"
+    }
+  ],
+  "Stacks & Queues": [
+    {
+      "leetcode": 20,
+      "sheetTitle": "Valid Parentheses",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "sNSiErDomdYCPmwrcoxM",
+      "dbTitle": "Longest Valid Parentheses Substring",
+      "difficulty": "Hard",
+      "dbCategory": "Stack"
+    },
+    {
+      "leetcode": 155,
+      "sheetTitle": "Min Stack",
+      "tier": "REVIEW",
+      "score": 0.83,
+      "problemId": "KDCI4s7mHarsNGfpx1qP",
+      "dbTitle": "Min Stack - Support getMin in O(1)",
+      "difficulty": "Medium",
+      "dbCategory": "Stack"
+    },
+    {
+      "leetcode": 232,
+      "sheetTitle": "Implement Queue using Stacks",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "svisG09ggQkFMybRujei",
+      "dbTitle": "Implement a Queue Using Two Stacks",
+      "difficulty": "Easy",
+      "dbCategory": "Queue"
+    },
+    {
+      "leetcode": 225,
+      "sheetTitle": "Implement Stack using Queues",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 739,
+      "sheetTitle": "Daily Temperatures",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 496,
+      "sheetTitle": "Next Greater Element I",
+      "tier": "REVIEW",
+      "score": 0.65,
+      "problemId": "UY2rfS8SZpYTZOlhbKFF",
+      "dbTitle": "Next Greater Element for Every Array Element",
+      "difficulty": "Medium",
+      "dbCategory": "Stack"
+    },
+    {
+      "leetcode": 503,
+      "sheetTitle": "Next Greater Element II",
+      "tier": "REVIEW",
+      "score": 0.65,
+      "problemId": "UY2rfS8SZpYTZOlhbKFF",
+      "dbTitle": "Next Greater Element for Every Array Element",
+      "difficulty": "Medium",
+      "dbCategory": "Stack"
+    },
+    {
+      "leetcode": 84,
+      "sheetTitle": "Largest Rectangle in Histogram",
+      "tier": "UNRESOLVED",
+      "score": 0.54,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 85,
+      "sheetTitle": "Maximal Rectangle",
+      "tier": "UNRESOLVED",
+      "score": 0.3,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 735,
+      "sheetTitle": "Asteroid Collision",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 394,
+      "sheetTitle": "Decode String",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 150,
+      "sheetTitle": "Evaluate Reverse Polish Notation",
+      "tier": "UNRESOLVED",
+      "score": 0.13,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 224,
+      "sheetTitle": "Basic Calculator",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 227,
+      "sheetTitle": "Basic Calculator II",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 239,
+      "sheetTitle": "Sliding Window Maximum",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "3eAvHqairqUyLzQHWClM",
+      "dbTitle": "Sliding Window Maximum",
+      "difficulty": "Hard",
+      "dbCategory": "Sliding Window"
+    }
+  ],
+  "Trees & BST": [
+    {
+      "leetcode": 104,
+      "sheetTitle": "Maximum Depth of Binary Tree",
+      "tier": "REVIEW",
+      "score": 0.69,
+      "problemId": "xiqeVYqbSfaWjqp1QSWK",
+      "dbTitle": "Maximum Width of a Binary Tree",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 100,
+      "sheetTitle": "Same Tree",
+      "tier": "UNRESOLVED",
+      "score": 0.33,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 101,
+      "sheetTitle": "Symmetric Tree",
+      "tier": "LIKELY",
+      "score": 0.85,
+      "problemId": "RQdTh0g8npqw3nG00oQQ",
+      "dbTitle": "Check if a Binary Tree Is Symmetric",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 226,
+      "sheetTitle": "Invert Binary Tree",
+      "tier": "REVIEW",
+      "score": 0.58,
+      "problemId": "Mr7Q8bwr6paSq9i4ErrT",
+      "dbTitle": "Height of a Binary Tree",
+      "difficulty": "Easy",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 102,
+      "sheetTitle": "Binary Tree Level Order Traversal",
+      "tier": "LIKELY",
+      "score": 1,
+      "problemId": "xqXNaDAZ9opmuxXXtdzE",
+      "dbTitle": "Level Order Traversal of a Binary Tree",
+      "difficulty": "Easy",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 103,
+      "sheetTitle": "Binary Tree Zigzag Level Order Traversal",
+      "tier": "REVIEW",
+      "score": 0.83,
+      "problemId": "xqXNaDAZ9opmuxXXtdzE",
+      "dbTitle": "Level Order Traversal of a Binary Tree",
+      "difficulty": "Easy",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 199,
+      "sheetTitle": "Binary Tree Right Side View",
+      "tier": "REVIEW",
+      "score": 0.8,
+      "problemId": "ZP518PKlS9n8MEmIDbgk",
+      "dbTitle": "Right View of a Binary Tree",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 543,
+      "sheetTitle": "Diameter of Binary Tree",
+      "tier": "LIKELY",
+      "score": 1,
+      "problemId": "lH9V0mIsQUgtTUkZw0EG",
+      "dbTitle": "Diameter of a Binary Tree",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 110,
+      "sheetTitle": "Balanced Binary Tree",
+      "tier": "LIKELY",
+      "score": 0.88,
+      "problemId": "p2KSKQd2O41szimeOxZQ",
+      "dbTitle": "Check if a Binary Tree Is Height-Balanced",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 236,
+      "sheetTitle": "Lowest Common Ancestor of a Binary Tree",
+      "tier": "LIKELY",
+      "score": 1,
+      "problemId": "0Iwq5sfiExGtB62k6fOd",
+      "dbTitle": "Lowest Common Ancestor in a Binary Tree",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 98,
+      "sheetTitle": "Validate Binary Search Tree",
+      "tier": "REVIEW",
+      "score": 0.69,
+      "problemId": "JLoJfks3EbU2PSW3uxTY",
+      "dbTitle": "Optimal Binary Search Tree",
+      "difficulty": "Hard",
+      "dbCategory": "Dynamic Programming"
+    },
+    {
+      "leetcode": 230,
+      "sheetTitle": "Kth Smallest Element in a BST",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "CAoiLsYD601lUqJzBTEK",
+      "dbTitle": "Find the Kth Smallest Element in a BST",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 235,
+      "sheetTitle": "Lowest Common Ancestor of a BST",
+      "tier": "LIKELY",
+      "score": 0.89,
+      "problemId": "AimxCYdU5V6J8LrimIF0",
+      "dbTitle": "Find the Lowest Common Ancestor of Two Nodes in a BST",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 108,
+      "sheetTitle": "Convert Sorted Array to Binary Search Tree",
+      "tier": "UNRESOLVED",
+      "score": 0.44,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 105,
+      "sheetTitle": "Construct Binary Tree from Preorder and Inorder Traversal",
+      "tier": "REVIEW",
+      "score": 0.72,
+      "problemId": "EElMgM6FeTNyjzVvWOHG",
+      "dbTitle": "Construct a Binary Tree From Inorder and Preorder Traversals, Print Its Postorder",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 297,
+      "sheetTitle": "Serialize and Deserialize Binary Tree",
+      "tier": "UNRESOLVED",
+      "score": 0.42,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 112,
+      "sheetTitle": "Path Sum",
+      "tier": "LIKELY",
+      "score": 0.85,
+      "problemId": "aflpu0K56GXmD6FT3B2U",
+      "dbTitle": "Maximum Root-to-Leaf Path Sum",
+      "difficulty": "Medium",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 113,
+      "sheetTitle": "Path Sum II",
+      "tier": "UNRESOLVED",
+      "score": 0.52,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 124,
+      "sheetTitle": "Binary Tree Maximum Path Sum",
+      "tier": "REVIEW",
+      "score": 0.69,
+      "problemId": "VaXCzajzee7aXGinTdmT",
+      "dbTitle": "Maximum Sum of Non-Adjacent Nodes in a Binary Tree",
+      "difficulty": "Hard",
+      "dbCategory": "Trees"
+    },
+    {
+      "leetcode": 116,
+      "sheetTitle": "Populating Next Right Pointers in Each Node",
+      "tier": "UNRESOLVED",
+      "score": 0.04,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    }
+  ],
+  "Heaps & Priority Queue": [
+    {
+      "leetcode": 215,
+      "sheetTitle": "Kth Largest Element in an Array",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "32elFIoHgR5BRYVbnMSv",
+      "dbTitle": "Kth Largest Element in an Array",
+      "difficulty": "Medium",
+      "dbCategory": "Heap"
+    },
+    {
+      "leetcode": 347,
+      "sheetTitle": "Top K Frequent Elements",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "dGW5xqsShCKIKxlUcdOc",
+      "dbTitle": "Top K Frequent Elements",
+      "difficulty": "Medium",
+      "dbCategory": "Heap"
+    },
+    {
+      "leetcode": 23,
+      "sheetTitle": "Merge k Sorted Lists",
+      "tier": "LIKELY",
+      "score": 0.95,
+      "problemId": "SmDwWsoMRx9NOr7iRgtN",
+      "dbTitle": "Merge K Sorted Linked Lists",
+      "difficulty": "Medium",
+      "dbCategory": "Linked List"
+    },
+    {
+      "leetcode": 295,
+      "sheetTitle": "Find Median from Data Stream",
+      "tier": "REVIEW",
+      "score": 0.65,
+      "problemId": "OhfeDX3HDpShBgnQew7o",
+      "dbTitle": "Find the Running Median of a Stream of Integers",
+      "difficulty": "Hard",
+      "dbCategory": "Heap"
+    },
+    {
+      "leetcode": 973,
+      "sheetTitle": "K Closest Points to Origin",
+      "tier": "LIKELY",
+      "score": 1,
+      "problemId": "qO7yX6ngT1EZj6JqtfXF",
+      "dbTitle": "K Closest Points to the Origin",
+      "difficulty": "Medium",
+      "dbCategory": "Heap"
+    },
+    {
+      "leetcode": 1046,
+      "sheetTitle": "Last Stone Weight",
+      "tier": "UNRESOLVED",
+      "score": 0.15,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 621,
+      "sheetTitle": "Task Scheduler",
+      "tier": "LIKELY",
+      "score": 0.92,
+      "problemId": "mhvCp0Q2959fVRi60Uwx",
+      "dbTitle": "Task Scheduler With Cooldown",
+      "difficulty": "Medium",
+      "dbCategory": "Queue"
+    },
+    {
+      "leetcode": 451,
+      "sheetTitle": "Sort Characters By Frequency",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "C6okbl1ZgstU6BPvzsy0",
+      "dbTitle": "Sort Characters By Frequency",
+      "difficulty": "Easy",
+      "dbCategory": "Sorting"
+    },
+    {
+      "leetcode": 767,
+      "sheetTitle": "Reorganize String",
+      "tier": "REVIEW",
+      "score": 0.81,
+      "problemId": "JYqc1HRwgqPXW5Kt6pgE",
+      "dbTitle": "Reorganize a String So No Two Adjacent Characters Repeat",
+      "difficulty": "Medium",
+      "dbCategory": "Heap"
+    },
+    {
+      "leetcode": 253,
+      "sheetTitle": "Meeting Rooms II",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 632,
+      "sheetTitle": "Smallest Range Covering Elements from K Lists",
+      "tier": "CONFIRMED",
+      "score": 1,
+      "problemId": "3FhnVM64psHbt0eko84Y",
+      "dbTitle": "Smallest Range Covering Elements From K Lists",
+      "difficulty": "Hard",
+      "dbCategory": "Heap"
+    },
+    {
+      "leetcode": 373,
+      "sheetTitle": "Find K Pairs with Smallest Sums",
+      "tier": "UNRESOLVED",
+      "score": 0.25,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 502,
+      "sheetTitle": "IPO",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1383,
+      "sheetTitle": "Maximum Performance of a Team",
+      "tier": "UNRESOLVED",
+      "score": 0.17,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 218,
+      "sheetTitle": "The Skyline Problem",
+      "tier": "UNRESOLVED",
+      "score": 0.38,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1167,
+      "sheetTitle": "Minimum Cost to Connect Sticks",
+      "tier": "REVIEW",
+      "score": 0.65,
+      "problemId": "vtly5KzNMWBtjiUL2hfB",
+      "dbTitle": "Minimum Cost to Connect N Ropes",
+      "difficulty": "Medium",
+      "dbCategory": "Heap"
+    },
+    {
+      "leetcode": 1845,
+      "sheetTitle": "Seat Reservation Manager",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 355,
+      "sheetTitle": "Design Twitter",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1834,
+      "sheetTitle": "Single-Threaded CPU",
+      "tier": "UNRESOLVED",
+      "score": 0.13,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    },
+    {
+      "leetcode": 1642,
+      "sheetTitle": "Furthest Building You Can Reach",
+      "tier": "UNRESOLVED",
+      "score": 0,
+      "problemId": null,
+      "dbTitle": null,
+      "difficulty": null,
+      "dbCategory": null
+    }
+  ]
+}

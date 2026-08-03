@@ -55,11 +55,16 @@ payouts (Wallet page). Any rule change touching `user_earnings`,
 `pulse_posts` engagement counters, or `coin_transactions` must keep the
 existing bounded-delta pattern (see `firestore.rules`) — a non-owner may only
 ever move a counter by a validated ±1 or a known reward amount read live from
-`system/economy`, never an arbitrary value. The durable fix (moving
-reward-granting server-side via Cloud Functions) is blocked on the project's
-Firebase billing account being reactivated; until then, the rules-level
-bounds are the only thing standing between a user and forging their own
-balance.
+`system/economy`, never an arbitrary value. The durable fix — moving
+reward-granting server-side via Cloud Functions — is **no longer blocked**:
+billing is active and `functions/` is deployed (see `firebase.json`'s four
+hosting rewrites: `uHandleRouter`, `campusPreviewRouter`,
+`contestPreviewRouter`, `pulsePreviewRouter`, which require the Blaze plan).
+It just hasn't been done yet, so until it is, the rules-level bounds remain
+the only thing standing between a user and forging their own balance. Anything
+that needs a trusted server path (reward granting, paid-API proxying, audio
+caching) can now use a Cloud Function rather than being designed around its
+absence.
 
 ## Design system
 

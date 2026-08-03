@@ -10,8 +10,8 @@ import {
   Mail, Phone, GraduationCap, Building2, Hash, Flame, Rocket, Target,
   ChevronRight, Users, ArrowUpRight, Medal, Code2, Briefcase, ChevronDown,
   UserCircle2, TrendingUp, X as CloseIcon, PanelLeftClose, PanelLeftOpen,
-  Activity, Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
-  AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator, PartyPopper,
+  Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
+  AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator,
   Zap, Coins as CoinsIcon, CheckCircle2, Shield, Sparkles, Camera, Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,12 +36,18 @@ import { CODELAB_DIFFICULTIES, fetchUserCodelabProgress, fetchPublishedProblems 
 import { subscribeToProblemNotes, isRevisionDue } from "@/lib/problemNotes";
 import { CAMPUS } from "@/lib/campus-theme";
 import { slideUp, staggerContainer } from "@/lib/campus-motion";
+import { fetchDashboardInsights } from "@/lib/campusDashboard";
+import {
+  DashboardHero, WeeklyProgressCard, RecentActivityCard, StreakRingCard,
+  ContestCtaBanner, WeakTopicsCard, UpcomingCard,
+} from "@/components/campus/campus-dashboard-widgets";
 import {
   CampusCard, CampusChip, CampusProgressBar, CampusStat, CampusGoogleButton,
   CampusSkeleton, CampusEmptyState, CampusButton, CampusTable, CampusBackButton,
 } from "@/components/campus/campus-ui";
 import { CampusContestFlow } from "@/components/campus/campus-contests";
 import { CampusPracticeList, CampusProblemView, SidebarFilterGroup, CategoryFilterList, CompanyFilterList } from "@/components/campus/campus-practice";
+import { CampusDsaConcepts } from "@/components/campus/campus-dsa-concepts";
 import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
 import { fetchPublishedCompanies } from "@/lib/companyPrep";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
@@ -1184,6 +1190,12 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     const problemId = searchParams.get("problem");
     return problemId ? { view: "problem", problemId } : { view: "list" };
   });
+  // The DSA tab holds two surfaces: the concept roadmap (learning) and the
+  // problem set (practice). Defaults to "problems" so the tab opens exactly
+  // where it always has for existing students - Concepts is an addition, not a
+  // relocation. Flip this default to "concepts" if the roadmap should become
+  // the front door.
+  const [dsaMode, setDsaMode] = useState("problems");
   const [companyPrepScreen, setCompanyPrepScreen] = useState(() => {
     const companyId = searchParams.get("company");
     if (!companyId) return { view: "list" };
@@ -1788,6 +1800,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
               onOpenContest={openContest} onContinueLearning={() => goTab("learning")}
               onBrowseDsa={() => goTab("dsa")} onBrowseCompanyVault={() => goTab("companyVault")}
               onBrowseLeaderboard={() => goTab("leaderboard")} onAssessments={() => goTab("assessments")}
+              onBrowseContests={() => goTab("contests")}
               onManage={() => goTab("manage")} onProgramming={() => goTab("programming")}
               onCsCore={() => goTab("csCore")} onAptitude={() => goTab("aptitude")} />
           ) : null}
@@ -1802,13 +1815,35 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           {isTabAllowed("gate") && tab === "gate" && <CampusGateTab key={searchNonce} sidebarSlot={sidebarEl} />}
           {isTabAllowed("dsa") && tab === "dsa" && (
             <>
-              {sidebarEl && createPortal(
+              {/* Category filter is a PROBLEM-list control, so it's portaled only
+                  in problems mode - in concepts mode the roadmap is the
+                  navigation and a stray category filter would do nothing. */}
+              {sidebarEl && dsaMode === "problems" && createPortal(
                 <>
                   <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>DSA</div>
                   <CategoryFilterList sortAlpha value={practiceCategory} onChange={setPracticeCategory} />
                 </>,
                 sidebarEl
               )}
+              {/* Hidden while a problem is open: the problem view is a full
+                  screen with its own back affordance, and a mode switch there
+                  would silently discard the learner's in-progress attempt. */}
+              {practiceScreen.view === "list" && (
+                <div className="mb-4">
+                  <CampusTabBar value={dsaMode} onChange={setDsaMode} tabs={[
+                    { key: "concepts", label: "Concepts" },
+                    { key: "problems", label: "Problems" },
+                  ]} />
+                </div>
+              )}
+              {dsaMode === "concepts" && practiceScreen.view === "list" ? (
+                <CampusDsaConcepts
+                  // The bridge in the practice direction: opening a linked
+                  // problem from a concept hands off to the real problem view
+                  // rather than reimplementing it here.
+                  onOpenProblem={(id) => { setDsaMode("problems"); setPracticeScreen({ view: "problem", problemId: id }); }} />
+              ) : (
+              <>
               {practiceScreen.view === "list" && (
                 <>
                   <DsaProgressSummary user={user} />
@@ -1832,6 +1867,8 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
                     hiddenIds={new Set(contentVisibility.hiddenProblemIds)}
                     onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
               }
+              </>
+              )}
             </>
           )}
           {isTabAllowed("companyVault") && tab === "companyVault" && (
@@ -2410,13 +2447,14 @@ function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onA
   );
 }
 
-function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowseDsa, onBrowseCompanyVault, onBrowseLeaderboard, onAssessments, onManage, onProgramming, onCsCore, onAptitude }) {
+function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowseDsa, onBrowseCompanyVault, onBrowseLeaderboard, onAssessments, onManage, onProgramming, onCsCore, onAptitude, onBrowseContests }) {
   const rank = useMyInstitutionRank(slug, userData?.uid);
   const [contests, setContests] = useState([]);
   const [contestsLoading, setContestsLoading] = useState(true);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [noticeItem, setNoticeItem] = useState(undefined); // undefined = loading, null = no weekly program
+  const [insights, setInsights] = useState(undefined);     // undefined = loading, null = read failed
 
   useEffect(() => {
     fetchPublishedInstitutionContests(slug)
@@ -2439,49 +2477,68 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
     }).catch(() => setNoticeItem(null));
   }, [slug]);
 
+  // ONE reward_grants query (plus the student's own aptitude progress doc)
+  // backs four widgets at once: the Weekly Progress chart, the Recent Activity
+  // feed, the week-over-week trend on the XP card, and Revision Due. Failing
+  // soft to null matters here - an insights read that errors must degrade those
+  // four cards individually, never blank the whole dashboard, since the KPI row
+  // above them is driven entirely by userData/rank and is still perfectly good.
+  useEffect(() => {
+    if (!userData?.uid) return undefined;
+    let cancelled = false;
+    fetchDashboardInsights(userData.uid)
+      .then(data => { if (!cancelled) setInsights(data); })
+      .catch(e => {
+        console.error("[Campus] dashboard insights failed", e);
+        if (!cancelled) setInsights(null);
+      });
+    return () => { cancelled = true; };
+  }, [userData?.uid]);
+
+  const insightsLoading = insights === undefined;
+
+  // One vertical rhythm for the whole dashboard - space-y-5, matching the
+  // grids' own gap-5 - instead of a per-child mb-6. Those individual margins
+  // were out of step with the gaps and stacked into visibly uneven bands
+  // between rows.
   return (
-    <motion.div variants={staggerContainer} initial="hidden" animate="visible">
-      <motion.div variants={slideUp} className="relative overflow-hidden rounded-2xl p-6 mb-6"
-        style={{ background: CAMPUS.gradientHero, border: `1px solid ${CAMPUS.line}` }}>
-        <div className="absolute -right-10 -top-16 w-56 h-56 rounded-full pointer-events-none" style={{ background: CAMPUS.teal, opacity: 0.14 }} aria-hidden="true" />
-        <div className="absolute -right-4 bottom-[-40px] w-32 h-32 rounded-full pointer-events-none" style={{ background: CAMPUS.purple, opacity: 0.14 }} aria-hidden="true" />
-        <div className="relative flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.teal }}>
-              <Sparkles size={12} /> WELCOME BACK
-            </span>
-            <h2 className="flex items-center gap-2 text-2xl sm:text-[28px] font-bold tracking-tight" style={{ color: CAMPUS.ink }}>
-              {(userData?.displayName || "there").split(" ")[0]} <PartyPopper size={22} style={{ color: CAMPUS.gold }} />
-            </h2>
-            <p className="text-[13.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>Keep learning, keep growing - you&apos;re doing great.</p>
-          </div>
-          <div className="flex items-center gap-4">
-            {/* Decorative icon composition, not a literal illustration asset
-                (Campus's design system is Lucide-icons-only, see CLAUDE.md) -
-                a big icon in a gradient blob plus two small scattered accent
-                icons stands in for the "cute corner graphic" idea without
-                introducing an external illustration library or asset. Hidden
-                below sm: - a decorative flourish is the first thing to drop
-                on a cramped header, never the badge next to it. */}
-            <div className="hidden sm:flex relative w-16 h-16 rounded-2xl flex-shrink-0 items-center justify-center"
-              style={{ background: CAMPUS.gradientPrimary, boxShadow: "0 10px 26px rgba(99,102,241,0.3)" }} aria-hidden="true">
-              <GraduationCap size={30} color="#fff" strokeWidth={1.75} />
-              <Sparkles size={15} className="absolute -top-1.5 -right-1.5" style={{ color: CAMPUS.gold }} />
-              <Star size={11} className="absolute -bottom-1 -left-1.5 -rotate-12" style={{ color: CAMPUS.cyan }} fill={CAMPUS.cyan} />
-            </div>
-            <CampusChip color={CAMPUS.teal}>{isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")}</CampusChip>
-          </div>
-        </div>
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-5">
+      {/* The decorative flourish here used to be a Lucide icon in a gradient
+          blob, on the reasoning that Campus is a Lucide-only design system.
+          That rule is about ICONS (and about never reaching for an emoji) - an
+          original inline SVG scene is a different thing, and it's what the
+          approved dashboard design calls for. HeroIllustration is authored in
+          this repo and painted entirely in CAMPUS.* tokens, so unlike an image
+          asset it re-tints itself in dark mode and still ships no external
+          request (the CSP would block one anyway). */}
+      <motion.div variants={slideUp}>
+        <DashboardHero
+          name={userData?.displayName}
+          streak={userData?.streak ?? 0}
+          bestStreak={userData?.bestStreak ?? userData?.longestStreak ?? 0}
+          xp={userData?.xp ?? 0}
+          coins={totalCoins ?? 0}
+          rank={rank}
+          badge={isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")}
+        />
       </motion.div>
 
-      <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+      <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <CampusStat label="Score" value={userData?.score ?? 0} color={CAMPUS.purple} icon={Trophy}
           hint="Your permanent academic performance score. Never decreases and is never spent - this is what leaderboards and rankings are based on." />
+        {/* trend is a REAL period-over-period delta computed from this uid's
+            reward_grants timestamps (last 7 days vs the 7 before) - see
+            lib/campusDashboard.js's pctChange, which returns null rather than
+            a confident-looking "0%" when there's nothing to claim, so the
+            arrow simply doesn't render on a flat or first-ever week. */}
         <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal} icon={Zap}
+          trend={insights?.xpTrend || undefined}
           hint="Spendable reward points earned from learning activities. Convert XP to Coins in the Wallet - this can go down." />
         <CampusStat label="Coins" value={totalCoins ?? 0} color={CAMPUS.gold} icon={CoinsIcon}
           hint="Your real wallet balance. Coins can be withdrawn as INR from the Wallet page." />
-        <CampusStat label="Problems Solved" value={userData?.problemsSolvedCount ?? 0} color={CAMPUS.blue} icon={CheckCircle2} />
+        <CampusStat label="Activities Completed" value={insights?.activitiesCompleted ?? userData?.problemsSolvedCount ?? 0}
+          color={CAMPUS.blue} icon={CheckCircle2} trend={insights?.activityTrend || undefined}
+          hint="Every rewarded activity you've completed - lessons, problems, contests and Daily Learning days - counted from the reward ledger." />
         <CampusStat label="Campus Rank" value={rank ? `#${rank}` : "-"} color={CAMPUS.good} icon={Shield}
           hint="Your rank within this campus, based on Score." />
       </motion.div>
@@ -2491,38 +2548,67 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
           onProgramming={onProgramming} onCsCore={onCsCore} onAptitude={onAptitude} isInstAdmin={isInstAdmin} />
       </motion.div>
 
-      {/* items-start, not items-stretch (grid's own default) - stretch was
-          forcing the shorter "Upcoming Contests" card to match "Continue
-          Learning"'s height whenever that side had more real content
-          (progress bar + next-lesson row), padding the shorter card with a
-          lot of empty space. In dark mode CAMPUS.surface barely contrasts
-          against CAMPUS.paper, so that empty stretched card read as a
-          blank gap in the page rather than an oversized card. */}
-      <motion.div variants={slideUp} className="grid md:grid-cols-2 gap-5 mb-6 items-start">
-        <div className="flex flex-col">
-          <SectionHeading icon={Rocket} title="Continue Learning" />
-          <ContinueLearningCard slug={slug} onContinue={onContinueLearning} />
+      {/* Main analytics row. Continue Learning + the streak ring stack in the
+          narrow column so the chart gets the width it needs to stay readable -
+          a 7-to-30-point line squeezed into a third of the content area reads
+          as decoration, not data.
+          items-start, not grid's default stretch: stretch forces the shorter
+          column to match the taller one, and in dark mode CAMPUS.surface
+          barely contrasts against CAMPUS.paper, so the padded-out card reads
+          as a blank gap in the page rather than an oversized card. */}
+      <motion.div variants={slideUp} className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] gap-5 items-start">
+        <div className="flex flex-col gap-5">
+          {/* ContinueLearningCard is the one card here with no title of its
+              own, so it keeps an outer SectionHeading. Every other card on this
+              dashboard renders its own <h3>, and stacking a SectionHeading on
+              top of those printed the title twice with 16px of dead space
+              between the copies. */}
+          <div className="flex flex-col">
+            <SectionHeading icon={Rocket} title="Continue Learning" />
+            <ContinueLearningCard slug={slug} onContinue={onContinueLearning} />
+          </div>
+          <StreakRingCard streak={userData?.streak ?? 0}
+            bestStreak={userData?.bestStreak ?? userData?.longestStreak ?? 0} />
         </div>
+
         <div className="flex flex-col">
-          <SectionHeading icon={Trophy} title="Upcoming Contests" />
-          {contestsLoading ? (
-            <CampusCard className="p-5 space-y-2.5">
-              <CampusSkeleton variant="rect" height={20} width="70%" />
-              <CampusSkeleton variant="rect" height={14} width="40%" />
-            </CampusCard>
-          ) : contests.length === 0 ? (
-            <CampusEmptyState size="sm" icon={Trophy} title="No contests scheduled"
-              description="Check back once your institution schedules a new contest." />
-          ) : (
-            <div className="space-y-2.5">
-              {contests.map(c => <UpcomingContestRow key={c.id} contest={c} onClick={onOpenContest} />)}
-            </div>
-          )}
+          <WeeklyProgressCard
+            series7={insights?.series7 || []}
+            series30={insights?.series30 || []}
+            loading={insightsLoading}
+            totals={insights ? [
+              { label: "Activities", value: insights.thisWeek.activities, color: CAMPUS.purple },
+              { label: "XP earned", value: insights.thisWeek.xp, color: CAMPUS.teal },
+              { label: "Coins", value: insights.thisWeek.coins, color: CAMPUS.gold },
+              {
+                label: "Aptitude accuracy",
+                value: insights.aptitudeAccuracyPct == null ? "-" : `${insights.aptitudeAccuracyPct}%`,
+                color: CAMPUS.good,
+              },
+            ] : undefined}
+          />
         </div>
       </motion.div>
 
+      {/* Recent Activity / Upcoming / Revision Due. All three were "coming
+          soon" placeholder cards before; each is now backed by data that
+          already existed (the reward ledger, scheduled contests, and
+          lib/aptitude.js's own weak-topic detector respectively). */}
+      <motion.div variants={slideUp} className="grid lg:grid-cols-3 gap-5 items-start">
+        <RecentActivityCard items={insights?.recent || []} loading={insightsLoading}
+          onViewAll={onBrowseLeaderboard} />
+        <UpcomingCard contests={contests} loading={contestsLoading}
+          onOpenContest={onOpenContest} onBrowseContests={onBrowseContests} />
+        <WeakTopicsCard topics={insights?.weakTopics || []} accuracyPct={insights?.aptitudeAccuracyPct}
+          loading={insightsLoading} onPractice={onAptitude} />
+      </motion.div>
+
+      <motion.div variants={slideUp}>
+        <ContestCtaBanner contestCount={contests.length} onExplore={onBrowseContests} />
+      </motion.div>
+
       {noticeItem && (
-        <motion.div variants={slideUp} className="mb-6">
+        <motion.div variants={slideUp}>
           <SectionHeading icon={Megaphone} title={`Noticeboard - ${DOW_LABELS[noticeItem.dow]}'s Leaderboard`} />
           <CampusDayLeaderboard slug={slug} date={noticeItem.date} dayLabel={DOW_LABELS[noticeItem.dow]} myUid={userData?.uid} compact />
           <button onClick={onBrowseLeaderboard} className="mt-2 text-[11px] font-medium" style={{ color: CAMPUS.teal }}>
@@ -2531,11 +2617,13 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
         </motion.div>
       )}
 
-      <motion.div variants={slideUp} className="grid sm:grid-cols-2 gap-5 items-start">
-        {noticeItem === null && (
-          <CampusEmptyState size="sm" icon={Activity} color={CAMPUS.blue} title="Recent Activity"
-            description="Your activity feed isn't live yet - it'll show your latest submissions, XP gains, and completions here." />
-        )}
+      {/* The "Recent Activity" and "Learning Analytics" placeholders that used
+          to sit here are gone because both are now real cards above, built on
+          the reward ledger. Placement Readiness stays a stated coming-soon: it
+          would need a scoring model that genuinely doesn't exist yet, and
+          inventing a readiness number for a student would be worse than
+          admitting it isn't built. */}
+      <motion.div variants={slideUp} className="grid lg:grid-cols-2 gap-5 items-start">
         {announcementsLoading ? (
           <CampusCard className="p-4 space-y-2"><CampusSkeleton variant="text" width="60%" /><CampusSkeleton variant="text" width="90%" /></CampusCard>
         ) : announcements.length === 0 ? (
@@ -2555,8 +2643,6 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
             </div>
           </CampusCard>
         )}
-        <CampusEmptyState size="sm" icon={BarChart3} color={CAMPUS.purple} title="Learning Analytics"
-          description="Deeper progress analytics (time spent, streaks, topic breakdowns) are coming to Daily Learning." />
         <CampusEmptyState size="sm" icon={Target} color={CAMPUS.warn} title="Placement Readiness"
           description="A readiness score based on your practice, contests, and learning progress is coming soon." />
       </motion.div>

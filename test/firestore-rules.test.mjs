@@ -10,7 +10,7 @@ import {
   assertSucceeds,
   assertFails,
 } from "@firebase/rules-unit-testing";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, getCountFromServer } from "firebase/firestore";
 
 let testEnv;
 
@@ -1794,6 +1794,113 @@ test("a facultyClassTeacher carrying scope.department gains no HOD powers from i
   await assertFails(faculty.firestore().doc("institutions/mrcet/students/other-class-uid").get());
 });
 
+// Regression: every read behind Manage -> Daily Learning as an HOD. The screen
+// reported "0 APPROVED STUDENTS", "No classrooms yet" and "Nothing authored
+// for this week" all at once for a 304-student department with a fully
+// authored week - because the client issued the UNSCOPED variant of each query
+// (denied all-or-nothing for a department-scoped caller) and then collapsed all
+// three into one Promise.all().catch(). These tests pin the scoped query shape
+// each of those reads now uses, so a future revert to an unscoped one fails
+// here instead of silently rendering zeros in production.
+async function seedManageScope(ctx) {
+  const fs = ctx.firestore();
+  await seedInstitution(ctx, "mrcet");
+  await fs.doc("institutions/mrcet/roleAssignments/hod-uid").set({
+    uid: "hod-uid", institutionId: "mrcet", roleKey: "hod", status: "active",
+    scope: { department: "CSE(AI&ML)", classroomId: null }, permissionOverrides: {},
+  });
+  // Two departments, so an unscoped query has something out-of-scope to trip on.
+  for (const [dept, n] of [["CSE(AI&ML)", 3], ["ECE", 2]]) {
+    for (let i = 0; i < n; i++) {
+      await fs.doc(`institutions/mrcet/students/${dept}-s${i}`).set({
+        uid: `${dept}-s${i}`, status: "approved", department: dept, year: "2nd Year", section: "A",
+        classroomId: `${dept}-2a`,
+      });
+      await fs.doc(`users/${dept}-s${i}`).set({ institutionId: "mrcet", department: dept });
+    }
+    await fs.doc(`institutions/mrcet/classrooms/${dept}-2a`).set({
+      department: dept, year: "2nd Year", section: "A", moduleAccess: { dailyLearning: true },
+    });
+  }
+  // An institution-wide Daily Learning item - no scope fields, which is what
+  // the admin/Principal catalog actually consists of.
+  await fs.doc("institutions/mrcet/dailyLearning/2026-08-03").set({
+    date: "2026-08-03", weekId: "2026-08-03", dow: "mon", type: "lesson", title: "Stacks", status: "published",
+  });
+  await fs.doc("institutions/mrcet/dailyLearning/_module").set({ enabled: true });
+}
+
+test("an HOD can count/list only their OWN department's students and classrooms - the unscoped queries stay denied", async () => {
+  await testEnv.withSecurityRulesDisabled(seedManageScope);
+  const hodDb = testEnv.authenticatedContext("hod-uid").firestore();
+
+  // fetchApprovedStudentCountByDepartment - an aggregate is evaluated over the
+  // whole matched set, so the department filter is what makes it authorized.
+  const count = await assertSucceeds(getCountFromServer(query(
+    collection(hodDb, "institutions/mrcet/students"),
+    where("department", "==", "CSE(AI&ML)"), where("status", "==", "approved"))));
+  assert.equal(count.data().count, 3);
+  await assertFails(getCountFromServer(query(
+    collection(hodDb, "institutions/mrcet/students"), where("status", "==", "approved"))));
+
+  // fetchClassroomsByDepartment vs the unscoped fetchClassrooms.
+  const rooms = await assertSucceeds(getDocs(query(
+    collection(hodDb, "institutions/mrcet/classrooms"), where("department", "==", "CSE(AI&ML)"))));
+  assert.deepEqual(rooms.docs.map(d => d.id), ["CSE(AI&ML)-2a"]);
+  await assertFails(getDocs(collection(hodDb, "institutions/mrcet/classrooms")));
+});
+
+test("an HOD reads the institution-wide Daily Learning catalog but cannot author it or flip the module kill switch", async () => {
+  await testEnv.withSecurityRulesDisabled(seedManageScope);
+  const hod = testEnv.authenticatedContext("hod-uid");
+  const hodDb = hod.firestore();
+
+  // fetchWeekItems - staff read the catalog institution-wide (hasRoleAssignment).
+  const items = await assertSucceeds(getDocs(query(
+    collection(hodDb, "institutions/mrcet/dailyLearning"), where("weekId", "==", "2026-08-03"))));
+  assert.equal(items.size, 1);
+  await assertSucceeds(hodDb.doc("institutions/mrcet/dailyLearning/_module").get());
+
+  // ...but authoring stays admin/Principal-only, which is why the UI hides
+  // add day / edit / delete / publish for a scoped role rather than offering
+  // buttons whose write is refused here.
+  await assertFails(hodDb.doc("institutions/mrcet/dailyLearning/2026-08-03").update({ status: "draft" }));
+  await assertFails(hodDb.doc("institutions/mrcet/dailyLearning/2026-08-04").set({
+    date: "2026-08-04", weekId: "2026-08-03", dow: "tue", type: "lesson", title: "Forged", status: "published",
+  }));
+  // The kill switch is institution-wide (no scope field) - denied, hence hidden.
+  await assertFails(hodDb.doc("institutions/mrcet/dailyLearning/_module").set({ enabled: false }, { merge: true }));
+});
+
+test("an HOD may toggle moduleAccess on their own department's classroom only, and nothing else on it", async () => {
+  await testEnv.withSecurityRulesDisabled(seedManageScope);
+  const hodDb = testEnv.authenticatedContext("hod-uid").firestore();
+
+  // What ModuleAccessSummary's toggle and "Enable/Disable All" actually write.
+  await assertSucceeds(hodDb.doc("institutions/mrcet/classrooms/CSE(AI&ML)-2a")
+    .update({ "moduleAccess.programming": false }));
+  // Another department's classroom - the reason bulkSetModuleAccess must be
+  // scoped: a batch is atomic, so including this one would fail the whole commit.
+  await assertFails(hodDb.doc("institutions/mrcet/classrooms/ECE-2a")
+    .update({ "moduleAccess.programming": false }));
+  // Still bounded to moduleAccess/leaderboardVisibility on their own classroom.
+  await assertFails(hodDb.doc("institutions/mrcet/classrooms/CSE(AI&ML)-2a")
+    .update({ department: "ECE" }));
+});
+
+// contentVisibility is why Practice & DSA / Company Vault are deliberately NOT
+// in SCOPED_ROLE_MANAGE_TABS - its read rule covers approved students and
+// institution admins but no staff role, and the client swallows the denial into
+// empty state, so those tabs would quietly claim an empty cohort.
+test("an HOD cannot read contentVisibility, so the tabs depending on it stay out of their Manage", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedManageScope(ctx);
+    await ctx.firestore().doc("institutions/mrcet/contentVisibility/dsa").set({ hiddenProblemIds: [] });
+  });
+  const hodDb = testEnv.authenticatedContext("hod-uid").firestore();
+  await assertFails(hodDb.doc("institutions/mrcet/contentVisibility/dsa").get());
+});
+
 // Staff dry runs (contests/{id}/dryRuns/{uid}) - an admin taking the paper to
 // verify it without becoming a participant. The whole point of the separate
 // collection is that nothing which reads `submissions` can see these, so the
@@ -2119,4 +2226,269 @@ test("an institution admin can read a student's aptitude progress, like every ot
   await assertFails(otherAdmin.firestore().doc("user_aptitude_progress/apt-student").get());
   // And the widening was read-only.
   await assertFails(admin.firestore().doc("user_aptitude_progress/apt-student").set({ solved: 999 }));
+});
+
+// ---------------------------------------------------------------------------
+// HOD/Faculty read visibility into institution CONTENT and CONTEST RESULTS.
+//
+// Three reported symptoms, one cause: an HOD could not read the institution-
+// WIDE rows of the collections their dashboard lists. isHodOfDepartment()/
+// isFacultyOfClassroom() both require a non-empty department/classroom, so an
+// item carrying no scope field matched neither - and because a Firestore list()
+// is denied all-or-nothing, the whole query died. It surfaced as an empty
+// "Day 1 - 0% Complete" Daily Learning hub and a "Couldn't load contests"
+// error rather than as anything that looked like a permission problem.
+//
+// Staff READ access is now keyed on hasRoleAssignment(institutionId) - any
+// active staff member of that institution. These tests pin both halves: the
+// grant works, and it stops hard at the institution boundary, at
+// status == 'active', and at read-only.
+// ---------------------------------------------------------------------------
+
+async function seedHodAndContent(ctx) {
+  const fs = ctx.firestore();
+  await seedInstitution(ctx, "mrcet");
+  await fs.doc("institutions/mrcet/roleAssignments/vis-hod").set({
+    uid: "vis-hod", institutionId: "mrcet", roleKey: "hod", status: "active",
+    scope: { department: "CSE(AI&ML)", classroomId: null },
+  });
+  await fs.doc("institutions/mrcet/roleAssignments/vis-faculty").set({
+    uid: "vis-faculty", institutionId: "mrcet", roleKey: "facultyClassTeacher", status: "active",
+    scope: { department: "CSE(AI&ML)", classroomId: "iv-year-cse-ai-ml-a" },
+  });
+  // The institution-WIDE catalog item - no scopeDepartment/scopeClassroomId.
+  // This is the row that used to poison the entire list() for an HOD.
+  await fs.doc("institutions/mrcet/dailyLearning/week3-stacks").set({
+    title: "Week 3 - Stacks and Queues", weekId: "2026-07-20", type: "lesson",
+  });
+  // A department-scoped item, for contrast.
+  await fs.doc("institutions/mrcet/dailyLearning/week3-dept").set({
+    title: "Dept only", weekId: "2026-07-20", scopeDepartment: "CSE(AI&ML)",
+  });
+}
+
+async function seedOutsiderHod(ctx) {
+  await seedInstitution(ctx, "other-college");
+  await ctx.firestore().doc("institutions/other-college/roleAssignments/outsider-hod").set({
+    uid: "outsider-hod", institutionId: "other-college", roleKey: "hod", status: "active",
+    scope: { department: "CSE(AI&ML)", classroomId: null },
+  });
+}
+
+test("an HOD reads their institution-WIDE dailyLearning items, not only their own department's", async () => {
+  await testEnv.withSecurityRulesDisabled(seedHodAndContent);
+  const hod = testEnv.authenticatedContext("vis-hod");
+  await assertSucceeds(hod.firestore().doc("institutions/mrcet/dailyLearning/week3-stacks").get());
+  await assertSucceeds(hod.firestore().doc("institutions/mrcet/dailyLearning/week3-dept").get());
+  // The actual regression: the unfiltered list() the Daily Learning hub issues.
+  await assertSucceeds(hod.firestore().collection("institutions/mrcet/dailyLearning").get());
+
+  // A Faculty/Class Teacher gets the same catalog visibility.
+  const faculty = testEnv.authenticatedContext("vis-faculty");
+  await assertSucceeds(faculty.firestore().collection("institutions/mrcet/dailyLearning").get());
+});
+
+test("staff dailyLearning visibility is read-only and institution-bounded", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedHodAndContent(ctx);
+    await seedOutsiderHod(ctx);
+  });
+  // Seeing the catalog must not confer authorship - the create/update branches
+  // stay scope-bounded, so an institution-wide item is still untouchable.
+  const hod = testEnv.authenticatedContext("vis-hod");
+  await assertFails(hod.firestore().doc("institutions/mrcet/dailyLearning/week3-stacks").set({ title: "hijacked" }));
+  await assertFails(hod.firestore().doc("institutions/mrcet/dailyLearning/week3-stacks").delete());
+
+  // Another institution's HOD sees none of MRCET's catalog.
+  const outsider = testEnv.authenticatedContext("outsider-hod");
+  await assertFails(outsider.firestore().doc("institutions/mrcet/dailyLearning/week3-stacks").get());
+  await assertFails(outsider.firestore().collection("institutions/mrcet/dailyLearning").get());
+});
+
+test("a disabled HOD loses dailyLearning read access immediately", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedHodAndContent(ctx);
+    await ctx.firestore().doc("institutions/mrcet/roleAssignments/vis-hod").set({
+      uid: "vis-hod", institutionId: "mrcet", roleKey: "hod", status: "disabled",
+      scope: { department: "CSE(AI&ML)", classroomId: null },
+    });
+  });
+  const disabled = testEnv.authenticatedContext("vis-hod");
+  await assertFails(disabled.firestore().doc("institutions/mrcet/dailyLearning/week3-stacks").get());
+});
+
+async function seedContestWithParticipant(ctx) {
+  const fs = ctx.firestore();
+  await seedHodAndContent(ctx);
+  await fs.doc("contests/mrcet-contest").set({
+    title: "Mid-sem Mock", institutionId: "mrcet", status: "published",
+    contestEnd: new Date("2026-07-01"), rankingsPublished: false,
+  });
+  await fs.doc("contests/mrcet-contest/registrations/part-uid").set({ uid: "part-uid", registeredAt: new Date() });
+  await fs.doc("contests/mrcet-contest/submissions/part-uid").set({
+    uid: "part-uid", score: 42, maxScore: 50, correctCount: 21, graded: true,
+  });
+  await fs.doc("contests/mrcet-contest/submissions/part-uid/codingResults/q1").set({ passed: 3, total: 4 });
+}
+
+test("an HOD can load their institution's contests and see participant results/performance", async () => {
+  await testEnv.withSecurityRulesDisabled(seedContestWithParticipant);
+  const hod = testEnv.authenticatedContext("vis-hod");
+  // "Couldn't load contests" was this exact query being denied.
+  await assertSucceeds(hod.firestore().collection("contests").where("institutionId", "==", "mrcet").get());
+  await assertSucceeds(hod.firestore().doc("contests/mrcet-contest").get());
+  // Results and per-participant performance, including the coding detail behind
+  // a row. rankingsPublished is false here on purpose: staff are deliberately
+  // NOT gated on it (or on contestEnd), exactly like an institution admin.
+  await assertSucceeds(hod.firestore().collection("contests/mrcet-contest/registrations").get());
+  await assertSucceeds(hod.firestore().collection("contests/mrcet-contest/submissions").get());
+  await assertSucceeds(hod.firestore().doc("contests/mrcet-contest/submissions/part-uid").get());
+  await assertSucceeds(hod.firestore().doc("contests/mrcet-contest/submissions/part-uid/codingResults/q1").get());
+});
+
+test("staff contest visibility is read-only and never crosses to another institution", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedContestWithParticipant(ctx);
+    await seedOutsiderHod(ctx);
+  });
+  // Read-only: no editing the contest, forging a score, or resetting an attempt.
+  const hod = testEnv.authenticatedContext("vis-hod");
+  await assertFails(hod.firestore().doc("contests/mrcet-contest").update({ title: "renamed" }));
+  await assertFails(hod.firestore().doc("contests/mrcet-contest/submissions/part-uid").update({ score: 50 }));
+  await assertFails(hod.firestore().doc("contests/mrcet-contest/submissions/part-uid").delete());
+  await assertFails(hod.firestore().doc("contests/mrcet-contest/questions/q1").set({ text: "leak" }));
+
+  // Another college's HOD gets nothing.
+  const outsider = testEnv.authenticatedContext("outsider-hod");
+  await assertFails(outsider.firestore().doc("contests/mrcet-contest").get());
+  await assertFails(outsider.firestore().doc("contests/mrcet-contest/submissions/part-uid").get());
+  await assertFails(outsider.firestore().collection("contests/mrcet-contest/submissions").get());
+
+  // And the pre-existing student-facing gate is untouched: a random signed-in
+  // user still cannot read a peer's attempt while rankings are unpublished.
+  const stranger = testEnv.authenticatedContext("nobody-uid");
+  await assertFails(stranger.firestore().doc("contests/mrcet-contest/submissions/part-uid").get());
+});
+
+// ---------------------------------------------------------------------------
+// DSA Concepts (dsaConceptTracks/{langId}/concepts/{conceptId} +
+// dsa_concept_progress) - the bridge module between Programming and DSA
+// Practice. Same authority shape as programmingLanguages/programming_progress,
+// so these tests mirror that collection's guarantees: published content is
+// world-readable, drafts never leak, only a platform admin authors, and the
+// owner's completed array is monotonic so a concept's XP/coins can't be
+// re-earned by removing an id and re-completing it.
+// ---------------------------------------------------------------------------
+
+async function seedDsaConcepts(ctx) {
+  const fs = ctx.firestore();
+  await fs.doc("dsaConceptTracks/java").set({
+    label: "Java", status: "published", audiences: ["public", "legacy"], order: 10,
+  });
+  // `audiences` is REQUIRED on a concept, not decoration: contentReadable()
+  // checks it, so a concept authored without one is invisible to every
+  // non-admin no matter what its status says.
+  await fs.doc("dsaConceptTracks/java/concepts/sliding-window").set({
+    title: "Sliding Window", status: "published", audiences: ["public", "legacy"], order: 110,
+    problemCategories: ["Sliding Window"], prerequisites: ["arrays"],
+    xpReward: 60, coinReward: 12,
+  });
+  // A draft concept, and a whole draft track - neither may leak.
+  await fs.doc("dsaConceptTracks/java/concepts/segment-tree").set({
+    title: "Segment Trees", status: "draft", audiences: ["public", "legacy"], order: 900,
+  });
+  await fs.doc("dsaConceptTracks/rust").set({ label: "Rust", status: "draft", audiences: ["public"], order: 99 });
+}
+
+test("published DSA concept content is world-readable; drafts stay admin-only", async () => {
+  await testEnv.withSecurityRulesDisabled(seedDsaConcepts);
+
+  // Unauthenticated - published global content is deliberately public here,
+  // exactly like programmingLanguages/problems/courses.
+  const guest = testEnv.unauthenticatedContext();
+  await assertSucceeds(guest.firestore().doc("dsaConceptTracks/java").get());
+  await assertSucceeds(guest.firestore().doc("dsaConceptTracks/java/concepts/sliding-window").get());
+  await assertFails(guest.firestore().doc("dsaConceptTracks/java/concepts/segment-tree").get());
+  await assertFails(guest.firestore().doc("dsaConceptTracks/rust").get());
+
+  // The list() shape lib/dsaConcepts.js actually issues: the status filter is
+  // REQUIRED, not cosmetic. Unfiltered must be denied, filtered must succeed -
+  // this is the exact trap programming.js's fetchLanguages comment documents.
+  // Both filters are needed - status alone is NOT enough, because
+  // contentReadable() also checks `audiences`. This asserts the exact query
+  // lib/dsaConcepts.js's fetchConcepts issues (a status-only version of it was
+  // caught failing here).
+  const learner = testEnv.authenticatedContext("dsa-learner");
+  await assertFails(learner.firestore().collection("dsaConceptTracks/java/concepts").get());
+  await assertFails(learner.firestore()
+    .collection("dsaConceptTracks/java/concepts").where("status", "==", "published").get());
+  await assertSucceeds(learner.firestore().collection("dsaConceptTracks/java/concepts")
+    .where("status", "==", "published").where("audiences", "array-contains-any", ["public", "legacy"]).get());
+
+  // Authoring is platform-admin-only in both directions.
+  await assertFails(learner.firestore().doc("dsaConceptTracks/java/concepts/sliding-window").set({ title: "hijacked" }));
+  await assertFails(learner.firestore().doc("dsaConceptTracks/java").set({ label: "hijacked" }));
+  const admin = testEnv.authenticatedContext("plat-admin", { admin: true });
+  await assertSucceeds(admin.firestore().doc("dsaConceptTracks/java/concepts/segment-tree").get());
+  await assertSucceeds(admin.firestore().doc("dsaConceptTracks/java/concepts/sliding-window").set({ xpReward: 75 }, { merge: true }));
+});
+
+test("DSA concept progress is owner-scoped, and its completed array is monotonic", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedDsaConcepts(ctx);
+    await ctx.firestore().doc("dsa_concept_progress/dsa-learner_java").set({
+      uid: "dsa-learner", langId: "java", completedConceptIds: ["arrays", "sliding-window"],
+    });
+  });
+
+  const learner = testEnv.authenticatedContext("dsa-learner");
+  await assertSucceeds(learner.firestore().doc("dsa_concept_progress/dsa-learner_java").get());
+  // Adding is fine.
+  await assertSucceeds(learner.firestore().doc("dsa_concept_progress/dsa-learner_java")
+    .set({ completedConceptIds: ["arrays", "sliding-window", "two-pointer"] }, { merge: true }));
+  // Dropping a completed id is the reward-replay exploit - refused.
+  await assertFails(learner.firestore().doc("dsa_concept_progress/dsa-learner_java")
+    .set({ completedConceptIds: ["arrays"] }, { merge: true }));
+  // markConceptOpened-style writes that never touch the array still work.
+  await assertSucceeds(learner.firestore().doc("dsa_concept_progress/dsa-learner_java")
+    .set({ lastOpenedConceptId: "sliding-window" }, { merge: true }));
+
+  // Nobody else's business, in either direction.
+  const other = testEnv.authenticatedContext("other-learner");
+  await assertFails(other.firestore().doc("dsa_concept_progress/dsa-learner_java").get());
+  await assertFails(other.firestore().doc("dsa_concept_progress/dsa-learner_java").set({ completedConceptIds: ["x"] }, { merge: true }));
+});
+
+test("a campus admin and the student's own HOD can read their DSA concept progress", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const fs = ctx.firestore();
+    await seedDsaConcepts(ctx);
+    await seedInstitution(ctx, "mrcet");
+    await fs.doc("users/dsa-student").set({ institutionId: "mrcet", department: "CSE(AI&ML)" });
+    await fs.doc("institutions/mrcet/students/dsa-student").set({
+      uid: "dsa-student", status: "approved", department: "CSE(AI&ML)", classroomId: "c1",
+    });
+    await fs.doc("institutions/mrcet/admins/inst-admin").set({ uid: "inst-admin" });
+    await fs.doc("institutions/mrcet/roleAssignments/dsa-hod").set({
+      uid: "dsa-hod", institutionId: "mrcet", roleKey: "hod", status: "active",
+      scope: { department: "CSE(AI&ML)", classroomId: null },
+    });
+    await fs.doc("dsa_concept_progress/dsa-student_java").set({
+      uid: "dsa-student", langId: "java", completedConceptIds: ["arrays"],
+    });
+  });
+
+  // Student Analytics joins every progress collection with Promise.all, so a
+  // denial here fails the WHOLE page rather than hiding one section.
+  const instAdmin = testEnv.authenticatedContext("inst-admin");
+  await assertSucceeds(instAdmin.firestore().doc("dsa_concept_progress/dsa-student_java").get());
+  const hod = testEnv.authenticatedContext("dsa-hod");
+  await assertSucceeds(hod.firestore().doc("dsa_concept_progress/dsa-student_java").get());
+
+  // Read-only for staff - progress is still the learner's own record.
+  await assertFails(instAdmin.firestore().doc("dsa_concept_progress/dsa-student_java")
+    .set({ completedConceptIds: ["arrays", "forged"] }, { merge: true }));
+  // And another institution's staff get nothing.
+  const outsider = testEnv.authenticatedContext("nobody-uid");
+  await assertFails(outsider.firestore().doc("dsa_concept_progress/dsa-student_java").get());
 });

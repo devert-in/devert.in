@@ -318,6 +318,23 @@ service cloud.firestore {
     function isContestInstitutionAdmin(contestId) {
       return contestInstitutionId(contestId) != '' && isInstitutionAdmin(contestInstitutionId(contestId));
     }
+    // Any ACTIVE staff member (HOD/Faculty-Class-Teacher) of the contest's own
+    // institution - read-only visibility into that contest's registrations and
+    // submissions, so an HOD can see results and participant performance
+    // without gaining any authoring/editing right (no write branch uses this).
+    //
+    // Institution-level, NOT department-scoped, and that is a hard Firestore
+    // constraint rather than a preference - identical to the reasoning the
+    // dailyLearningLog rule spells out at length: scoping per returned
+    // document would need isHodOfStudent(resource.data.uid)-style lookups,
+    // which spend 2 UNCACHED get()s per document (each submission carries a
+    // different uid) and blow the ~10-lookup-per-query budget after a handful
+    // of rows. This helper's own lookups are all keyed on fixed paths (the
+    // contest doc + the caller's own roleAssignment), so they're cached once
+    // and cost the same whether the query returns 5 rows or 500.
+    function isContestInstitutionStaff(contestId) {
+      return hasRoleAssignment(contestInstitutionId(contestId), request.auth.uid);
+    }
     // True for every global (no institutionId) contest, unconditionally -
     // matches today's open behavior for the public Arena. For an
     // institution-scoped contest, true only for that institution's own
@@ -1186,6 +1203,17 @@ service cloud.firestore {
       // fetchInstitutionContests already filters on.
       allow read: if isAdmin()
         || isInstitutionAdmin(resource.data.get('institutionId', ''))
+        // Any active staff member (HOD/Faculty-Class-Teacher) of the contest's
+        // OWN institution. Read-only: create/update/delete below still require
+        // isInstitutionAdmin/isContestInstitutionAdmin, so staff can see a
+        // contest and its results without being able to author or edit one.
+        //
+        // Uses resource.data's institutionId rather than a re-fetch, for the
+        // exact list()-breaking reason this rule's opening comment documents,
+        // and stays query-provable because fetchInstitutionContests already
+        // filters on institutionId. hasRoleAssignment() itself guards
+        // institutionId != '', so a non-institution contest never matches.
+        || hasRoleAssignment(resource.data.get('institutionId', ''), request.auth.uid)
         // A listed Mock Reviewer sees the contest regardless of publish status
         // or target audience - "let someone sit this paper before it opens"
         // is the whole point, so this has to reach a still-draft contest, not
@@ -1255,7 +1283,8 @@ service cloud.firestore {
       // +1 as part of registering - same bounded shared-counter pattern used for
       // pulse_posts engagement counts.
       match /registrations/{uid} {
-        allow read:   if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId);
+        allow read:   if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId)
+          || isContestInstitutionStaff(contestId);
         allow create: if isOwner(uid) && isApprovedForContest(contestId) && request.resource.data.registeredAt != null
           && request.time <= get(/databases/$(database)/documents/contests/$(contestId)).data.registrationEnd
           && (contestInstitutionId(contestId) == '' || isModuleEnabledForUser(uid, contestInstitutionId(contestId), 'contests'));
@@ -1318,7 +1347,15 @@ service cloud.firestore {
         // readable once the contest has ended AND its rankings are actually
         // published - see contestRankingsPublished(). Without that last clause
         // "hidden rankings" only hid the button.
-        allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId) || (isApprovedForContest(contestId) &&
+        // isContestInstitutionStaff: an HOD/Faculty-Class-Teacher sees their own
+        // institution's participant scores whenever an admin could - i.e. NOT
+        // gated on contestEnd/contestRankingsPublished, which exist to stop
+        // PEERS from reading each other's attempts mid-contest and to honor a
+        // "rankings hidden" decision toward students. Staff reviewing their
+        // cohort's performance is the same category of access an institution
+        // admin already has here, so it sits alongside that disjunct.
+        allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId)
+          || isContestInstitutionStaff(contestId) || (isApprovedForContest(contestId) &&
           isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd
           && contestRankingsPublished(contestId));
         // maxScore must be written honestly (client-computed from the real,
@@ -1397,7 +1434,11 @@ service cloud.firestore {
         // update rule branch the final MCQ submit above depends on. Same read
         // visibility as the parent submission doc.
         match /codingResults/{questionId} {
-          allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId) || (isApprovedForContest(contestId) &&
+          // Same read visibility as the parent submission doc, staff included -
+          // otherwise an HOD could open a participant's result row but not the
+          // per-question coding detail behind it.
+          allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId)
+            || isContestInstitutionStaff(contestId) || (isApprovedForContest(contestId) &&
             isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
           allow write: if false;
         }
@@ -1552,6 +1593,62 @@ service cloud.firestore {
       // completeTopic() re-earns that topic's reward indefinitely.
       allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
         && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
+    }
+
+    // DSA Concepts - the bridge module between Programming and DSA Practice.
+    // Identical shape/authority to programmingLanguages above: a GLOBAL,
+    // admin-authored catalog of one concept roadmap per language
+    // (dsaConceptTracks/{langId}/concepts/{conceptId}), shared by every
+    // institution rather than authored per-campus.
+    //
+    // Deliberately its own collection rather than more programmingLanguages
+    // topics - see lib/dsaConcepts.js's header for why the two roadmaps stay
+    // separate. Concept -> problem linking carries NO authority: it is derived
+    // from each problem's existing `category` field, so nothing here needs
+    // read access to anything it didn't already have.
+    //
+    // IMPORTANT: every non-admin list() against either collection MUST carry a
+    // matching where("status","==","published") filter - see lib/programming.js's
+    // fetchLanguages comment for why an unfiltered query plus client-side
+    // filtering fails with permission-denied for every real student.
+    match /dsaConceptTracks/{langId} {
+      allow read:  if contentReadable() || isAdmin();
+      allow write: if isAdmin();
+
+      match /concepts/{conceptId} {
+        allow read:  if contentReadable() || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    // Per-user DSA Concepts progress - one doc per (uid, langId), same
+    // owner-writes-their-own-record trust boundary and same split('_')[0]
+    // ownership proof as programming_progress/cscore_progress/gate_progress.
+    match /dsa_concept_progress/{progressId} {
+      // isAdminOfStudent/isHodOfStudent/isFacultyOfStudent on read so this
+      // module appears in Student Analytics alongside every other progress
+      // collection - fetchStudentAnalytics Promise.all's its summaries, so one
+      // denied read rejects the lot and the page reports a total failure
+      // rather than a merely missing section (the exact bug that hit
+      // user_aptitude_progress). isAdmin() stays a separate top-level disjunct
+      // rather than nested inside isAuth() && (...) - see payout_requests for
+      // why that nesting breaks list().
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid
+        || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      // completedConceptIds.hasAll(...) makes the owner's own array monotonic:
+      // once a conceptId is in there the owner can never remove it, only add.
+      // Without this, arrayRemove-ing a completed id and re-triggering
+      // completeConcept() re-earns that concept's XP/coins indefinitely - the
+      // identical reward-replay exploit already closed on programming_progress,
+      // cscore_progress, gate_progress and se_progress. Scoped to fire only
+      // when the field is actually present on the EXISTING doc, so the first
+      // write and the markConceptOpened-only writes are unaffected.
+      //
+      // isAdmin() (not isAdminOfStudent) on write because deleteConcept must
+      // scrub a deleted concept out of every learner's array across every
+      // institution (see lib/dsaConcepts.js's deleteConcept).
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
+        && (resource == null || !('completedConceptIds' in resource.data) || request.resource.data.get('completedConceptIds', []).hasAll(resource.data.completedConceptIds)));
     }
 
     // CS Core - identical shape/authority to programmingLanguages above
@@ -2111,8 +2208,28 @@ service cloud.firestore {
       // scoped to their own department/classroom without touching the
       // institution-wide catalog admins/Principal manage.
       match /dailyLearning/{itemId} {
+        // READ is institution-wide for any active staff member, NOT scope-
+        // narrowed like the write branches below. Two reasons:
+        //
+        // 1. isHodOfDepartment()/isFacultyOfClassroom() require a non-empty
+        //    department/classroom (see their `!= ''` guards), so on an
+        //    institution-WIDE item - absent scopeDepartment/scopeClassroomId,
+        //    which is what the admin/Principal catalog actually consists of -
+        //    both are false. An HOD therefore couldn't read the very content
+        //    they're meant to be gating access to, and because a Firestore
+        //    list() is denied all-or-nothing the whole Daily Learning query
+        //    died, which the client swallowed into an empty hub reading
+        //    "Day 1 - 0% Complete" as if no series existed.
+        // 2. Scoping a READ per-document here can't work at query scale
+        //    anyway - same exists()/get() budget wall the dailyLearningLog
+        //    rule below documents in detail.
+        //
+        // Staff see the catalog; they do not gain authorship over it. The
+        // create/update branches below stay scope-bounded exactly as before,
+        // so an HOD still can't touch an institution-wide item - which is the
+        // intended split: admins/Principal author, HOD/Faculty gate access.
         allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
-          || isHodOfDepartment(institutionId, resource.data.get('scopeDepartment', '')) || isFacultyOfClassroom(institutionId, resource.data.get('scopeClassroomId', ''));
+          || hasRoleAssignment(institutionId, request.auth.uid);
         // create/update only - delete stays admin-only below (deliberately
         // NOT combined into one `allow write`: request.resource is null on a
         // delete, and dereferencing request.resource.data on that throws in
