@@ -2143,18 +2143,47 @@ service cloud.firestore {
       // only while genuinely enrolled - same isOwner+isApprovedStudent
       // shape as the rest of this Daily Learning feature.
       match /dailyLearningLog/{logId} {
-        // isHodOfStudent/isFacultyOfStudent (not isHodOfDepartment/
-        // isFacultyOfClassroom directly - these log docs carry no
-        // department/classroomId of their own) look up THIS log's own uid's
-        // roster doc to check scope, same as user_earnings/coin_transactions/
-        // codelab_submissions above already do. Paired with
-        // fetchLogsForDateByUids (lib/classroomAnalytics.js) actually scoping
-        // the query itself to that HOD/Faculty's own cohort - without that,
-        // an unscoped date-only list query would still be denied in full the
-        // instant it returned even one other department's log (Classroom/
-        // Department Analytics' "Couldn't load analytics" bug).
+        // hasRoleAssignment (any active staff member of THIS institution),
+        // NOT isHodOfStudent/isFacultyOfStudent, and the difference is a
+        // hard Firestore constraint rather than a preference: rules get a
+        // budget of ~10 exists()/get() calls PER QUERY REQUEST (cached by
+        // path, shared across every document the query returns), and
+        // isHodOfStudent(resource.data.uid) spends 2 uncached lookups
+        // (users/{uid} + that institution's students/{uid}) on EVERY
+        // returned log, because each log carries a different uid. So a
+        // scoped list() died at ~4 matching logs no matter how the client
+        // chunked it - emulator-verified: 4 uids pass, 5 fail with
+        // "evaluation error ... for 'list'". That is the real cause of
+        // Department/Classroom Analytics' "Couldn't load analytics", which
+        // the earlier fetchLogsForDateByUids cohort-scoping fix only masked
+        // for cohorts small enough to stay under the budget - a 303-student
+        // department trips it on the first chunk.
+        //
+        // Widening to institution staff is not a privilege escalation: the
+        // isApprovedStudent(institutionId) disjunct on this same line
+        // already lets EVERY approved student in the institution list every
+        // log doc in it (that is what makes the day leaderboard possible),
+        // so a department-scoped HOD reading these is strictly narrower than
+        // what the students they administer can already read. The scope
+        // boundary that actually matters for staff lives on the collections
+        // this one deliberately does NOT cover - user_earnings,
+        // coin_transactions, codelab_submissions, and the roster itself all
+        // keep their per-student isHodOfStudent/isFacultyOfStudent checks,
+        // which stay affordable there because those are single-doc gets or
+        // single-uid queries (one uid per request -> the 2 lookups are
+        // cached once, not paid per doc). The client still scopes its own
+        // query to the caller's cohort (fetchLogsForDateByUids in
+        // lib/classroomAnalytics.js) - that is now a correctness/cost
+        // choice, not the thing holding the boundary up.
+        //
+        // The alternative - denormalizing department/classroomId onto every
+        // log doc so scope could be checked with cached reads only - was
+        // rejected for now: it needs a forge-proof write rule for the new
+        // fields plus a backfill of every historical log, and it would buy
+        // no confidentiality this collection doesn't already give away to
+        // students.
         allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
-          || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid);
+          || hasRoleAssignment(institutionId, request.auth.uid);
         // completedAt is monotonic for a student's own write: once set, that
         // exact write is what submitDayCompletion's transaction checks to
         // decide "already rewarded" - without this, a student could call the
@@ -2223,12 +2252,13 @@ service cloud.firestore {
           allow delete: if isInstitutionAdmin(institutionId) || isAdmin();
         }
         match /logs/{logId} {
-          // Mirrors dailyLearningLog's own isHodOfStudent/isFacultyOfStudent
-          // disjunct above - see that rule's comment for why (log docs carry
-          // no department/classroomId of their own, so scope is resolved via
-          // the log's own uid's roster doc instead).
+          // Mirrors dailyLearningLog's own staff disjunct above - see that
+          // rule's comment for the full reasoning (per-doc isHodOfStudent
+          // lookups blow the ~10-call-per-query rules budget at ~4 logs;
+          // every approved student in the institution can already list this
+          // collection anyway).
           allow read:  if isApprovedStudent(institutionId) || isInstitutionAdmin(institutionId) || isAdmin()
-            || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid);
+            || hasRoleAssignment(institutionId, request.auth.uid);
           allow write: if isInstitutionAdmin(institutionId) || isAdmin() ||
             (isApprovedStudent(institutionId) && isOwner(request.resource.data.uid)
               && logId.split('_')[0] == request.auth.uid

@@ -1210,41 +1210,118 @@ test("an institution admin can still write any student's dailyLearningLog slot (
 
 // Regression: Department/Classroom Analytics' "Couldn't load analytics" bug -
 // an HOD/Faculty caller could read the roster (isHodOfDepartment) but had NO
-// read path at all into dailyLearningLog (only isApprovedStudent/
-// isInstitutionAdmin/isAdmin were ever checked), so fetchClassroomAnalytics'
-// own dailyLearningLog reads threw for every HOD/Faculty viewer, not just
-// ones with an empty cohort. Fixed via isHodOfStudent/isFacultyOfStudent,
-// resolved from the LOG's own uid field (these log docs carry no department/
-// classroomId directly).
+// read path at all into dailyLearningLog, so fetchClassroomAnalytics' own
+// dailyLearningLog reads threw for every HOD/Faculty viewer.
+//
+// The first fix (isHodOfStudent/isFacultyOfStudent, resolved from the LOG's
+// own uid) was correct per-document but did not survive contact with a real
+// cohort: rules get ~10 exists()/get() calls PER QUERY REQUEST, cached by
+// path and shared across every doc a list() returns, and those helpers spend
+// 2 uncached lookups on each returned log (a different uid every time). The
+// scale test below pins the exact boundary that produced - it passed at 4
+// logs and failed at 5, so the bug reappeared the moment a department (303
+// students at MRCET) actually had a day's worth of activity.
+//
+// Now a constant-cost hasRoleAssignment() check. The pair of tests below is
+// the whole argument for why that is not an escalation: institution staff
+// gain exactly the breadth an approved STUDENT of the same institution
+// already had on this collection, and nothing outside the institution.
 
-test("an HOD can read a dailyLearningLog entry for a student in their OWN department, but not one outside it", async () => {
+async function seedDeptCohort(ctx, n, date) {
+  const fs = ctx.firestore();
+  await seedInstitution(ctx, "mrcet");
+  await fs.doc("institutions/mrcet/roleAssignments/hod-uid").set({
+    uid: "hod-uid", institutionId: "mrcet", roleKey: "hod", status: "active",
+    scope: { department: "CSE(AI&ML)", classroomId: null },
+  });
+  for (let i = 0; i < n; i++) {
+    const uid = `dept-s${i}`;
+    await fs.doc(`users/${uid}`).set({ institutionId: "mrcet", department: "CSE(AI&ML)" });
+    await fs.doc(`institutions/mrcet/students/${uid}`).set({
+      uid, status: "approved", department: "CSE(AI&ML)", year: "2nd Year", section: "A", classroomId: "c1",
+    });
+    await fs.doc(`institutions/mrcet/dailyLearningLog/${uid}_${date}`).set({
+      uid, date, weekId: "2026-07-20", dow: "fri", type: "lesson",
+      xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+    });
+  }
+}
+
+// The actual reported failure: a department-sized chunk, every doc matching.
+// Pre-fix this was denied outright ("evaluation error ... for 'list'") for
+// any n >= 5, which is every real department.
+test("an HOD can list a full 30-uid chunk of dailyLearningLog for their own department", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await seedDeptCohort(ctx, 30, "2026-07-24"); });
+  const hodDb = testEnv.authenticatedContext("hod-uid").firestore();
+  const uids = Array.from({ length: 30 }, (_, i) => `dept-s${i}`);
+  const snap = await assertSucceeds(getDocs(query(
+    collection(hodDb, "institutions/mrcet/dailyLearningLog"),
+    where("date", "==", "2026-07-24"), where("uid", "in", uids),
+  )));
+  assert.equal(snap.size, 30);
+});
+
+test("an HOD can read a single dailyLearningLog entry for a student in their own department", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await seedDeptCohort(ctx, 1, "2026-07-24"); });
+  const hod = testEnv.authenticatedContext("hod-uid");
+  await assertSucceeds(hod.firestore().doc("institutions/mrcet/dailyLearningLog/dept-s0_2026-07-24").get());
+});
+
+// The boundary that still holds, and the one that matters: staff of ANOTHER
+// institution get nothing. Department scoping inside one institution is
+// deliberately not enforced on this collection - an approved student of the
+// same institution can already list all of it (that is what powers the day
+// leaderboard), so scoping an HOD below their own students would be
+// theatre, not confidentiality.
+test("dailyLearningLog stays closed to staff of a different institution, and open to that institution's own students", async () => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
-    await seedInstitution(ctx, "mrcet");
+    await seedDeptCohort(ctx, 1, "2026-07-24");
+    await seedInstitution(ctx, "other-college");
+    await ctx.firestore().doc("institutions/other-college/roleAssignments/outsider-hod").set({
+      uid: "outsider-hod", institutionId: "other-college", roleKey: "hod", status: "active",
+      scope: { department: "CSE(AI&ML)", classroomId: null },
+    });
+    // A plain approved student of MRCET, for the comparison.
+    await ctx.firestore().doc("institutions/mrcet/students/peer-uid").set({ uid: "peer-uid", status: "approved", department: "ECE" });
+  });
+  const outsider = testEnv.authenticatedContext("outsider-hod");
+  await assertFails(outsider.firestore().doc("institutions/mrcet/dailyLearningLog/dept-s0_2026-07-24").get());
+
+  const peer = testEnv.authenticatedContext("peer-uid");
+  await assertSucceeds(peer.firestore().doc("institutions/mrcet/dailyLearningLog/dept-s0_2026-07-24").get());
+});
+
+// A disabled staff account loses this the moment status flips - hasRoleAssignment
+// requires status == 'active', same as every other role-gated rule.
+test("a disabled HOD cannot read their own department's dailyLearningLog", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedDeptCohort(ctx, 1, "2026-07-24");
     await ctx.firestore().doc("institutions/mrcet/roleAssignments/hod-uid").set({
-      uid: "hod-uid", roleKey: "hod", status: "active", scope: { department: "CSE(AI&ML)" },
-    });
-    await ctx.firestore().doc("institutions/mrcet/students/in-scope-uid").set({
-      uid: "in-scope-uid", status: "approved", department: "CSE(AI&ML)",
-    });
-    await ctx.firestore().doc("institutions/mrcet/students/other-dept-uid").set({
-      uid: "other-dept-uid", status: "approved", department: "ECE",
-    });
-    // isHodOfStudent resolves studentInstitutionId(uid) via users/{uid}.institutionId,
-    // not the roster doc itself - both must exist for the lookup to succeed.
-    await ctx.firestore().doc("users/in-scope-uid").set({ institutionId: "mrcet" });
-    await ctx.firestore().doc("users/other-dept-uid").set({ institutionId: "mrcet" });
-    await ctx.firestore().doc("institutions/mrcet/dailyLearningLog/in-scope-uid_2026-07-24").set({
-      uid: "in-scope-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
-      xpEarned: 50, coinEarned: 20, completedAt: new Date(),
-    });
-    await ctx.firestore().doc("institutions/mrcet/dailyLearningLog/other-dept-uid_2026-07-24").set({
-      uid: "other-dept-uid", date: "2026-07-24", weekId: "2026-07-20", dow: "fri", type: "lesson",
-      xpEarned: 50, coinEarned: 20, completedAt: new Date(),
+      uid: "hod-uid", institutionId: "mrcet", roleKey: "hod", status: "disabled",
+      scope: { department: "CSE(AI&ML)", classroomId: null },
     });
   });
-  const hod = testEnv.authenticatedContext("hod-uid");
-  await assertSucceeds(hod.firestore().doc("institutions/mrcet/dailyLearningLog/in-scope-uid_2026-07-24").get());
-  await assertFails(hod.firestore().doc("institutions/mrcet/dailyLearningLog/other-dept-uid_2026-07-24").get());
+  const disabled = testEnv.authenticatedContext("hod-uid");
+  await assertFails(disabled.firestore().doc("institutions/mrcet/dailyLearningLog/dept-s0_2026-07-24").get());
+});
+
+// The per-student collections the department dashboard ALSO joins keep their
+// scoped isHodOfStudent checks - affordable there because each request covers
+// exactly one uid, so the 2 lookups are cached once instead of paid per doc.
+// Asserted at 25 docs so a future rules change that makes these per-document
+// again fails here rather than in production.
+test("an HOD's per-student coin_transactions/codelab_submissions queries survive a full history", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await seedDeptCohort(ctx, 1, "2026-07-24");
+    const fs = ctx.firestore();
+    for (let i = 0; i < 25; i++) {
+      await fs.doc(`coin_transactions/dept-tx${i}`).set({ uid: "dept-s0", amount: 5, type: "daily_learning", createdAt: new Date() });
+      await fs.doc(`codelab_submissions/dept-sub${i}`).set({ uid: "dept-s0", verdict: "Accepted", createdAt: new Date() });
+    }
+  });
+  const hodDb = testEnv.authenticatedContext("hod-uid").firestore();
+  await assertSucceeds(getDocs(query(collection(hodDb, "coin_transactions"), where("uid", "==", "dept-s0"))));
+  await assertSucceeds(getDocs(query(collection(hodDb, "codelab_submissions"), where("uid", "==", "dept-s0"))));
 });
 
 // --- Multi-track Daily Learning (institutions/{id}/learningTracks/{trackId}/
@@ -1650,6 +1727,71 @@ test("roleAssignments is never directly client-writable - not by the account its
   await assertFails(institutionAdmin.firestore().doc("institutions/mrcet/roleAssignments/some-new-hod").set({
     uid: "some-new-hod", institutionId: "mrcet", roleKey: "hod", scope: { department: "CSE", classroomId: null }, status: "active",
   }));
+});
+
+// Regression: an HOD's own dashboard showed "HOD: Unassigned" for the very
+// person looking at it, and an empty Faculty tab. Two causes, both fixed:
+// the client listed roleAssignments UNSCOPED (denied all-or-nothing the
+// moment a Principal or other-department doc came back - now
+// fetchRoleAssignmentsByDepartment), and AdminAccountService wrote
+// scope.department == null on every facultyClassTeacher doc, so
+// isHodOfDepartment() could never match one however the query was shaped.
+test("an HOD can list their own department's roleAssignments - their own doc and their department's faculty - but not another department's or the Principal's", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const fs = ctx.firestore();
+    await seedInstitution(ctx, "mrcet");
+    await fs.doc("institutions/mrcet/roleAssignments/hod-cse-ai-uid").set({
+      uid: "hod-cse-ai-uid", institutionId: "mrcet", roleKey: "hod", status: "active",
+      displayName: "CSE(AI&ML) HOD", scope: { department: "CSE(AI&ML)", classroomId: null },
+    });
+    // Faculty in the SAME department - carries scope.department now, which is
+    // the whole point of the AdminAccountService change + backfill script.
+    await fs.doc("institutions/mrcet/roleAssignments/faculty-in-dept-uid").set({
+      uid: "faculty-in-dept-uid", institutionId: "mrcet", roleKey: "facultyClassTeacher", status: "active",
+      displayName: "2A Class Teacher", scope: { department: "CSE(AI&ML)", classroomId: "c-2a" },
+    });
+    await fs.doc("institutions/mrcet/roleAssignments/faculty-other-dept-uid").set({
+      uid: "faculty-other-dept-uid", institutionId: "mrcet", roleKey: "facultyClassTeacher", status: "active",
+      scope: { department: "ECE", classroomId: "c-ece-2a" },
+    });
+    await fs.doc("institutions/mrcet/roleAssignments/principal-uid").set({
+      uid: "principal-uid", institutionId: "mrcet", roleKey: "principal", status: "active",
+      scope: { department: null, classroomId: null },
+    });
+  });
+  const hodDb = testEnv.authenticatedContext("hod-cse-ai-uid").firestore();
+
+  const scoped = await assertSucceeds(getDocs(query(
+    collection(hodDb, "institutions/mrcet/roleAssignments"),
+    where("scope.department", "==", "CSE(AI&ML)"),
+  )));
+  assert.deepEqual(scoped.docs.map(d => d.id).sort(), ["faculty-in-dept-uid", "hod-cse-ai-uid"]);
+
+  // The unscoped list the institution-admin path uses stays denied for an
+  // HOD - this is what the client used to issue and silently swallow.
+  await assertFails(getDocs(collection(hodDb, "institutions/mrcet/roleAssignments")));
+  await assertFails(hodDb.doc("institutions/mrcet/roleAssignments/faculty-other-dept-uid").get());
+  await assertFails(hodDb.doc("institutions/mrcet/roleAssignments/principal-uid").get());
+});
+
+// The department on a Faculty doc must not be mistakable for HOD authority -
+// isHodOfDepartment() checks roleKey == 'hod' as its own conjunct.
+test("a facultyClassTeacher carrying scope.department gains no HOD powers from it", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const fs = ctx.firestore();
+    await seedInstitution(ctx, "mrcet");
+    await fs.doc("institutions/mrcet/roleAssignments/faculty-uid").set({
+      uid: "faculty-uid", institutionId: "mrcet", roleKey: "facultyClassTeacher", status: "active",
+      scope: { department: "CSE(AI&ML)", classroomId: "c-2a" },
+    });
+    // A student in the faculty's department but NOT in their classroom.
+    await fs.doc("institutions/mrcet/students/other-class-uid").set({
+      uid: "other-class-uid", status: "approved", department: "CSE(AI&ML)", classroomId: "c-2b",
+    });
+    await fs.doc("users/other-class-uid").set({ institutionId: "mrcet" });
+  });
+  const faculty = testEnv.authenticatedContext("faculty-uid");
+  await assertFails(faculty.firestore().doc("institutions/mrcet/students/other-class-uid").get());
 });
 
 // Staff dry runs (contests/{id}/dryRuns/{uid}) - an admin taking the paper to

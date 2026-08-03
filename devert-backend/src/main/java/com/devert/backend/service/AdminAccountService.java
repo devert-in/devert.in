@@ -203,7 +203,30 @@ public class AdminAccountService {
             roleAssignment.put("institutionId", institutionId);
             roleAssignment.put("roleKey", roleKey);
             Map<String, Object> scope = new HashMap<>();
-            scope.put("department", "hod".equals(roleKey) ? finalTargetDepartment : null);
+            // department is persisted for facultyClassTeacher too, not just
+            // hod. finalTargetDepartment is already the classroom's OWN
+            // server-derived department for that role (see above - it is what
+            // authorize() just scope-checked), so this stores a value that was
+            // never client-supplied. It is what lets firestore.rules'
+            // roleAssignments read rule do what its comment always claimed -
+            // "an HOD may read their own department's OTHER role-assignment
+            // docs (e.g. seeing which Faculty/Class Teachers are assigned in
+            // their own department)". Without it, scope.department was null on
+            // every Faculty doc, isHodOfDepartment() could never match one,
+            // and an HOD's Faculty tab was permanently empty.
+            //
+            // This grants no authority: isHodOfDepartment() requires
+            // roleKey == 'hod' as a separate conjunct, so a Faculty doc
+            // carrying a department is still only ever a Faculty doc. The
+            // one-active-holder-per-scope query above filters on
+            // scope.department for 'hod' only, so it is unaffected too.
+            //
+            // Still null for 'principal' specifically - that role is
+            // institution-wide, and its `department` argument is unvalidated
+            // client input no code path uses, so storing it would be the one
+            // way a caller could smuggle a department onto a doc.
+            boolean departmentScoped = "hod".equals(roleKey) || "facultyClassTeacher".equals(roleKey);
+            scope.put("department", departmentScoped ? finalTargetDepartment : null);
             scope.put("classroomId", "facultyClassTeacher".equals(roleKey) ? classroomId : null);
             roleAssignment.put("scope", scope);
             roleAssignment.put("permissionOverrides", Map.of());
@@ -317,12 +340,18 @@ public class AdminAccountService {
     // lastLoginAt; a no-op (not an error) if this uid has no roleAssignment
     // at all, since login-success is also called from student/admin flows
     // that don't have one.
-    public void recordLoginSuccess(String uid, String institutionId) throws Exception {
-        if (db == null || institutionId == null || institutionId.isBlank()) return;
+    // Returns true only if a stamp was actually written, so a caller that
+    // already knows it HAS a roleAssignment (CampusStaffLogin verifies this
+    // before calling) can tell a real drop apart from the legitimate no-op
+    // below - otherwise a silently unwritten stamp is indistinguishable from
+    // "never signed in" in Manage > Security.
+    public boolean recordLoginSuccess(String uid, String institutionId) throws Exception {
+        if (db == null || institutionId == null || institutionId.isBlank()) return false;
         DocumentReference ref = institutionDoc(institutionId).collection("roleAssignments").document(uid);
-        if (!ref.get().get().exists()) return;
+        if (!ref.get().get().exists()) return false;
         ref.set(Map.of("lastLoginAt", FieldValue.serverTimestamp(), "failedLoginCount", 0,
             "lockedUntil", null), SetOptions.merge()).get();
+        return true;
     }
 
     // Unauthenticated by necessity (see LoginFailureRequest) - rate-limited

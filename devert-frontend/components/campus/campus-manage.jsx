@@ -88,9 +88,7 @@ export const SEGMENT_TO_MANAGE_TAB = Object.fromEntries(Object.entries(MANAGE_TA
 // useHasPermission()). This is a UI gate only, exactly like
 // useHasPermission's own header comment says - the real boundary is
 // firestore.rules' hasPermission(), independently checked on every actual
-// write. "branding" and "companyPrep" have no dedicated permission key in
-// PERMISSIONS yet, so they stay ungated here (visible to any signed-in
-// staff role) rather than guessing at one.
+// write.
 const MANAGE_TAB_PERMISSION = {
   students: "students.view",
   departments: "departments.manage",
@@ -102,7 +100,49 @@ const MANAGE_TAB_PERMISSION = {
   csCore: "csCore.manage",
   aptitude: "aptitude.manage",
   practice: "dsa.manage",
+  companyPrep: "companyPrep.manage",
   leaderboards: "leaderboards.view",
+};
+
+// branding has no key in PERMISSIONS and isn't getting a speculative one: it
+// edits the institution's own identity (name, logo, colors) and is the one
+// Manage tab that is institution-wide by definition, so "Institution Admin
+// only" IS its rule rather than a permission nobody would ever grant a
+// department-scoped role. Listed explicitly because the alternative - leaving
+// it out of MANAGE_TAB_PERMISSION - made it ungated, i.e. visible to EVERY
+// staff role the moment one of them could reach Manage at all. companyPrep
+// was ungated the same way and now uses the companyPrep.manage key that
+// already existed in PERMISSIONS unused.
+const ADMIN_ONLY_MANAGE_TABS = new Set(["branding"]);
+
+// A department- or classroom-scoped staff role sees ONLY these Manage tabs,
+// regardless of what its permissions otherwise grant. Two separate reasons,
+// and both matter:
+//
+//  1. Authority shape. An HOD's seeded defaults include institution-wide
+//     permissions (departments.manage, faculty.manage, leaderboards.view,
+//     students.view) that were written for the dashboards those keys gate,
+//     not for Manage's institution-wide editors. Without this allowlist,
+//     handing HOD the Manage nav item would have handed them the Departments
+//     list for the WHOLE institution, the Manage Admins console, and the
+//     leaderboard config - the opposite of department-scoped.
+//
+//  2. What rules actually permit. dailyLearning (and learningTracks/{id}/
+//     items) are the only content collections whose firestore.rules
+//     create/update accept a scoped staff writer at all, via
+//     isHodOfDepartment(scopeDepartment). Programming languages, CS Core,
+//     Aptitude topics, DSA problems, Fundamentals courses, Company Vault and
+//     Contests carry no scope field and have no HOD disjunct - their docs are
+//     institution-wide (often platform-wide) catalog content. Listing those
+//     tabs here would render a fully working editor whose Save is then denied
+//     by rules, which is worse than not offering it.
+//
+// So a wider HOD content surface is a rules + data-model change (a scope
+// field per collection, plus a forge-proof write rule for it), not a line in
+// this table. Faculty/Class Teacher is deliberately absent entirely - it has
+// its own classroom dashboard and no Manage nav item.
+const SCOPED_ROLE_MANAGE_TABS = {
+  hod: new Set(["dailyLearning"]),
 };
 
 // Manage's own sub-navigation, portaled into CampusContextSidebar's slot
@@ -146,12 +186,24 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
   // everything rule. Reads the context once (not per-tab, to stay a single
   // hook call) and checks it with a plain function instead - calling a hook
   // once per tab inside .filter() would break the rules of hooks.
-  const { isInstAdmin, permissions } = useContext(CampusPermissionsContext);
+  const { isInstAdmin, permissions, role, department } = useContext(CampusPermissionsContext);
   const hasManagePermission = (key) => !key || isInstAdmin || permissions.has(key);
+  // For a role with an allowlist, that list is a hard ceiling INTERSECTED
+  // with the usual permission check - never a replacement for it. So a
+  // permission override added later (deliberately or by accident) can widen
+  // what an HOD does inside Daily Learning, but can never hand them the
+  // Departments or Branding editor; and an HOD whose dailyLearning.publish
+  // was revoked correctly loses the tab rather than getting an editor whose
+  // Save is denied.
+  const scopedTabs = isInstAdmin ? null : SCOPED_ROLE_MANAGE_TABS[role];
   const visibleManageTabs = useMemo(
-    () => MANAGE_TABS.filter(t => hasManagePermission(MANAGE_TAB_PERMISSION[t.key])),
+    () => MANAGE_TABS.filter(t => {
+      if (scopedTabs && !scopedTabs.has(t.key)) return false;
+      if (ADMIN_ONLY_MANAGE_TABS.has(t.key)) return isInstAdmin;
+      return hasManagePermission(MANAGE_TAB_PERMISSION[t.key]);
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isInstAdmin, permissions]
+    [isInstAdmin, permissions, scopedTabs]
   );
   // If the current tab is no longer one this role can see (e.g. a stale
   // deep link, or permissions changed mid-session), fall back to the first
@@ -252,12 +304,27 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
         { label: "Manage", onClick: tab !== visibleManageTabs[0]?.key ? () => handleTabClick(visibleManageTabs[0]?.key) : undefined },
         { label: MANAGE_TABS.find(t => t.key === tab)?.label || "" },
       ]} />
+      {/* Nothing renders unless the active tab is one this caller may
+          actually see. The fallback effect above already corrects `tab` to a
+          visible one, but it runs AFTER this render commits - and `tab`'s own
+          lazy initializer defaults to "students", which is not a tab a
+          department-scoped HOD has. Without this guard that ordering shows a
+          real flash of the institution-wide Students roster (and, if
+          visibleManageTabs is ever empty, shows it permanently, since the
+          fallback effect has nothing to correct to). */}
+      {!visibleManageTabs.some(t => t.key === tab) ? (
+        visibleManageTabs.length === 0 && (
+          <CampusEmptyState icon={ShieldCheck} title="Nothing to manage yet"
+            description="Your role doesn't currently include any management permissions. Ask an institution admin if you think this is wrong." />
+        )
+      ) : (
+      <>
       {tab === "students" && <ManageStudents institutionId={institutionId} institution={institution}
         studentsView={studentsView} setStudentsView={setStudentsView} />}
       {tab === "departments" && <CampusDepartments institutionId={institutionId} />}
       {tab === "manageAdmins" && <CampusManageAdmins institutionId={institutionId} />}
       {tab === "contests" && <CampusContestsTab institutionId={institutionId} />}
-      {tab === "dailyLearning" && <ManageDailyLearning institutionId={institutionId} />}
+      {tab === "dailyLearning" && <ManageDailyLearning institutionId={institutionId} scopeDepartment={scopedTabs ? department : null} />}
       {tab === "fundamentals" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="fundamentals" moduleLabel="Fundamentals"
         description="Fundamentals' curriculum is authored once, platform-wide, in Platform Admin - not per campus. What you control here is which of your classrooms can currently open the module at all." />}
       {tab === "programming" && <ManageModuleAccessOnly institutionId={institutionId} moduleKey="programming" moduleLabel="Programming"
@@ -271,6 +338,8 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
       {tab === "leaderboards" && <ManageLeaderboards institutionId={institutionId} institution={institution} />}
       {tab === "branding" && <ManageBranding ref={brandingFormRef} institutionId={institutionId} institution={institution}
         onDirtyChange={setBrandingDirty} onInstitutionUpdated={onInstitutionUpdated} />}
+      </>
+      )}
       <BrandingUnsavedDialog pendingTab={pendingTab} onResolve={resolvePendingTab} />
     </div>
   );

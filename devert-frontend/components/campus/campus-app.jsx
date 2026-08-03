@@ -1224,6 +1224,12 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
       role: isInstAdmin ? "admin" : staffScope?.role || (phase === CAMPUS_PHASE.APPROVED ? "student" : null),
       permissions: new Set(Object.keys(merged).filter(k => merged[k])),
       isInstAdmin,
+      // Same values as staffScope above, republished through the context so a
+      // deeply-nested writer (CampusManage's Daily Learning editor) can stamp
+      // the scope field rules will check its write against - see
+      // lib/campusPermissions.js's useCampusScope.
+      department: staffScope?.department || null,
+      classroomId: staffScope?.classroomId || null,
     };
   }, [isInstAdmin, staffScope, staffRoleAssignment, rolePermissionDefaults, phase]);
 
@@ -1450,7 +1456,12 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   // disabled sees a fully collapsed sidebar (nothing to portal into) rather
   // than an empty frame with just the institution logo.
   const SIDEBAR_TABS = new Set(["learning", "dsa", "programming", "csCore", "aptitude", "gate", "companyVault", "contests", "assessments"]);
-  const hasSidebarContent = (tab === "manage" && isInstAdmin) || (SIDEBAR_TABS.has(tab) && isTabAllowed(tab));
+  // "manage" reads isTabAllowed too, for the same reason the content switch
+  // below does: an HOD may reach Manage (NAV_ITEMS' staffRoles), and Manage
+  // portals its own sub-navigation into this sidebar slot - gating the slot on
+  // isInstAdmin while the tab itself renders would leave a scoped HOD in
+  // Manage with no sub-nav to move between its tabs with.
+  const hasSidebarContent = (tab === "manage" && isTabAllowed("manage")) || (SIDEBAR_TABS.has(tab) && isTabAllowed(tab));
   // Only guards a real, rendered workspace - not the checking/pending/
   // signed-out screens above, which have nothing worth protecting against
   // an accidental Back press.
@@ -1841,17 +1852,26 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           )}
           {tab === "leaderboard" && <CampusLeaderboardTab slug={slug} myUid={user?.uid} myClassroom={myClassroom} />}
           {tab === "manage" && (
-            isInstAdmin
+            // isTabAllowed("manage"), NOT isInstAdmin directly - the nav item
+            // and the thing it navigates to have to read the same gate, or
+            // they disagree: NAV_ITEMS' "manage" entry lists staffRoles
+            // ["hod"], so an HOD was shown the Manage nav item and then hit
+            // "Access restricted" the moment they clicked it. isTabAllowed
+            // resolves that one staffRoles list for both surfaces.
+            isTabAllowed("manage")
               ? <CampusManage institutionId={slug} institution={institution}
                   initialTab={initialManageTab} initialStudentsView={initialManageStudentsView}
                   jumpToManageTab={manageJump} sidebarSlot={sidebarEl}
                   onInstitutionUpdated={(patch) => setInstitution(prev => ({ ...(prev || {}), ...patch }))} />
               // Frontend gate only for the UI decision of what to render - the
-              // real authority is firestore.rules (every Manage write is
-              // isInstitutionAdmin()-gated there), so a non-admin hitting a
-              // /manage/* URL directly still can't actually write anything
-              // even if they saw this render; this just gives them an honest
-              // message instead of a blank panel.
+              // real authority is firestore.rules, which gates each Manage
+              // write on isInstitutionAdmin() or, for the collections that
+              // carry a scope field, isHodOfDepartment(). So someone hitting a
+              // /manage/* URL directly still can't write anything their role
+              // doesn't already allow; this just gives them an honest message
+              // instead of a blank panel. WHICH tabs a scoped role sees inside
+              // Manage is a separate, narrower decision - see
+              // campus-manage.jsx's SCOPED_ROLE_MANAGE_TABS.
               : (
                 <CampusEmptyState icon={Lock} title="Access restricted"
                   description="Manage is only available to this campus's own admins." />

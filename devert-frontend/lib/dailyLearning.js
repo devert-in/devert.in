@@ -373,29 +373,30 @@ export async function fetchLogsForDate(slug, date, trackId = "dsa") {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-// Scoped counterpart to fetchLogsForDate, for HOD/Faculty callers viewing
-// their own department/classroom's analytics (see lib/classroomAnalytics.js's
-// fetchClassroomDailyLearningTrend). fetchLogsForDate's plain date-only query
-// returns every student's log institution-wide - fine for isApprovedStudent/
-// isInstitutionAdmin callers, but firestore.rules' dailyLearningLog read rule
-// only grants an HOD/Faculty caller access to docs belonging to a student in
-// their OWN scope (via isHodOfStudent/isFacultyOfStudent), so that unscoped
-// query is denied in full the instant even one returned doc belongs to a
-// student outside their department/classroom - the same "list queries fail
-// all-or-nothing" trap fetchRosterStudentsByDepartment/ByClassroom already
-// work around. Chunked into groups of 30 (Firestore's "in" cap).
+// Cohort-scoped counterpart to fetchLogsForDate, for HOD/Faculty callers
+// viewing their own department/classroom's analytics (see
+// lib/classroomAnalytics.js's fetchClassroomDailyLearningTrend). Chunked into
+// groups of 30 (Firestore's "in" cap), and the chunks run CONCURRENTLY - a
+// 303-student department is 11 of them, and awaiting each in turn made the
+// trend alone 11 serial round trips per day of the window.
+//
+// This scoping is now a cost/data-minimization choice, not an authorization
+// one. It used to be load-bearing: the dailyLearningLog read rule resolved
+// HOD/Faculty scope per document, so an unscoped date-only query was denied
+// in full the instant it returned one out-of-scope log. That per-document
+// check turned out to be unaffordable at any real cohort size (it blew
+// Firestore's ~10-get-per-query rules budget at ~4 logs - see that rule's own
+// comment), so staff now read this institution-scoped collection with a
+// constant-cost check instead. Keeping the query scoped anyway means an HOD's
+// client still only ever downloads its own department's rows.
 export async function fetchLogsForDateByUids(slug, date, uids, trackId = "dsa") {
-  const rows = [];
-  for (let i = 0; i < uids.length; i += 30) {
-    const chunk = uids.slice(i, i + 30);
-    if (!chunk.length) continue;
-    const snap = await getDocs(query(
-      collection(db, trackPaths(slug, trackId).logs),
-      where("date", "==", date), where("uid", "in", chunk),
-    ));
-    snap.docs.forEach(d => rows.push({ id: d.id, ...d.data() }));
-  }
-  return rows;
+  const chunks = [];
+  for (let i = 0; i < uids.length; i += 30) chunks.push(uids.slice(i, i + 30));
+  const snaps = await Promise.all(chunks.map(chunk => getDocs(query(
+    collection(db, trackPaths(slug, trackId).logs),
+    where("date", "==", date), where("uid", "in", chunk),
+  ))));
+  return snaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })));
 }
 
 // Filters to completedAt specifically, not mere doc existence - saveDraftProgress

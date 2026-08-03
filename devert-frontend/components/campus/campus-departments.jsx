@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2, Users, GraduationCap, Download, LayoutGrid, BarChart3,
-  Settings as SettingsIcon, ChevronRight, Star, AlertTriangle, TrendingUp,
+  Settings as SettingsIcon, ChevronRight, Star, AlertTriangle, TrendingUp, RefreshCw,
 } from "lucide-react";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
-  fetchRosterStudents, fetchRosterStudentsByDepartment, fetchRoleAssignments, fetchDepartments, fetchDepartment, updateDepartment, departmentKey,
+  fetchRosterStudents, fetchRosterStudentsByDepartment, fetchRoleAssignments, fetchRoleAssignmentsByDepartment,
+  fetchDepartments, fetchDepartment, updateDepartment, departmentKey,
 } from "@/lib/institutions";
 import { fetchClassroomAnalytics, fetchCampusAverages } from "@/lib/classroomAnalytics";
 import { useCampusBackHandler } from "@/lib/campusNav";
@@ -17,6 +18,25 @@ import {
 import { buildClassroomTree, ClassroomDashboard } from "@/components/campus/campus-classrooms";
 import { StudentAnalyticsDashboard } from "@/components/campus/campus-student-dashboard";
 import { useHasPermission } from "@/lib/campusPermissions";
+
+// Does this facultyClassTeacher assignment belong to `department`?
+//
+// scope.department is the real answer: AdminAccountService persists it at
+// create time, and scripts/backfill-role-assignment-department.mjs fills it in
+// for docs created before it started doing so. It's also what the HOD lookups
+// here already key off, so this keeps both sides consistent.
+//
+// The classroomId fallback exists only for assignments that predate the
+// backfill. It deliberately isn't the primary test: it can only ever match a
+// classroom that ALREADY has students on the roster, so a class teacher
+// assigned to an empty or not-yet-approved section would otherwise vanish from
+// their own department's Faculty tab even though Manage > Manage Admins lists
+// them - which is exactly the mismatch this replaced.
+function isDeptFaculty(assignment, department, deptStudents) {
+  if (assignment.scope?.department) return assignment.scope.department === department;
+  const classroomId = assignment.scope?.classroomId;
+  return !!classroomId && deptStudents.some(s => s.classroomId === classroomId);
+}
 
 // Departments as real entities (not just a flat Year/Dept/Section filter -
 // see ManageStudents' own department dropdown for that older, still-intact
@@ -37,12 +57,25 @@ export function CampusDepartments({ institutionId }) {
 
   useCampusBackHandler(3, screen.view !== "list", () => setScreen({ view: "list" }));
 
+  // Memoized, not inlined into the JSX below: DepartmentDashboard refetches
+  // its whole analytics join whenever the `students` array identity changes,
+  // and for a 303-student department that join is hundreds of Firestore
+  // reads. A fresh .filter() on every render of this component would redo all
+  // of them on any unrelated state change here.
+  const deptStudents = useMemo(
+    () => (students || []).filter(s => s.department === screen.department),
+    [students, screen.department]);
+  const deptHod = useMemo(
+    () => roleAssignments.find(r => r.roleKey === "hod" && r.scope?.department === screen.department && r.status === "active"),
+    [roleAssignments, screen.department]);
+  const activeFaculty = useMemo(
+    () => roleAssignments.filter(r => r.roleKey === "facultyClassTeacher" && r.status === "active"),
+    [roleAssignments]);
+
   if (screen.view === "department") {
     return (
       <DepartmentDashboard institutionId={institutionId} department={screen.department}
-        students={(students || []).filter(s => s.department === screen.department)}
-        hod={roleAssignments.find(r => r.roleKey === "hod" && r.scope?.department === screen.department && r.status === "active")}
-        faculty={roleAssignments.filter(r => r.roleKey === "facultyClassTeacher" && r.status === "active")}
+        students={deptStudents} hod={deptHod} faculty={activeFaculty}
         onBack={() => setScreen({ view: "list" })} />
     );
   }
@@ -57,7 +90,7 @@ export function CampusDepartments({ institutionId }) {
     const sectionCount = tree.reduce((sum, y) => sum + y.departments.reduce((s2, d) => s2 + d.sections.length, 0), 0);
     const hod = roleAssignments.find(r => r.roleKey === "hod" && r.scope?.department === dept.name && r.status === "active");
     const facultyCount = roleAssignments.filter(r => r.roleKey === "facultyClassTeacher" && r.status === "active"
-      && deptStudents.some(s => s.classroomId === r.scope?.classroomId)).length;
+      && isDeptFaculty(r, dept.name, deptStudents)).length;
     return { dept, deptStudents, yearsAvailable: tree.length, sectionCount, hod, facultyCount };
   });
 
@@ -100,7 +133,12 @@ export function CampusHodDashboard({ institutionId, department }) {
 
   useEffect(() => {
     fetchRosterStudentsByDepartment(institutionId, department).then(setDeptStudents).catch(() => setDeptStudents([]));
-    fetchRoleAssignments(institutionId).then(setRoleAssignments).catch(() => setRoleAssignments([]));
+    // Department-scoped, NOT the unscoped fetchRoleAssignments the
+    // institution-admin path uses - see that function's comment: an HOD's
+    // unscoped list is denied all-or-nothing by the rules, and this component
+    // used to swallow that into an empty array, so an HOD's own dashboard
+    // reported its own HOD as "Unassigned".
+    fetchRoleAssignmentsByDepartment(institutionId, department).then(setRoleAssignments).catch(() => setRoleAssignments([]));
   }, [institutionId, department]);
 
   if (deptStudents === null) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={200} /></CampusCard>;
@@ -117,10 +155,9 @@ export function CampusHodDashboard({ institutionId, department }) {
 // the same rich DepartmentDashboard those get, just fed the WHOLE roster
 // instead of one department/classroom's slice - hideSettingsTab, since that
 // tab edits one department's own description field, which has no
-// institution-wide equivalent. The Faculty tab's own "classroom appears in
-// the given student list" filter naturally becomes "every classroom in the
-// institution" when given every student, so it reads as a full staff
-// directory with no extra logic needed.
+// institution-wide equivalent. facultyAcrossInstitution because `department`
+// here is the INSTITUTION's name, so the Faculty tab's per-department narrowing
+// would match nothing - this is a full staff directory by intent.
 export function CampusPrincipalDashboard({ institutionId, institution }) {
   const [students, setStudents] = useState(null);
   const [roleAssignments, setRoleAssignments] = useState([]);
@@ -135,7 +172,7 @@ export function CampusPrincipalDashboard({ institutionId, institution }) {
   const faculty = roleAssignments.filter(r => r.roleKey === "facultyClassTeacher" && r.status === "active");
   return (
     <DepartmentDashboard institutionId={institutionId} department={institution?.name || "All Departments"}
-      students={students} hod={null} faculty={faculty} onBack={null} hideSettingsTab />
+      students={students} hod={null} faculty={faculty} onBack={null} hideSettingsTab facultyAcrossInstitution />
   );
 }
 
@@ -154,17 +191,28 @@ const DEPT_TABS = [
 // classroom's), Years reuses buildClassroomTree + the imported
 // ClassroomDashboard for its Section drill-down, so this is genuinely
 // additive on top of campus-classrooms.jsx, not a fork of it.
-export function DepartmentDashboard({ institutionId, department, students, hod, faculty, onBack, hideSettingsTab = false }) {
+export function DepartmentDashboard({ institutionId, department, students, hod, faculty, onBack, hideSettingsTab = false,
+  facultyAcrossInstitution = false }) {
   const [tab, setTab] = useState("overview");
   const [analytics, setAnalytics] = useState(null);
   const [viewingStudentUid, setViewingStudentUid] = useState(null);
   const [yearSection, setYearSection] = useState(null); // { year, section, students }
+  const [retry, setRetry] = useState(0);
   const tabs = hideSettingsTab ? DEPT_TABS.filter(t => t.key !== "settings") : DEPT_TABS;
 
+  // The cancelled guard matters here specifically because this join takes
+  // hundreds of reads for a department-sized cohort - long enough that a
+  // re-run (retry, or the caller swapping cohorts) can easily overlap the
+  // previous one, and without it whichever request happens to land LAST wins
+  // rather than whichever was asked for last.
   useEffect(() => {
+    let cancelled = false;
     setAnalytics(null);
-    fetchClassroomAnalytics(institutionId, students).then(setAnalytics).catch(() => setAnalytics(false));
-  }, [institutionId, students]);
+    fetchClassroomAnalytics(institutionId, students)
+      .then(a => { if (!cancelled) setAnalytics(a); })
+      .catch(() => { if (!cancelled) setAnalytics(false); });
+    return () => { cancelled = true; };
+  }, [institutionId, students, retry]);
 
   useCampusBackHandler(4, !!viewingStudentUid || !!yearSection, () => { setViewingStudentUid(null); setYearSection(null); });
 
@@ -200,14 +248,17 @@ export function DepartmentDashboard({ institutionId, department, students, hod, 
       </div>
 
       {analytics === false ? (
-        <CampusEmptyState icon={AlertTriangle} title="Couldn't load analytics" description="Something went wrong fetching this department's data. Try again." />
+        <CampusEmptyState icon={AlertTriangle} title="Couldn't load analytics"
+          description="Something went wrong fetching this department's data."
+          action={<CampusButton variant="secondary" icon={RefreshCw} onClick={() => setRetry(n => n + 1)}>Try again</CampusButton>} />
       ) : analytics === null ? (
         <CampusCard className="p-5"><CampusSkeleton variant="rect" height={220} /></CampusCard>
       ) : (
         <>
           {tab === "overview" && <DeptOverviewTab analytics={analytics} hod={hod} />}
           {tab === "students" && <DeptStudentsTab students={students} onOpenStudent={setViewingStudentUid} />}
-          {tab === "faculty" && <DeptFacultyTab hod={hod} faculty={faculty} students={students} />}
+          {tab === "faculty" && <DeptFacultyTab hod={hod} faculty={faculty} students={students} department={department}
+            acrossInstitution={facultyAcrossInstitution} />}
           {tab === "years" && <DeptYearsTab students={students} onOpenSection={(year, section, list) => setYearSection({ year, section, students: list })} />}
           {tab === "analytics" && <DeptAnalyticsTab institutionId={institutionId} analytics={analytics} />}
           {tab === "reports" && <DeptReportsTab department={department} students={students} analytics={analytics} />}
@@ -301,9 +352,13 @@ function DeptStudentsTab({ students, onOpenStudent }) {
   );
 }
 
-function DeptFacultyTab({ hod, faculty, students }) {
-  const classroomIds = useMemo(() => new Set(students.map(s => s.classroomId).filter(Boolean)), [students]);
-  const deptFaculty = faculty.filter(f => classroomIds.has(f.scope?.classroomId));
+// acrossInstitution: `department` is the institution, not a department (the
+// Principal's own Overview) - every active faculty account already belongs, so
+// there is nothing to narrow by.
+function DeptFacultyTab({ hod, faculty, students, department, acrossInstitution = false }) {
+  const deptFaculty = useMemo(
+    () => acrossInstitution ? faculty : faculty.filter(f => isDeptFaculty(f, department, students)),
+    [faculty, department, students, acrossInstitution]);
   return (
     <div className="space-y-3">
       <CampusCard className="p-4">

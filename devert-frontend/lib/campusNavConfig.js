@@ -19,8 +19,15 @@ import {
 //   See GROUP_ORDER/NAV_GROUP_LABELS below for display order/labels.
 // - moduleKey: the lib/institutions.js MODULES key that gates this tab
 //   per-classroom (isModuleEnabledForClassroom) - null if never gated.
-// - adminOnly: true only for "manage" - gated on isInstAdmin instead of
-//   (or in addition to) moduleKey.
+// - adminOnly: gated on isInstAdmin instead of (or in addition to)
+//   moduleKey. No item uses it any more - "manage" was its only user and
+//   now uses staffRoles instead (see that entry), since isTabAllowed checks
+//   adminOnly FIRST and returns early, which would have made an
+//   adminOnly + staffRoles combination silently ignore the staffRoles half.
+//   Kept as a supported field for a future genuinely admin-only destination.
+// - staffRoles: which Principal/HOD/Faculty roleKeys may reach this item,
+//   in addition to isInstAdmin (who always may). An item with staffRoles is
+//   hidden from ordinary students outright.
 // - urlSegment: the clean static URL segment this tab's base URL uses
 //   (e.g. "dsa" -> /campus/{slug}/dsa), or null if this tab has no
 //   dedicated segment and instead falls back to a plain ?tab= query param
@@ -76,7 +83,15 @@ export const NAV_ITEMS = [
   { key: "assessments", label: "Assessments", icon: ClipboardCheck, parentGroup: "learn", moduleKey: "dailyLearning", adminOnly: false, urlSegment: "assessments", ownUrl: true, order: 90, mobileVisibility: "drawerOnly", desktopVisibility: true },
   { key: "contests", label: "Contests", icon: Trophy, parentGroup: "compete", moduleKey: "contests", adminOnly: false, urlSegment: "contests", ownUrl: false, order: 100, mobileVisibility: "bottomNav", desktopVisibility: true },
   { key: "leaderboard", label: "Leaderboard", icon: BarChart3, parentGroup: "compete", moduleKey: null, adminOnly: false, urlSegment: "leaderboard", ownUrl: false, order: 110, mobileVisibility: "drawerOnly", desktopVisibility: false, sidebarGlobal: true },
-  { key: "manage", label: "Manage", icon: ShieldCheck, parentGroup: "admin", moduleKey: null, adminOnly: true, urlSegment: null, ownUrl: true, order: 120, mobileVisibility: "drawerOnly", desktopVisibility: false, sidebarGlobal: true },
+  // HOD reaches Manage too, not just an Institution Admin - but lands on a
+  // deliberately much narrower version of it: SCOPED_ROLE_MANAGE_TABS in
+  // campus-manage.jsx restricts a department-scoped role to the content tabs
+  // whose docs can actually carry a department scope, so none of Manage's
+  // institution-wide surfaces (Departments, Manage Admins, Branding,
+  // Leaderboards) are reachable from it. Principal is deliberately absent
+  // (see campus-staff-overview.jsx's own note) and Faculty has its own
+  // classroom dashboard instead.
+  { key: "manage", label: "Manage", icon: ShieldCheck, parentGroup: "admin", moduleKey: null, adminOnly: false, staffRoles: ["hod"], urlSegment: null, ownUrl: true, order: 120, mobileVisibility: "drawerOnly", desktopVisibility: false, sidebarGlobal: true },
 ];
 
 export const GROUP_ORDER = ["root", "learn", "compete", "admin"];

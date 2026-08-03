@@ -804,6 +804,31 @@ export async function fetchRoleAssignments(institutionId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// Department-scoped counterpart, for an HOD viewing their OWN dashboard.
+// fetchRoleAssignments' unscoped list is denied outright for an HOD -
+// firestore.rules only clears a roleAssignments doc whose own
+// scope.department matches theirs, and Firestore list queries fail
+// all-or-nothing, so one Principal or other-department HOD doc in the result
+// set kills the whole read. CampusHodDashboard swallowed that denial
+// (.catch -> []), which is why an HOD's own Overview showed "HOD:
+// Unassigned" for themselves and an empty Faculty tab.
+//
+// Returns that HOD's own doc plus every Faculty/Class Teacher in the same
+// department - the latter only because scope.department is now persisted on
+// facultyClassTeacher assignments too (AdminAccountService already derived it
+// server-side from the classroom to authorize the create, it just never
+// stored it; scripts/backfill-role-assignment-department.mjs backfills the
+// ones created before that). roleKey is still what distinguishes the two -
+// isHodOfDepartment() checks roleKey == 'hod' separately, so carrying a
+// department on a Faculty doc grants no HOD powers.
+export async function fetchRoleAssignmentsByDepartment(institutionId, department) {
+  const snap = await getDocs(query(
+    collection(db, "institutions", institutionId, "roleAssignments"),
+    where("scope.department", "==", department),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 // system/rolePermissionDefaults - the "new role = configuration, not
 // redesign" doc (see lib/permissions.js's own comment and
 // scripts/seed-role-permission-defaults.mjs). Falls back to

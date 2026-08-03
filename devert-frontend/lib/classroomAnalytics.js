@@ -11,6 +11,32 @@ import { fetchLogsForDateByUids } from "@/lib/dailyLearning";
 import { fetchSubmissionDatesForUser } from "@/lib/codelab";
 import { fetchTransactionDatesForUser } from "@/lib/economy";
 
+// A department is the same joins as a classroom with ~5-10x the cohort (a
+// real one here is 303 students, not the tens a single section has), and the
+// per-student reads below are unavoidable: user_earnings, coin_transactions
+// and codelab_submissions are GLOBAL collections whose read rules resolve
+// scope from each doc's own uid, so a cohort-wide "uid in [30]" query against
+// them would spend 2 uncached rules lookups per returned doc and blow
+// Firestore's ~10-call-per-query budget (see firestore.rules'
+// dailyLearningLog comment for the emulator-verified numbers). One small read
+// per student is the only shape that stays authorized.
+//
+// What must NOT happen is issuing all of them at once. Unbounded Promise.all
+// over 303 students fans out to ~900 simultaneous reads, which the Web SDK
+// accepts and then serializes badly behind its own connection pool - slow
+// enough to look hung, and liable to come back RESOURCE_EXHAUSTED. A fixed
+// in-flight window does the identical total work in predictable batches.
+const READ_CONCURRENCY = 24;
+
+async function mapWithConcurrency(items, fn, limit = READ_CONCURRENCY) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (let i = next++; i < items.length; i = next++) out[i] = await fn(items[i], i);
+  }));
+  return out;
+}
+
 // Fetches by the roster's OWN uids (documentId() "in" queries, 30/chunk),
 // not by re-filtering users on department/year/section - that used to be a
 // SEPARATE query that was supposed to return the same cohort as the roster
@@ -21,14 +47,17 @@ import { fetchTransactionDatesForUser } from "@/lib/economy";
 // whenever their users-doc fields didn't exactly match this classroom's
 // department/year/section at query time. Deriving directly from the
 // roster's own uid list makes that class of drift structurally impossible.
+// users/{uid} is publicly readable, so unlike the collections below this one
+// CAN be batched 30-at-a-time - and the chunks run concurrently rather than
+// one round trip after another, which is the difference between 1 and 11
+// serial hops for a 303-student department.
 export async function fetchClassroomUsers(uids) {
+  const chunks = [];
+  for (let i = 0; i < uids.length; i += 30) chunks.push(uids.slice(i, i + 30));
+  const snaps = await mapWithConcurrency(chunks, chunk =>
+    getDocs(query(collection(db, "users"), where(documentId(), "in", chunk))));
   const usersByUid = new Map();
-  for (let i = 0; i < uids.length; i += 30) {
-    const chunk = uids.slice(i, i + 30);
-    if (!chunk.length) continue;
-    const snap = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
-    snap.docs.forEach(d => usersByUid.set(d.id, { uid: d.id, ...d.data() }));
-  }
+  snaps.forEach(snap => snap.docs.forEach(d => usersByUid.set(d.id, { uid: d.id, ...d.data() })));
   return uids.map(uid => usersByUid.get(uid) || { uid });
 }
 
@@ -38,29 +67,30 @@ export async function fetchClassroomUsers(uids) {
 // only for backward-compat display; every coin-earning path (Daily
 // Learning, Programming, CS Core, CodeLab, Contests) now also credits
 // user_earnings.totalCoins, the one real spendable/withdrawable balance.
-// One getDoc per student - user_earnings' read rule now allows
-// isAdminOfStudent(uid) (same access shape as user_codelab_progress), and
-// classroom cohorts are small enough (tens of students) for N parallel
-// single-doc reads to stay cheap, same precedent as lib/activity.js and
-// lib/studentAnalytics.js.
+// One getDoc per student - user_earnings' read rule allows
+// isAdminOfStudent(uid)/isHodOfStudent(uid) (same access shape as
+// user_codelab_progress), and a single-doc get is the only shape that check
+// stays affordable in: it gets its own rules-call budget, where a batched
+// "documentId() in [30]" list would have to pay those same lookups 30 times
+// over inside one budget. Bounded rather than fully parallel because a
+// department cohort is hundreds of students, not the tens a classroom has.
 export async function fetchClassroomEarnings(uids) {
-  const rows = await Promise.all(uids.map(async (uid) => {
+  const rows = await mapWithConcurrency(uids, async (uid) => {
     const snap = await getDoc(doc(db, "user_earnings", uid)).catch(() => null);
     return { uid, totalCoins: snap?.exists() ? (snap.data().totalCoins || 0) : 0 };
-  }));
+  });
   return new Map(rows.map(r => [r.uid, r.totalCoins]));
 }
 
 // One query per (date, uid-chunk-of-30) against the institution's own
 // dailyLearningLog, scoped to exactly this cohort's own uids -
-// fetchLogsForDateByUids (not the plain date-only fetchLogsForDate) because
-// this function is called for HOD/Faculty department/classroom cohorts too
-// (CampusHodDashboard/CampusFacultyDashboard), and firestore.rules only
-// grants those callers read access to a STUDENT'S OWN scope - an unscoped,
-// institution-wide date query would be denied in full the instant it
-// returned even one other department's log. isInstitutionAdmin/Principal
-// callers still work identically, since they already have unscoped read
-// access regardless of how the query itself is shaped.
+// fetchLogsForDateByUids (not the plain date-only fetchLogsForDate) so an
+// HOD/Faculty caller (CampusHodDashboard/CampusFacultyDashboard) only ever
+// downloads its own department's/classroom's rows rather than the whole
+// institution's. See that function's comment for why this is now a
+// data-minimization choice rather than the authorization workaround it
+// started as. isInstitutionAdmin/Principal callers work identically either
+// way, since they already have unscoped read access.
 export async function fetchClassroomDailyLearningTrend(institutionId, uids, dates) {
   const uidSet = new Set(uids);
   const perDate = await Promise.all(dates.map(date => fetchLogsForDateByUids(institutionId, date, uids)));
@@ -95,14 +125,14 @@ export async function fetchClassroomDailyLearningTrend(institutionId, uids, date
 // That gap is deliberate and flagged, not silently glossed over.
 async function fetchClassroomActionDates(uids, sinceDateStr) {
   const sinceDate = new Date(istMidnightUtcMillis(sinceDateStr));
-  const rows = await Promise.all(uids.map(async (uid) => {
+  const rows = await mapWithConcurrency(uids, async (uid) => {
     const [codelabDates, coinTxDates] = await Promise.all([
       fetchSubmissionDatesForUser(uid, sinceDate).catch(() => []),
       fetchTransactionDatesForUser(uid, sinceDate).catch(() => []),
     ]);
     const dateSet = new Set([...codelabDates, ...coinTxDates].map(dateToISTString));
     return { uid, dateSet };
-  }));
+  });
   return new Map(rows.map(r => [r.uid, r.dateSet]));
 }
 
