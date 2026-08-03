@@ -137,18 +137,28 @@ public class AdminAccountController {
     // Self-action - the newly-authenticated account reports its own
     // successful sign-in. Always 200: never reveals anything about whether
     // an account/role exists to a caller that isn't already that account.
+    //
+    // The `recorded` flag describes ONLY the verified caller's own uid, which
+    // that caller can already read directly (CampusStaffLogin fetches its own
+    // roleAssignment before calling this), so it leaks nothing the client
+    // didn't have - but it does let the client warn instead of treating a
+    // silently unwritten stamp as a successful one. Stays false for an
+    // unverified caller, which learns only that it wasn't verified.
     @PostMapping("/auth/login-success")
     public ResponseEntity<?> loginSuccess(@RequestBody Map<String, String> body,
                                            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String uid = verify(authHeader);
+        boolean recorded = false;
         if (uid != null) {
             try {
-                adminAccountService.recordLoginSuccess(uid, body.get("institutionId"));
+                recorded = adminAccountService.recordLoginSuccess(uid, body.get("institutionId"));
             } catch (Exception e) {
                 log.warn("recordLoginSuccess failed for uid={}", uid, e);
             }
         }
-        return ResponseEntity.ok(ok());
+        Map<String, Object> body2 = ok();
+        body2.put("recorded", recorded);
+        return ResponseEntity.ok(body2);
     }
 
     // Deliberately unauthenticated (see LoginFailureRequest) - always 200,

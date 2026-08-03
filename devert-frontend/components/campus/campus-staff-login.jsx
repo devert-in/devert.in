@@ -82,7 +82,19 @@ export function CampusStaffLogin({ slug, roleKey }) {
         return;
       }
 
-      await recordStaffLoginSuccess({ institutionId: slug }).catch(() => {});
+      // Best-effort - a dropped stamp must never block an otherwise valid
+      // sign-in. But it must not vanish either: Manage > Security renders a
+      // missing lastLoginAt as "Never", which is indistinguishable from a
+      // backend that was cold/unreachable/misconfigured at this moment, so
+      // leave a console trail rather than swallowing it silently.
+      // `recorded: false` here specifically means a real drop, not the
+      // endpoint's legitimate no-op for accounts without a roleAssignment -
+      // the guard above already proved this account has an active one.
+      const stamped = await recordStaffLoginSuccess({ institutionId: slug })
+        .catch(err => { console.warn("Sign-in succeeded but its Manage > Security stamp failed:", err?.message || err); return null; });
+      if (stamped && stamped.recorded === false) {
+        console.warn("Sign-in succeeded but the backend did not write lastLoginAt (token unverified or Firestore unavailable server-side).");
+      }
       router.push(`/campus/${slug}`);
     } catch {
       await recordStaffLoginFailure({ institutionId: slug, email: email.trim() }).catch(() => {});
