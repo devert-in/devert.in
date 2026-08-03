@@ -31,7 +31,7 @@ const q = (id, text, options, correctIndex) => ({ id, text, options, correctInde
 const DAYS = [
   {
     dow: "mon", date: "2026-08-03", type: "lesson",
-    title: "Day 15: Stack Fundamentals & Balanced Brackets",
+    title: "Day 13: Stack Fundamentals & Balanced Brackets",
     concept: `A stack is Last-In-First-Out: the most recently pushed item is the first one you can take back. Only the top is reachable - push, pop and peek are all O(1), and there is no indexing into the middle.
 
 That single restriction is exactly what makes bracket matching work. Scan the string left to right:
@@ -57,7 +57,7 @@ Finishing with a non-empty stack means some bracket was opened and never closed,
   },
   {
     dow: "tue", date: "2026-08-04", type: "lesson",
-    title: "Day 16: Monotonic Stack - Next Greater Element",
+    title: "Day 14: Monotonic Stack - Next Greater Element",
     concept: `"For each element, find the next element to its right that is larger" looks like it needs a nested loop - O(n^2). A monotonic stack does it in O(n).
 
 Keep a stack of elements still WAITING for their next greater element, held in decreasing order from bottom to top:
@@ -82,7 +82,7 @@ Stock Span is the same skeleton pointing the other way: for each day, how many c
   },
   {
     dow: "wed", date: "2026-08-05", type: "lesson",
-    title: "Day 17: Queues & Circular Queues",
+    title: "Day 15: Queues & Circular Queues",
     concept: `A queue is First-In-First-Out - the opposite discipline to a stack. Insert at the rear (enqueue), remove from the front (dequeue), both O(1).
 
 The naive array implementation has a real flaw. Move the front index forward on every dequeue and the slots before it become permanently unusable: after N enqueues and N dequeues the queue is empty, yet front and rear both sit at the end of the array with no room left. The space is not reclaimed.
@@ -106,7 +106,7 @@ A queue can also be built from two stacks. That works for a reason worth stating
   },
   {
     dow: "thu", date: "2026-08-06", type: "lesson",
-    title: "Day 18: Deques & Sliding Window Maximum",
+    title: "Day 16: Deques & Sliding Window Maximum",
     concept: `A deque (double-ended queue) allows insertion and removal at BOTH ends in O(1). That extra freedom turns a quadratic sliding-window problem into a linear one.
 
 "Maximum of every window of size k" is O(n*k) if each window is rescanned. With a monotonic deque holding INDICES it is O(n):
@@ -131,7 +131,7 @@ Every index enters and leaves the deque at most once, so the total cost is O(n),
   },
   {
     dow: "fri", date: "2026-08-07", type: "lesson",
-    title: "Day 19: Expression Evaluation with Stacks",
+    title: "Day 17: Expression Evaluation with Stacks",
     concept: `Postfix (Reverse Polish) notation puts each operator after its operands: "5 1 2 + 4 * + 3 -". There are no brackets and no precedence rules to apply, which is precisely why machines prefer it.
 
 Evaluation is a single stack pass:

@@ -999,7 +999,20 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
   const reveal = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } };
 
   return (
-    <motion.div className="max-w-2xl" initial="hidden" animate="visible"
+    // A day is NOT a pure reading page, which is why it no longer keeps the
+    // flat max-w-2xl the legal/changelog pages use. Below the concept prose sit
+    // a pseudocode block, a five-option MCQ list and the day's problem cards -
+    // all of which were squeezed into 672px while ~1100px of the viewport sat
+    // empty beside them.
+    //
+    // Capped at 4xl rather than left uncapped: CLAUDE.md's "don't widen reading
+    // pages" is a LINE-LENGTH rule, and prose here is already ~90 characters at
+    // 2xl, so this trades a little more length for markedly better use of the
+    // screen. Tightening the prose measure itself would mean capping
+    // LessonBlocks' paragraph renderer, which is shared with CS Core,
+    // Programming, Aptitude and Company Prep - a change to four other modules,
+    // and deliberately not made here.
+    <motion.div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl" initial="hidden" animate="visible"
       variants={{ visible: { transition: { staggerChildren: 0.05 } } }}>
       {/* ---------------- Header ---------------- */}
       <motion.div variants={reveal} initial="hidden" animate="visible" className="flex items-center gap-2 mb-1">
