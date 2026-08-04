@@ -140,19 +140,25 @@ export function CampusSkeleton({ variant = "text", width, height, className = ""
 export function CampusEmptyState({ icon: Icon, title, description, action, secondaryAction, size = "md", color = CAMPUS.teal, className = "" }) {
   const compact = size === "sm";
   return (
-    <CampusCard className={`${compact ? "p-5" : "p-6"} ${className}`}>
-      <div className="flex items-start gap-3.5">
+    // flex column throughout, so an empty state sitting in a stretched grid
+    // cell (h-full) fills the height and bottom-aligns its action instead of
+    // leaving the button wherever the description happened to end. `mt-auto
+    // pt-3.5` on the action row is what does it: with slack above, mt-auto
+    // pushes the row to the bottom; with no slack, mt-auto collapses to 0 and
+    // pt-3.5 preserves exactly the spacing this had before.
+    <CampusCard className={`${compact ? "p-5" : "p-6"} flex flex-col ${className}`}>
+      <div className="flex items-start gap-3.5 flex-1">
         {Icon && (
           <div className={`${compact ? "w-8 h-8" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0`}
             style={{ background: tint(color, 14), color }}>
             <Icon size={compact ? 15 : 18} />
           </div>
         )}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1 flex flex-col">
           <h3 className={`${compact ? "text-[13px]" : "text-[14.5px]"} font-semibold mb-1`} style={{ color: CAMPUS.ink }}>{title}</h3>
           {description && <p className={`${compact ? "text-[12px]" : "text-[13px]"} leading-relaxed`} style={{ color: CAMPUS.inkSoft }}>{description}</p>}
           {(action || secondaryAction) && (
-            <div className="flex items-center gap-2.5 mt-3.5 flex-wrap">{action}{secondaryAction}</div>
+            <div className="flex items-center gap-2.5 mt-auto pt-3.5 flex-wrap">{action}{secondaryAction}</div>
           )}
         </div>
       </div>

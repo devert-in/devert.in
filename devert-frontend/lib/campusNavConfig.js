@@ -81,7 +81,11 @@ export const NAV_ITEMS = [
   { key: "dsa", label: "DSA", icon: Code2, parentGroup: "learn", moduleKey: "dsa", adminOnly: false, urlSegment: "dsa", ownUrl: false, order: 70, mobileVisibility: "bottomNav", desktopVisibility: true },
   { key: "companyVault", label: "Company Vault", icon: Briefcase, parentGroup: "learn", moduleKey: "companyPrep", adminOnly: false, urlSegment: "company-vault", ownUrl: false, order: 80, mobileVisibility: "drawerOnly", desktopVisibility: true },
   { key: "assessments", label: "Assessments", icon: ClipboardCheck, parentGroup: "learn", moduleKey: "dailyLearning", adminOnly: false, urlSegment: "assessments", ownUrl: true, order: 90, mobileVisibility: "drawerOnly", desktopVisibility: true },
-  { key: "contests", label: "Contests", icon: Trophy, parentGroup: "compete", moduleKey: "contests", adminOnly: false, urlSegment: "contests", ownUrl: false, order: 100, mobileVisibility: "bottomNav", desktopVisibility: true },
+  // Contests lives in the desktop SIDEBAR, not the top navbar: desktopVisibility
+  // false takes it out of CampusTopNavbar, sidebarGlobal pins it into the rail
+  // alongside Dashboard/Daily Learning/Leaderboard. Mobile is untouched - it
+  // stays in the bottom nav, where it was already reachable.
+  { key: "contests", label: "Contests", icon: Trophy, parentGroup: "compete", moduleKey: "contests", adminOnly: false, urlSegment: "contests", ownUrl: false, order: 100, mobileVisibility: "bottomNav", desktopVisibility: false, sidebarGlobal: true },
   { key: "leaderboard", label: "Leaderboard", icon: BarChart3, parentGroup: "compete", moduleKey: null, adminOnly: false, urlSegment: "leaderboard", ownUrl: false, order: 110, mobileVisibility: "drawerOnly", desktopVisibility: false, sidebarGlobal: true },
   // HOD reaches Manage too, not just an Institution Admin - but lands on a
   // deliberately much narrower version of it: SCOPED_ROLE_MANAGE_TABS in

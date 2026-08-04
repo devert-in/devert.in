@@ -2648,7 +2648,15 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
           soon" placeholder cards before; each is now backed by data that
           already existed (the reward ledger, scheduled contests, and
           lib/aptitude.js's own weak-topic detector respectively). */}
-      <motion.div variants={slideUp} className="grid lg:grid-cols-3 gap-5 items-start">
+      {/* No items-start here, unlike the two-column grids above and below:
+          these three are peers in a single row and each carries its own
+          call-to-action, so ragged heights left the buttons on three different
+          baselines. Default stretch, plus [&>*]:h-full so each card fills the
+          cell it was stretched into - done here rather than by threading an
+          h-full prop through all three components' loading/empty/loaded
+          branches. CampusEmptyState bottom-aligns its own action row, so the
+          buttons line up once the heights match. */}
+      <motion.div variants={slideUp} className="grid lg:grid-cols-3 gap-5 [&>*]:h-full">
         <RecentActivityCard items={insights?.recent || []} loading={insightsLoading}
           onViewAll={onBrowseLeaderboard} />
         <UpcomingCard contests={contests} loading={contestsLoading}
@@ -2661,8 +2669,17 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
         <ContestCtaBanner contestCount={contests.length} onExplore={onBrowseContests} />
       </motion.div>
 
+      {/* initial/animate declared HERE rather than inherited from the
+          staggerContainer parent. noticeItem starts undefined and is filled by
+          an async fetch, so this block MOUNTS AFTER the parent has already
+          finished animating to "visible" - and a variant child that appears
+          late never picks that state up. It stayed at slideUp's `hidden`
+          (opacity 0) forever while still occupying full layout height, which
+          read as ~450px of blank space between the contests banner and the
+          announcements grid. Any other conditionally-rendered child of a
+          stagger container needs the same treatment. */}
       {noticeItem && (
-        <motion.div variants={slideUp}>
+        <motion.div variants={slideUp} initial="hidden" animate="visible">
           <SectionHeading icon={Megaphone} title={`Noticeboard - ${DOW_LABELS[noticeItem.dow]}'s Leaderboard`} />
           <CampusDayLeaderboard slug={slug} date={noticeItem.date} dayLabel={DOW_LABELS[noticeItem.dow]} myUid={userData?.uid} compact />
           <button onClick={onBrowseLeaderboard} className="mt-2 text-[11px] font-medium" style={{ color: CAMPUS.teal }}>
