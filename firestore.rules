@@ -526,8 +526,18 @@ service cloud.firestore {
           && selfWriteDeltaSane('contestsParticipated') && selfWriteDeltaSane('arenaWins')
           && selfWriteDeltaSane('streak') && selfWriteDeltaSane('ships')
           && !('problemsSolvedCount' in request.resource.data.diff(resource.data).affectedKeys())
+          // fullAccess joins this denylist for the same reason the campus
+          // identity fields are on it: the OWNER must not be able to write it.
+          // It switches off sequential unlocking across Learn and DSA Concepts
+          // (lib/learning.js's getTaskStatus, lib/dsaConcepts.js's
+          // isConceptUnlocked), so a self-write would let any student hand
+          // themselves the whole catalogue out of order. Those two gates are
+          // pedagogy rather than confidentiality - nothing secret leaks either
+          // way - but "who may grant it" is still an authority question, and the
+          // answer is an admin running scripts/set-full-access.mjs, never the
+          // account itself.
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId']
+            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId', 'fullAccess']
           )) || isAdmin()
         || (isAuth() && (
           boundedUserCounterWrite('followersCount') || boundedUserCounterWrite('pulsePostsCount')
@@ -1593,6 +1603,35 @@ service cloud.firestore {
       // completeTopic() re-earns that topic's reward indefinitely.
       allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
         && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
+    }
+
+    // DSA Sheets - curated, ordered curricula (DeVert DSA Sheet, Blind 75,
+    // company sheets...) layered over the existing `problems` collection. Same
+    // GLOBAL admin-authored authority shape as programmingLanguages/
+    // dsaConceptTracks above.
+    //
+    // A sheet section stores only `problemIds` REFERENCING problems/{id}, so
+    // this block grants no access to problem content itself - a learner reads
+    // those through the `problems` rules exactly as they always have, including
+    // the hiddenTests carve-out. Nothing here can widen what a problem exposes.
+    //
+    // Note there is deliberately NO dsa_sheet_progress collection: sheet
+    // progress is derived from the learner's existing
+    // user_codelab_progress.solvedProblems, so solving a problem counts in
+    // every sheet at once and there is no second source of truth to drift or
+    // to secure. See lib/dsaSheets.js's header.
+    //
+    // IMPORTANT: every non-admin list() here MUST carry a matching
+    // where("status","==","published") AND audiences filter - see
+    // lib/programming.js's fetchLanguages comment.
+    match /dsaSheets/{sheetId} {
+      allow read:  if contentReadable() || isAdmin();
+      allow write: if isAdmin();
+
+      match /sections/{sectionId} {
+        allow read:  if contentReadable() || isAdmin();
+        allow write: if isAdmin();
+      }
     }
 
     // DSA Concepts - the bridge module between Programming and DSA Practice.

@@ -18,8 +18,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   UserPlus, Trophy, GraduationCap, BookOpen, Palette, ClipboardCheck,
-  Activity, Award, Power, ChevronRight, Clock, Check, Building2,
+  Activity, Award, Power, ChevronRight, Clock, Check, Building2, ShieldCheck,
 } from "lucide-react";
+import { StaffDashboardHero } from "@/components/campus/campus-dashboard-widgets";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusStat, CampusSkeleton,
@@ -156,14 +157,25 @@ export function CampusAdminOverview({ slug, institution, onOpenContest }) {
   }, [classrooms, classroomStudentCounts]);
 
   return (
-    <div className="campus-sharp space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h2 className="text-xl font-semibold" style={{ color: CAMPUS.ink }}>{institution?.name || "Command Center"}</h2>
-          <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>Institution admin overview</p>
-        </div>
-        <CampusChip color={CAMPUS.teal}>ADMIN</CampusChip>
-      </div>
+    // campus-sharp removed here too - it was squaring off this whole screen on
+    // top of the workspace-root copy (see campus-app.jsx's comment).
+    <div className="space-y-5">
+      <StaffDashboardHero
+        icon={ShieldCheck}
+        title={institution?.name || "Command Center"}
+        subtitle="Institution admin overview"
+        meta={
+          <>
+            <CampusChip color={CAMPUS.teal}>ADMIN</CampusChip>
+            {pending?.length > 0 && (
+              <CampusChip color={CAMPUS.warn} icon={UserPlus}>{pending.length} PENDING</CampusChip>
+            )}
+            {contestBuckets.live.length > 0 && (
+              <CampusChip color={CAMPUS.good} icon={Trophy}>{contestBuckets.live.length} LIVE</CampusChip>
+            )}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <CampusStat label="Total Students" value={institution?.studentCount ?? "-"} color={CAMPUS.teal} icon={GraduationCap} />

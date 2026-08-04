@@ -140,3 +140,97 @@ export async function completeTopic({ uid, subjectId, topicId, xpReward = 0, coi
 }
 
 export const CS_CORE_DIFFICULTIES = ["Beginner", "Intermediate", "Advanced"];
+
+// ---------------- in-module search ----------------
+//
+// The sidebar's global search (lib/campusSearch.js) already indexes CS Core, but
+// it indexes it the way it indexes everything: subject and topic NAMES only, in a
+// dropdown shared with eight other modules. Inside CS Core that isn't enough - a
+// student searching "deadlock" or "normalization" is naming a concept, not a
+// lesson title, and 26 subjects x ~10 topics is exactly the size where browsing
+// stops working and searching has to start.
+//
+// So this is a second, deliberately deeper index scoped to this module: it also
+// carries each topic's own vocabulary (what you'll learn, key points, common
+// mistakes, interview tips) as searchable keywords. That is affordable here and
+// would not be globally - the global index covers five modules and cannot fetch
+// every lesson body in all of them.
+//
+// Same shape as lib/campusSearch.js's items, so searchCampus()/groupResults()
+// rank and group it with no CS-Core-specific ranking logic to drift.
+let _searchCache = null;
+let _searchCacheKey = null;
+let _searchInflight = null;
+
+// A topic's searchable vocabulary, flattened and lowercased once at index time
+// so every keystroke is a plain substring test. The lesson BODY is deliberately
+// excluded: `concept` runs 2-4KB per topic, so including it would put ~700KB
+// through a regex on every keystroke to surface matches whose only evidence is a
+// word buried mid-paragraph. The authored list fields are the topic's own
+// summary of itself, which is the better signal anyway.
+function topicKeywords(topic) {
+  return [
+    topic.module,
+    ...(topic.whatYoullLearn || []),
+    ...(topic.keyPoints || []),
+    ...(topic.commonMistakes || []),
+    ...(topic.interviewTips || []),
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+export async function buildCsCoreSearchIndex() {
+  // Keyed by the reader's audiences, so signing in or out rebuilds rather than
+  // serving an index built under the previous permissions.
+  const key = currentAudiences().join(",");
+  if (_searchCache && _searchCacheKey === key) return _searchCache;
+  if (_searchInflight && _searchCacheKey === key) return _searchInflight;
+
+  _searchCacheKey = key;
+  _searchInflight = (async () => {
+    const subjects = await fetchSubjects();
+    // Per-subject fetches are individually caught: one subject failing must cost
+    // its own topics, never the whole search box.
+    const topicLists = await Promise.all(
+      subjects.map(s => fetchTopics(s.id).catch(() => []))
+    );
+
+    const out = [];
+    subjects.forEach((subject, i) => {
+      const topics = topicLists[i];
+      out.push({
+        id: `subject:${subject.id}`,
+        title: subject.name,
+        subtitle: subject.difficulty || "",
+        kind: "Subject",
+        path: ["CS Core", subject.name],
+        keywords: [subject.placementRelevance, subject.industryUsage].filter(Boolean).join(" ").toLowerCase(),
+        subjectId: subject.id,
+        topicId: null,
+      });
+      for (const t of topics) {
+        out.push({
+          id: `topic:${subject.id}:${t.id}`,
+          title: t.title,
+          subtitle: subject.name,
+          kind: "Topic",
+          path: ["CS Core", subject.name, ...(t.module ? [t.module] : []), t.title],
+          keywords: topicKeywords(t),
+          subjectId: subject.id,
+          topicId: t.id,
+        });
+      }
+    });
+
+    _searchCache = out;
+    _searchInflight = null;
+    return out;
+  })();
+
+  return _searchInflight;
+}
+
+export function clearCsCoreSearchIndex() {
+  _searchCache = null;
+  _searchCacheKey = null;
+  _searchInflight = null;
+}

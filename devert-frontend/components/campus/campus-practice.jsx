@@ -1119,6 +1119,17 @@ function CodeLabFailDialog({ verdict, onViewFailed, onRetry }) {
 export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabel = "Problems", suppressReward = false }) {
   const { user } = useAuth();
 
+  // Opening a problem is a navigation, so it starts at the top of the problem.
+  // Nothing reset the scroll before this: every caller (the DSA sheet, a
+  // concept's related-problems list, the problem list, Daily Learning, a CS
+  // Core lesson) swaps this view in where the previous screen was, so tapping a
+  // row 3000px down a long sheet dropped the learner into the middle of the
+  // problem statement. Keyed on problemId, not mount, because "Next problem"
+  // changes the prop without remounting.
+  useEffect(() => {
+    if (typeof window !== "undefined") window.scrollTo(0, 0);
+  }, [problemId]);
+
   const [problem, setProblem] = useState(null);
   const [sampleTests, setSampleTests] = useState([]);
   const [solved, setSolved] = useState(false);

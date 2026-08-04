@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -12,17 +12,21 @@ import {
   Cloud, Terminal, GitBranch, Plug, ShieldCheck, Calculator, Binary,
   ToggleLeft, Share2, Brain, LineChart, MessageSquare, Palette, PieChart,
   Layers, MemoryStick, ShieldAlert,
+  Search, X as XIcon, CornerDownLeft, Loader2, Star, Building2, HelpCircle,
+  Compass, Route, Globe,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
-  CampusSkeleton, CampusProgressBar,
+  CampusSkeleton, CampusProgressBar, CampusTabBar,
 } from "@/components/campus/campus-ui";
 import {
   fetchSubjects, fetchSubject, fetchTopics, fetchTopic,
   fetchSubjectProgress, fetchAllUserProgress, markTopicOpened, completeTopic,
+  buildCsCoreSearchIndex,
 } from "@/lib/csCore";
+import { searchCampus, groupResults } from "@/lib/campusSearch";
 import { shuffleQuizForAttempt, buildQuizSeedKey, loadQuizDraft, saveQuizDraft } from "@/lib/quizRandom";
 import {
   LessonBody, InfoListCard, CodeExampleBlock, LessonProgressBar, useReadingProgress,
@@ -139,7 +143,9 @@ export function CampusCsCoreTab({ sidebarSlot }) {
   return (
     <>
       {sidebar}
-      <CsCoreLanding onOpenSubject={(subjectId) => setScreen({ view: "roadmap", subjectId })} />
+      <CsCoreLanding
+        onOpenSubject={(subjectId) => setScreen({ view: "roadmap", subjectId })}
+        onOpenTopic={(subjectId, topicId) => setScreen({ view: "topic", subjectId, topicId })} />
     </>
   );
 }
@@ -217,9 +223,174 @@ function CsCoreTopicSidebar({ subjectId, activeTopicId, onSelectTopic, onBackToL
   );
 }
 
+// ---------------- In-module search ----------------
+
+// CS Core's own search field, on the landing screen.
+//
+// The sidebar's global search can already reach a CS Core lesson, but it is a
+// module SWITCHER first - it competes 26 subjects against every language, GATE
+// paper and DSA problem, and it matches on names only. This one is scoped to
+// this module and searches each lesson's own vocabulary too (see
+// buildCsCoreSearchIndex), which is what a student naming a concept - "deadlock",
+// "normalization", "TCP" - actually needs.
+//
+// Ranking and grouping are searchCampus()/groupResults() from lib/campusSearch,
+// deliberately not a second implementation: two search boxes on one platform that
+// disagree about which result ranks first is a bug that only ever shows up in
+// front of a student.
+function CsCoreSearch({ onOpenSubject, onOpenTopic }) {
+  const [query, setQuery] = useState("");
+  const [index, setIndex] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const inputRef = useRef(null);
+  const wrapRef = useRef(null);
+
+  // Built on first interaction, not on mount - a student who scrolls straight to
+  // the subject grid never pays for 27 Firestore reads they didn't ask for.
+  const ensureIndex = useCallback(async () => {
+    if (index || loading) return;
+    setLoading(true);
+    try {
+      setIndex(await buildCsCoreSearchIndex());
+    } catch {
+      setIndex([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [index, loading]);
+
+  const results = useMemo(() => searchCampus(index, query, { limit: 30 }), [index, query]);
+  const groups = useMemo(() => groupResults(results), [results]);
+  const flat = useMemo(() => groups.flatMap(g => g.items), [groups]);
+
+  useEffect(() => { setActive(0); }, [query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [open]);
+
+  const choose = (item) => {
+    if (!item) return;
+    setOpen(false);
+    setQuery("");
+    if (item.topicId) onOpenTopic(item.subjectId, item.topicId);
+    else onOpenSubject(item.subjectId);
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") { setOpen(false); inputRef.current?.blur(); return; }
+    if (!flat.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive(i => (i + 1) % flat.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive(i => (i - 1 + flat.length) % flat.length); }
+    else if (e.key === "Enter") { e.preventDefault(); choose(flat[active]); }
+  };
+
+  const showDropdown = open && query.trim().length >= 2;
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl"
+        style={{
+          background: CAMPUS.surface,
+          border: `1px solid ${open ? CAMPUS.teal : CAMPUS.line}`,
+          boxShadow: open ? CAMPUS.shadow : "none",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+        }}>
+        {loading
+          ? <Loader2 size={15} className="animate-spin flex-shrink-0" style={{ color: CAMPUS.teal }} />
+          : <Search size={15} className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }} />}
+        <input
+          ref={inputRef}
+          value={query}
+          onFocus={() => { setOpen(true); ensureIndex(); }}
+          onChange={e => { setQuery(e.target.value); setOpen(true); ensureIndex(); }}
+          onKeyDown={onKeyDown}
+          placeholder="Search CS Core - a subject, a lesson, or a concept like deadlock or normalization..."
+          aria-label="Search CS Core"
+          className="flex-1 min-w-0 bg-transparent outline-none text-[13px]"
+          style={{ color: CAMPUS.ink }}
+        />
+        {query && (
+          <button onClick={() => { setQuery(""); inputRef.current?.focus(); }} aria-label="Clear search"
+            className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>
+            <XIcon size={14} />
+          </button>
+        )}
+      </div>
+
+      {showDropdown && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-40 rounded-xl overflow-hidden"
+          style={{
+            background: CAMPUS.surface,
+            border: `1px solid ${CAMPUS.line}`,
+            boxShadow: CAMPUS.shadowLg,
+            maxHeight: "min(65vh, 460px)",
+            overflowY: "auto",
+          }}>
+          {loading && flat.length === 0 && (
+            <p className="px-4 py-3 text-[12.5px]" style={{ color: CAMPUS.inkFaint }}>Searching every lesson...</p>
+          )}
+
+          {!loading && flat.length === 0 && (
+            <div className="px-4 py-3.5">
+              <p className="text-[12.5px]" style={{ color: CAMPUS.inkSoft }}>Nothing in CS Core matches &quot;{query.trim()}&quot;.</p>
+              <p className="text-[11.5px] mt-1" style={{ color: CAMPUS.inkFaint }}>Try a subject (DBMS), a lesson (Deadlock), or a concept (ACID, OSI, indexing).</p>
+            </div>
+          )}
+
+          {groups.map(group => (
+            <div key={group.kind}>
+              <p className="px-4 pt-3 pb-1 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>
+                {group.kind === "Subject" ? "SUBJECTS" : "LESSONS"}
+              </p>
+              {group.items.map(item => {
+                const i = flat.indexOf(item);
+                const isActive = i === active;
+                return (
+                  <button key={item.id} onClick={() => choose(item)} onMouseEnter={() => setActive(i)}
+                    className="w-full text-left px-4 py-2.5 flex items-start gap-2"
+                    style={{ background: isActive ? CAMPUS.tealTint : "transparent" }}>
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-medium truncate" style={{ color: isActive ? CAMPUS.teal : CAMPUS.ink }}>
+                        {item.title}
+                      </span>
+                      {/* The route, not just the name - a student searching a concept
+                          needs to learn which subject owns it, not only jump once. */}
+                      <span className="flex items-center gap-1 flex-wrap mt-0.5">
+                        {item.path.slice(1).map((seg, si) => (
+                          <span key={si} className="flex items-center gap-1">
+                            {si > 0 && <ChevronRight size={9} style={{ color: CAMPUS.inkFaint, flexShrink: 0 }} />}
+                            <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>{seg}</span>
+                          </span>
+                        ))}
+                      </span>
+                    </div>
+                    {isActive && <CornerDownLeft size={12} className="flex-shrink-0 mt-1" style={{ color: CAMPUS.teal }} />}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+
+          {flat.length > 0 && (
+            <p className="px-4 py-2 text-[10px] font-mono" style={{ borderTop: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkFaint }}>
+              up/down to move · enter to open · esc to close
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------- Landing ----------------
 
-function CsCoreLanding({ onOpenSubject }) {
+function CsCoreLanding({ onOpenSubject, onOpenTopic }) {
   const { user } = useAuth();
   const [subjects, setSubjects] = useState(null);
   const [allProgress, setAllProgress] = useState([]);
@@ -238,6 +409,15 @@ function CsCoreLanding({ onOpenSubject }) {
     allProgress.forEach(p => { map[p.subjectId] = p; });
     return map;
   }, [allProgress]);
+
+  // Progress docs only carry the subject SLUG, so every place one is shown by
+  // itself ("Continue learning", "Recently viewed") read "operating-systems"
+  // rather than "Operating Systems" until this lookup existed.
+  const subjectNameById = useMemo(() => {
+    const map = {};
+    (subjects || []).forEach(s => { map[s.id] = s.name; });
+    return map;
+  }, [subjects]);
 
   const continueEntry = useMemo(() => {
     const withOpen = allProgress.filter(p => p.lastOpenedTopicId && p.lastOpenedAt);
@@ -268,6 +448,8 @@ function CsCoreLanding({ onOpenSubject }) {
         </p>
       </div>
 
+      <CsCoreSearch onOpenSubject={onOpenSubject} onOpenTopic={onOpenTopic} />
+
       {continueEntry && (
         <CampusCard hover className="p-4 flex items-center gap-4 cursor-pointer"
           onClick={() => onOpenSubject(continueEntry.subjectId)}>
@@ -276,7 +458,7 @@ function CsCoreLanding({ onOpenSubject }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-mono tracking-widest mb-0.5" style={{ color: CAMPUS.inkFaint }}>CONTINUE LEARNING</p>
-            <b className="text-[14px]" style={{ color: CAMPUS.ink }}>Pick up where you left off in {continueEntry.subjectId}</b>
+            <b className="text-[14px]" style={{ color: CAMPUS.ink }}>Pick up where you left off in {subjectNameById[continueEntry.subjectId] || continueEntry.subjectId}</b>
           </div>
           <ArrowRight size={16} style={{ color: CAMPUS.inkFaint }} />
         </CampusCard>
@@ -290,7 +472,7 @@ function CsCoreLanding({ onOpenSubject }) {
               <button key={p.id} onClick={() => onOpenSubject(p.subjectId)}
                 className="text-[12.5px] font-semibold px-3.5 py-2 rounded-lg"
                 style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-                {p.subjectId}
+                {subjectNameById[p.subjectId] || p.subjectId}
               </button>
             ))}
           </div>
@@ -383,7 +565,14 @@ function SubjectCard({ subject, progress, onClick }) {
   );
 }
 
-// ---------------- Roadmap ----------------
+// ---------------- Subject screen (Overview + Roadmap) ----------------
+
+// True when an admin has authored the subject-level introduction. Everything
+// below degrades to the roadmap alone when this is false, so a subject that
+// hasn't been written yet is never a broken screen - only a plainer one.
+function subjectHasIntro(subject) {
+  return !!(subject?.overview?.trim() || subject?.whyLearn?.length || subject?.whereUsed?.length);
+}
 
 function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
   const { user } = useAuth();
@@ -391,9 +580,18 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
   const [topics, setTopics] = useState(null);
   const [progress, setProgress] = useState(null);
   const [openModules, setOpenModules] = useState(new Set());
+  // null until the subject loads, then resolved ONCE below. Deliberately not
+  // derived per-render from `progress`: that arrives on a second round trip, so
+  // a derived default would render Overview and then yank the student to
+  // Roadmap a moment later. The hero's Continue button is what keeps defaulting
+  // to Overview cheap for a returning student - it's one click either way.
+  const [tab, setTab] = useState(null);
 
   useEffect(() => {
-    fetchSubject(subjectId).then(setSubject).catch(() => setSubject(null));
+    fetchSubject(subjectId).then(s => {
+      setSubject(s);
+      setTab(subjectHasIntro(s) ? "overview" : "roadmap");
+    }).catch(() => setSubject(null));
     fetchTopics(subjectId).then(list => {
       setTopics(list);
       setOpenModules(new Set([list[0]?.module].filter(Boolean)));
@@ -437,30 +635,68 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
   const total = topics.length;
   // Not a "component created during render" - see subjectIcon()'s own comment above.
   const SubjIcon = subjectIcon(subject.name);
+  const hasIntro = subjectHasIntro(subject);
+
+  // The first unfinished topic, so "Continue" lands on work rather than on
+  // something already ticked off. Falls back to whatever was last opened (a
+  // student mid-way through a lesson they haven't completed), then to the start.
+  const nextTopic = topics.find(t => !completedIds.has(t.id))
+    || topics.find(t => t.id === progress?.lastOpenedTopicId)
+    || topics[0];
+  const started = completed > 0 || !!progress?.lastOpenedTopicId;
 
   return (
     <div>
       <CampusBackButton onClick={onBack} label="Back to CS Core" />
-      <div className="mt-4 mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.line}` }}>
-            {/* eslint-disable-next-line react-hooks/static-components */}
-            <SubjIcon size={20} style={{ color: CAMPUS.teal }} />
+
+      <div className="mt-4 mb-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.line}` }}>
+              {/* eslint-disable-next-line react-hooks/static-components */}
+              <SubjIcon size={20} style={{ color: CAMPUS.teal }} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{subject.name}</h1>
+              <div className="flex items-center gap-2.5 flex-wrap mt-1">
+                {subject.difficulty && <CampusChip color={DIFF_COLOR[subject.difficulty] || CAMPUS.inkFaint}>{subject.difficulty}</CampusChip>}
+                {subject.estimatedDuration && (
+                  <span className="text-[11px] font-mono flex items-center gap-1" style={{ color: CAMPUS.inkFaint }}>
+                    <Clock size={11} /> {subject.estimatedDuration}
+                  </span>
+                )}
+                {total > 0 && <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>{total} lessons</span>}
+                {subject.interviewImportance > 0 && <InterviewStars value={subject.interviewImportance} />}
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{subject.name} Roadmap</h1>
-            <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{subject.industryUsage}</span>
-          </div>
+          {nextTopic && (
+            <CampusButton icon={started ? Rocket : Zap} onClick={() => onOpenTopic(nextTopic.id)}>
+              {started ? "Continue" : "Start learning"}
+            </CampusButton>
+          )}
         </div>
-        {total > 0 && (
-          <div className="mt-3">
+
+        {total > 0 && started && (
+          <div className="mt-4">
             <CampusProgressBar pct={Math.round((completed / total) * 100)} />
-            <p className="text-[11px] mt-1" style={{ color: CAMPUS.inkFaint }}>{completed} of {total} topics completed</p>
+            <p className="text-[11px] mt-1" style={{ color: CAMPUS.inkFaint }}>{completed} of {total} lessons completed</p>
           </div>
         )}
       </div>
 
-      {total === 0 ? (
+      {hasIntro && (
+        <CampusTabBar className="mb-5" value={tab || "roadmap"} onChange={setTab} tabs={[
+          { key: "overview", label: "Overview", icon: Compass },
+          { key: "roadmap", label: "Roadmap", icon: Route },
+        ]} />
+      )}
+
+      {hasIntro && tab === "overview" ? (
+        <SubjectOverview subject={subject} modules={modules} totalTopics={total}
+          onStart={() => nextTopic && onOpenTopic(nextTopic.id)}
+          onSeeRoadmap={() => setTab("roadmap")} />
+      ) : total === 0 ? (
         <CampusEmptyState icon={Cpu} title="Roadmap coming soon" description={`${subject.name}'s topic list is being written - check back soon.`} />
       ) : (
         <div className="space-y-3">
@@ -504,6 +740,158 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
     </div>
   );
 }
+
+// How heavily this subject is asked in interviews, 1-5. Lucide stars rather
+// than the "★★★★★" text run, per the design system's no-emoji rule - and it
+// stays legible at 12px in a chip row, which the glyph does not.
+function InterviewStars({ value }) {
+  const n = Math.max(0, Math.min(5, Math.round(value)));
+  return (
+    <span className="flex items-center gap-0.5" title={`Interview importance: ${n} of 5`}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <Star key={i} size={10.5}
+          style={{ color: i <= n ? CAMPUS.gold : CAMPUS.line }}
+          fill={i <= n ? "currentColor" : "none"} />
+      ))}
+    </span>
+  );
+}
+
+// The subject introduction - what this subject is, why it's worth the six
+// weeks, where it shows up in real software, and what the interview actually
+// asks. It exists because every subject used to open directly onto an accordion
+// of chapter names: fine if you already know what DBMS is, useless if the reason
+// you're here is that you don't.
+//
+// Every section is individually optional. A subject with only `overview`
+// authored renders one card, not a page of empty headings.
+function SubjectOverview({ subject, modules, totalTopics, onStart, onSeeRoadmap }) {
+  return (
+    <div className="space-y-5">
+      {subject.overview?.trim() && (
+        <CampusCard className="p-5">
+          <LessonBody text={subject.overview} />
+        </CampusCard>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {subject.whyLearn?.length > 0 && (
+          <InfoListCard icon={Target} title="Why learn this" items={subject.whyLearn} color={CAMPUS.teal} tint={CAMPUS.tealTint} />
+        )}
+        {subject.whereUsed?.length > 0 && (
+          <InfoListCard icon={Globe} title="Where it's used" items={subject.whereUsed} color={CAMPUS.blue} tint={CAMPUS.blueTint} />
+        )}
+        {subject.skillsGained?.length > 0 && (
+          <InfoListCard icon={Sparkles} title="Skills you'll gain" items={subject.skillsGained} color={CAMPUS.good} tint={CAMPUS.goodTint} checkItems />
+        )}
+        {subject.prerequisites?.length > 0 && (
+          <InfoListCard icon={ListChecks} title="Before you start" items={subject.prerequisites} color={CAMPUS.purple} tint={CAMPUS.purpleTint} />
+        )}
+      </div>
+
+      {/* Derived from the topics themselves, never authored twice - the path a
+          student is promised here and the accordion they land on cannot drift. */}
+      {modules.length > 0 && (
+        <CampusCard className="p-5">
+          <div className="flex items-center justify-between gap-3 mb-3.5 flex-wrap">
+            <p className="text-[11px] font-mono tracking-widest flex items-center gap-1.5" style={{ color: CAMPUS.inkFaint }}>
+              <Route size={12} /> YOUR LEARNING PATH
+            </p>
+            <button onClick={onSeeRoadmap} className="text-[11.5px] font-semibold flex items-center gap-1" style={{ color: CAMPUS.teal }}>
+              See all {totalTopics} lessons <ArrowRight size={12} />
+            </button>
+          </div>
+          <div className="space-y-2">
+            {modules.map(({ module, topics: moduleTopics }, i) => (
+              <div key={module} className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-mono font-bold"
+                  style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
+                  {i + 1}
+                </div>
+                <span className="flex-1 text-[13px] min-w-0 truncate" style={{ color: CAMPUS.ink }}>{module}</span>
+                <span className="text-[10.5px] font-mono flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>
+                  {moduleTopics.length} {moduleTopics.length === 1 ? "lesson" : "lessons"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </CampusCard>
+      )}
+
+      {(subject.interviewImportance > 0 || subject.topCompanies?.length > 0 || subject.interviewQuestions?.length > 0) && (
+        <CampusCard className="p-5">
+          <p className="text-[11px] font-mono tracking-widest mb-3.5 flex items-center gap-1.5" style={{ color: CAMPUS.warn }}>
+            <Briefcase size={12} /> IN THE INTERVIEW
+          </p>
+
+          {subject.interviewImportance > 0 && (
+            <div className="flex items-center gap-2.5 mb-3.5">
+              <InterviewStars value={subject.interviewImportance} />
+              <span className="text-[12.5px]" style={{ color: CAMPUS.inkSoft }}>
+                {INTERVIEW_WEIGHT_LABEL[Math.round(subject.interviewImportance)] || ""}
+              </span>
+            </div>
+          )}
+
+          {subject.placementRelevance && (
+            <p className="text-[12.5px] leading-relaxed mb-3.5" style={{ color: CAMPUS.inkSoft }}>{subject.placementRelevance}</p>
+          )}
+
+          {subject.topCompanies?.length > 0 && (
+            <div className="mb-3.5">
+              <p className="text-[10px] font-mono tracking-widest mb-2 flex items-center gap-1.5" style={{ color: CAMPUS.inkFaint }}>
+                <Building2 size={11} /> ASKED AT
+              </p>
+              <div className="flex gap-1.5 flex-wrap">
+                {subject.topCompanies.map(c => (
+                  <span key={c} className="text-[11.5px] font-medium px-2.5 py-1 rounded-lg"
+                    style={{ background: tint(CAMPUS.warn, 10), border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {subject.interviewQuestions?.length > 0 && (
+            <div>
+              <p className="text-[10px] font-mono tracking-widest mb-2 flex items-center gap-1.5" style={{ color: CAMPUS.inkFaint }}>
+                <HelpCircle size={11} /> QUESTIONS THAT ACTUALLY COME UP
+              </p>
+              <ul className="space-y-1.5">
+                {subject.interviewQuestions.map((q, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
+                    <ChevronRight size={13} className="flex-shrink-0 mt-0.5" style={{ color: CAMPUS.warn }} />
+                    <span>{q}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </CampusCard>
+      )}
+
+      <CampusCard className="p-5 flex items-center justify-between gap-4 flex-wrap"
+        style={{ background: CAMPUS.chromeBg, border: "none" }}>
+        <div className="min-w-0">
+          <b className="text-[14px] block" style={{ color: CAMPUS.chromeFg }}>Ready to start {subject.name}?</b>
+          <p className="text-[12px] mt-0.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+            {totalTopics} lessons{subject.estimatedDuration ? ` · ${subject.estimatedDuration}` : ""} · XP and coins on every one you finish.
+          </p>
+        </div>
+        <CampusButton icon={Zap} onClick={onStart}>Start learning</CampusButton>
+      </CampusCard>
+    </div>
+  );
+}
+
+const INTERVIEW_WEIGHT_LABEL = {
+  1: "Rarely asked - study it for depth, not for the interview.",
+  2: "Occasionally asked, usually for specific roles.",
+  3: "Regularly asked - worth being comfortable with.",
+  4: "Asked in most technical interviews.",
+  5: "Asked in almost every technical interview.",
+};
 
 // ---------------- Topic view ----------------
 

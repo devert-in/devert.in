@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import {
   Check, X, Upload, Plus, Trophy, BookOpen, Search, Pencil, Download,
   UserX, UserCheck, History, Megaphone, Eye, Power, ChevronRight, ClipboardCheck, Copy, Trash2,
-  MoreVertical, UserMinus, CalendarClock, Mail, Ban, Medal,
+  MoreVertical, UserMinus, CalendarClock, Mail, Ban, Medal, ShieldCheck,
 } from "lucide-react";
 import {
   fetchPendingStudents, fetchApprovedStudents, fetchApprovedStudentCount, fetchApprovedStudentCountByDepartment,

@@ -38,10 +38,20 @@ export function flattenTasks(course) {
   );
 }
 
-export function getTaskStatus(flatTasks, taskId, completedTaskIds) {
+// fullAccess (users/{uid}.fullAccess - admin-set only, see firestore.rules'
+// users update denylist) opts an account out of sequential unlocking entirely:
+// every task reads as unlocked regardless of what came before it. Intended for
+// the accounts that need to move through the whole catalogue out of order -
+// content review, demos, the project's own primary account.
+//
+// Deliberately a FLAG ON THE USER DOC rather than an email check. CLAUDE.md is
+// explicit that hardcoded emails were migrated away from on purpose; this stays
+// data-driven, so granting or revoking is a script run, not a redeploy.
+export function getTaskStatus(flatTasks, taskId, completedTaskIds, { fullAccess = false } = {}) {
   const idx = flatTasks.findIndex(t => t.id === taskId);
   if (idx === -1) return "unknown";
   if (completedTaskIds.includes(taskId)) return "completed";
+  if (fullAccess) return "unlocked";
   if (idx === 0) return "unlocked";
   return completedTaskIds.includes(flatTasks[idx - 1].id) ? "unlocked" : "locked";
 }

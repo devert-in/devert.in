@@ -680,6 +680,28 @@ test("a student can never set their own institutionId/department on their public
   await assertFails(mrcetAdmin.firestore().doc("users/student-uid").update({ institutionId: "mrcet", xp: 999999 }));
 });
 
+// fullAccess switches off sequential unlocking across Learn and DSA Concepts
+// (getTaskStatus / isConceptUnlocked). Those are pedagogical gates rather than
+// confidentiality ones, so this leaks nothing either way - but WHO may grant it
+// is still an authority question, and the answer must not be "the account
+// itself". Hence its place in the users-update denylist.
+test("a user cannot grant themselves fullAccess - only a platform admin can set it", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("users/learner-uid").set({ handle: "learner", xp: 0, bio: "hi" });
+  });
+  const learner = testEnv.authenticatedContext("learner-uid");
+  await assertFails(learner.firestore().doc("users/learner-uid").update({ fullAccess: true }));
+  // Nor smuggled in beside an edit that WOULD otherwise be allowed.
+  await assertFails(learner.firestore().doc("users/learner-uid").update({ bio: "updated", fullAccess: true }));
+  // Revoking it is equally not theirs to do - the denylist is on the key, not the value.
+  await assertFails(learner.firestore().doc("users/learner-uid").update({ fullAccess: false }));
+  // An ordinary profile edit still works, so the guard is scoped to this key.
+  await assertSucceeds(learner.firestore().doc("users/learner-uid").update({ bio: "still editable" }));
+
+  const platformAdmin = testEnv.authenticatedContext("root-uid", { admin: true });
+  await assertSucceeds(platformAdmin.firestore().doc("users/learner-uid").update({ fullAccess: true }));
+});
+
 // --- DeVert Campus: institution-scoped contests ---
 
 test("an institution admin can create a contest for their own institution, but not for one they don't admin", async () => {
@@ -2491,4 +2513,76 @@ test("a campus admin and the student's own HOD can read their DSA concept progre
   // And another institution's staff get nothing.
   const outsider = testEnv.authenticatedContext("nobody-uid");
   await assertFails(outsider.firestore().doc("dsa_concept_progress/dsa-student_java").get());
+});
+
+// ---------------------------------------------------------------------------
+// DSA Sheets (dsaSheets/{sheetId}/sections/{sectionId}) - curated orderings
+// over the EXISTING problems collection.
+//
+// The property most worth pinning is a negative one: a sheet stores only
+// problemIds, so being able to read a sheet must NOT become a way to read a
+// problem (or its hidden tests) that the problems rules wouldn't already allow.
+// A sheet is an index, not a capability.
+// ---------------------------------------------------------------------------
+
+async function seedDsaSheet(ctx) {
+  const fs = ctx.firestore();
+  await fs.doc("dsaSheets/devert-dsa").set({
+    title: "DeVert DSA Sheet", status: "published", audiences: ["public", "legacy"], order: 10,
+    sectionCount: 2, problemCount: 3,
+  });
+  await fs.doc("dsaSheets/devert-dsa/sections/arrays").set({
+    title: "Arrays", order: 10, status: "published", audiences: ["public", "legacy"],
+    conceptIds: ["arrays"],
+    subsections: [{ id: "easy", title: "Easy", problemIds: ["p-easy-1", "p-easy-2"] }],
+  });
+  await fs.doc("dsaSheets/devert-dsa/sections/segment-tree").set({
+    title: "Segment Trees", order: 900, status: "draft", audiences: ["public", "legacy"], subsections: [],
+  });
+  // A real published problem plus its hidden tests, to prove the sheet grants
+  // nothing extra over either.
+  await fs.doc("problems/p-easy-1").set({ title: "Two Sum", status: "published", audiences: ["public", "legacy"], category: "Arrays", difficulty: "Easy" });
+  await fs.doc("problems/p-easy-1/hiddenTests/t1").set({ input: "1 2", expected: "3" });
+}
+
+test("a published DSA sheet and its sections are readable; drafts and authoring are not", async () => {
+  await testEnv.withSecurityRulesDisabled(seedDsaSheet);
+
+  const guest = testEnv.unauthenticatedContext();
+  await assertSucceeds(guest.firestore().doc("dsaSheets/devert-dsa").get());
+  await assertSucceeds(guest.firestore().doc("dsaSheets/devert-dsa/sections/arrays").get());
+  await assertFails(guest.firestore().doc("dsaSheets/devert-dsa/sections/segment-tree").get());
+
+  // The exact query lib/dsaSheets.js issues - both filters required, because
+  // contentReadable() checks status AND audiences.
+  const learner = testEnv.authenticatedContext("sheet-learner");
+  await assertFails(learner.firestore().collection("dsaSheets/devert-dsa/sections").get());
+  await assertFails(learner.firestore().collection("dsaSheets/devert-dsa/sections").where("status", "==", "published").get());
+  await assertSucceeds(learner.firestore().collection("dsaSheets/devert-dsa/sections")
+    .where("status", "==", "published").where("audiences", "array-contains-any", ["public", "legacy"]).get());
+
+  // Authoring is platform-admin-only.
+  await assertFails(learner.firestore().doc("dsaSheets/devert-dsa").set({ title: "hijacked" }, { merge: true }));
+  await assertFails(learner.firestore().doc("dsaSheets/devert-dsa/sections/arrays")
+    .set({ subsections: [{ id: "easy", title: "Easy", problemIds: ["anything"] }] }, { merge: true }));
+  const admin = testEnv.authenticatedContext("plat-admin", { admin: true });
+  await assertSucceeds(admin.firestore().doc("dsaSheets/devert-dsa/sections/segment-tree").get());
+  await assertSucceeds(admin.firestore().doc("dsaSheets/devert-dsa/sections/arrays").set({ order: 20 }, { merge: true }));
+});
+
+test("reading a DSA sheet grants no extra access to the problems it references", async () => {
+  await testEnv.withSecurityRulesDisabled(seedDsaSheet);
+  const learner = testEnv.authenticatedContext("sheet-learner");
+
+  // The sheet lists p-easy-1. Reading the published problem was ALREADY allowed
+  // and still is - the sheet neither adds nor removes that.
+  await assertSucceeds(learner.firestore().doc("problems/p-easy-1").get());
+  // Hidden tests stay unreachable: only devert-backend's grading path (admin
+  // SDK, bypassing rules) ever sees these. A sheet referencing the problem must
+  // not become a side door.
+  await assertFails(learner.firestore().doc("problems/p-easy-1/hiddenTests/t1").get());
+  await assertFails(learner.firestore().collection("problems/p-easy-1/hiddenTests").get());
+  // And a referenced id that doesn't exist is simply unreadable, not an error
+  // path that leaks anything - lib/dsaSheets.js drops such rows client-side.
+  await assertFails(learner.firestore().doc("problems/p-missing").get());
 });

@@ -3662,6 +3662,13 @@ function blankSubjectForm() {
   return {
     name: "", difficulty: "Beginner", estimatedDuration: "", order: 0,
     placementRelevance: "", industryUsage: "", status: "draft",
+    // The subject-level introduction - what renders on the Overview tab of the
+    // subject screen. Every field is optional there: a subject with none of
+    // them authored simply opens on its roadmap, exactly as it did before this
+    // existed. Bulk-authored by scripts/write-cscore-subject-intros.mjs; these
+    // controls are for editing one subject without running a script.
+    overview: "", whyLearn: [], whereUsed: [], skillsGained: [],
+    prerequisites: [], interviewImportance: 0, topCompanies: [], interviewQuestions: [],
   };
 }
 
@@ -3730,7 +3737,30 @@ function CsCoreSubjectsPanel() {
             placeholder="Asked in nearly every technical interview across product and service companies." rows={2} />
           <Textarea label="INDUSTRY USAGE" value={form.industryUsage} onChange={v => setForm(p => ({ ...p, industryUsage: v }))}
             placeholder="Underpins process scheduling, memory management, and file systems in every real system." rows={2} />
-          <div className="flex items-center gap-3">
+
+          {/* Everything below renders on the subject's Overview tab. Leave it
+              all empty and the subject opens straight on its roadmap, which is
+              exactly how every subject behaved before this section existed. */}
+          <div className="pt-2 mt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <p className="font-mono text-[10px] tracking-widest mb-0.5" style={{ color: "#A78BFA" }}>SUBJECT INTRODUCTION</p>
+            <p className="font-mono text-[10px] text-white/20 mb-2.5">Optional. Shown on the Overview tab before a student reaches the chapter list.</p>
+          </div>
+          <Textarea label="OVERVIEW (WHAT IS THIS SUBJECT?)" value={form.overview} onChange={v => setForm(p => ({ ...p, overview: v }))}
+            placeholder={"## What Does An Operating System Actually Do?\n\n::: story\nPicture a restaurant at 8pm on a Saturday...\n:::"} rows={8} />
+          <p className="font-mono text-[10px] text-white/20 -mt-1.5">Same lesson-block format as a topic body - ## headings, ::: story, ::: cards, ::: flow.</p>
+          <StringListField label="WHY LEARN THIS" items={form.whyLearn} onChange={v => setForm(p => ({ ...p, whyLearn: v }))} />
+          <StringListField label="WHERE IT'S USED" items={form.whereUsed} onChange={v => setForm(p => ({ ...p, whereUsed: v }))} />
+          <StringListField label="SKILLS YOU'LL GAIN" items={form.skillsGained} onChange={v => setForm(p => ({ ...p, skillsGained: v }))} />
+          <StringListField label="BEFORE YOU START (PREREQUISITES)" items={form.prerequisites} onChange={v => setForm(p => ({ ...p, prerequisites: v }))} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <Input label="INTERVIEW IMPORTANCE (0-5)" type="number" value={form.interviewImportance}
+              onChange={v => setForm(p => ({ ...p, interviewImportance: Math.max(0, Math.min(5, Number(v) || 0)) }))}
+              hint="0 hides the stars. 5 = asked in almost every technical interview." />
+          </div>
+          <StringListField label="ASKED AT (COMPANIES)" items={form.topCompanies} onChange={v => setForm(p => ({ ...p, topCompanies: v }))} />
+          <StringListField label="INTERVIEW QUESTIONS" items={form.interviewQuestions} onChange={v => setForm(p => ({ ...p, interviewQuestions: v }))} />
+
+          <div className="flex items-center gap-3 pt-1">
             <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
             <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-40" />
           </div>
@@ -3764,7 +3794,12 @@ function CsCoreSubjectsPanel() {
                     {s.status?.toUpperCase() || "DRAFT"}
                   </span>
                 </div>
-                <span className="font-mono text-[10px] text-white/30">{s.difficulty} · {s.estimatedDuration} · {s.topicCount || 0} topics</span>
+                <span className="font-mono text-[10px] text-white/30">
+                  {s.difficulty} · {s.estimatedDuration} · {s.topicCount || 0} topics
+                  {/* Whether the Overview tab has anything behind it - the one
+                      thing about a subject you can't tell from its name here. */}
+                  {s.overview?.trim() ? " · intro" : " · no intro"}
+                </span>
               </div>
               <button onClick={() => setManagingTopicsFor(s.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1 rounded" style={{ color: "#A78BFA" }}>
                 <Layers size={11} /> Topics

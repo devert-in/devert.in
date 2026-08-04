@@ -274,6 +274,10 @@ export function searchCampus(index, rawQuery, { limit = 24 } = {}) {
     const title = (item.title || "").toLowerCase();
     const path = item.path.join(" > ").toLowerCase();
     const sub = (item.subtitle || "").toLowerCase();
+    // Optional, and only some indexes populate it - see lib/csCore.js's
+    // buildCsCoreSearchIndex. Already lowercased by whoever built the index so
+    // this stays a plain substring test per keystroke.
+    const keywords = item.keywords || "";
 
     let score;
     if (title === q) score = 0;
@@ -282,6 +286,12 @@ export function searchCampus(index, rawQuery, { limit = 24 } = {}) {
     else if (allowMidword && title.includes(q)) score = 3;
     else if (wordStart.test(path) || wordStart.test(sub)) score = 4;
     else if (allowMidword && (path.includes(q) || sub.includes(q))) score = 5;
+    // A hit inside the lesson's own vocabulary (what you'll learn, key points)
+    // rather than anywhere in its title or route. This is what makes "deadlock"
+    // find the Synchronization lesson that never says "deadlock" in its title -
+    // but it ranks below every name match, because a student who typed a word
+    // that IS a lesson name wants that lesson first.
+    else if (keywords && (wordStart.test(keywords) || (allowMidword && keywords.includes(q)))) score = 6;
     // Scored last on purpose - an acronym expansion is a guess about intent, so
     // it fills the tail of the list rather than competing with a literal match.
     else if (aliases.length && aliases.some(a => title.includes(a) || path.includes(a))) score = 7;

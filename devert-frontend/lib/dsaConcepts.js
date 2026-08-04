@@ -41,16 +41,67 @@ import {
 } from "firebase/firestore";
 import { grantRewards } from "@/lib/rewards";
 
-// Mirrors lib/codelab.js's CODELAB_LANGUAGES ids exactly (java/python/cpp/
-// javascript/c) so a learner's chosen concept language and the language they
-// then solve the linked problem in are the same identifier end to end - and so
-// Judge0 (whose LANGUAGE_IDS map is keyed on these same ids in
-// devert-backend's Judge0Service) needs no translation layer.
-function conceptPaths(langId) {
+// ONE language-agnostic track, not one per language.
+//
+// This module originally carried a separate roadmap per language
+// (dsaConceptTracks/java, .../python), but that was the same syllabus twice:
+// identical concept ids, identical titles/order/prerequisites/problemCategories,
+// differing only in a per-concept code sample and a short "Java specifics" /
+// "Python specifics" note. "Arrays" is not a Java concept or a Python concept -
+// it is a concept. Duplicating an eleven-concept roadmap per language meant
+// every content edit had to be made N times, and a learner who studied Arrays
+// in the Java roadmap was told they had not studied Arrays.
+//
+// So: one track, and the genuinely language-specific parts live on the concept
+// as `languageVariants` - see conceptLanguages()/conceptVariant() below. A
+// concept with no variants renders no language chrome at all; a concept that has
+// them offers a switcher for that concept only.
+//
+// The trackId is still the path segment and still the progress-doc suffix, so
+// firestore.rules' `${uid}_${trackId}` ownership convention is unchanged.
+// Migration: scripts/migrate-unify-dsa-concept-tracks.mjs (old tracks archived,
+// not deleted).
+export const DSA_TRACK_ID = "dsa";
+
+function conceptPaths(trackId = DSA_TRACK_ID) {
   return {
-    track: ["dsaConceptTracks", langId],
-    concepts: ["dsaConceptTracks", langId, "concepts"],
+    track: ["dsaConceptTracks", trackId],
+    concepts: ["dsaConceptTracks", trackId, "concepts"],
   };
+}
+
+// Which languages this ONE concept has specific content for, in a stable
+// display order. Empty for a fully language-agnostic concept, which is the
+// signal the UI uses to render no language switcher.
+//
+// Order mirrors lib/codelab.js's CODELAB_LANGUAGES ids (java/python/cpp/
+// javascript/c) so a learner's concept language and the language they then
+// solve the linked problem in are the same identifier end to end - and so
+// Judge0 (keyed on these same ids in devert-backend's Judge0Service) needs no
+// translation layer.
+const LANGUAGE_ORDER = ["java", "python", "cpp", "javascript", "c"];
+
+export function conceptLanguages(concept) {
+  const variants = concept?.languageVariants || {};
+  return Object.keys(variants)
+    .filter(l => variants[l]?.code || variants[l]?.notes)
+    .sort((a, b) => {
+      const ia = LANGUAGE_ORDER.indexOf(a), ib = LANGUAGE_ORDER.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
+    });
+}
+
+// `{ language, code, notes }` for one language, or null. Callers render the
+// shared `concept.concept` body regardless and layer this on top.
+export function conceptVariant(concept, langId) {
+  const v = concept?.languageVariants?.[langId];
+  if (!v || (!v.code && !v.notes)) return null;
+  return { language: langId, code: v.code || null, notes: v.notes || null };
+}
+
+// True when this concept needs a language switcher at all.
+export function hasLanguageVariants(concept) {
+  return conceptLanguages(concept).length > 0;
 }
 
 // Same required-where-clause contract as programming.js's fetchLanguages: the
@@ -127,11 +178,26 @@ export async function deleteConcept(langId, conceptId) {
 // the catalog, exactly like every other published lesson in this app. An empty
 // or absent `prerequisites` means "always unlocked", so the first concept in a
 // roadmap needs no special casing.
-export function isConceptUnlocked(concept, completedIds) {
+// `knownIds` (optional): the ids that actually exist in this track. A
+// prerequisite naming a concept that isn't published can NEVER be completed, so
+// treating it as blocking would lock the lesson forever with no way out for the
+// learner - a content typo becoming a dead end. Unknown prerequisites are
+// therefore ignored at runtime, and scripts/seed-dsa-*.mjs validates them at
+// authoring time so the typo is caught loudly there instead.
+// `fullAccess` (users/{uid}.fullAccess - admin-set only, see firestore.rules'
+// users update denylist) opts an account out of the chain entirely: every
+// concept reads as unlocked whatever came before it. Same flag and same
+// reasoning as lib/learning.js's getTaskStatus - for the accounts that need to
+// reach any lesson in any order (content review, demos, the project's own
+// primary account). Deliberately a flag on the user doc rather than an email
+// check: CLAUDE.md is explicit that hardcoded emails were migrated away from on
+// purpose, so granting or revoking this is a script run, not a redeploy.
+export function isConceptUnlocked(concept, completedIds, knownIds, { fullAccess = false } = {}) {
+  if (fullAccess) return true;
   const prereqs = concept?.prerequisites || [];
   if (prereqs.length === 0) return true;
   const done = new Set(completedIds || []);
-  return prereqs.every(id => done.has(id));
+  return prereqs.every(id => done.has(id) || (knownIds && !knownIds.has(id)));
 }
 
 // The concepts blocking `concept`, as full concept objects (for a "finish
@@ -141,8 +207,10 @@ export function missingPrerequisites(concept, allConcepts, completedIds) {
   const done = new Set(completedIds || []);
   const byId = new Map(allConcepts.map(c => [c.id, c]));
   return (concept?.prerequisites || [])
-    .filter(id => !done.has(id))
-    .map(id => byId.get(id) || { id, title: id });
+    // Same reasoning as isConceptUnlocked: an id that doesn't resolve to a real
+    // concept isn't a blocker, so it must not be listed as one.
+    .filter(id => !done.has(id) && byId.has(id))
+    .map(id => byId.get(id));
 }
 
 // ---- progress -------------------------------------------------------------

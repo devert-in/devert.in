@@ -44,10 +44,12 @@ import {
 import {
   CampusCard, CampusChip, CampusProgressBar, CampusStat, CampusGoogleButton,
   CampusSkeleton, CampusEmptyState, CampusButton, CampusTable, CampusBackButton,
+  CampusTabBar,
 } from "@/components/campus/campus-ui";
 import { CampusContestFlow } from "@/components/campus/campus-contests";
 import { CampusPracticeList, CampusProblemView, SidebarFilterGroup, CategoryFilterList, CompanyFilterList } from "@/components/campus/campus-practice";
 import { CampusDsaConcepts } from "@/components/campus/campus-dsa-concepts";
+import { CampusDsaSheets } from "@/components/campus/campus-dsa-sheet";
 import { CampusCompanyPrepFlow } from "@/components/campus/campus-company-prep";
 import { fetchPublishedCompanies } from "@/lib/companyPrep";
 import { CampusLearningSection } from "@/components/campus/campus-learning";
@@ -1149,6 +1151,11 @@ const CAMPUS_PHASE = {
   SUSPENDED: "suspended", ADMIN: "admin", STAFF: "staff", APPROVED: "approved",
 };
 
+// The DSA tab's three surfaces, in the order the tab bar shows them. Declared
+// here rather than inline because it is also the ?dsa= whitelist - an unknown
+// value in the URL must fall back to the default, never render a blank tab.
+const DSA_MODES = ["sheet", "concepts", "problems"];
+
 function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab, initialManageStudentsView }) {
   const { theme } = useCampusTheme();
   const { user, userData, adminChecked, logout } = useAuth();
@@ -1190,12 +1197,22 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     const problemId = searchParams.get("problem");
     return problemId ? { view: "problem", problemId } : { view: "list" };
   });
-  // The DSA tab holds two surfaces: the concept roadmap (learning) and the
-  // problem set (practice). Defaults to "problems" so the tab opens exactly
-  // where it always has for existing students - Concepts is an addition, not a
-  // relocation. Flip this default to "concepts" if the roadmap should become
-  // the front door.
-  const [dsaMode, setDsaMode] = useState("problems");
+  // The DSA tab holds three surfaces: the curated Sheet, the concept roadmap
+  // (learning), and the raw problem set (practice). Defaults to "problems" so
+  // the tab opens exactly where it always has for existing students - Sheet and
+  // Concepts are additions, not relocations.
+  //
+  // IN THE URL, and it has to be. Opening a problem writes ?problem=, and this
+  // was the one piece of DSA navigation state that never reached the address
+  // bar - so a reload, a shared link, or opening a problem in a second tab
+  // restored the problem but always restored "problems" underneath it. Back
+  // from a problem opened out of the Sheet then landed on the Problems list,
+  // losing the learner's place in the roadmap entirely. Absent means "problems",
+  // so every link that predates this keeps behaving exactly as it did.
+  const [dsaMode, setDsaMode] = useState(() => {
+    const m = searchParams.get("dsa");
+    return DSA_MODES.includes(m) ? m : "problems";
+  });
   const [companyPrepScreen, setCompanyPrepScreen] = useState(() => {
     const companyId = searchParams.get("company");
     if (!companyId) return { view: "list" };
@@ -1596,13 +1613,19 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
       const screenParam = contestScreen.view !== "details" ? `?screen=${contestScreen.view}` : "";
       url = `/campus/${slug}/contest/${contestScreen.contestId}${screenParam}`;
     } else if (tab === "dsa" && practiceScreen.view === "problem") {
-      url = `${basePath}?problem=${encodeURIComponent(practiceScreen.problemId)}`;
+      // ?dsa= rides along with ?problem= so Back returns to the surface the
+      // problem was opened FROM - the Sheet, a concept, or the problem list -
+      // and keeps doing so after a reload or on a link shared to someone else.
+      const params = new URLSearchParams({ problem: practiceScreen.problemId });
+      if (dsaMode !== "problems") params.set("dsa", dsaMode);
+      url = `${basePath}?${params.toString()}`;
     } else if (tab === "dsa") {
       // List view - category/difficulty/askedIn used to never reach the URL
       // at all, so refreshing mid-filter always silently reset back to
       // "All" x3. Only appended when actually filtered, so the common
       // unfiltered case still gets the same bare basePath as before.
       const params = new URLSearchParams();
+      if (dsaMode !== "problems") params.set("dsa", dsaMode);
       if (practiceCategory !== "All") params.set("category", practiceCategory);
       if (practiceDifficulty !== "All") params.set("difficulty", practiceDifficulty);
       if (practiceCompany !== "All") params.set("askedIn", practiceCompany);
@@ -1619,7 +1642,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
       window.history.replaceState(null, '', url);
     }
 
-  }, [tab, contestScreen, practiceScreen, companyPrepScreen, slug, practiceCategory, practiceDifficulty, practiceCompany]);
+  }, [tab, contestScreen, practiceScreen, companyPrepScreen, slug, dsaMode, practiceCategory, practiceDifficulty, practiceCompany]);
 
   const goTab = (t) => {
     setTab(t);
@@ -1763,7 +1786,17 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   // reach here.
   return (
     <CampusPermissionsContext.Provider value={permissionsCtxValue}>
-    <div data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp flex flex-col lg:flex-row">
+    {/* NOT campus-sharp. That class exists for the pre-auth landing flows only
+        (see CampusGlobalSection above and the rule's own comment in
+        globals.css: "the authenticated Workspace keeps the rounded, shadowed
+        CampusCard untouched"). Having it here contradicted that: it applies
+        `border-radius: 0 !important` to every .rounded-md/lg/xl/2xl and
+        `box-shadow: none !important` to every inline shadow, so EVERY card,
+        stat, banner, tab bar and hero in the entire authenticated Campus app
+        rendered square and flat - nullifying the rounded-corner-and-soft-shadow
+        vocabulary that CampusCard, the CAMPUS.shadow* tokens and the whole
+        premium-SaaS design system are built on. */}
+    <div data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme flex flex-col lg:flex-row">
       <CampusExitConfirmDialog open={exitGuard.exitDialogOpen} institutionName={institution.name}
         onStay={exitGuard.stay} onLeave={exitGuard.leave} />
       <CampusContextSidebar institution={institution} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapsed}
@@ -1815,10 +1848,13 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           {isTabAllowed("gate") && tab === "gate" && <CampusGateTab key={searchNonce} sidebarSlot={sidebarEl} />}
           {isTabAllowed("dsa") && tab === "dsa" && (
             <>
-              {/* Category filter is a PROBLEM-list control, so it's portaled only
-                  in problems mode - in concepts mode the roadmap is the
-                  navigation and a stray category filter would do nothing. */}
-              {sidebarEl && dsaMode === "problems" && createPortal(
+              {/* Category filter is a PROBLEM-LIST control, so it's portaled only
+                  in problems mode - in sheet/concepts mode the roadmap is the
+                  navigation and a stray category filter would do nothing. Gated
+                  on the list view too: while a problem is open it filters a list
+                  that isn't on screen, and changing it there silently discarded
+                  the return position. */}
+              {sidebarEl && dsaMode === "problems" && practiceScreen.view === "list" && createPortal(
                 <>
                   <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>DSA</div>
                   <CategoryFilterList sortAlpha value={practiceCategory} onChange={setPracticeCategory} />
@@ -1831,17 +1867,35 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
               {practiceScreen.view === "list" && (
                 <div className="mb-4">
                   <CampusTabBar value={dsaMode} onChange={setDsaMode} tabs={[
+                    { key: "sheet", label: "Sheet" },
                     { key: "concepts", label: "Concepts" },
                     { key: "problems", label: "Problems" },
                   ]} />
                 </div>
               )}
-              {dsaMode === "concepts" && practiceScreen.view === "list" ? (
+              {practiceScreen.view === "list" && dsaMode === "sheet" ? (
+                <CampusDsaSheets hiddenIds={new Set(contentVisibility.hiddenProblemIds)}
+                  // Deliberately does NOT switch dsaMode: opening a problem from
+                  // the sheet should return TO the sheet, so the learner keeps
+                  // their place in the roadmap.
+                  onOpenProblem={(id) => setPracticeScreen({ view: "problem", problemId: id })}
+                  // Concepts are per-language and the sheet doesn't know which
+                  // language this learner picked, so this hands off to the
+                  // Concepts surface (where they choose) rather than guessing.
+                  onOpenConcept={() => setDsaMode("concepts")} />
+              ) : practiceScreen.view === "list" && dsaMode === "concepts" ? (
                 <CampusDsaConcepts
                   // The bridge in the practice direction: opening a linked
                   // problem from a concept hands off to the real problem view
                   // rather than reimplementing it here.
-                  onOpenProblem={(id) => { setDsaMode("problems"); setPracticeScreen({ view: "problem", problemId: id }); }} />
+                  //
+                  // Deliberately does NOT switch dsaMode, for the same reason
+                  // the Sheet above doesn't: the problem view renders from the
+                  // else-branch below regardless of which mode is active, so
+                  // switching bought nothing and cost the return journey -
+                  // Back landed on the Problems list instead of the concept
+                  // the learner was reading.
+                  onOpenProblem={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
               ) : (
               <>
               {practiceScreen.view === "list" && (

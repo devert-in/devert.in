@@ -30,11 +30,11 @@ export function CampusStaffOverview({ slug, institution, staffScope }) {
   }, [slug]);
 
   return (
-    // No `campus-sharp` here any more. That class is the pre-auth landing
-    // page's deliberately sharp-cornered, hairline-bordered language (see
-    // CampusLandingNav's comment in campus-app.jsx) - applying it to an
-    // authenticated staff dashboard made this one screen render as the
-    // marketing front door while every other in-app surface stayed rounded.
+    // No `campus-sharp` here any more - that class is for the pre-auth landing
+    // flows only. It was redundant rather than uniquely wrong: the workspace
+    // root in campus-app.jsx carried it too, so the squared-off, shadowless
+    // look applied to every authenticated Campus screen, not just this one.
+    // Both copies are gone now; see campus-app.jsx's comment for the details.
     <div className="space-y-5">
       <StaffDashboardHero
         icon={ShieldCheck}

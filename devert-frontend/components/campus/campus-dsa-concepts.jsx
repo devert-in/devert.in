@@ -10,12 +10,13 @@ import { CAMPUS } from "@/lib/campus-theme";
 import {
   fetchConceptTracks, fetchConcepts, fetchConcept, fetchConceptProgress,
   markConceptOpened, completeConcept, isConceptUnlocked, missingPrerequisites,
-  conceptSummary, relatedProblemsForConcept,
+  conceptSummary, relatedProblemsForConcept, conceptLanguages, conceptVariant,
+  DSA_TRACK_ID,
 } from "@/lib/dsaConcepts";
 import { fetchPublishedProblems } from "@/lib/codelab";
 import {
   CampusCard, CampusChip, CampusButton, CampusEmptyState, CampusSkeleton,
-  CampusBreadcrumb, CampusProgressBar,
+  CampusBreadcrumb, CampusProgressBar, CampusTabBar,
 } from "@/components/campus/campus-ui";
 import { LessonBody, CodeExampleBlock } from "@/components/campus/lesson-blocks";
 import { LanguageLogo } from "@/components/campus/language-logo";
@@ -56,7 +57,22 @@ export function CampusDsaConcepts({ onOpenProblem }) {
   if (tracks.length === 0) {
     return (
       <CampusEmptyState icon={BookOpen} title="DSA Concepts is being authored"
-        description="Curated, language-specific concept roadmaps land here. Practice problems are already available on the Problems tab." />
+        description="The curated concept roadmap lands here. Practice problems are already available on the Problems tab." />
+    );
+  }
+
+  // With ONE language-agnostic track (see lib/dsaConcepts.js's DSA_TRACK_ID),
+  // the language picker is a screen with a single card that decides nothing, and
+  // an extra tap and an extra breadcrumb level for every learner. So it is
+  // skipped entirely and the roadmap IS the landing screen. The picker component
+  // is still rendered when more than one track is published, which keeps the
+  // archived java/python tracks (and any future parallel track) reachable
+  // without a code change.
+  if (tracks.length === 1 && screen.view === "languages") {
+    return (
+      <ConceptRoadmap key={tracks[0].id} langId={tracks[0].id} user={user} track={tracks[0]}
+        onOpenConcept={conceptId => setScreen({ view: "concept", langId: tracks[0].id, conceptId })}
+        onBack={null} />
     );
   }
 
@@ -147,6 +163,10 @@ function LanguagePicker({ tracks, user, onPick }) {
 // ---------------- Roadmap ----------------
 
 function ConceptRoadmap({ langId, track, user, onOpenConcept, onBack }) {
+  // userData (not the `user` prop, which is the auth record) carries the live
+  // profile doc, where the admin-set fullAccess flag lives.
+  const { userData } = useAuth();
+  const fullAccess = !!userData?.fullAccess;
   const [concepts, setConcepts] = useState(null);
   const [progress, setProgress] = useState(null);
 
@@ -157,19 +177,38 @@ function ConceptRoadmap({ langId, track, user, onOpenConcept, onBack }) {
   useEffect(load, [load]);
 
   const completedIds = progress?.completedConceptIds || [];
+  // The ids that actually exist in this track, so an unknown prerequisite is
+  // ignored rather than becoming a permanent lock.
+  const knownIds = useMemo(() => new Set((concepts || []).map(c => c.id)), [concepts]);
   const summary = useMemo(() => conceptSummary(concepts || [], progress), [concepts, progress]);
+  // The unified roadmap's id (DSA_TRACK_ID) is not a language. Any other track
+  // id still is (the archived java/python ones, or a future parallel track), so
+  // the language logo and "<Lang> DSA Roadmap" heading stay correct for those.
+  const isLanguageTrack = langId !== DSA_TRACK_ID;
 
   if (concepts === null) return <CampusCard className="p-5"><CampusSkeleton variant="rect" height={220} /></CampusCard>;
 
   return (
     <div>
-      <CampusBreadcrumb items={[{ label: "DSA Concepts", onClick: onBack }, { label: track?.label || langId }]} />
+      {/* One crumb when this IS the landing screen (single unified track, no
+          picker above it) - a "DSA Concepts > DSA Concepts" trail names the same
+          place twice and the first crumb would link nowhere. CampusBreadcrumb
+          drops falsy labels, so the filter is enough. */}
+      <CampusBreadcrumb items={[
+        onBack ? { label: "DSA Concepts", onClick: onBack } : null,
+        { label: onBack ? (track?.label || langId) : "DSA Concepts" },
+      ].filter(Boolean)} />
 
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <LanguageLogo name={track?.label || langId} size={26} />
+          {/* LanguageLogo only where the track IS a language. The unified track
+              is language-agnostic, so a brand mark would be actively wrong -
+              Lucide, per CLAUDE.md's icon rule. */}
+          {isLanguageTrack ? <LanguageLogo name={track?.label || langId} size={26} /> : <ListChecks size={22} style={{ color: CAMPUS.teal }} />}
           <div>
-            <h3 className="text-[16px] font-semibold" style={{ color: CAMPUS.ink }}>{track?.label} DSA Roadmap</h3>
+            <h3 className="text-[16px] font-semibold" style={{ color: CAMPUS.ink }}>
+              {isLanguageTrack ? `${track?.label} DSA Roadmap` : "DSA Concepts"}
+            </h3>
             <span className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>
               {summary.completed} of {summary.total} concepts complete
             </span>
@@ -185,7 +224,10 @@ function ConceptRoadmap({ langId, track, user, onOpenConcept, onBack }) {
         <div className="space-y-2">
           {concepts.map((c, i) => {
             const done = completedIds.includes(c.id);
-            const unlocked = isConceptUnlocked(c, completedIds);
+            // knownIds so a prerequisite naming an unpublished concept can't
+            // dead-end the lesson, and fullAccess so a flagged account skips
+            // the chain entirely - see isConceptUnlocked's own comments.
+            const unlocked = isConceptUnlocked(c, completedIds, knownIds, { fullAccess });
             const blockers = unlocked ? [] : missingPrerequisites(c, concepts, completedIds);
             return (
               <ConceptRow key={c.id} index={i} concept={c} done={done} unlocked={unlocked}
@@ -245,6 +287,61 @@ function ConceptRow({ index, concept, done, unlocked, blockers, onOpen }) {
 }
 
 // ---------------- Concept view ----------------
+
+const LANG_LABEL = { java: "Java", python: "Python", cpp: "C++", javascript: "JavaScript", c: "C" };
+
+// The per-concept language switcher.
+//
+// The roadmap itself is language-agnostic - "Arrays" is a concept, not a Java
+// concept - so there is deliberately NO global language choice any more. Instead
+// each concept declares its own `languageVariants`, and this renders a switcher
+// ONLY for the concepts that actually have language-specific content. A concept
+// with none (Arrays) shows no language chrome at all, which is the whole point:
+// the learner is never asked to pick a language to read an idea that doesn't
+// depend on one.
+//
+// Language choice is local state per concept rather than a global preference.
+// Persisting it would mean writing a preference doc for something a learner
+// changes casually to compare two implementations side by side, which is a
+// reason to keep it cheap, not to store it.
+function ConceptLanguageSection({ concept }) {
+  const languages = conceptLanguages(concept);
+  const [lang, setLang] = useState(languages[0] || null);
+  const active = lang && languages.includes(lang) ? lang : languages[0];
+  const variant = conceptVariant(concept, active);
+
+  if (languages.length === 0 || !variant) return null;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-2.5 flex-wrap">
+        <p className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>
+          IMPLEMENTATION &mdash; EDIT AND RUN IT
+        </p>
+        {/* Only rendered when there is more than one language to choose between -
+            a one-tab switcher is chrome that decides nothing. */}
+        {languages.length > 1 && (
+          <CampusTabBar size="sm" value={active} onChange={setLang}
+            tabs={languages.map(l => ({ key: l, label: LANG_LABEL[l] || l }))} />
+        )}
+      </div>
+
+      {variant.code && (
+        <CodeExampleBlock codeExample={{ language: variant.language, code: variant.code }} />
+      )}
+
+      {/* The "Java specifics" / "Python specifics" prose that used to be baked
+          into a duplicated copy of the whole lesson body. Authored in the same
+          lessonBlocks format as the shared body, so ::: tip fences render
+          identically here. */}
+      {variant.notes && (
+        <div className="mt-3">
+          <LessonBody text={variant.notes} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ConceptView({ langId, conceptId, user, onBack, onOpenProblem }) {
   const [concept, setConcept] = useState(undefined); // undefined = loading, null = missing
@@ -332,14 +429,7 @@ function ConceptView({ langId, conceptId, user, onBack, onOpenProblem }) {
 
         <ConceptVisualization visualization={concept.visualization} />
 
-        {concept.codeExample?.code && (
-          <div>
-            <p className="text-[10px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>
-              IMPLEMENTATION &mdash; EDIT AND RUN IT
-            </p>
-            <CodeExampleBlock codeExample={concept.codeExample} />
-          </div>
-        )}
+        <ConceptLanguageSection concept={concept} />
 
         <RelatedProblems related={related} onOpenProblem={onOpenProblem} />
 
