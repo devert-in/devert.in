@@ -1,0 +1,125 @@
+"use client";
+
+import { useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+
+// Surfaces that keep native clipboard/right-click even for locked-down readers.
+//
+// - Form fields: the lockdown stops text moving in or out, not typing, so the
+//   caret has to survive.
+// - .monaco-editor: a code editor whose copy/paste you cannot use is broken, and
+//   the code in it belongs to the user, not to DeVert. The problem statement
+//   rendered NEXT to the editor is still locked, which is the part worth
+//   protecting. Monaco also drives its own hidden textarea and context menu,
+//   both of which a document-level block would break.
+// - [data-allow-clipboard]: per-element hatch, applies to any role.
+const EXEMPT_SURFACES = [
+  "input",
+  "textarea",
+  "select",
+  "[contenteditable='']",
+  "[contenteditable='true']",
+  ".monaco-editor",
+  "[data-allow-clipboard]",
+].join(", ");
+
+// Selection has to stay alive inside these or the caret goes with it.
+const EDITABLE = "input, textarea, select, [contenteditable=''], [contenteditable='true'], .monaco-editor";
+
+const CLIPBOARD_KEYS = new Set(["c", "x", "v", "a"]);
+
+// Lifts the CSS half of the lockdown; see globals.css.
+const UNLOCKED_CLASS = "clipboard-unlocked";
+
+function element(event) {
+  const { target } = event;
+  if (target instanceof Element) return target;
+  // Text nodes fire events too; climb to the nearest element.
+  if (target && target.parentElement instanceof Element) return target.parentElement;
+  return null;
+}
+
+function isExempt(event) {
+  const el = element(event);
+  return el !== null && el.closest(EXEMPT_SURFACES) !== null;
+}
+
+function isEditable(event) {
+  const el = element(event);
+  return el !== null && el.closest(EDITABLE) !== null;
+}
+
+/**
+ * Blocks right-click, text selection, drag-out and clipboard operations site
+ * wide. Mounted once from the root layout, inside AuthProvider so it can see
+ * whether this account holds the admin claim.
+ *
+ * Admins are exempt. The exemption keys off the `admin` custom auth claim that
+ * AuthContext reads off the ID token, not off a Firestore field, so a reader
+ * cannot unlock themselves by editing client state.
+ *
+ * Fails closed: the claim resolves asynchronously (a token fetch), so the
+ * lockdown is active from first paint and only lifts once adminChecked confirms
+ * an admin. A slow or failed token fetch leaves the site locked, never open.
+ *
+ * Note that the ~20 share/copy buttons across the app call
+ * navigator.clipboard.writeText(), which is programmatic and unaffected by
+ * blocking the `copy` event, so they keep working for everyone.
+ */
+export function ContentGuard() {
+  const { isAdmin, adminChecked } = useAuth() ?? {};
+  const unlocked = adminChecked === true && isAdmin === true;
+
+  useEffect(() => {
+    document.documentElement.classList.toggle(UNLOCKED_CLASS, unlocked);
+    return () => document.documentElement.classList.remove(UNLOCKED_CLASS);
+  }, [unlocked]);
+
+  useEffect(() => {
+    // Admins get no listeners at all, so there is nothing to bypass.
+    if (unlocked) return;
+
+    const block = (event) => {
+      if (isExempt(event)) return;
+      event.preventDefault();
+    };
+
+    const blockSelection = (event) => {
+      if (isEditable(event) || isExempt(event)) return;
+      event.preventDefault();
+    };
+
+    const blockShortcuts = (event) => {
+      const mod = event.ctrlKey || event.metaKey;
+      if (!mod || event.altKey) return;
+      if (!CLIPBOARD_KEYS.has(event.key.toLowerCase())) return;
+      if (isExempt(event)) return;
+      event.preventDefault();
+    };
+
+    // Capture phase so nothing downstream can act on the event first.
+    const options = { capture: true };
+    const listeners = [
+      ["contextmenu", block],
+      ["copy", block],
+      ["cut", block],
+      ["paste", block],
+      ["dragstart", block],
+      ["drop", block],
+      ["selectstart", blockSelection],
+      ["keydown", blockShortcuts],
+    ];
+
+    for (const [type, handler] of listeners) {
+      document.addEventListener(type, handler, options);
+    }
+
+    return () => {
+      for (const [type, handler] of listeners) {
+        document.removeEventListener(type, handler, options);
+      }
+    };
+  }, [unlocked]);
+
+  return null;
+}

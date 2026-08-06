@@ -137,7 +137,12 @@ function ContestShareSheet({ url, title, startText, onClose }) {
           <p className="text-[13px] font-semibold mb-0.5 line-clamp-2" style={{ color: CAMPUS.ink }}>{title}</p>
           {startText && <p className="text-[11.5px] mb-3.5" style={{ color: CAMPUS.inkFaint }}>Starts {startText}</p>}
 
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg mb-2"
+          {/* data-allow-clipboard: the site-wide lockdown (see
+              components/content-guard.jsx) would otherwise make the copyFailed
+              fallback below - "select the link above and copy it manually" -
+              impossible to follow, which is exactly the plain-http LAN case that
+              fallback exists for. */}
+          <div data-allow-clipboard className="flex items-center gap-2 px-3 py-2 rounded-lg mb-2"
             style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
             <Link2 size={13} className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }} />
             <span className="text-[11.5px] font-mono truncate flex-1 min-w-0" style={{ color: CAMPUS.inkSoft }}>{url}</span>

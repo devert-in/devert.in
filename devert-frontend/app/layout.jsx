@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
+import { ContentGuard } from "@/components/content-guard";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -144,6 +145,7 @@ export default function RootLayout({ children }) {
         className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${inter.variable} antialiased font-sans bg-background text-foreground overflow-x-hidden`}
       >
         <AuthProvider>
+          <ContentGuard />
           <IntroProvider>
             {/* The Builder's OS window manager is deliberately NOT mounted.
                 Core DeVert opened most dock destinations as floating,
