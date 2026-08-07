@@ -30,7 +30,7 @@ import {
 import { ROLE_CATALOG } from "@/lib/permissions";
 import { CampusPermissionsContext } from "@/lib/campusPermissions";
 import Dropdown from "@/components/dropdown";
-import { fetchPublishedInstitutionContests, fetchPublishedContests, bucketContests } from "@/lib/contests";
+import { fetchPublishedInstitutionContests, fetchPublishedContests, bucketContests, contestMatchesStudent } from "@/lib/contests";
 import { fetchCourseTree, flattenTasks, getCurrentTask, courseProgressPct } from "@/lib/learning";
 import { CODELAB_DIFFICULTIES, fetchUserCodelabProgress, fetchPublishedProblems } from "@/lib/codelab";
 import { subscribeToProblemNotes, isRevisionDue } from "@/lib/problemNotes";
@@ -1569,7 +1569,9 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           {isTabAllowed("assessments") && tab === "assessments" && <CampusDailyAssessmentsTab slug={slug} sidebarSlot={sidebarEl} jumpToAssessment={assessmentJump} />}
           {isTabAllowed("contests") && tab === "contests" && (
             <CampusContestsTabContent institutionId={slug} screen={contestScreen} setScreen={setContestScreen}
-              sidebarSlot={sidebarEl} phaseFilter={contestPhaseFilter} setPhaseFilter={setContestPhaseFilter} />
+              sidebarSlot={sidebarEl} phaseFilter={contestPhaseFilter} setPhaseFilter={setContestPhaseFilter}
+              student={{ uid: user?.uid, department: membership?.department, year: membership?.year, section: membership?.section, classroomId: membership?.classroomId }}
+              bypassScope={isInstAdmin || !!staffScope} />
           )}
           {tab === "leaderboard" && <CampusLeaderboardTab slug={slug} myUid={user?.uid} myClassroom={myClassroom} />}
           {tab === "manage" && (
@@ -2141,11 +2143,12 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
   const [insights, setInsights] = useState(undefined);     // undefined = loading, null = read failed
 
   useEffect(() => {
+    const student = { uid: userData?.uid, department: membership?.department, year: membership?.year, section: membership?.section, classroomId: membership?.classroomId };
     fetchPublishedInstitutionContests(slug)
-      .then(list => setContests(bucketContests(list).upcoming.slice(0, 2)))
+      .then(list => setContests(bucketContests(list.filter(c => contestMatchesStudent(c, student))).upcoming.slice(0, 2)))
       .catch(() => setContests([]))
       .finally(() => setContestsLoading(false));
-  }, [slug]);
+  }, [slug, userData?.uid, membership?.department, membership?.year, membership?.section, membership?.classroomId]);
 
   useEffect(() => {
     fetchAnnouncements(slug)
@@ -2692,7 +2695,7 @@ function ContestsSidebarList({ counts, active, onSelect }) {
   );
 }
 
-function CampusContestsTabContent({ institutionId, screen, setScreen, sidebarSlot, phaseFilter, setPhaseFilter }) {
+function CampusContestsTabContent({ institutionId, screen, setScreen, sidebarSlot, phaseFilter, setPhaseFilter, student, bypassScope }) {
   const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -2706,9 +2709,17 @@ function CampusContestsTabContent({ institutionId, screen, setScreen, sidebarSlo
   };
   useEffect(load, [institutionId]);
 
-  const bucketed = useMemo(() => bucketContests(contests), [contests]);
-  const counts = { all: contests.length, live: bucketed.live.length, upcoming: bucketed.upcoming.length, past: bucketed.past.length };
-  const visibleContests = phaseFilter === "all" ? contests : bucketed[phaseFilter] || [];
+  // Staff/admins keep seeing every contest (they manage all of them); a
+  // student only ever sees the paper(s) targetScope actually admits them to -
+  // fetchPublishedInstitutionContests has no scope awareness, it just returns
+  // every published contest for the institution.
+  const audienceContests = useMemo(
+    () => bypassScope ? contests : contests.filter(c => contestMatchesStudent(c, student)),
+    [contests, bypassScope, student]
+  );
+  const bucketed = useMemo(() => bucketContests(audienceContests), [audienceContests]);
+  const counts = { all: audienceContests.length, live: bucketed.live.length, upcoming: bucketed.upcoming.length, past: bucketed.past.length };
+  const visibleContests = phaseFilter === "all" ? audienceContests : bucketed[phaseFilter] || [];
 
   return (
     <>

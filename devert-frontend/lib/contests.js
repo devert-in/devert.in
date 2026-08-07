@@ -375,6 +375,32 @@ export function contestPhase(contest, now = new Date()) {
   return byClock();
 }
 
+// Mirrors firestore.rules' matchesContestScope()/contestScopeHierarchyMatches()
+// exactly, field for field - this is a display filter for the Contests list,
+// not a security boundary (rules already block registration/submission for a
+// student outside scope), but showing a III Year student a paper scoped to IV
+// Year is confusing on its own even though they could never actually get into
+// it. `student` is the viewer's own institution roster fields (department,
+// year, section, classroomId, uid) - fetchMyMembership()'s shape.
+export function contestMatchesStudent(contest, student) {
+  const scope = contest?.targetScope || {};
+  if ((scope.mode || "all") !== "scoped") return true;
+  const departments = scope.departments || [], years = scope.years || [];
+  const sections = scope.sections || [], classroomIds = scope.classroomIds || [];
+  const uids = scope.uids || [];
+  const hasHierarchy = departments.length > 0 || years.length > 0 || sections.length > 0 || classroomIds.length > 0;
+  const hasUids = uids.length > 0;
+  if (!hasHierarchy && !hasUids) return true; // "scoped" but nothing actually restricts it
+  const hierarchyMatches = !!student
+    && (departments.length === 0 || departments.includes(student.department))
+    && (years.length === 0 || years.includes(student.year))
+    && (sections.length === 0 || sections.includes(student.section))
+    && (classroomIds.length === 0 || classroomIds.includes(student.classroomId));
+  const uidMatches = !!student && uids.includes(student.uid);
+  if (hasHierarchy && hasUids) return hierarchyMatches || uidMatches;
+  return hasHierarchy ? hierarchyMatches : uidMatches;
+}
+
 export function bucketContests(contests, now = new Date()) {
   const buckets = { live: [], upcoming: [], past: [] };
   for (const c of contests) {
