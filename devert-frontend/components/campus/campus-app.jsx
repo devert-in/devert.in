@@ -661,15 +661,26 @@ function CampusGlobalSection({ section }) {
             destination can do - push() always lands at the top of a fresh
             /campus, discarding wherever the user actually came from. */}
         {atTop && <CampusBackButton onClick={() => router.back()} />}
-        <div className="min-w-0">
-            {/* Was a sidebar widget of the deleted rail. It is a summary of the
-                list directly beneath it, so it reads fine as a strip above that
-                list - and only in coding mode, exactly as before. */}
-            {section === "practice" && practiceMode === "coding" && (
-              <div className="mb-6 max-w-sm">
+
+        {/* Two columns, the same shape the authenticated workspace uses. The top
+            nav switches BETWEEN modules; this rail navigates WITHIN the one you
+            opened - Programming's language list, CS Core's subjects, Aptitude's
+            topics. Those are the module's own contextual nav, and each module
+            already knows how to render it: they accept a `sidebarSlot` DOM node
+            and portal their list into it (see CampusProgrammingTab). Without a
+            slot to hand them they render no sub-nav at all, which is why these
+            pages came out as a bare full-width list. */}
+        <div className="flex gap-8 flex-col lg:flex-row">
+          <aside className="lg:w-60 flex-shrink-0" hidden={!showSidebar}>
+            <div className="flex flex-col gap-5 lg:sticky lg:top-6">
+              <div ref={setSidebarEl} />
+              {section === "practice" && practiceMode === "coding" && (
                 <PracticeProgressCard user={user} stats={codelabStats} />
-              </div>
-            )}
+              )}
+            </div>
+          </aside>
+
+          <div className="flex-1 min-w-0">
             {section === "contests" && (
               <CampusContestFlow contests={contests} loading={contestsLoading} error={contestsError} onRetry={loadContests} screen={contestScreen} setScreen={setContestScreen} />
             )}
@@ -681,10 +692,10 @@ function CampusGlobalSection({ section }) {
                 per-institution content visibility is a campus setting and has
                 no meaning on the public surface. */}
             {section === "learning" && (
-              learnModule === "fundamentals" ? <CampusFundamentalsTab />
-                : learnModule === "programming" ? <CampusProgrammingTab />
-                : learnModule === "csCore" ? <CampusCsCoreTab />
-                : learnModule === "aptitude" ? <CampusAptitudeTab />
+              learnModule === "fundamentals" ? <CampusFundamentalsTab sidebarSlot={sidebarEl} />
+                : learnModule === "programming" ? <CampusProgrammingTab sidebarSlot={sidebarEl} />
+                : learnModule === "csCore" ? <CampusCsCoreTab sidebarSlot={sidebarEl} />
+                : learnModule === "aptitude" ? <CampusAptitudeTab sidebarSlot={sidebarEl} />
                 : <CampusLearningSection />
             )}
             {section === "practice" && (
@@ -726,6 +737,7 @@ function CampusGlobalSection({ section }) {
                 )}
               </>
             )}
+          </div>
         </div>
       </div>
     </main>
