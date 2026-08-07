@@ -5,10 +5,14 @@ import { CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchContest, fetchContestQuestions, fetchMyRegistration, fetchMySubmission,
-  submitContestAnswers, contestPhase,
+  submitContestAnswers, contestPhase, getContestSettings,
 } from "@/lib/contests";
 import { seededShuffle } from "@/lib/quizRandom";
 import { useIsWindowed } from "@/components/window/is-windowed";
+import { resolveRollNumber } from "@/lib/proctoring";
+import { useProctorSession } from "@/components/proctor/use-proctor-session";
+import { ProctorGate } from "@/components/proctor/proctor-gate";
+import { ProctorSelfView, ProctorWarning, ProctorObstruction } from "@/components/proctor/proctor-hud";
 
 function toDate(v) {
   if (!v) return null;
@@ -25,7 +29,7 @@ function isBlank(v) {
 // in-place view - see contest-details-view.jsx's header comment for why.
 export function ContestAttemptView({ contestId, onBack, onViewResults }) {
   const windowed = useIsWindowed();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
 
   const [contest, setContest] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -37,6 +41,12 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  // Proctoring. `proctorReady` flips once the student has consented and the
+  // camera + fullscreen are actually up; the timer is not started before that,
+  // so a device problem never eats contest time.
+  const [rollNumber, setRollNumber] = useState("");
+  const [proctorReady, setProctorReady] = useState(false);
 
   const answersRef = useRef({});
   const startedAtRef = useRef(null);
@@ -68,26 +78,53 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
         options: q.options?.length ? seededShuffle(q.options, `${user.uid}:${contestId}:${q.id}`) : q.options,
       }));
 
-      const end = toDate(c.contestEnd).getTime();
-      startedAtRef.current = Date.now();
-      const capEnd = startedAtRef.current + (c.durationMinutes || 60) * 60 * 1000;
-      const effectiveEnd = Math.min(end, capEnd);
+      // Roll number is resolved before the gate renders so the consent screen
+      // can show the student exactly which roll number their photos will be
+      // filed under - vague "your photos are stored" wording is what gets
+      // consent disputed later.
+      if (getContestSettings(c).proctoringEnabled) {
+        setRollNumber(await resolveRollNumber(user.uid, userData));
+      }
 
       setContest(c);
       setQuestions(shuffled);
-      setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
       setLoading(false);
     })();
+    // userData is deliberately not a dependency: it arrives from a live profile
+    // listener and re-running this would refetch the paper and reshuffle it
+    // mid-attempt. The roll number only needs to be right once, at the gate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, contestId]);
+
+  const settings = getContestSettings(contest);
+  const proctored = !!contest && settings.proctoringEnabled;
+
+  // The clock starts only once invigilation is actually up (or immediately, for
+  // an unproctored contest). Starting it at load would bill a student for the
+  // time they spent granting camera permission.
+  const clockRunning = !!contest && (!proctored || proctorReady);
+
+  useEffect(() => {
+    if (!clockRunning || startedAtRef.current !== null) return;
+    startedAtRef.current = Date.now();
+    const end = toDate(contest.contestEnd).getTime();
+    const capEnd = startedAtRef.current + (contest.durationMinutes || 60) * 60 * 1000;
+    const effectiveEnd = Math.min(end, capEnd);
+    setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
+  }, [clockRunning, contest]);
 
   const handleSubmit = async () => {
     if (submittedRef.current || !user) return;
     submittedRef.current = true;
     setSubmitting(true);
     try {
-      const timeTakenSeconds = Math.round((Date.now() - startedAtRef.current) / 1000);
+      const timeTakenSeconds = Math.round((Date.now() - (startedAtRef.current ?? Date.now())) / 1000);
       const maxScore = questions.reduce((sum, q) => sum + (q.marks || 1), 0);
       await submitContestAnswers(contestId, user.uid, answersRef.current, timeTakenSeconds, maxScore);
+      // Releases the camera and drops out of fullscreen. Runs after the answers
+      // are safely written - never risk the submission for the sake of tidying
+      // up the hardware.
+      await proctor.finish().catch(() => {});
       setSubmitted(true);
     } catch (e) {
       console.error(e);
@@ -101,6 +138,24 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
     }
     finally { setSubmitting(false); }
   };
+
+  // handleSubmit and the proctor session reference each other - the session can
+  // force a submit at the violation limit, and a submit tears the session down.
+  // Both resolve through closures at call time, so the cycle is fine; the hook
+  // keeps onSubmitRequested in a ref precisely so this does not re-register the
+  // event listeners on every render.
+  const proctor = useProctorSession({
+    contestId,
+    uid: user?.uid,
+    rollNumber,
+    displayName: userData?.displayName || user?.displayName || "",
+    enabled: proctored,
+    snapshotSeconds: settings.proctorSnapshotSeconds,
+    requireFullscreen: settings.proctorRequireFullscreen,
+    retainFrames: settings.proctorRetainFrames,
+    maxViolations: settings.proctorMaxViolations,
+    onSubmitRequested: handleSubmit,
+  });
 
   useEffect(() => {
     if (secondsLeft === null || submitted) return;
@@ -145,6 +200,34 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
     );
   }
 
+  // The gate owns the same videoRef the HUD will use, so the stream started here
+  // survives straight into the attempt with no second permission prompt.
+  if (proctored && !proctorReady) {
+    return (
+      <main className={rootClass}>
+        <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
+        <div className="relative">
+          <ProctorGate
+            contestTitle={contest.title}
+            rollNumber={rollNumber}
+            snapshotSeconds={settings.proctorSnapshotSeconds}
+            requireFullscreen={settings.proctorRequireFullscreen}
+            retainFrames={settings.proctorRetainFrames}
+            videoRef={proctor.videoRef}
+            cameraState={proctor.cameraState}
+            cameraError={proctor.cameraError}
+            onBegin={async () => {
+              const ok = await proctor.begin();
+              if (ok) setProctorReady(true);
+              return ok;
+            }}
+            onCancel={() => onBack(contestId)}
+          />
+        </div>
+      </main>
+    );
+  }
+
   const q = questions[qIndex];
   const h = Math.floor(secondsLeft / 3600), m = Math.floor((secondsLeft % 3600) / 60), s = secondsLeft % 60;
   const timerColor = secondsLeft > 300 ? "#00FF41" : secondsLeft > 60 ? "#FF9500" : "#FF5050";
@@ -154,6 +237,31 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
   return (
     <main className={rootClass}>
       <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
+
+      {proctored && (
+        <>
+          {/* Self-view stays mounted even while obstructed - seeing your own
+              face is what makes the overlay feel supervised rather than broken. */}
+          <ProctorSelfView
+            videoRef={proctor.videoRef}
+            cameraState={proctor.cameraState}
+            violations={proctor.violations}
+            snapshotCount={proctor.snapshotCount}
+          />
+          <ProctorWarning warning={proctor.warning} onDismiss={proctor.dismissWarning} />
+          {proctor.obstructed && (
+            <ProctorObstruction
+              cameraState={proctor.cameraState}
+              cameraError={proctor.cameraError}
+              isFullscreen={proctor.isFullscreen}
+              requireFullscreen={settings.proctorRequireFullscreen}
+              onRetryCamera={proctor.retryCamera}
+              onEnterFullscreen={proctor.enterFullscreen}
+            />
+          )}
+        </>
+      )}
+
       <div className="relative max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <p className="font-mono text-xs text-white/30">{contest.title}</p>

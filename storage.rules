@@ -84,5 +84,46 @@ service firebase.storage {
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
+
+    // Proctoring webcam frames for invigilated contests.
+    //
+    // READ IS NOT PUBLIC. Every other path in this file is `allow read: if
+    // true`, which is fine for avatars and project screenshots and is
+    // categorically not fine here: these are photographs of students' faces.
+    // A public rule would put them on URLs that need no credential, and
+    // because the reviewer-facing identifier is a roll number - sequential and
+    // guessable across a whole cohort - a leak would not even require a
+    // directory listing to enumerate.
+    //
+    // The path is UID-keyed for the same reason: `request.auth.uid == uid` is
+    // provable straight from the path, whereas "this caller owns roll number
+    // MRCET21CS001" is not provable here at all. A cross-service
+    // firestore.exists() is the only way to bridge that, and the
+    // institution_branding block above documents that it did not evaluate
+    // reliably in practice. The roll number therefore lives in the object's
+    // custom metadata, on the proctorSessions doc, and in the download
+    // filename - every human-facing surface - while authorization keys off the
+    // one identifier a Storage rule can actually verify.
+    //
+    // Read is granted to the platform admin claim only, because that is the
+    // only invigilator identity expressible in a Storage rule. Institution
+    // admins, HODs and faculty legitimately need these images too; that access
+    // has to go through a callable Cloud Function which verifies staff standing
+    // in Firestore (server-side, where it is reliable) and returns a
+    // short-lived signed URL. Until that function exists, institution staff
+    // review is NOT available - see the note in lib/proctoring.js.
+    //
+    // No delete for anyone: a student must not be able to remove their own
+    // frames, and evidence retention should be a deliberate lifecycle policy on
+    // the bucket, not a client call.
+    match /proctor/{contestId}/{uid}/{allPaths=**} {
+      allow read: if request.auth != null
+        && request.auth.token.get('admin', false) == true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow delete: if false;
+    }
   }
 }
