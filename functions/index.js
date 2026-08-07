@@ -227,3 +227,140 @@ exports.pulsePreviewRouter = makePreviewRouter({
       `<body>Redirecting...</body></html>`;
   },
 });
+
+// ---------------------------------------------------------------------------
+// Proctoring frame access for invigilators.
+//
+// storage.rules can only express ONE invigilator identity - the platform `admin`
+// custom claim - because a Storage rule cannot reliably reach across into
+// Firestore to ask "is this caller an admin/HOD/faculty of the institution that
+// owns this contest" (see the institution_branding block's note on
+// firestore.exists() being unreliable there). But that Firestore question is
+// exactly what decides who may look at a student's face. So the check happens
+// here, server-side with the Admin SDK, where it is both reliable and cheap, and
+// the bucket itself stays locked to admin-claim reads only.
+//
+// Frames are returned as base64 rather than as signed URLs, deliberately:
+//
+// - No IAM setup. V4 signed URLs need the runtime service account to hold
+//   roles/iam.serviceAccountTokenCreator to call signBlob; getting that wrong
+//   fails at runtime, in production, on the one feature nobody can debug
+//   casually. Reading bytes needs nothing beyond the bucket access the function
+//   already has.
+// - No leaked capability. A signed URL is a bearer token in a string - it works
+//   for anyone it is forwarded to, for its whole lifetime. This response is
+//   scoped to one authenticated invigilator and cannot be replayed.
+//
+// A proctoring frame is a 480px JPEG (~35KB, ~47KB base64), so one frame per
+// call sits comfortably inside the callable response limit. The console fetches
+// frames one student at a time, on demand, rather than hydrating a grid of a
+// hundred faces nobody asked to see.
+// ---------------------------------------------------------------------------
+
+// firebase-functions/https (not /v2/https) to match the onRequest import at the
+// top of this file - in v7 the root path IS v2, and mixing the two spellings in
+// one file invites someone to "fix" the inconsistency in the wrong direction.
+const { onCall, HttpsError } = require("firebase-functions/https");
+const admin = require("firebase-admin");
+
+if (admin.apps.length === 0) admin.initializeApp();
+
+// Resolves whether the caller may invigilate `contestId`, using the same
+// identity model firestore.rules uses: the platform admin claim, membership of
+// the institution's admins collection, or an active roleAssignment (which is
+// what Principal, HOD and Faculty-Class-Teacher all hold).
+async function assertCanInvigilate(auth, contestId) {
+  if (!auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  if (auth.token && auth.token.admin === true) return;
+
+  const db = admin.firestore();
+  const contestSnap = await db.doc(`contests/${contestId}`).get();
+  if (!contestSnap.exists) throw new HttpsError("not-found", "Contest not found.");
+
+  const institutionId = contestSnap.get("institutionId") || "";
+  if (!institutionId) {
+    // A global contest has no institution staff to defer to, so only the
+    // platform admin (handled above) can review it.
+    throw new HttpsError("permission-denied", "Not an invigilator for this contest.");
+  }
+
+  const [adminDoc, roleDoc] = await Promise.all([
+    db.doc(`institutions/${institutionId}/admins/${auth.uid}`).get(),
+    db.doc(`institutions/${institutionId}/roleAssignments/${auth.uid}`).get(),
+  ]);
+
+  if (adminDoc.exists) return;
+  if (roleDoc.exists && roleDoc.get("status") === "active") return;
+
+  throw new HttpsError("permission-denied", "Not an invigilator for this contest.");
+}
+
+function proctorPrefix(contestId, studentUid) {
+  return `proctor/${contestId}/${studentUid}`;
+}
+
+/**
+ * Returns one proctoring frame as base64. `seq` omitted means the rolling
+ * latest.jpg; a number means that archived frame (only present when the contest
+ * has proctorRetainFrames on).
+ */
+exports.getProctorFrame = onCall({ region: "us-central1", maxInstances: 10 }, async (request) => {
+  const { contestId, uid: studentUid, seq } = request.data || {};
+  if (!contestId || !studentUid) {
+    throw new HttpsError("invalid-argument", "contestId and uid are required.");
+  }
+  await assertCanInvigilate(request.auth, contestId);
+
+  const objectPath = seq === undefined || seq === null
+    ? `${proctorPrefix(contestId, studentUid)}/latest.jpg`
+    : `${proctorPrefix(contestId, studentUid)}/frames/${String(seq).padStart(4, "0")}.jpg`;
+
+  const file = admin.storage().bucket().file(objectPath);
+  const [exists] = await file.exists();
+  if (!exists) throw new HttpsError("not-found", "No photo captured for this student yet.");
+
+  const [buffer] = await file.download();
+  const [meta] = await file.getMetadata();
+
+  // Audit trail: looking at a student's face is itself an action worth logging.
+  logger.info("proctor frame served", {
+    contestId, studentUid, objectPath, reviewer: request.auth.uid,
+  });
+
+  return {
+    contentType: meta.contentType || "image/jpeg",
+    dataBase64: buffer.toString("base64"),
+    rollNumber: (meta.metadata && meta.metadata.rollNumber) || "",
+    capturedAt: (meta.metadata && meta.metadata.capturedAt) || meta.updated || null,
+    sizeBytes: Number(meta.size) || buffer.length,
+  };
+});
+
+/**
+ * Lists the archived frames for one student, newest first. Metadata only - no
+ * image bytes - so a reviewer sees the capture timeline and then pulls just the
+ * frame they want.
+ */
+exports.listProctorFrames = onCall({ region: "us-central1", maxInstances: 10 }, async (request) => {
+  const { contestId, uid: studentUid } = request.data || {};
+  if (!contestId || !studentUid) {
+    throw new HttpsError("invalid-argument", "contestId and uid are required.");
+  }
+  await assertCanInvigilate(request.auth, contestId);
+
+  const [files] = await admin.storage().bucket().getFiles({
+    prefix: `${proctorPrefix(contestId, studentUid)}/frames/`,
+  });
+
+  const frames = files.map((f) => {
+    const seqMatch = f.name.match(/frames\/(\d+)\.jpg$/);
+    return {
+      seq: seqMatch ? Number(seqMatch[1]) : null,
+      capturedAt: (f.metadata.metadata && f.metadata.metadata.capturedAt) || f.metadata.updated || null,
+      sizeBytes: Number(f.metadata.size) || 0,
+    };
+  }).filter((f) => f.seq !== null);
+
+  frames.sort((a, b) => b.seq - a.seq);
+  return { frames };
+});

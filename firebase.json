@@ -31,9 +31,12 @@
       { "source": "/pulse/**", "function": "pulsePreviewRouter" }
     ]
   },
-  "storage": {
-    "rules": "storage.rules"
-  },
+  "storage": [
+    {
+      "bucket": "devert-me.firebasestorage.app",
+      "rules": "storage.rules"
+    }
+  ],
   "emulators": {
     "firestore": {
       "port": 8089

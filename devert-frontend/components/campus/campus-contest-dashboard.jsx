@@ -18,6 +18,7 @@ import { ContestPreviewButton } from "@/components/campus/contest-preview";
 import { ContestInfoCard } from "@/components/campus/contest-info-editor";
 import { CampusContestAttempt } from "@/components/campus/campus-contests";
 import { ContestReviewersPanel } from "@/components/campus/contest-reviewers";
+import { ContestProctorConsole } from "@/components/campus/contest-proctor-console";
 import { plainInline } from "@/lib/lessonBlocks";
 import { useAuth } from "@/context/AuthContext";
 
@@ -279,6 +280,31 @@ function SettingToggle({ value, onChange }) {
   );
 }
 
+// Number field for the proctoring cadence/limit settings. Clamped on commit
+// rather than on keystroke, so typing "12" through the intermediate "1" does not
+// fight the user by snapping to the minimum mid-edit.
+function SettingNumber({ value, onChange, min, max, step = 1, suffix }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+
+  const commit = () => {
+    const n = Number(draft);
+    if (!Number.isFinite(n)) { setDraft(String(value)); return; }
+    onChange(Math.min(max, Math.max(min, Math.round(n / step) * step)));
+  };
+
+  return (
+    <span className="flex items-center gap-1.5">
+      <input type="number" value={draft} min={min} max={max} step={step}
+        onChange={e => setDraft(e.target.value)} onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); commit(); } }}
+        className="text-[12px] w-20 px-2.5 py-1.5 rounded-lg outline-none text-right"
+        style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
+      {suffix && <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{suffix}</span>}
+    </span>
+  );
+}
+
 // Contest Administration Controls (spec section 6) - every toggle here
 // defaults to today's hardcoded behavior (see CONTEST_SETTINGS_DEFAULTS in
 // lib/contests.js), so this panel only ever loosens/tightens visibility from
@@ -325,6 +351,48 @@ function CampusContestSettingsPanel({ contest, onSaved }) {
           <SettingRow label="Allow question review"><SettingToggle value={settings.allowQuestionReview} onChange={v => patch("allowQuestionReview", v)} /></SettingRow>
           <SettingRow label="Show correct answers"><SettingToggle value={settings.showCorrectAnswers} onChange={v => patch("showCorrectAnswers", v)} /></SettingRow>
           <SettingRow label="Highlight incorrect answers"><SettingToggle value={settings.highlightIncorrect} onChange={v => patch("highlightIncorrect", v)} /></SettingRow>
+
+          {/* Invigilation. Off by default and never implied by anything else -
+              turning a contest into a camera-monitored session is a decision
+              that has to be made explicitly, per contest. */}
+          <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+            <p className="text-[11px] font-mono tracking-wide mb-1" style={{ color: CAMPUS.inkFaint }}>
+              INVIGILATION (PROCTORING)
+            </p>
+          </div>
+          <SettingRow label="Camera proctoring">
+            <SettingToggle value={settings.proctoringEnabled} onChange={v => patch("proctoringEnabled", v)} />
+          </SettingRow>
+
+          {settings.proctoringEnabled && (
+            <>
+              <SettingRow label="Photo every">
+                <SettingNumber value={settings.proctorSnapshotSeconds} min={60} max={1800} step={30}
+                  suffix={`sec (${Math.round(settings.proctorSnapshotSeconds / 60)} min)`}
+                  onChange={v => patch("proctorSnapshotSeconds", v)} />
+              </SettingRow>
+              <SettingRow label="Require fullscreen">
+                <SettingToggle value={settings.proctorRequireFullscreen} onChange={v => patch("proctorRequireFullscreen", v)} />
+              </SettingRow>
+              <SettingRow label="Keep every photo">
+                <SettingToggle value={settings.proctorRetainFrames} onChange={v => patch("proctorRetainFrames", v)} />
+              </SettingRow>
+              <SettingRow label="Auto-submit after N violations">
+                <SettingNumber value={settings.proctorMaxViolations} min={0} max={20}
+                  suffix={settings.proctorMaxViolations === 0 ? "off (warn only)" : "violations"}
+                  onChange={v => patch("proctorMaxViolations", v)} />
+              </SettingRow>
+
+              <p className="text-[11px] leading-relaxed mt-2 px-3 py-2 rounded-lg"
+                style={{ color: CAMPUS.inkSoft, background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+                {settings.proctorRetainFrames
+                  ? "Every photo is archived, so a disputed result has a full timeline. ~35KB per photo per student."
+                  : "Only the newest photo is kept - each capture replaces the last. A challenge later will have no timeline to review."}
+                {" "}Students must consent before the timer starts, and the contest must be served over https or the
+                camera cannot be granted.
+              </p>
+            </>
+          )}
 
           {(settings.answerKeyRelease === "manual" || settings.analysisRelease === "manual" || settings.scoreRelease === "manual") && (
             <div className="mt-3 pt-3 space-y-2" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
@@ -1211,6 +1279,16 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
       )}
 
       <CampusContestSettingsPanel contest={contest} onSaved={load} />
+
+      {/* Sits directly under Settings, where the proctoring toggle lives, so the
+          switch and its consequences read as one thing. Renders its own "off"
+          explainer rather than being hidden when proctoring is disabled - an
+          invigilator looking for footage that was never captured needs to be
+          told why, not shown nothing. */}
+      <ContestProctorConsole
+        contestId={contestId}
+        proctoringEnabled={getContestSettings(contest).proctoringEnabled}
+      />
 
       <ContestReviewersPanel contestId={contestId} roster={roster} adminUid={user?.uid} />
 

@@ -423,6 +423,22 @@ export const CONTEST_SETTINGS_DEFAULTS = {
   highlightIncorrect: true,
   scoreRelease: "after_end",        // 'immediate' | 'after_end' | 'manual'
   rankingVisibility: "campus_only", // 'public' | 'campus_only' | 'hidden'
+
+  // Proctoring. Flat keys, not a nested `proctoring: {}` object, because
+  // getContestSettings() shallow-merges - a nested object saved by an older
+  // admin build would REPLACE the defaults wholesale and silently drop any key
+  // added later, turning a missing field into "feature off" mid-contest.
+  proctoringEnabled: false,
+  proctorSnapshotSeconds: 300,      // capture cadence; 300 = every 5 minutes
+  proctorRequireFullscreen: true,
+  // false = each capture overwrites the last, so only the newest photo is kept.
+  // true = also archives every frame; see uploadProctorSnapshot() on why that is
+  // the defensible setting when a result might be challenged.
+  proctorRetainFrames: false,
+  // 0 = warn only. A positive number auto-submits the attempt at that many
+  // violations - opt-in, because a stray OS notification stealing focus should
+  // not end someone's paper.
+  proctorMaxViolations: 0,
 };
 
 export function getContestSettings(contest) {

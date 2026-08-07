@@ -416,3 +416,36 @@ body {
   #classroom-report-print, #classroom-report-print * { visibility: visible; }
   #classroom-report-print { position: absolute; left: 0; top: 0; width: 100%; }
 }
+
+/* Content lockdown - pairs with <ContentGuard />. The JS blocks the events;
+   this removes the selection highlight and the long-press callout so there is
+   nothing to grab in the first place. ContentGuard adds .clipboard-unlocked to
+   <html> for admins, which lifts the whole CSS half in one go. */
+html:not(.clipboard-unlocked) {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Kept selectable for everyone: form fields need a caret, Monaco is a text
+   editor holding the user's own code, and data-allow-clipboard is the
+   per-element hatch. Mirrors EXEMPT_SURFACES in components/content-guard.jsx -
+   change both together. */
+input,
+textarea,
+select,
+[contenteditable=""],
+[contenteditable="true"],
+.monaco-editor,
+.monaco-editor *,
+[data-allow-clipboard],
+[data-allow-clipboard] * {
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  user-select: text;
+}
+
+html:not(.clipboard-unlocked) :is(img, svg, canvas, video) {
+  -webkit-user-drag: none;
+  user-drag: none;
+}

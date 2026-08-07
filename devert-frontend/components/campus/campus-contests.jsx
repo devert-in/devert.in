@@ -14,6 +14,10 @@ import {
   fetchContestRegistrations,
 } from "@/lib/contests";
 import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
+import { resolveRollNumber } from "@/lib/proctoring";
+import { useProctorSession } from "@/components/proctor/use-proctor-session";
+import { ProctorGate } from "@/components/proctor/proctor-gate";
+import { ProctorSelfView, ProctorWarning, ProctorObstruction } from "@/components/proctor/proctor-hud";
 
 // "III Year / CSE(AI&ML) / C" from the fields fetchLeaderboard denormalizes off
 // users/{uid}. A platform (non-Campus) submitter has none of them, and a Campus
@@ -436,7 +440,13 @@ function ContestCodingPanel({ state, isPaused, onLanguageChange, onCodeChange, o
 // Everything else - shuffling, the timer, autosave, the question palette - is
 // the identical code path a student runs, which is what makes it a real check.
 export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun = false }) {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
+
+  // Proctoring. Never applied to a dry run: that path is the Mock Reviewer
+  // previewing the paper, and filing webcam frames against a reviewer who is
+  // not sitting the exam is both pointless and a privacy problem.
+  const [rollNumber, setRollNumber] = useState("");
+  const [proctorReady, setProctorReady] = useState(false);
 
   const [contest, setContest] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -568,16 +578,28 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
         options: q.options?.length ? seededShuffle(q.options, `${user.uid}:${contestId}:${q.id}`) : q.options,
       }));
 
-      const end = toDate(c.contestEnd).getTime();
-      startedAtRef.current = Date.now();
-      const capEnd = startedAtRef.current + (c.durationMinutes || 60) * 60 * 1000;
-      const effectiveEnd = (dryRun ? capEnd : Math.min(end, capEnd));
+      const proctorOn = !dryRun && getContestSettings(c).proctoringEnabled;
+      if (proctorOn) {
+        // Resolved before the gate renders so the consent screen can name the
+        // exact roll number the photos will be filed under.
+        setRollNumber(await resolveRollNumber(user.uid, userData));
+      }
 
       setContest(c);
       setQuestions(shuffled);
       setIsPaused(!!c.paused);
-      setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
-      questionEnteredAtRef.current = Date.now();
+
+      // An unproctored attempt starts its clock here, exactly as before. A
+      // proctored one defers to the effect below, so the seconds spent granting
+      // camera permission are not billed to the student.
+      if (!proctorOn) {
+        const end = toDate(c.contestEnd).getTime();
+        startedAtRef.current = Date.now();
+        const capEnd = startedAtRef.current + (c.durationMinutes || 60) * 60 * 1000;
+        const effectiveEnd = (dryRun ? capEnd : Math.min(end, capEnd));
+        setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
+        questionEnteredAtRef.current = Date.now();
+      }
       setLoading(false);
     })().catch((e) => {
       console.error(e);
@@ -587,13 +609,26 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   };
   useEffect(load, [user, contestId]);
 
+  const settings = getContestSettings(contest);
+  const proctored = !!contest && !dryRun && settings.proctoringEnabled;
+
+  // Starts the clock for a proctored attempt, once camera + fullscreen are up.
+  useEffect(() => {
+    if (!proctored || !proctorReady || startedAtRef.current !== null) return;
+    startedAtRef.current = Date.now();
+    const end = toDate(contest.contestEnd).getTime();
+    const capEnd = startedAtRef.current + (contest.durationMinutes || 60) * 60 * 1000;
+    setSecondsLeft(Math.max(0, Math.floor((Math.min(end, capEnd) - Date.now()) / 1000)));
+    questionEnteredAtRef.current = Date.now();
+  }, [proctored, proctorReady, contest]);
+
   const handleSubmit = async () => {
     if (submittedRef.current || !user) return;
     submittedRef.current = true;
     setSubmitting(true);
     try {
       recordElapsed();
-      const timeTakenSeconds = Math.round((Date.now() - startedAtRef.current) / 1000);
+      const timeTakenSeconds = Math.round((Date.now() - (startedAtRef.current ?? Date.now())) / 1000);
       const maxScore = questions.reduce((sum, q) => sum + (q.marks || 1), 0);
       if (dryRun) {
         // Scored here and now rather than left for a results view to grade:
@@ -611,6 +646,9 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
       } else {
         await submitContestAnswers(contestId, user.uid, answersRef.current, timeTakenSeconds, maxScore, timingsRef.current);
       }
+      // Releases the camera and leaves fullscreen, only after the answers are
+      // safely written - never risk the submission to tidy up hardware.
+      if (proctored) await proctor.finish().catch(() => {});
       setSubmitted(true);
     } catch (e) {
       console.error(e);
@@ -624,6 +662,23 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
     }
     finally { setSubmitting(false); }
   };
+
+  // handleSubmit and the proctor session reference each other (the session can
+  // force a submit at the violation limit; a submit tears the session down).
+  // Both resolve through closures at call time, and the hook holds
+  // onSubmitRequested in a ref so this does not re-register its listeners.
+  const proctor = useProctorSession({
+    contestId,
+    uid: user?.uid,
+    rollNumber,
+    displayName: userData?.displayName || user?.displayName || "",
+    enabled: proctored,
+    snapshotSeconds: settings.proctorSnapshotSeconds,
+    requireFullscreen: settings.proctorRequireFullscreen,
+    retainFrames: settings.proctorRetainFrames,
+    maxViolations: settings.proctorMaxViolations,
+    onSubmitRequested: handleSubmit,
+  });
 
   useEffect(() => {
     if (secondsLeft === null || submitted) return;
@@ -707,6 +762,30 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
     );
   }
 
+  // Consent + device check + the fullscreen gesture, before the paper exists and
+  // before the clock starts. Shares proctor.videoRef with the HUD below, so the
+  // stream started here carries into the attempt with no second prompt.
+  if (proctored && !proctorReady) {
+    return (
+      <ProctorGate
+        contestTitle={contest.title}
+        rollNumber={rollNumber}
+        snapshotSeconds={settings.proctorSnapshotSeconds}
+        requireFullscreen={settings.proctorRequireFullscreen}
+        retainFrames={settings.proctorRetainFrames}
+        videoRef={proctor.videoRef}
+        cameraState={proctor.cameraState}
+        cameraError={proctor.cameraError}
+        onBegin={async () => {
+          const ok = await proctor.begin();
+          if (ok) setProctorReady(true);
+          return ok;
+        }}
+        onCancel={() => onBack(contestId)}
+      />
+    );
+  }
+
   const q = questions[qIndex];
   const h = Math.floor(secondsLeft / 3600), m = Math.floor((secondsLeft % 3600) / 60), s = secondsLeft % 60;
   const timerColor = secondsLeft > 300 ? CAMPUS.good : secondsLeft > 60 ? CAMPUS.warn : CAMPUS.bad;
@@ -715,6 +794,27 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
 
   return (
     <div className="max-w-2xl">
+      {proctored && (
+        <>
+          <ProctorSelfView
+            videoRef={proctor.videoRef}
+            cameraState={proctor.cameraState}
+            violations={proctor.violations}
+            snapshotCount={proctor.snapshotCount}
+          />
+          <ProctorWarning warning={proctor.warning} onDismiss={proctor.dismissWarning} />
+          {proctor.obstructed && (
+            <ProctorObstruction
+              cameraState={proctor.cameraState}
+              cameraError={proctor.cameraError}
+              isFullscreen={proctor.isFullscreen}
+              requireFullscreen={settings.proctorRequireFullscreen}
+              onRetryCamera={proctor.retryCamera}
+              onEnterFullscreen={proctor.enterFullscreen}
+            />
+          )}
+        </>
+      )}
       <div className="flex items-center justify-between mb-5">
         <p className="text-xs" style={{ color: CAMPUS.inkFaint }}>{contest.title}</p>
         <p className="text-lg font-bold font-mono" style={{ color: timerColor }}>{h > 0 ? `${pad(h)}:` : ""}{pad(m)}:{pad(s)}</p>

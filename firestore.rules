@@ -1455,6 +1455,84 @@ service cloud.firestore {
         allow delete: if isOwner(uid) || isAdmin();
       }
 
+      // Proctoring session for an invigilated attempt. Written by the student's
+      // own browser, read by invigilators.
+      //
+      // The whole collection is designed on the assumption that the writer is
+      // hostile: it is the subject's own client reporting on the subject's own
+      // conduct. So:
+      //
+      // - No delete, for anyone except a platform admin. A student cannot erase
+      //   their own record, and neither can their institution's admin - the
+      //   evidence outlives any local dispute.
+      // - Counters may only ever increase. hasOnly() bounds which fields an
+      //   update may touch and the >= checks stop a tampered client from
+      //   zeroing a tally it already reported.
+      // - A student can never read a PEER's session. Only the owner and
+      //   invigilators, and the owner only ever needs their own.
+      //
+      // Absence of violations here is not evidence of good conduct - a client
+      // with JavaScript disabled writes nothing at all. lastHeartbeatAt is what
+      // distinguishes "behaved" from "stopped reporting", which is why it is a
+      // required field on create rather than an optional nicety.
+      match /proctorSessions/{uid} {
+        allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId)
+          || isContestInstitutionStaff(contestId);
+
+        allow create: if isOwner(uid) && isApprovedForContest(contestId)
+          && request.resource.data.startedAt != null
+          && request.resource.data.lastHeartbeatAt != null
+          && request.resource.data.get('rollNumber', '') is string
+          && request.resource.data.get('rollNumber', '').size() <= 64;
+
+        // Two shapes of legal update, and nothing else:
+        //   1. the heartbeat / session-restart merge, and
+        //   2. a monotonic counter bump alongside its timestamps.
+        //
+        // Deliberately NOT gated on isApprovedForContest() like create is. That
+        // helper costs ~4 get()s (institution, approved-student, restriction,
+        // audience) and the heartbeat fires once a minute per student - on a
+        // 500-seat contest that is 2,000 billed reads per minute to re-answer a
+        // question whose answer cannot have changed. The document's existence is
+        // already proof that create passed, and the field allowlist plus the
+        // monotonic checks below mean the worst an ineligible caller could do to
+        // their own session is inflate their own violation count.
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               'lastHeartbeatAt', 'startedAt', 'userAgent', 'screen', 'rollNumber', 'displayName',
+               'tabSwitches', 'fullscreenExits', 'cameraLosses', 'violations', 'lastViolationAt',
+               'snapshotCount', 'lastSnapshotAt', 'latestSnapshotPath', 'latestSnapshotUrl',
+             ])
+          && request.resource.data.get('tabSwitches', 0)     >= resource.data.get('tabSwitches', 0)
+          && request.resource.data.get('fullscreenExits', 0)  >= resource.data.get('fullscreenExits', 0)
+          && request.resource.data.get('cameraLosses', 0)     >= resource.data.get('cameraLosses', 0)
+          && request.resource.data.get('violations', 0)       >= resource.data.get('violations', 0)
+          && request.resource.data.get('snapshotCount', 0)    >= resource.data.get('snapshotCount', 0);
+
+        allow delete: if isAdmin();
+
+        // Append-only event log. No update and no delete for anyone but a
+        // platform admin: an event, once written, is the record. This is the
+        // collection a malpractice appeal is actually argued from, so an
+        // institution admin deciding a flag was unfair must annotate elsewhere,
+        // never rewrite history here.
+        match /events/{eventId} {
+          allow read:   if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId)
+            || isContestInstitutionStaff(contestId);
+          // Ownership only, for the same read-cost reason as the parent's update
+          // rule: violations arrive in bursts (a flurry of blur events as
+          // someone alt-tabs) and re-proving contest eligibility on each one
+          // would multiply every burst by four reads. The path already confines
+          // a writer to their own log.
+          allow create: if isOwner(uid)
+            && request.resource.data.at != null
+            && request.resource.data.get('type', '') is string
+            && request.resource.data.get('type', '').size() <= 40;
+          allow update: if false;
+          allow delete: if isAdmin();
+        }
+      }
+
       // Owner creates their own submission once, with raw answers only (no score/grade
       // fields yet). The one legal follow-up is the owner flipping graded false->true
       // after contestEnd, with xpEarned/coinsEarned bounded to the contest's own prize
