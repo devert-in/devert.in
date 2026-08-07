@@ -16,10 +16,13 @@ import {
 import {
   LessonBody, InfoListCard, CodeExampleBlock, LessonProgressBar, useReadingProgress,
 } from "@/components/campus/lesson-blocks";
-import { shuffleQuizForAttempt, buildQuizSeedKey, loadQuizDraft, saveQuizDraft } from "@/lib/quizRandom";
+import { buildQuizSeedKey } from "@/lib/quizRandom";
+import { fetchAttempt, submitQuizAttempt, attemptState } from "@/lib/quizAttempts";
+import { GradedQuiz } from "@/components/campus/graded-quiz";
+import { policyFor } from "@/lib/rewardPolicy";
 import {
   fetchTopic, groupTopicsByModule, topicHasContent, markTopicOpened, completeTopic,
-  markTopicRevised,
+  markTopicRevised, gateProgressRef, gateCompletionPayload,
 } from "@/lib/gate";
 import { fetchPyqs, toggleBookmark, isBookmarked, saveTopicNote } from "@/lib/gatePyq";
 import { fetchTests } from "@/lib/gateTests";
@@ -261,7 +264,12 @@ export function GateTopicView() {
   const [pyqs, setPyqs] = useState(null);
   const [topicTest, setTopicTest] = useState(null);
   const [quizAnswers, setQuizAnswers] = useState({});
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  // Server-side attempt record, not a localStorage flag - see
+  // lib/quizAttempts.js's header.
+  const [attempt, setAttempt] = useState(null);
+  const [attemptLoaded, setAttemptLoaded] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [natAnswers, setNatAnswers] = useState({});
   const [natRevealed, setNatRevealed] = useState({});
   const [showDeepDive, setShowDeepDive] = useState(false);
@@ -276,7 +284,7 @@ export function GateTopicView() {
   const reduceMotion = useReducedMotion();
 
   const quizSeedKey = buildQuizSeedKey({ uid: user?.uid, scope: `gate:${paper?.id}:${topicId}` });
-  const quizDraftKey = user ? `gate:${user.uid}:${paper?.id}:${topicId}` : null;
+  const quizScopeId = `${paper?.id}_${topicId}`;
 
   useEffect(() => {
     if (!paper?.id || !subjectId || !topicId) return;
@@ -306,19 +314,25 @@ export function GateTopicView() {
     setNoteText(notes?.topicNotes?.[topicId] || "");
   }, [notes, topicId]);
 
-  // Restore an in-progress or already-submitted quiz for this topic - a refresh
-  // must never silently reset an unsubmitted quiz to blank.
+  // Load this topic's attempt record from the server. Answers reset
+  // synchronously as the topic changes and every async result is dropped if the
+  // topic moved on - the old pair of localStorage effects wrote the PREVIOUS
+  // topic's "submitted" flag under the NEW topic's key, because both ran in the
+  // same commit and the save effect still held stale state.
   useEffect(() => {
-    if (!quizDraftKey) { setQuizAnswers({}); setQuizSubmitted(false); return; }
-    const draft = loadQuizDraft(quizDraftKey);
-    setQuizAnswers(draft?.answers || {});
-    setQuizSubmitted(!!draft?.submitted);
-  }, [quizDraftKey]);
+    let cancelled = false;
+    setQuizAnswers({});
+    setAttempt(null);
+    setAttemptLoaded(false);
+    setLastResult(null);
 
-  useEffect(() => {
-    if (!quizDraftKey) return;
-    saveQuizDraft(quizDraftKey, { answers: quizAnswers, submitted: quizSubmitted });
-  }, [quizDraftKey, quizAnswers, quizSubmitted]);
+    if (!user || !paper?.id) { setAttemptLoaded(true); return; }
+    fetchAttempt(user.uid, "gate", quizScopeId)
+      .then(a => { if (!cancelled) { setAttempt(a); setAttemptLoaded(true); } })
+      .catch(() => { if (!cancelled) setAttemptLoaded(true); });
+
+    return () => { cancelled = true; };
+  }, [user, paper?.id, quizScopeId]);
 
   const goBack = () => go("subjects", { subjectId });
 
@@ -334,10 +348,9 @@ export function GateTopicView() {
   const hasContent = topicHasContent(topic);
   const mcqs = topic.mcqs || [];
   const numericals = topic.numericals || [];
-  // A topic with an authored quiz must have it submitted before completion
-  // unlocks - without this a student could bank the XP without ever opening the
-  // check. Same gate Programming and CS Core already enforce.
-  const quizPending = mcqs.length > 0 && !quizSubmitted;
+  const hasQuiz = mcqs.length > 0;
+  const policy = policyFor("gate", topic);
+  const quizState = attemptState(attempt, policy);
 
   const available = {
     intro: !!(topic.whatYoullLearn?.length || topic.prerequisites?.length),
@@ -351,6 +364,42 @@ export function GateTopicView() {
     revision: !!(topic.revisionSummary?.trim() || topic.shortNotes?.oneMinute?.trim()),
   };
 
+  // For a topic with practice MCQs, submitting them IS the completion: graded
+  // server-side, paid per question, and marked complete only on a pass.
+  const handleSubmitQuiz = async () => {
+    if (!user || !topic) return;
+    setSubmitting(true);
+    try {
+      const res = await submitQuizAttempt({
+        uid: user.uid,
+        moduleKey: "gate",
+        scopeId: quizScopeId,
+        mcqs,
+        answers: quizAnswers,
+        item: topic,
+        progressRef: gateProgressRef(user.uid, paper.id),
+        progressPayload: {
+          completedIdField: "completedTopicIds",
+          completedId: topicId,
+          data: gateCompletionPayload(user.uid, paper.id, subjectId, topicId),
+        },
+        activityId: quizScopeId,
+        transactionType: "gate_topic_completed",
+        sourceModule: "gate",
+      });
+      setLastResult(res);
+      if (res.status === "graded") {
+        setJustCompleted(res.passed);
+        if (res.passed) { setAlreadyDone(true); await reload.progress(); }
+      }
+      const fresh = await fetchAttempt(user.uid, "gate", quizScopeId).catch(() => null);
+      setAttempt(fresh);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Reading-only topics (no authored MCQs) keep acknowledge-to-complete.
   const handleComplete = async () => {
     if (!user) return;
     setCompleting(true);
@@ -540,10 +589,18 @@ export function GateTopicView() {
           )}
 
           {/* --- 9. Practice MCQs --- */}
-          {mcqs.length > 0 && (
-            <TopicQuiz mcqs={mcqs} seedKey={quizSeedKey} answers={quizAnswers} submitted={quizSubmitted}
+          {hasQuiz && (
+            <GradedQuiz
+              mcqs={mcqs}
+              seedKey={quizSeedKey}
+              answers={quizState.locked && quizState.lastAnswers ? quizState.lastAnswers : quizAnswers}
               onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
-              onSubmit={() => setQuizSubmitted(true)} />
+              state={quizState}
+              policy={policy}
+              result={lastResult}
+              loading={!attemptLoaded}
+              submitting={submitting}
+              onSubmit={handleSubmitQuiz} />
           )}
 
           {/* --- 10. Numerical problems (NAT-style, the type GATE actually uses) --- */}
@@ -625,21 +682,21 @@ export function GateTopicView() {
         </CampusCard>
       )}
 
-      {/* --- completion --- */}
+      {/* --- completion ---
+          A topic with practice MCQs has no separate completion button: the quiz
+          above grades it and pays per question. Keeping one here is what let a
+          wrong paper bank the full topic reward. */}
       {hasContent && (
         <CampusCard className="p-4 mt-6 flex items-center justify-between flex-wrap gap-3">
           <div>
             <p className="text-[13px] font-semibold" style={{ color: CAMPUS.ink }}>
-              {alreadyDone ? "Topic completed" : "Mark this topic complete"}
+              {alreadyDone ? "Topic completed" : hasQuiz ? "Complete the quiz above to finish this topic" : "Mark this topic complete"}
             </p>
-            {!alreadyDone && (
+            {!alreadyDone && !hasQuiz && (
               <p className="text-[11px] flex items-center gap-2.5 mt-0.5" style={{ color: CAMPUS.inkFaint }}>
                 <span className="flex items-center gap-1"><Zap size={11} /> +{topic.xpReward || 25} XP</span>
                 <span className="flex items-center gap-1"><Coins size={11} /> +{topic.coinReward || 10} coins</span>
               </p>
-            )}
-            {!alreadyDone && quizPending && (
-              <p className="text-[11px] mt-1" style={{ color: CAMPUS.warn }}>Submit the practice MCQs above to unlock this.</p>
             )}
             {alreadyDone && (
               <p className="text-[11px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>
@@ -657,8 +714,8 @@ export function GateTopicView() {
                   Mark revised
                 </CampusButton>
               </>
-            ) : (
-              <CampusButton onClick={handleComplete} disabled={completing || !user || quizPending}>
+            ) : !hasQuiz && (
+              <CampusButton onClick={handleComplete} disabled={completing || !user}>
                 {completing ? "Saving..." : "Complete topic"}
               </CampusButton>
             )}
@@ -727,65 +784,6 @@ function WorkedExample({ example, index }) {
             </div>
           )}
         </div>
-      )}
-    </CampusCard>
-  );
-}
-
-function TopicQuiz({ mcqs, seedKey, answers, onAnswer, submitted, onSubmit }) {
-  // Shuffled purely for display, keyed on (student, topic). Grading always
-  // compares against the original array index's correctIndex, never the shuffled
-  // render position, so `answers` keeps its "keyed by original index" shape.
-  const shuffled = useMemo(() => shuffleQuizForAttempt(mcqs, seedKey), [mcqs, seedKey]);
-  const score = mcqs.reduce((n, q, i) => n + (answers[i] === q.correctIndex ? 1 : 0), 0);
-
-  return (
-    <CampusCard className="p-4">
-      <div className="flex items-center gap-1.5 mb-3">
-        <ListChecks size={13} style={{ color: CAMPUS.blue }} />
-        <span className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.blue }}>PRACTICE MCQS</span>
-      </div>
-      <div className="space-y-4">
-        {shuffled.map((q, i) => (
-          <div key={q._origIndex}>
-            <p className="text-[13px] font-medium mb-2" style={{ color: CAMPUS.ink }}>{i + 1}. {q.question}</p>
-            <div className="space-y-1.5">
-              {q.options.map(opt => {
-                const isSelected = answers[q._origIndex] === opt.originalIndex;
-                const isCorrect = submitted && opt.originalIndex === q.correctIndex;
-                const isWrong = submitted && isSelected && opt.originalIndex !== q.correctIndex;
-                return (
-                  <button key={opt.originalIndex} disabled={submitted}
-                    onClick={() => onAnswer(q._origIndex, opt.originalIndex)}
-                    className="w-full text-left text-[12.5px] px-3 py-2 rounded-lg"
-                    style={{
-                      background: isCorrect ? CAMPUS.goodTint : isWrong ? CAMPUS.badTint : isSelected ? CAMPUS.tealTint : CAMPUS.paper,
-                      border: `1px solid ${isCorrect ? CAMPUS.good : isWrong ? CAMPUS.bad : isSelected ? CAMPUS.teal : CAMPUS.line}`,
-                      color: CAMPUS.ink,
-                    }}>
-                    {opt.text}
-                  </button>
-                );
-              })}
-            </div>
-            {submitted && mcqs[q._origIndex]?.explanation && (
-              <p className="text-[12px] leading-relaxed mt-2 px-3 py-2 rounded-lg"
-                style={{ background: CAMPUS.paper, color: CAMPUS.inkSoft }}>
-                {mcqs[q._origIndex].explanation}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
-      {!submitted ? (
-        <CampusButton size="sm" className="mt-4" onClick={onSubmit}
-          disabled={Object.keys(answers).length < mcqs.length}>
-          Submit answers
-        </CampusButton>
-      ) : (
-        <p className="text-[12.5px] font-semibold mt-4" style={{ color: score === mcqs.length ? CAMPUS.good : CAMPUS.teal }}>
-          Score: {score}/{mcqs.length}
-        </p>
       )}
     </CampusCard>
   );

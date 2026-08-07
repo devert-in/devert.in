@@ -74,9 +74,21 @@ export async function grantRewards(uid, {
   if (!uid) return;
   const userRef = doc(db, "users", uid);
   const earningsRef = doc(db, "user_earnings", uid);
-  if (xpReward > 0 || scoreReward > 0) {
+  // xpReward may be NEGATIVE - per-question quiz scoring deducts XP for wrong
+  // answers (see lib/rewardPolicy.js's computeQuizReward). firestore.rules'
+  // selfWriteDeltaSane caps only the upper end of an xp delta, so a decrease
+  // needs no rules change. Callers are responsible for having already floored
+  // the delta so a balance cannot go below zero - grantRewards writes whatever
+  // it is handed and does not read the current balance (a Firestore
+  // transaction requires every read before any write, and by the time most
+  // callers reach here they have already written).
+  //
+  // scoreReward is deliberately still gated on > 0: Score never decreases
+  // (selfScoreWriteSane rejects it outright), so a negative score reward is a
+  // caller bug, not something to silently pass through.
+  if (xpReward !== 0 || scoreReward > 0) {
     const patch = {};
-    if (xpReward > 0) patch.xp = increment(xpReward);
+    if (xpReward !== 0) patch.xp = increment(xpReward);
     if (scoreReward > 0) patch.score = increment(scoreReward);
     if (tx) tx.update(userRef, patch); else await updateDoc(userRef, patch);
   }

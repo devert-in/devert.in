@@ -23,10 +23,22 @@ export async function generateStaticParams() {
   return [...institutionParams, ...GLOBAL_SECTIONS.map((slug) => ({ slug }))];
 }
 
+// `learning` hosts the whole public Learn hub, not just the course catalog -
+// Fundamentals, Programming, CS Core and Aptitude are selected within it via
+// ?tab= (see LEARN_MODULES in campus-app.jsx), and `practice` likewise carries
+// DSA sheets and concepts alongside the problem set. These titles describe what
+// is actually reachable there rather than the single surface each route started
+// life as.
 const GLOBAL_SECTION_METADATA = {
-  contests: { title: "Contests | DeVert Campus", description: "Compete in coding contests across every DeVert Campus institution." },
-  learning: { title: "Daily Learning | DeVert Campus", description: "Structured daily coding lessons, open to browse before you join a campus." },
-  practice: { title: "Practice | DeVert Campus", description: "Practice DSA and company-wise interview questions, open to browse before you join a campus." },
+  contests: { title: "Contests | DeVert Campus", description: "Compete in open coding contests - real submissions and ranks, no college required." },
+  learning: { title: "Learn | DeVert Campus", description: "Programming languages, CS Core subjects, software engineering fundamentals and aptitude - one central curriculum, open to anyone." },
+  practice: { title: "Practice | DeVert Campus", description: "DSA problems graded against real test cases, curated sheets, concept roadmaps and company-wise interview prep." },
+  // The three former landing-page sections, now real pages (see
+  // LANDING_PAGE_SECTIONS) - each with its own title/description precisely so
+  // it can rank and be shared as itself rather than as a fragment of /campus.
+  campuses: { title: "Campuses | DeVert Campus", description: "Every college running DeVert Campus. Find yours and request access - your Training & Placement Cell approves it." },
+  institutions: { title: "For institutions | DeVert Campus", description: "Daily Learning scheduling, assessments, contests, leaderboards and role-based dashboards for principals, HODs, faculty and placement cells." },
+  pricing: { title: "Pricing | DeVert Campus", description: "Free to learn. Individual Premium is ₹29 a month per learner, down to ₹19.1 a month on the yearly plan, with a 7-day free trial; a campus licence is quoted per institution." },
 };
 
 export async function generateMetadata({ params }) {

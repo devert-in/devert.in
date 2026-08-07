@@ -62,19 +62,28 @@ export const metadata = {
     siteName:    "DeVert",
     title:       "DeVert - Builder's OS",
     description: "Introvert. Extrovert. DeVert. A new identity for developers who build, ship, and grind.",
+    // og-image.png, not logo.png. logo.png is a 2048x2048 SQUARE weighing
+    // 6.6 MB - over Twitter's documented 5 MB image ceiling, so the card
+    // image was being dropped outright, and square art gets centre-cropped
+    // to 1.91:1 by every major unfurler anyway. og-image.png is a purpose-
+    // built 1200x630 at ~58 KB (generated from logo.png + the design-system
+    // palette; regenerate it if the mark changes).
     images: [{
-      url:    "https://devert.in/logo.png",
-      width:  2048,
-      height: 2048,
+      url:    "https://devert.in/og-image.png",
+      width:  1200,
+      height: 630,
       alt:    "DeVert - Builder's OS",
     }],
   },
   twitter: {
-    card:        "summary",
+    // Safe to use the large card now that the image is 1.91:1 and well under
+    // the size ceiling; matches what buildCampusMetadata already emits for
+    // every Campus page (lib/campus-seo.js).
+    card:        "summary_large_image",
     site:        "@devert_in",
     title:       "DeVert - Builder's OS",
     description: "Introvert. Extrovert. DeVert. A new identity for builders.",
-    images:      ["https://devert.in/logo.png"],
+    images:      ["https://devert.in/og-image.png"],
   },
   robots: {
     index:  true,
@@ -106,16 +115,41 @@ const jsonLd = {
       "alternateName": "DeVert - Builder's OS",
       "url": "https://devert.in",
       "description": "Introvert. Extrovert. DeVert. Developer + Verts - a new identity for builders who ship.",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": { "@type": "EntryPoint", "urlTemplate": "https://devert.in/u/{search_term_string}" },
-        "query-input": "required name=search_term_string",
-      },
+      // No SearchAction/potentialAction on purpose. It previously pointed at
+      // https://devert.in/u/{search_term_string} - but /u/{handle} is the USER
+      // PROFILE route, not a site search. A SearchAction declares a sitelinks
+      // searchbox, so Google would have piped arbitrary queries ("dsa
+      // problems") into a profile URL and 404'd them.
+      //
+      // Declaring a searchbox that doesn't work is strictly worse than
+      // declaring none, and there is no public search route to point at
+      // (CommandPalette is client-side and has no URL). Re-add this only
+      // alongside a real indexable /search?q= route.
     },
     {
       "@type": "Organization",
       "@id": "https://devert.in/#organization",
       "name": "DeVert",
+      // The ONE legitimate, non-spammy place to declare brand aliases. Google
+      // reads alternateName on the Organization entity; a <meta keywords> list
+      // of misspellings does nothing (dropped as a ranking signal ~2009) and
+      // repeating variants in body copy reads as keyword stuffing.
+      //
+      // "Divert" is the misspelling students actually type. Google may well
+      // ignore it - "divert" is a common English verb, so the query is
+      // dominated by unrelated intent and no amount of markup outranks that.
+      // What actually builds the association is aggregate behaviour: people
+      // searching a variant, skipping the dictionary results, then clicking
+      // DeVert. This field only makes the relationship legible; it can't force
+      // it. Kept deliberately short - a long alias list dilutes rather than
+      // strengthens the entity.
+      "alternateName": [
+        "Devert",
+        "DVert",
+        "Divert",
+        "DeVert Campus",
+        "DeVert - Builder's OS",
+      ],
       "url": "https://devert.in",
       "logo": {
         "@type": "ImageObject",

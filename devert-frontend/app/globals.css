@@ -195,17 +195,33 @@ select option {
    chin under it. */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* CampusBadge (campus-ui.jsx) - the Campus mark ships as TWO raster variants
+   because the source art bakes its own background into the rounded square:
+   a dark-canvas icon and a light-canvas one. Both are in the DOM and CSS picks
+   one off the same data-theme attribute every CAMPUS.* token already keys off.
+   Deliberately not a useCampusTheme() read: CampusThemeProvider's initializer
+   falls back to "dark" wherever localStorage is unreadable (i.e. every server
+   render), so a JS-chosen src would paint the dark badge first and swap it on
+   hydration - a visible flash on the one element a visitor looks at first. The
+   pair is ~11KB total, so shipping both costs less than that flash.
+   Default-hidden is the LIGHT variant, matching the provider's own dark
+   default, so exactly one badge is visible even with no data-theme ancestor. */
+.campus-badge-light { display: none; }
+.campus-theme[data-theme="light"] .campus-badge-light { display: block; }
+.campus-theme[data-theme="light"] .campus-badge-dark { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .campus-theme * { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
 }
 
-/* Opt-in flat/hairline variant of the same CampusCard/button vocabulary,
-   used only by the pre-auth landing page and its Contests/Learning/Practice
-   sub-views (see CampusGlobalSection in campus-app.jsx) - the authenticated
-   Workspace keeps the rounded, shadowed CampusCard untouched. Scoped by
-   ancestry, not by touching the shared ported components themselves, so the
-   exact same CampusContestFlow/CampusLearningSection/CampusPracticeList
-   render sharp here and rounded inside a college's Workspace tabs.
+/* Opt-in flat/hairline variant of the same CampusCard/button vocabulary, used
+   by the WHOLE pre-auth surface: the /campus landing page, its Campuses/
+   For-institutions/Pricing pages (CampusInfoPage), and the Contests/Learning/
+   Practice sub-views (CampusGlobalSection) - the authenticated Workspace keeps
+   the rounded, shadowed CampusCard untouched. Scoped by ancestry, not by
+   touching the shared ported components themselves, so the exact same
+   CampusContestFlow/CampusLearningSection/CampusPracticeList render sharp here
+   and rounded inside a college's Workspace tabs.
    rounded-full is deliberately excluded - it's also how CampusChip's pill
    shape and quiz/attempt radio-select dots are drawn, and squaring those
    would break their meaning, not just their theme. */
@@ -217,6 +233,17 @@ select option {
 }
 .campus-sharp [style*="box-shadow"] {
   box-shadow: none !important;
+}
+/* The one deliberate exception to the flattening above, and the reason it is a
+   CLASS: that rule matches on an inline `box-shadow` in the style attribute, so
+   any overlay setting its elevation inline gets stripped along with the cards.
+   Flat is right for a card sitting in the page; it is wrong for a nav mega-menu
+   or mobile menu, which has to read as floating ABOVE the content it covers -
+   without a shadow the panel looks welded to the bar and its bottom edge
+   disappears into whatever it overlaps. Applied as a class, it is invisible to
+   the [style*=...] selector and survives. */
+.campus-overlay-shadow {
+  box-shadow: var(--campus-shadow-lg);
 }
 
 /* CampusSkeleton's shimmer sweep - token-driven (line/surface), so it

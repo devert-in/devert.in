@@ -99,6 +99,26 @@ export async function fetchAllUserProgress(uid) {
     .filter(Boolean);
 }
 
+// The progress doc ref and the exact completion patch, exposed so
+// lib/quizAttempts.js's submitQuizAttempt can write the completion INSIDE the
+// same transaction that grades the quiz and moves the XP. Keeping the shape
+// here (rather than inlining it at the call site) means completeTopic below and
+// the quiz path can never drift into writing two different completion records
+// for the same topic.
+export function csCoreProgressRef(uid, subjectId) {
+  return doc(db, "cscore_progress", progressId(uid, subjectId));
+}
+
+export function csCoreCompletionPayload(uid, subjectId, topicId) {
+  return {
+    uid, subjectId,
+    completedTopicIds: arrayUnion(topicId),
+    lastOpenedTopicId: topicId,
+    lastCompletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
 export async function markTopicOpened(uid, subjectId, topicId) {
   await setDoc(doc(db, "cscore_progress", progressId(uid, subjectId)), {
     uid, subjectId, lastOpenedTopicId: topicId, lastOpenedAt: serverTimestamp(), startedAt: serverTimestamp(),

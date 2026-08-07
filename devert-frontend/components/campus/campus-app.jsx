@@ -5,22 +5,22 @@ import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  MapPin, Search, LayoutDashboard, BookOpen, ClipboardCheck, Trophy, BarChart3,
-  ShieldCheck, Clock, XCircle, Ban, LogOut, Sun, Moon, IdCard, ArrowLeft,
-  Mail, Phone, GraduationCap, Building2, Hash, Flame, Rocket, Target,
-  ChevronRight, Users, ArrowUpRight, Medal, Code2, Briefcase, ChevronDown,
-  UserCircle2, TrendingUp, X as CloseIcon, PanelLeftClose, PanelLeftOpen,
+  BookOpen, ClipboardCheck, Trophy, BarChart3,
+  ShieldCheck, Clock, XCircle, Ban, LogOut, IdCard, ArrowLeft,
+  Mail, Phone, GraduationCap, Building2, Hash, Rocket, Target,
+  ChevronRight, ArrowUpRight, Medal, Code2, Briefcase,
+  PanelLeftClose, PanelLeftOpen,
   Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
   AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator,
-  Zap, Coins as CoinsIcon, CheckCircle2, Shield, Sparkles, Camera, Loader2,
+  Zap, Coins as CoinsIcon, CheckCircle2, Shield, Camera, Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, storage } from "@/lib/firebase";
-import { collection, query, where, orderBy, limit, getDocs, getCountFromServer, doc, onSnapshot } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs, doc, onSnapshot } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "@/context/AuthContext";
 import {
-  fetchInstitutions, fetchInstitution, fetchMyMembership, requestToJoin,
+  fetchInstitution, fetchMyMembership, requestToJoin,
   fetchMyInstitutionAdminRole, toggleFavoriteInstitution, fetchAnnouncements, isAnnouncementActive,
   institutionInitials, DEPARTMENTS, YEARS,
   fetchLeaderboardSettings, fetchClassroom, fetchClassrooms, classroomKey, LEADERBOARD_METRICS,
@@ -30,7 +30,7 @@ import {
 import { ROLE_CATALOG } from "@/lib/permissions";
 import { CampusPermissionsContext } from "@/lib/campusPermissions";
 import Dropdown from "@/components/dropdown";
-import { fetchPublishedInstitutionContests, fetchPublishedContests, contestPhase, bucketContests } from "@/lib/contests";
+import { fetchPublishedInstitutionContests, fetchPublishedContests, bucketContests } from "@/lib/contests";
 import { fetchCourseTree, flattenTasks, getCurrentTask, courseProgressPct } from "@/lib/learning";
 import { CODELAB_DIFFICULTIES, fetchUserCodelabProgress, fetchPublishedProblems } from "@/lib/codelab";
 import { subscribeToProblemNotes, isRevisionDue } from "@/lib/problemNotes";
@@ -73,7 +73,21 @@ import { CampusMobileDrawer } from "@/components/campus/campus-mobile-drawer";
 import { CampusSidebarSearch } from "@/components/campus/campus-search";
 import { CampusStaffLogin } from "@/components/campus/campus-staff-login";
 import { CampusThemeProvider, useCampusTheme, CampusThemeToggle, CampusShell } from "@/components/campus/campus-theme-provider";
-import { GLOBAL_SECTIONS } from "@/lib/campus-seo";
+// The public front door at /campus. Lives in its own module because it shares
+// nothing with the authenticated workspace below except the theme provider and
+// the CampusCard/Chip primitives - it is a marketing/discovery surface, not a
+// tab of the workspace, and keeping it here made this file the only place a
+// logged-out visitor's whole first impression was buried inside 3,000 lines of
+// membership-phase machinery.
+import { CampusLanding, CampusInfoPage } from "@/components/campus/campus-landing";
+// The one public header, shared by the marketing pages (through campus-landing)
+// and by CampusGlobalSection/the institution gate screens below - so a visitor
+// never loses the nav by following one of its own links. Imported here, not
+// inside campus-theme-provider.jsx, precisely because that file must stay free
+// of Campus feature imports: campus-public-nav.jsx reads useCampusTheme from it,
+// and the reverse import would close the cycle.
+import { CampusPublicNav } from "@/components/campus/campus-public-nav";
+import { GLOBAL_SECTIONS, LANDING_PAGE_SECTIONS } from "@/lib/campus-seo";
 
 // DeVert Campus is a deliberately separate "academic" surface - see the design
 // proposal shared with the team for why (Builder's OS's dark terminal theme is
@@ -120,7 +134,14 @@ export function CampusApp({ initialTab }) {
   // fresh list.
   let body;
   if (!first) {
-    body = <CampusDirectory />;
+    body = <CampusLanding />;
+  } else if (LANDING_PAGE_SECTIONS.includes(first)) {
+    // Marketing/info pages (Campuses, For institutions, Pricing) - the landing
+    // page's own chrome and bands, NOT the learning shell below. They are
+    // separate routes rather than anchors on /campus so each can be linked,
+    // shared and indexed on its own. No Suspense wrapper: unlike
+    // CampusGlobalSection these read no search params.
+    body = <CampusInfoPage section={first} />;
   } else if (GLOBAL_SECTIONS.includes(first)) {
     // CampusGlobalSection reads ?open=/?category=/?problem= via
     // useSearchParams() too - same Suspense requirement as CampusWorkspace
@@ -167,63 +188,60 @@ function Centered({ children }) {
   return <p className="text-sm" style={{ color: CAMPUS.inkFaint }}>{children}</p>;
 }
 
-// A persistent left nav rail for the pre-auth global Campus sections
-// (Practice/Learning/Contests), purpose-built for CampusGlobalSection (see
-// below) - the authenticated Workspace's own top navbar (CampusTopNavbar)
-// lists DSA and Company Vault as fully separate tabs, and this rail mirrors
-// that same split rather than a mode toggle. Grouped nav items (not just the two
-// Practice buttons) so jumping between DSA, Company Vault, Daily Learning
-// and Contests doesn't require leaving the rail and re-finding your way
-// back through a "Back" link each time - every item here is a real
-// destination, active-highlighted by whichever section/mode you're
-// actually in.
-// Hoisted out of CampusSidebarNavRail (react-hooks/static-components) - both
-// are self-contained, no closure over the rail's own props, so there's no
-// reason for either to be redefined - and thus remounted, losing any DOM
-// state like a hover/focus ring - on every parent re-render.
-function CampusNavItem({ label, active, onClick }) {
-  return (
-    <button onClick={onClick}
-      className="w-full text-left text-[13px] px-3 py-2 rounded-lg transition-colors"
-      style={{
-        background: active ? CAMPUS.tealTint : "transparent",
-        color: active ? CAMPUS.teal : CAMPUS.inkSoft,
-        fontWeight: active ? 600 : 500,
-        borderLeft: `3px solid ${active ? CAMPUS.teal : "transparent"}`,
-      }}>
-      {label}
-    </button>
-  );
-}
-function CampusNavGroupLabel({ icon: Icon, children }) {
-  return (
-    <div className="flex items-center gap-1.5 mb-2 px-1">
-      <Icon size={12} style={{ color: CAMPUS.inkFaint }} />
-      <p className="text-[9px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{children}</p>
-    </div>
-  );
+// Every institution gate screen (checking / not-found / signed-out / join form /
+// pending / rejected / suspended) with the public header on top.
+//
+// These are Campus pages too. Someone who follows a shared link to
+// /campus/{slug} while signed out used to get a single centred card and one
+// small "Back to Campus" corner link - no way to reach Learn, Practice or
+// Contests, all of which are open to them right now without any college
+// approving anything. The nav is the fix, and CampusShell takes it as a slot so
+// the staff login pages can keep the bare version.
+function CampusGateShell({ children }) {
+  return <CampusShell nav={<CampusPublicNav />}>{children}</CampusShell>;
 }
 
-function CampusSidebarNavRail({ section, practiceMode, onGoPractice, onGoRoute }) {
-  return (
-    <nav className="space-y-6">
-      <div>
-        <CampusNavGroupLabel icon={Code2}>PRACTICE</CampusNavGroupLabel>
-        <div className="space-y-1">
-          <CampusNavItem label="DSA" active={section === "practice" && practiceMode === "coding"} onClick={() => onGoPractice("coding")} />
-          <CampusNavItem label="Company Vault" active={section === "practice" && practiceMode === "companyPrep"} onClick={() => onGoPractice("companyPrep")} />
-        </div>
-      </div>
-      <div>
-        <CampusNavGroupLabel icon={BookOpen}>LEARNING</CampusNavGroupLabel>
-        <div className="space-y-1">
-          <CampusNavItem label="Daily Learning" active={section === "learning"} onClick={() => onGoRoute("/campus/learning")} />
-          <CampusNavItem label="Contests" active={section === "contests"} onClick={() => onGoRoute("/campus/contests")} />
-        </div>
-      </div>
-    </nav>
-  );
-}
+// THE LEFT NAV RAIL THAT USED TO LIVE HERE IS GONE, deliberately.
+//
+// It listed every Learn module, every Practice mode and Contests down the side
+// of whichever one you had actually opened. So following "Programming" from the
+// landing page's own menu landed you on a screen whose most prominent element
+// was a list of the six things you had NOT asked for - and the real nav, the one
+// you had just used, disappeared at the same moment because it only existed on
+// the marketing pages. Two competing navigation systems, and the wrong one won
+// on the page where you were trying to read.
+//
+// CampusPublicNav (campus-public-nav.jsx) is now on every public Campus page,
+// carrying the same tree in its mega-menus, so a section renders ONLY the thing
+// that was clicked. Switching modules is a real navigation to a real URL rather
+// than hidden component state, which is what the searchParams sync in
+// CampusGlobalSection below exists to honour.
+
+// The public Learn hub's modules, in rail order.
+//
+// `programming` is the default, NOT the `courses` catalog that used to be this
+// route's only surface. CampusLearningSection gates itself behind a "Sign in to
+// continue" card (it reads user_learning/{uid} for enrollment), so a logged-out
+// visitor following "Learn" landed on a wall - the same dead end the /campus
+// redesign exists to remove, just one level deeper. Programming reads only
+// world-readable central content, so it works signed out, and the catalog stays
+// one rail click away at the bottom.
+//
+// `?tab=` is NOT a convention invented here: CampusProgrammingTab,
+// CampusCsCoreTab, CampusAptitudeTab and SeCourseApp (via
+// CampusFundamentalsTab's staticQuery) each write exactly this key into the URL
+// from their own replaceState effects. Seeding this state from the same key is
+// what makes a deep link round-trip instead of fighting the component that owns
+// the URL below it - the alternative, a separate ?module= param, would have
+// left two competing writers on one address bar.
+const LEARN_MODULES = ["programming", "csCore", "fundamentals", "aptitude", "courses"];
+
+// Practice's four surfaces. "sheets"/"concepts" mirror the authenticated DSA
+// tab's own Sheet/Concepts/Problems trio (see dsaMode in CampusWorkspace) -
+// the same components, unscoped, because none of that content is
+// institution-owned.
+const PRACTICE_MODES = ["coding", "companyPrep", "sheets", "concepts"];
+
 
 // CodeLab-specific (Company Vault tracks its own solved/bookmarked counts
 // per question instead, shown inline as you practice) - only ever rendered
@@ -329,93 +347,14 @@ function SectionHeading({ icon: Icon, title, action }) {
   );
 }
 
-// ---------------- Directory (/campus) ----------------
+// The institution card, the contest teaser row and the whole /campus front
+// door used to live here. They now live in components/campus/campus-landing.jsx
+// - see the import at the top of this file for why. Everything remaining below
+// belongs to an authenticated, institution-scoped workspace.
 
-// Flat, hairline-bordered - the new landing page's own visual language
-// (see CampusLandingNav/CampusProfileFlyout above), deliberately not the
-// rounded CampusCard used in the workspace. Every card carries its own
-// right+bottom border and the wrapping grid supplies only the top+left frame
-// (className="border-t border-l" at each call site) - wrap-safe at any
-// column count, unlike an index-based "is this the last card" check, which
-// only produces a correct single hairline when the grid never wraps.
-function InstitutionCard({ inst, studentCount, featured }) {
-  return (
-    <Link href={`/campus/${inst.id}`} className="block">
-      <CampusCard hover className="p-6 h-full">
-        {featured && (
-          <span className="inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full mb-3" style={{ background: CAMPUS.goldTint, color: CAMPUS.gold, letterSpacing: "0.03em" }}>
-            FEATURED
-          </span>
-        )}
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-[15px] mb-4 overflow-hidden"
-          style={inst.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.gradientPrimary, color: "#fff" }}>
-          {inst.logoUrl
-            ? <img src={inst.logoUrl} alt="" className="w-full h-full object-contain" />
-            : (inst.name?.slice(0, 2).toUpperCase() || "??")}
-        </div>
-        <h4 className="text-[16px] font-semibold mb-1" style={{ color: CAMPUS.ink }}>{inst.name}</h4>
-        {inst.location && (
-          <div className="text-xs flex items-center gap-1 mb-4" style={{ color: CAMPUS.inkFaint }}>
-            <MapPin size={11} /> {inst.location}
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-3 pt-4" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-          <div>
-            <span className="block text-[10px] font-mono uppercase tracking-wide" style={{ color: CAMPUS.inkFaint }}>Status</span>
-            <span className="block font-mono text-[13px] font-bold mt-0.5" style={{ color: (inst.accessMode || "public") === "public" ? CAMPUS.good : CAMPUS.warn }}>
-              {(inst.accessMode || "public") === "public" ? "OPEN" : inst.accessMode.replace("_", " ").toUpperCase()}
-            </span>
-          </div>
-          {studentCount != null && (
-            <div>
-              <span className="block text-[10px] font-mono uppercase tracking-wide" style={{ color: CAMPUS.inkFaint }}>Students</span>
-              <span className="block font-mono text-[13px] font-bold mt-0.5" style={{ color: CAMPUS.ink }}>{studentCount}</span>
-            </div>
-          )}
-        </div>
-      </CampusCard>
-    </Link>
-  );
-}
-
-// `sharp` opts into the landing page's square/hairline language without
-// touching the rounded CampusCard rendering the authenticated workspace's
-// Overview tab still uses for this exact same component.
-function UpcomingContestRow({ contest, onClick, sharp }) {
-  const phase = contestPhase(contest);
-  const content = (
-    <>
-      <div className={`w-9 h-9 flex items-center justify-center flex-shrink-0 ${sharp ? "" : "rounded-lg"}`}
-        style={{ background: sharp ? CAMPUS.teal : CAMPUS.purpleTint, color: sharp ? "#fff" : CAMPUS.purple }}>
-        <Trophy size={15} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <b className="block text-[13.5px] truncate" style={{ color: CAMPUS.ink }}>{contest.title}</b>
-        <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{contest.category}{contest.difficulty ? ` · ${contest.difficulty}` : ""}</span>
-      </div>
-      {sharp ? (
-        <span className="text-[10px] font-mono font-bold px-2 py-1 flex-shrink-0" style={{ background: phase === "live" ? CAMPUS.goodTint : CAMPUS.goldTint, color: phase === "live" ? CAMPUS.good : CAMPUS.gold }}>
-          {phase.toUpperCase()}
-        </span>
-      ) : (
-        <CampusChip color={phase === "live" ? CAMPUS.good : CAMPUS.warn}>{phase.toUpperCase()}</CampusChip>
-      )}
-    </>
-  );
-  return (
-    <button onClick={() => onClick(contest.id)} className="block w-full h-full text-left">
-      {sharp ? (
-        <div className="flex items-center gap-3 p-4 h-full" style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}` }}>{content}</div>
-      ) : (
-        <CampusCard hover className="p-4 flex items-center gap-3 h-full">{content}</CampusCard>
-      )}
-    </button>
-  );
-}
-
-// `sharp` opts into the landing page's square/hairline language, same reason
-// as UpcomingContestRow above - this component is also rendered rounded, by
-// the authenticated workspace's Overview tab.
+// `sharp` opts into the pre-auth square/hairline language rather than the
+// rounded CampusCard this component renders as on the authenticated
+// workspace's Overview tab.
 function LearningJourneyCard({ onContinue, sharp }) {
   const { user } = useAuth();
   const [state, setState] = useState({ loading: true, course: null, progress: null });
@@ -581,441 +520,24 @@ function ContinueLearningCard({ slug, onContinue }) {
     : <LearningJourneyCard onContinue={onContinue} />;
 }
 
-// Sharp-cornered, hairline-bordered landing nav + slide-in profile flyout -
-// deliberately a different visual language from the rounded CampusCard
-// system used everywhere else in Campus (workspace, admin). This is the
-// pre-auth "front door" (see the approved design proposal); once inside a
-// specific college's workspace, the existing rounded UI is untouched.
-function CampusLandingNav({ onOpenFlyout }) {
-  const { theme, toggleTheme } = useCampusTheme();
-  // Below md:, the desktop link row (Campuses/Learning/Contests/Practice/
-  // Features) is `hidden` with no fallback of any kind - those 5
-  // destinations simply vanished on a phone. This mobile menu is that
-  // fallback, reusing the exact same scrollTo/href targets, not a second
-  // set of links to keep in sync.
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const scrollTo = (id) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    setMobileOpen(false);
-  };
-  const MOBILE_LINKS = [
-    { label: "Campuses", onClick: () => scrollTo("featured-campuses") },
-    { label: "Learning", href: "/campus/learning" },
-    { label: "Contests", href: "/campus/contests" },
-    { label: "Practice", href: "/campus/practice" },
-    { label: "Features", onClick: () => scrollTo("campus-features") },
-  ];
-
-  return (
-    <nav className="flex items-center gap-8 px-6 sm:px-10"
-      style={{ height: 72, borderBottom: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface, position: "sticky", top: 0, zIndex: 30 }}>
-      <div className="flex items-center gap-2.5 font-bold text-[17px] flex-shrink-0" style={{ color: CAMPUS.ink }}>
-        <span className="w-[30px] h-[30px] flex items-center justify-center font-mono text-[13px] font-bold flex-shrink-0" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>D</span>
-        DeVert Campus
-      </div>
-      <div className="hidden md:flex items-center gap-1 flex-1">
-        <button onClick={() => scrollTo("featured-campuses")} className="text-[14.5px] font-medium px-3.5 py-2 transition-colors" style={{ color: CAMPUS.ink }}>Campuses</button>
-        <Link href="/campus/learning" className="text-[14.5px] font-medium px-3.5 py-2 transition-colors" style={{ color: CAMPUS.ink }}>Learning</Link>
-        <Link href="/campus/contests" className="text-[14.5px] font-medium px-3.5 py-2 transition-colors" style={{ color: CAMPUS.ink }}>Contests</Link>
-        <Link href="/campus/practice" className="text-[14.5px] font-medium px-3.5 py-2 transition-colors" style={{ color: CAMPUS.ink }}>Practice</Link>
-        <button onClick={() => scrollTo("campus-features")} className="text-[14.5px] font-medium px-3.5 py-2 transition-colors" style={{ color: CAMPUS.ink }}>Features</button>
-      </div>
-      <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0 ml-auto">
-        <button onClick={toggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} style={{ color: CAMPUS.ink }}>
-          {theme === "light" ? <Moon size={19} /> : <Sun size={19} />}
-        </button>
-        <Link href="/" title="Return to DeVert" className="hidden sm:block" style={{ color: CAMPUS.ink }}><ArrowLeft size={19} /></Link>
-        <button onClick={onOpenFlyout} title="Account"
-          className="w-[34px] h-[34px] rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
-          <UserCircle2 size={19} />
-        </button>
-        <button onClick={() => setMobileOpen(o => !o)} aria-label={mobileOpen ? "Close menu" : "Open menu"} aria-expanded={mobileOpen}
-          className="md:hidden flex items-center justify-center flex-shrink-0" style={{ width: 34, height: 34, color: CAMPUS.ink }}>
-          {mobileOpen ? <CloseIcon size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-      {mobileOpen && (
-        <div className="md:hidden absolute left-0 right-0 top-full flex flex-col"
-          style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
-          {MOBILE_LINKS.map(l => l.href ? (
-            <Link key={l.label} href={l.href} onClick={() => setMobileOpen(false)}
-              className="px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
-              {l.label}
-            </Link>
-          ) : (
-            <button key={l.label} onClick={l.onClick}
-              className="text-left px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
-              {l.label}
-            </button>
-          ))}
-          <Link href="/" onClick={() => setMobileOpen(false)}
-            className="sm:hidden px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
-            Return to DeVert
-          </Link>
-        </div>
-      )}
-    </nav>
-  );
-}
-
-function CampusProfileFlyout({ open, onClose }) {
-  const { user, userData, logout } = useAuth();
-  const router = useRouter();
-  if (!open) return null;
-
-  const tiles = user
-    ? [
-        { icon: LayoutDashboard, label: "My dashboard", href: "/campus" },
-        { icon: BookOpen,        label: "My learning",  href: "/campus/learning" },
-        { icon: Trophy,          label: "My contests",  href: "/campus/contests" },
-        { icon: Code2,           label: "My practice",  href: "/campus/practice" },
-      ]
-    : [
-        { icon: LayoutDashboard, label: "Campus dashboard",    href: "/campus" },
-        { icon: ClipboardCheck,  label: "Weekly assessments",  href: "/campus/learning" },
-        { icon: Trophy,          label: "Coding contests",     href: "/campus/contests" },
-        { icon: TrendingUp,      label: "Placement readiness", href: "/campus/practice" },
-      ];
-
-  const benefits = [
-    { icon: BookOpen,       label: "Daily Learning" },
-    { icon: ClipboardCheck, label: "Weekly Assessments" },
-    { icon: Trophy,         label: "Coding Contests" },
-    { icon: BarChart3,      label: "Leaderboards" },
-    { icon: Users,          label: "Bulk roster onboarding" },
-  ];
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.35)" }} onClick={onClose} />
-      <aside className="fixed top-0 right-0 h-full z-50 overflow-y-auto"
-        style={{ width: 420, maxWidth: "90vw", background: CAMPUS.surface, borderLeft: `1px solid ${CAMPUS.line}`, padding: "30px 34px" }}>
-        <div className="flex items-start justify-between gap-3 mb-7">
-          <p className="text-[19px] font-semibold leading-tight" style={{ color: CAMPUS.ink }}>
-            {user ? `Welcome back, ${(userData?.displayName || "there").split(" ")[0]}` : "Get more with a DeVert Campus account"}
-          </p>
-          <button onClick={onClose} className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }}><CloseIcon size={18} /></button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-x-5 gap-y-7 mb-7">
-          {tiles.map(t => {
-            const Icon = t.icon;
-            return (
-              <button key={t.label} onClick={() => { router.push(t.href); onClose(); }} className="flex flex-col items-start gap-2.5 text-left">
-                <Icon size={26} style={{ color: CAMPUS.teal }} />
-                <span className="text-[14px] font-medium" style={{ color: CAMPUS.ink }}>{t.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {!user ? (
-          <>
-            <p className="text-[12px] mb-4" style={{ color: CAMPUS.inkSoft }}>
-              Access is granted by your college&apos;s Training &amp; Placement Cell after you request to join.
-            </p>
-            <CampusGoogleButton label="Log in or register" style={{ background: CAMPUS.teal, color: "#fff", borderRadius: 0, width: "100%" }} />
-          </>
-        ) : (
-          <button onClick={async () => { await logout(); onClose(); }}
-            className="w-full text-[14.5px] font-bold py-3.5" style={{ background: CAMPUS.chromeBg, color: CAMPUS.chromeFg }}>
-            Sign out
-          </button>
-        )}
-
-        <div className="h-px my-5" style={{ background: CAMPUS.line, marginLeft: -34, marginRight: -34 }} />
-
-        <div className="flex items-center justify-between mb-7">
-          <span className="text-[13px] px-3 py-2 flex items-center gap-1.5" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-            English <ChevronDown size={12} />
-          </span>
-          <a href="mailto:devert.contact@gmail.com" className="text-[13px] font-medium" style={{ color: CAMPUS.teal }}>Contact us</a>
-        </div>
-
-        <p className="text-[10.5px] font-mono tracking-wide uppercase mb-1" style={{ color: CAMPUS.inkFaint }}>
-          {user ? "What you're using" : "What you get, once approved"}
-        </p>
-        {benefits.map(b => {
-          const Icon = b.icon;
-          return (
-            <div key={b.label} className="flex items-center gap-2.5 py-2.5 text-[13.5px]" style={{ borderBottom: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>
-              <Icon size={16} style={{ color: CAMPUS.inkSoft }} /> {b.label}
-            </div>
-          );
-        })}
-      </aside>
-    </>
-  );
-}
-
-function CampusDirectory() {
-  const { theme } = useCampusTheme();
-  const router = useRouter();
-  const [institutions, setInstitutions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [upcomingContests, setUpcomingContests] = useState([]);
-  const [flyoutOpen, setFlyoutOpen] = useState(false);
-  const [activeContestCount, setActiveContestCount] = useState(0);
-  const [totalDevertUsers, setTotalDevertUsers] = useState(null);
-
-  useEffect(() => {
-    // The real, whole-platform DeVert user count - not just students already
-    // approved into a Campus institution (that number is tiny right now,
-    // with only one institution live, and would double-count anyway since
-    // every approved Campus student is already a row in this same
-    // collection). A cheap aggregate count, not a full download.
-    getCountFromServer(collection(db, "users")).then(snap => setTotalDevertUsers(snap.data().count)).catch(() => setTotalDevertUsers(null));
-
-    // studentCount now reads straight off the institution doc - it's kept
-    // live by approveStudent/suspendStudent/removeStudentFromInstitution/
-    // bulkAssignByRollNumber (lib/institutions.js), instead of the N parallel
-    // fetchApprovedStudentCount(inst.id) queries this used to fire, which
-    // were silently denied for every anonymous Directory visitor anyway
-    // (institutions/{id}/students read rule requires isOwner/isInstitutionAdmin/
-    // isAdmin - a random visitor satisfies none of those, so the "real"
-    // count was always null here despite looking like a working feature).
-    fetchInstitutions().then(setInstitutions).catch(console.error).finally(() => setLoading(false));
-
-    fetchPublishedContests()
-      .then(list => {
-        const bucketed = bucketContests(list);
-        setUpcomingContests(bucketed.upcoming.slice(0, 3));
-        setActiveContestCount(bucketed.live.length + bucketed.upcoming.length);
-      })
-      .catch(() => setUpcomingContests([]));
-  }, []);
-
-  const q = search.trim().toLowerCase();
-  const filtered = q
-    ? institutions.filter(inst => inst.name?.toLowerCase().includes(q) || inst.location?.toLowerCase().includes(q))
-    : institutions;
-
-  const featured = useMemo(
-    () => [...institutions].sort((a, b) => (b.studentCount || 0) - (a.studentCount || 0)).slice(0, 3),
-    [institutions],
-  );
-  const featuredIds = new Set(featured.map(i => i.id));
-
-  const directoryJsonLd = institutions.length > 0 ? {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    "itemListElement": institutions.map((inst, i) => ({
-      "@type": "ListItem",
-      "position": i + 1,
-      "item": {
-        "@type": "EducationalOrganization",
-        "name": inst.name,
-        "url": `https://devert.in/campus/${inst.id}`,
-        ...(inst.location ? { "address": inst.location } : {}),
-      },
-    })),
-  } : null;
-
-  // Institution docs never carried a `departments` array (that was always
-  // the wrong shape - real department docs live in each institution's own
-  // `departments` subcollection, which this public/logged-out landing page
-  // has no read access to at all, by design - see firestore.rules'
-  // `departments` rule). But DEPARTMENTS is a small fixed enum every
-  // institution is seeded with identically (ensureDepartments()), so the
-  // true total is just that catalog size times how many institutions exist,
-  // computed entirely from data this page can already see.
-  const totalDepartments = institutions.length * DEPARTMENTS.length;
-
-  return (
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme">
-      {directoryJsonLd && (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd) }} />
-      )}
-
-      <CampusLandingNav onOpenFlyout={() => setFlyoutOpen(true)} />
-      <CampusProfileFlyout open={flyoutOpen} onClose={() => setFlyoutOpen(false)} />
-
-      {/* Hero - premium gradient ground (indigo -> purple, see CAMPUS.gradientHero),
-          floating glass stat cards instead of a flat inverted band underneath -
-          the "product showcase" surface every reference (Vercel/Linear/Stripe)
-          leads with. */}
-      <div className="relative" style={{ background: "#0A0E17" }}>
-        {/* Decorative blobs get their OWN overflow-hidden layer - the floating
-            stat strip below deliberately overflows this section's bottom
-            edge (translate-y-1/2), and overflow-hidden on the section itself
-            would clip that overflow instead of just containing these blobs. */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-          <div className="absolute -right-24 -top-24 w-[420px] h-[420px] rounded-full" style={{ background: "radial-gradient(circle, #6366F1 0%, transparent 70%)", opacity: 0.35 }} />
-          <div className="absolute left-[-10%] bottom-[-30%] w-[380px] h-[380px] rounded-full" style={{ background: "radial-gradient(circle, #A855F7 0%, transparent 70%)", opacity: 0.3 }} />
-        </div>
-        <div className="relative z-10 px-6 sm:px-10 pt-16 pb-24 max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-mono tracking-widest px-3 py-1.5 rounded-full mb-6"
-            style={{ background: "rgba(129,140,248,0.14)", color: "#A5B4FC", border: "1px solid rgba(129,140,248,0.3)" }}>
-            <Sparkles size={11} /> BUILT FOR TRAINING &amp; PLACEMENT CELLS
-          </div>
-          <h1 className="font-bold leading-[1.08] mb-5 text-white tracking-tight" style={{ fontSize: "clamp(2rem,5vw,3.2rem)" }}>
-            Build better campuses.<br />Empower better developers.
-          </h1>
-          <p className="text-[15.5px] mb-8 max-w-[48ch]" style={{ color: "rgba(255,255,255,0.65)" }}>
-            Daily practice, weekly assessments, coding contests, and a real leaderboard - gated to your students, run by your own college.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button onClick={() => document.getElementById("featured-campuses")?.scrollIntoView({ behavior: "smooth" })}
-              className="campus-btn campus-btn-glow text-[14px] font-bold px-6 py-3.5 rounded-xl transition-all duration-200"
-              style={{ background: "linear-gradient(135deg, #6366F1, #A855F7)", color: "#fff" }}>
-              Explore campuses
-            </button>
-          </div>
-        </div>
-
-        {/* Stat strip - stays fully inside the hero's dark background
-            (no translate-y overlap into the light body section below).
-            An overlapping "floating over the seam" version was tried and
-            reverted - its glass fill is semi-transparent white text on a
-            fixed-dark card, which only reads correctly while the card sits
-            entirely on the dark hero; letting any of it slide onto the
-            light section below washed it out. */}
-        <div className="relative z-10 px-6 sm:px-10 pb-14">
-          <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            {[
-              { label: "Partner institutions", value: institutions.length, icon: Building2, color: "#818CF8" },
-              { label: "Registered students", value: totalDevertUsers != null ? totalDevertUsers.toLocaleString() : "…", icon: Users, color: "#22D3EE" },
-              { label: "Departments", value: totalDepartments, icon: GraduationCap, color: "#C084FC" },
-              { label: "Active contests", value: activeContestCount, icon: Trophy, color: "#FACC15" },
-            ].map(s => (
-              <div key={s.label} className="rounded-2xl p-4 sm:p-5"
-                // .campus-glass is theme-reactive (see globals.css) - correct
-                // for cards sitting on the normal light/dark surface, but
-                // this card sits on the hero's hardcoded-dark background
-                // above (style={{background:"#0A0E17"}}) regardless of the
-                // site theme toggle. Using the theme-reactive class here
-                // meant light mode swapped in a WHITE-tinted glass fill
-                // (--campus-glass-bg: rgba(255,255,255,0.6)) over that dark
-                // background - a washed-out, low-contrast card exactly like
-                // chromeBg/chromeFg elsewhere are deliberately NOT
-                // theme-reactive for the same reason.
-                style={{
-                  background: "rgba(255,255,255,0.045)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  backdropFilter: "blur(20px) saturate(140%)",
-                  WebkitBackdropFilter: "blur(20px) saturate(140%)",
-                }}>
-                <s.icon size={18} style={{ color: s.color }} className="mb-2.5" />
-                <b className="block font-bold text-white" style={{ fontSize: 24 }}>{s.value}</b>
-                <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.55)" }}>{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Search band - no more overlap to clear now that the stat strip
-          stays inside the hero (its own pb-14 already provides the gap),
-          so this is just a normal top padding. Rounded, glass-adjacent
-          search field with an icon prefix instead of a flat boxy input,
-          and a gradient search button matching the hero CTA. */}
-      <div className="px-6 sm:px-10 pt-10 pb-8" style={{ background: CAMPUS.paper }}>
-        <div className="max-w-2xl mx-auto flex items-stretch gap-2 rounded-2xl p-1.5"
-          style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
-          <div className="flex items-center gap-2.5 flex-1 pl-3">
-            <Search size={16} style={{ color: CAMPUS.inkFaint }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search your college by name, city, or state..."
-              className="flex-1 text-[14px] py-3 outline-none bg-transparent" style={{ color: CAMPUS.ink }} />
-          </div>
-          <button className="campus-btn campus-btn-glow px-6 text-[13px] font-bold rounded-xl flex-shrink-0" style={{ background: CAMPUS.gradientPrimary, color: "#fff" }}>Search</button>
-        </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        {loading ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="p-6 space-y-4" style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}` }}>
-                <CampusSkeleton variant="rect" width={44} height={44} />
-                <CampusSkeleton variant="text" width="70%" height={16} />
-                <CampusSkeleton variant="text" width="45%" />
-              </div>
-            ))}
-          </div>
-        ) : institutions.length === 0 ? (
-          <CampusEmptyState icon={Building2} title="No colleges on DeVert Campus yet"
-            description="Once your institution's Training & Placement Cell signs up, it'll appear here." />
-        ) : (
-          <>
-            {!q && featured.length > 0 && (
-              <div id="featured-campuses" className="mb-14 scroll-mt-20">
-                <SectionHeading icon={Flame} title="Featured Campuses" />
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {featured.map((inst) => (
-                    <InstitutionCard key={inst.id} inst={inst} studentCount={inst.studentCount ?? null} featured />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mb-14">
-              <SectionHeading icon={Building2} title={q ? `Results for "${search}"` : "All Campuses"} />
-              {filtered.length === 0 ? (
-                <CampusEmptyState size="sm" icon={Search} title="No matches" description={`No college matches "${search}".`} />
-              ) : (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filtered.filter(i => q || !featuredIds.has(i.id)).map((inst) => (
-                    <InstitutionCard key={inst.id} inst={inst} studentCount={inst.studentCount ?? null} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        <div id="campus-features" className="mb-14 scroll-mt-20">
-          <SectionHeading icon={GraduationCap} title="Everything a placement cell actually needs" />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { icon: BookOpen, title: "Daily Learning", body: "Notes, videos and concepts, published by your own faculty, with practice attached.", color: CAMPUS.teal },
-              { icon: ClipboardCheck, title: "Weekly Assessments", body: "Scheduled, negative-marked, department-scoped tests with real analytics after.", color: CAMPUS.gold },
-              { icon: Trophy, title: "Coding Contests", body: "Your own contests, on the same engine that powers DeVert's public Arena.", color: CAMPUS.purple },
-              { icon: Users, title: "Bulk Onboarding", body: "CSV roster import matches existing join requests by roll number, in one pass.", color: CAMPUS.cyan },
-            ].map(f => (
-              <CampusCard key={f.title} hover className="p-6">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: `${f.color}18`, color: f.color }}>
-                  <f.icon size={20} />
-                </div>
-                <h4 className="text-[14.5px] font-semibold mb-1.5" style={{ color: CAMPUS.ink }}>{f.title}</h4>
-                <p className="text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{f.body}</p>
-              </CampusCard>
-            ))}
-          </div>
-        </div>
-
-        {upcomingContests.length > 0 && (
-          <div>
-            <SectionHeading icon={Trophy} title="Upcoming Contests" action={
-              <button onClick={() => router.push("/campus/contests")} className="text-[12.5px] font-semibold flex items-center gap-1" style={{ color: CAMPUS.teal }}>
-                View all <ArrowUpRight size={13} />
-              </button>
-            } />
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {upcomingContests.map(c => (
-                <UpcomingContestRow key={c.id} contest={c} onClick={(id) => router.push(`/campus/contests?open=${id}`)} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </main>
-  );
-}
-
 // ---------------- Global sections (/campus/contests, /campus/learning, /campus/practice) ----------------
 
 // Real, dedicated, linkable paths for the pre-auth-usable flows (see
 // GLOBAL_SECTIONS above) - CampusContestFlow/CampusLearningSection/
 // CampusPracticeList here are the exact same components the authenticated
-// Workspace tabs render below; the sharp/hairline look comes entirely from
-// the .campus-sharp ancestor class (globals.css), not from a different
-// component. `atTop` only shows this section's own "back to Campus" control
-// at the section's own list level - CampusContestFlow/CampusProblemView
-// already render their own "Back" once you're inside a contest or problem,
-// and showing both at once is exactly the stacked-back-button pattern this
-// was meant to replace.
+// Workspace tabs render below, and they now render in the same rounded
+// CampusCard vocabulary too: .campus-sharp used to flatten this whole surface
+// and came off with the landing redesign (see campus-landing.jsx's CampusLanding
+// for the reasoning).
+//
+// EXACTLY ONE THING RENDERS HERE - whichever module the URL names, and nothing
+// else. Navigation between modules belongs to CampusPublicNav at the top of the
+// page, not to a rail listing every sibling of the thing you just opened.
+//
+// `atTop` only shows this section's own "back" control at the section's own
+// list level - CampusContestFlow/CampusProblemView already render their own
+// "Back" once you're inside a contest or problem, and showing both at once is
+// exactly the stacked-back-button pattern this was meant to replace.
 function CampusGlobalSection({ section }) {
   const { theme } = useCampusTheme();
   const { user } = useAuth();
@@ -1025,12 +547,52 @@ function CampusGlobalSection({ section }) {
   const [contestsLoading, setContestsLoading] = useState(section === "contests");
   const [contestsError, setContestsError] = useState(false);
   const [contestScreen, setContestScreen] = useState({ view: "list" });
-  const [practiceScreen, setPracticeScreen] = useState({ view: "list" });
-  // Seeded once from ?mode=companyPrep (the nav rail deep-links here from
-  // another section) or defaults to coding - same "read once at mount, no
-  // sync effect needed" reasoning as ?category= below.
-  const [practiceMode, setPracticeMode] = useState(() => (searchParams.get("mode") === "companyPrep" ? "companyPrep" : "coding"));
-  const [companyPrepScreen, setCompanyPrepScreen] = useState({ view: "list" });
+
+  // WHICH MODULE THIS HUB IS SHOWING IS DERIVED FROM THE URL, NOT MIRRORED INTO
+  // STATE - and that is the whole fix for "clicking Programming should open
+  // Programming and nothing else".
+  //
+  // Switching modules is a real navigation now that the shared nav does it:
+  // "CS Core" is a <Link> to /campus/learning?tab=csCore. But CampusApp keys
+  // this component on the FIRST path segment only (key={first}), and that stays
+  // "learning" across such a link - React reuses this exact instance and nothing
+  // remounts. Read-once-at-mount state therefore went deaf: the address bar said
+  // csCore while the page kept rendering Programming. Deriving leaves exactly
+  // one source of truth, so there is no second copy to fall out of step and no
+  // sync effect to cascade a render.
+  //
+  // Safe against the modules that own the URL below this: CampusProgrammingTab,
+  // CampusCsCoreTab and CampusAptitudeTab each replaceState their own
+  // ?lang=/?subject=/?topic= state, and every one of them writes its own ?tab=
+  // back unchanged, so this reads the same value it already had. Fundamentals
+  // and Courses never touch the URL at all.
+  const learnModule = useMemo(() => {
+    const t = searchParams.get("tab");
+    return LEARN_MODULES.includes(t) ? t : "programming";
+  }, [searchParams]);
+
+  // Practice's own switch. Unlike ?tab=, an ABSENT ?mode= is meaningful here -
+  // it is exactly what "DSA Problems" links to (/campus/practice) - so it falls
+  // back to coding rather than being ignored.
+  const practiceMode = useMemo(() => {
+    const m = searchParams.get("mode");
+    return PRACTICE_MODES.includes(m) ? m : "coding";
+  }, [searchParams]);
+
+  // Both drill-down screens are STAMPED with the mode they were opened under, so
+  // changing mode discards them without an effect having to reach in and reset
+  // anything: a problem opened out of a sheet must not still be sitting there
+  // when you come back to Company Vault later. `mode: null` on the initial value
+  // never matches a real mode, which is just as well - the initial value is the
+  // list view either way.
+  const [practiceScreenState, setPracticeScreen] = useState({ mode: null, view: "list" });
+  const practiceScreen = practiceScreenState.mode === practiceMode ? practiceScreenState : { view: "list" };
+  const [companyPrepScreenState, setCompanyPrepScreenState] = useState({ mode: null, view: "list" });
+  const companyPrepScreen = companyPrepScreenState.mode === practiceMode ? companyPrepScreenState : { view: "list" };
+  // CampusCompanyPrepFlow only ever calls this with a plain object (never a
+  // functional updater - see its own setScreen call sites), so stamping here is
+  // safe and keeps the stamp out of that component's business.
+  const setCompanyPrepScreen = (next) => setCompanyPrepScreenState({ ...next, mode: practiceMode });
   // Seeded once from ?category=... (a bookmarked or shared category link) -
   // searchParams is already available synchronously on first render for a
   // client component, so this needs no separate sync effect.
@@ -1058,27 +620,39 @@ function CampusGlobalSection({ section }) {
       .catch(() => {});
   }, [user, section, practiceMode]);
 
-  const practiceAtTop = practiceMode === "coding" ? practiceScreen.view === "list" : companyPrepScreen.view === "list";
-  const atTop = section === "learning" ? true
+  // A problem opened out of Sheets or Concepts renders the same
+  // CampusProblemView the coding mode does, so "am I at the top" is that
+  // screen's question first, whichever mode is underneath it.
+  const practiceAtTop = practiceScreen.view === "problem" ? false
+    : practiceMode === "companyPrep" ? companyPrepScreen.view === "list"
+    : true;
+  // Every Learn module except the course catalog owns its own back chrome
+  // (each registers a useCampusBackHandler and renders its own CampusBackButton
+  // once it is deeper than its list), so showing this section's back button
+  // there too is exactly the stacked-back-button pattern the comment above
+  // describes getting rid of. The rail's own "DeVert Campus" link is the
+  // always-available exit instead.
+  const atTop = section === "learning" ? learnModule === "courses"
     : section === "contests" ? contestScreen.view === "list"
     : practiceAtTop;
   const showPracticeFilters = practiceMode === "coding" && practiceScreen.view === "list";
 
-  // The rail always jumps to that destination's own top level - clicking
-  // "DSA" while already deep in a problem returns to the list, the same
-  // way clicking a site's logo always returns home rather than doing
-  // nothing if you're already somewhere under it.
-  const goPractice = (mode) => {
-    if (section !== "practice") { router.push(mode === "companyPrep" ? "/campus/practice?mode=companyPrep" : "/campus/practice"); return; }
-    setPracticeMode(mode);
-    if (mode === "coding") setPracticeScreen({ view: "list" });
-    else setCompanyPrepScreen({ view: "list" });
-  };
-  const goRoute = (path) => router.push(path);
+  // Shared by Sheets, Concepts and the problem list - all three hand a problem
+  // id to the same viewer rather than each reimplementing one. Stamped with the
+  // mode it was opened from (see practiceScreen above) so it is discarded the
+  // moment the URL moves to a different surface.
+  const openProblem = (id) => setPracticeScreen({ mode: practiceMode, view: "problem", problemId: id });
 
   return (
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-sharp px-6 py-10 pb-16">
-      <div className="max-w-6xl mx-auto">
+    // No campus-sharp, and the nav is now part of the page rather than
+    // something only the marketing pages had - see campus-landing.jsx's
+    // CampusLanding for why the class came off all four public surfaces
+    // together. Padding moved off <main> and onto the content wrapper so the
+    // nav can span the full width the way it does everywhere else.
+    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme">
+      <CampusPublicNav />
+
+      <div className="max-w-6xl mx-auto px-6 py-8 pb-16">
         {/* router.back(), not push("/campus") - every real path into this
             section is an in-app click (a nav link, an "Upcoming Contests"
             row, a drawer category row...), so real browser back
@@ -1087,25 +661,32 @@ function CampusGlobalSection({ section }) {
             destination can do - push() always lands at the top of a fresh
             /campus, discarding wherever the user actually came from. */}
         {atTop && <CampusBackButton onClick={() => router.back()} />}
-        <div className="flex gap-8 flex-col lg:flex-row">
-          {/* The nav rail (Practice/Learning/Contests) spans every global
-              section, not just Practice - previously only Practice had a
-              sidebar at all, which made it feel bolted on rather than a
-              real, persistent piece of Campus navigation. */}
-          <aside className="lg:w-56 flex-shrink-0">
-            <div className="flex flex-col gap-6 lg:sticky lg:top-6">
-              <CampusSidebarNavRail section={section} practiceMode={practiceMode} onGoPractice={goPractice} onGoRoute={goRoute} />
-              {section === "practice" && practiceMode === "coding" && (
+        <div className="min-w-0">
+            {/* Was a sidebar widget of the deleted rail. It is a summary of the
+                list directly beneath it, so it reads fine as a strip above that
+                list - and only in coding mode, exactly as before. */}
+            {section === "practice" && practiceMode === "coding" && (
+              <div className="mb-6 max-w-sm">
                 <PracticeProgressCard user={user} stats={codelabStats} />
-              )}
-            </div>
-          </aside>
-
-          <div className="flex-1 min-w-0">
+              </div>
+            )}
             {section === "contests" && (
               <CampusContestFlow contests={contests} loading={contestsLoading} error={contestsError} onRetry={loadContests} screen={contestScreen} setScreen={setContestScreen} />
             )}
-            {section === "learning" && <CampusLearningSection />}
+            {/* Every one of these takes no institution slug - they read the
+                central, world-readable content collections directly (see
+                lib/campusCatalog.js), which is exactly why they can serve a
+                logged-out visitor here and an approved student inside a
+                workspace from the same component. No `hiddenIds` is passed:
+                per-institution content visibility is a campus setting and has
+                no meaning on the public surface. */}
+            {section === "learning" && (
+              learnModule === "fundamentals" ? <CampusFundamentalsTab />
+                : learnModule === "programming" ? <CampusProgrammingTab />
+                : learnModule === "csCore" ? <CampusCsCoreTab />
+                : learnModule === "aptitude" ? <CampusAptitudeTab />
+                : <CampusLearningSection />
+            )}
             {section === "practice" && (
               <>
                 {showPracticeFilters && (
@@ -1115,18 +696,36 @@ function CampusGlobalSection({ section }) {
                     <CompanyFilterList horizontal value={practiceCompany} onChange={setPracticeCompany} />
                   </div>
                 )}
-                {practiceMode === "coding" ? (
-                  practiceScreen.view === "problem"
-                    ? <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })}
-                        onSelectProblem={(id) => setPracticeScreen({ view: "problem", problemId: id })} backLabel="DSA" />
-                    : <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty} company={practiceCompany}
-                        onSelect={(id) => setPracticeScreen({ view: "problem", problemId: id })} />
-                ) : (
+                {/* The problem view wins over the mode underneath it, so a
+                    problem opened from a sheet or a concept returns TO that
+                    sheet/concept instead of dumping the learner on the flat
+                    problem list - same reasoning as the DSA tab's own
+                    "deliberately does NOT switch mode" note below. */}
+                {practiceScreen.view === "problem" ? (
+                  <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })}
+                    onSelectProblem={openProblem}
+                    backLabel={practiceMode === "sheets" ? "Sheet" : practiceMode === "concepts" ? "Concepts" : "DSA"} />
+                ) : practiceMode === "companyPrep" ? (
                   <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen} />
+                ) : practiceMode === "sheets" ? (
+                  // Concepts are per-language and a sheet doesn't know which
+                  // language this learner picked, so this hands off to the
+                  // Concepts surface (where they choose) rather than guessing.
+                  //
+                  // A real navigation, not setPracticeMode: the mode is derived
+                  // from ?mode= now (see the sync effect above), so setting it
+                  // directly would leave the URL saying "sheets" while the page
+                  // showed Concepts - and the next click on "DSA Sheets" in the
+                  // nav would then be a no-op, since that URL is already current.
+                  <CampusDsaSheets onOpenProblem={openProblem} onOpenConcept={() => router.push("/campus/practice?mode=concepts")} />
+                ) : practiceMode === "concepts" ? (
+                  <CampusDsaConcepts onOpenProblem={openProblem} />
+                ) : (
+                  <CampusPracticeList hideFilters category={practiceCategory} difficulty={practiceDifficulty} company={practiceCompany}
+                    onSelect={openProblem} />
                 )}
               </>
             )}
-          </div>
         </div>
       </div>
     </main>
@@ -1709,14 +1308,14 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   // Exactly one screen per phase. Nothing here re-derives or second-
   // guesses `phase` - it was already decided, once, by the effect above.
   if (phase === CAMPUS_PHASE.CHECKING) {
-    return <CampusShell><Centered>Loading...</Centered></CampusShell>;
+    return <CampusGateShell><Centered>Loading...</Centered></CampusGateShell>;
   }
   if (phase === CAMPUS_PHASE.NOT_FOUND) {
-    return <CampusShell><Centered>This college isn&apos;t on DeVert Campus (yet).</Centered></CampusShell>;
+    return <CampusGateShell><Centered>This college isn&apos;t on DeVert Campus (yet).</Centered></CampusGateShell>;
   }
   if (phase === CAMPUS_PHASE.SIGNED_OUT) {
     return (
-      <CampusShell>
+      <CampusGateShell>
         <CampusCard className="p-7 text-center max-w-sm">
           <h3 className="text-[17px] font-semibold mb-2" style={{ color: CAMPUS.ink }}>Sign in to continue</h3>
           <p className="text-[13.5px] mb-5" style={{ color: CAMPUS.inkSoft }}>
@@ -1727,12 +1326,12 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             New to DeVert? Signing in with Google creates your account automatically - no separate signup needed.
           </p>
         </CampusCard>
-      </CampusShell>
+      </CampusGateShell>
     );
   }
   if (phase === CAMPUS_PHASE.NO_REQUEST) {
     return (
-      <CampusShell>
+      <CampusGateShell>
         {institution.accessMode === "invite_only" ? (
           <CampusIdentityForm slug={slug} institution={institution} user={user}
             onSubmitted={handleJoinSubmitted} />
@@ -1740,15 +1339,15 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           <JoinForm slug={slug} institution={institution} user={user} userData={userData}
             onSubmitted={handleJoinSubmitted} />
         )}
-      </CampusShell>
+      </CampusGateShell>
     );
   }
   if (phase === CAMPUS_PHASE.PENDING) {
-    return <CampusShell><PendingCard institution={institution} membership={membership} /></CampusShell>;
+    return <CampusGateShell><PendingCard institution={institution} membership={membership} /></CampusGateShell>;
   }
   if (phase === CAMPUS_PHASE.REJECTED) {
     return (
-      <CampusShell>
+      <CampusGateShell>
         <CampusCard className="p-7 text-center max-w-sm">
           <div className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>
             <XCircle size={22} />
@@ -1763,12 +1362,12 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             Resubmit your request
           </button>
         </CampusCard>
-      </CampusShell>
+      </CampusGateShell>
     );
   }
   if (phase === CAMPUS_PHASE.SUSPENDED) {
     return (
-      <CampusShell>
+      <CampusGateShell>
         <CampusCard className="p-7 text-center max-w-sm">
           <div className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>
             <Ban size={22} />
@@ -1778,7 +1377,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             Your access to {institution.name}&apos;s Campus workspace has been suspended. Contact your Training &amp; Placement Cell.
           </p>
         </CampusCard>
-      </CampusShell>
+      </CampusGateShell>
     );
   }
 

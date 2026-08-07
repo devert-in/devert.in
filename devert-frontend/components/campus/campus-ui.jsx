@@ -40,6 +40,33 @@ export function CampusCard({ children, className = "", hover = false, glass = fa
   );
 }
 
+// The DeVert Campus mark, replacing the mono "D" placeholder badge. Two <img>
+// variants ship together and CSS shows one per theme - see the .campus-badge-*
+// rules in globals.css for why that beats reading the theme context here (and
+// why this file still needs no theme import at all).
+//
+// The 96px source assets are trimmed-and-downscaled from the 1254px, ~1MB
+// originals still in public/ (devert_campus_logo1/2.png): a 30px badge has no
+// use for a megabyte, and `images: { unoptimized: true }` in next.config means
+// Next will never resize them for us.
+//
+// alt="" on both, not "DeVert Campus": every call site pairs this with the
+// visible wordmark text, so a real alt would make a screen reader announce the
+// name twice.
+export function CampusBadge({ size = 30, className = "", rounded = "rounded-lg" }) {
+  const box = { width: size, height: size };
+  return (
+    <span className={`relative flex-shrink-0 ${className}`} style={box}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/devert-campus-badge-dark.png" alt="" width={size} height={size}
+        className={`campus-badge-dark ${rounded}`} style={box} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/devert-campus-badge-light.png" alt="" width={size} height={size}
+        className={`campus-badge-light ${rounded}`} style={box} />
+    </span>
+  );
+}
+
 // color: a CAMPUS.* hex value (teal/gold/good/warn/bad/blue/purple) - tint
 // background + tinted border, generalizing the pill idiom already used ad
 // hoc in aptitude/contest/problem cards elsewhere in the app.

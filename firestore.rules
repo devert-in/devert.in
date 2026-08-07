@@ -735,6 +735,89 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.uid == request.auth.uid;
     }
 
+    // Institution demo requests from the public Campus pages
+    // (components/campus/campus-demo-request.jsx).
+    //
+    // UNAUTHENTICATED CREATE, deliberately - the only rule in this file that
+    // allows a write with no isAuth(). The person filling the form in is a
+    // principal or placement officer who has no DeVert account and no reason to
+    // make one before they have even seen a demo, so requiring sign-in would
+    // reject precisely the lead the form exists to capture.
+    //
+    // What keeps that safe is the shape check below, not authentication: a
+    // fixed field whitelist, a length cap on every string, `status` pinned to
+    // 'new' so a submitter cannot mark their own request handled, and
+    // `createdAt` pinned to request.time so entries cannot be backdated. The
+    // document is therefore bounded (~1.5KB worst case) and inert.
+    //
+    // NO PUBLIC READ AT ALL, unlike hackathon_registrations: these carry a
+    // named individual's work email and phone number. Admin-only read also
+    // means the collection cannot be repurposed as an anonymous message board,
+    // which is the usual second-order abuse of an open write endpoint.
+    //
+    // WHAT THIS STILL DOES NOT STOP: volume. Rules cannot rate-limit, so a
+    // determined script can fill the collection with junk. Firebase App Check
+    // is the real fix and should go on before this sees any traffic worth
+    // attacking - it is enforced at the service layer, so it needs no change
+    // here.
+    function isValidDemoRequest() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['institution', 'name', 'role', 'email', 'phone', 'students', 'message', 'source', 'status', 'createdAt'])
+        && d.keys().hasAll(['institution', 'name', 'email', 'status', 'createdAt'])
+        && d.institution is string && d.institution.size() >= 2 && d.institution.size() <= 120
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 80
+        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@]+@[^@]+[.][^@]+$')
+        && d.get('role', '') is string && d.get('role', '').size() <= 40
+        && d.get('phone', '') is string && d.get('phone', '').size() <= 24
+        && d.get('students', '') is string && d.get('students', '').size() <= 24
+        && d.get('message', '') is string && d.get('message', '').size() <= 1000
+        && d.get('source', '') is string && d.get('source', '').size() <= 40
+        && d.status == 'new'
+        && d.createdAt == request.time;
+    }
+    match /demo_requests/{requestId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isValidDemoRequest();
+    }
+
+    // Individual Premium waitlist signups from the public pricing page
+    // (components/campus/campus-waitlist.jsx). Same trust model as
+    // demo_requests directly above - read that comment first; only the
+    // differences are noted here.
+    //
+    // UNAUTHENTICATED CREATE for the same reason, more sharply: a waitlist
+    // exists to reach people BEFORE they commit to an account, so gating it on
+    // isAuth() would defeat its only purpose.
+    //
+    // `uid` is optional and self-asserted-but-verified: absent for a logged-out
+    // visitor, and otherwise required to equal the caller's own uid, so nobody
+    // can attribute a signup to somebody else's account. isAuth() is checked
+    // first because request.auth is null for an anonymous write and
+    // request.auth.uid would error rather than simply not match.
+    //
+    // NOT AN ENTITLEMENT. A row here confers nothing - there is no payment
+    // integration in the repo and nothing on Campus is gated. If a paywall
+    // ever ships, the grant must be an admin/Cloud-Function write to a
+    // different collection; never treat a document a visitor created
+    // themselves as proof of purchase.
+    function isValidWaitlistSignup() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'name', 'institution', 'plan', 'uid', 'source', 'status', 'createdAt'])
+        && d.keys().hasAll(['email', 'plan', 'status', 'createdAt'])
+        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@]+@[^@]+[.][^@]+$')
+        && d.get('name', '') is string && d.get('name', '').size() <= 80
+        && d.get('institution', '') is string && d.get('institution', '').size() <= 120
+        && d.plan is string && d.plan.size() >= 1 && d.plan.size() <= 40
+        && (d.get('uid', '') == '' || (isAuth() && d.get('uid', '') == request.auth.uid))
+        && d.get('source', '') is string && d.get('source', '').size() <= 40
+        && d.status == 'new'
+        && d.createdAt == request.time;
+    }
+    match /premium_waitlist/{signupId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isValidWaitlistSignup();
+    }
+
     // Hackathon submissions - public read (winners.json / leaderboard). Owner
     // creates/edits their own submission CONTENT only, and only score/rank/
     // winner start null/false/null - once admin scores it (setting any of
@@ -1034,11 +1117,82 @@ service cloud.firestore {
         isOwner(request.resource.data.uid)
         && gid == request.auth.uid + '_' + request.resource.data.activityType + '_' + request.resource.data.activityId
         && request.resource.data.status == 'granted'
-        && request.resource.data.get('xp', 0) is number && request.resource.data.get('xp', 0) >= 0 && request.resource.data.get('xp', 0) <= 2000
+        // xp may be NEGATIVE: per-question quiz scoring deducts for wrong
+        // answers (lib/rewardPolicy.js's computeQuizReward), and the ledger has
+        // to be able to record that deduction or the audit trail silently
+        // disagrees with the balance it is supposed to explain. Bounded on both
+        // ends by the same 2000 cap. coins and score stay >= 0 - neither is ever
+        // deducted (coins are withdrawable for real INR; score is the
+        // never-decreasing ranking metric, see selfScoreWriteSane).
+        && request.resource.data.get('xp', 0) is number && request.resource.data.get('xp', 0) >= -2000 && request.resource.data.get('xp', 0) <= 2000
         && request.resource.data.get('coins', 0) is number && request.resource.data.get('coins', 0) >= 0 && request.resource.data.get('coins', 0) <= 2000
         && request.resource.data.get('score', 0) is number && request.resource.data.get('score', 0) >= 0 && request.resource.data.get('score', 0) <= 2000
       );
       allow update, delete: if isAdmin();
+    }
+
+    // One doc per (student, quiz) - the server-side answer to "has this student
+    // already submitted this quiz?". docId is `${uid}_${module}_${scopeId}`, and
+    // a Firebase Auth uid never contains '_', so split('_')[0] isolates the
+    // owner exactly as cscore_progress/gate_daily/problem_notes already do.
+    //
+    // This collection is what makes the submit gate real. It used to live in
+    // localStorage (lib/quizRandom.js's quiz draft), which meant: a second
+    // browser had no idea the first had submitted, a student could clear it, and
+    // a same-commit effect race could write one topic's "submitted" flag under a
+    // DIFFERENT topic's key. None of those are reachable from here.
+    //
+    // The three stickiness rules below are the whole security model:
+    //   - `attempts` may only ever go UP, and only by exactly 1 per write, so a
+    //     lock cannot be lifted by writing it back down.
+    //   - `passed` and `rewarded` may only ever flip false -> true. A student
+    //     cannot clear `rewarded` to re-arm a payout.
+    //   - uid/module/scopeId are immutable after create, so one quiz's record
+    //     cannot be relabelled as another's.
+    // Only an admin may delete (the progress-reset path) or write these fields
+    // downward - see lib/quizAttempts.js's adminResetAttempt.
+    //
+    // STANDING LIMITATION, unchanged by this collection: grading still happens
+    // on the client, because every MCQ's correctIndex is readable in the topic
+    // doc the student is being quizzed from. Rules therefore bound what a forged
+    // submission can be worth (the 2000 delta cap above, plus reward_grants
+    // being create-only per activity) rather than proving it honest. Making this
+    // tamper-PROOF rather than tamper-BOUNDED needs correctIndex moved out of
+    // client-readable content and grading moved into functions/ - the same
+    // Cloud-Function dependency the coin economy's own comment documents.
+    match /quiz_attempts/{attemptDocId} {
+      allow read: if isAdmin()
+        || (isAuth() && attemptDocId.split('_')[0] == request.auth.uid)
+        || (isAuth() && resource.data.uid == request.auth.uid)
+        || isAdminOfStudent(resource.data.uid) || isHodOfStudent(resource.data.uid) || isFacultyOfStudent(resource.data.uid);
+
+      allow create: if isAdmin() || (
+        isOwner(request.resource.data.uid)
+        && attemptDocId == request.auth.uid + '_' + request.resource.data.module + '_' + request.resource.data.scopeId
+        && request.resource.data.attempts == 1
+        && request.resource.data.get('lastTotal', 0) is number
+        && request.resource.data.get('lastCorrect', 0) is number
+        && request.resource.data.get('lastCorrect', 0) >= 0
+        && request.resource.data.get('lastCorrect', 0) <= request.resource.data.get('lastTotal', 0)
+      );
+
+      allow update: if isAdmin() || (
+        isOwner(resource.data.uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.module == resource.data.module
+        && request.resource.data.scopeId == resource.data.scopeId
+        && request.resource.data.attempts == resource.data.attempts + 1
+        // Hard ceiling independent of whatever maxAttempts the policy doc says -
+        // rules cannot read system/rewardPolicy cheaply, so this is a backstop
+        // against an unbounded resubmit loop, not the real per-module limit
+        // (that is enforced in lib/quizAttempts.js's submitQuizAttempt).
+        && request.resource.data.attempts <= 20
+        && (resource.data.get('passed', false) == false || request.resource.data.get('passed', false) == true)
+        && (resource.data.get('rewarded', false) == false || request.resource.data.get('rewarded', false) == true)
+        && request.resource.data.get('lastCorrect', 0) <= request.resource.data.get('lastTotal', 0)
+      );
+
+      allow delete: if isAdmin();
     }
 
     // Learning ecosystem - Course -> Module -> Task(+Quiz) hierarchy.

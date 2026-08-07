@@ -16,11 +16,14 @@ import {
 } from "@/components/campus/campus-ui";
 import {
   APTITUDE_CATEGORIES, fetchAptitudeTopics, fetchAptitudeTopic, fetchTopicQuestions,
-  completeAptitudeTopic,
+  completeAptitudeTopic, aptitudeProgressRef, aptitudeCompletionPayload,
 } from "@/lib/aptitude";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { shuffleQuizForAttempt, buildQuizSeedKey, loadQuizDraft, saveQuizDraft } from "@/lib/quizRandom";
+import { buildQuizSeedKey } from "@/lib/quizRandom";
+import { fetchAttempt, submitQuizAttempt, attemptState } from "@/lib/quizAttempts";
+import { GradedQuiz } from "@/components/campus/graded-quiz";
+import { policyFor } from "@/lib/rewardPolicy";
 import { ConceptRenderer, InfoListCard } from "@/components/campus/lesson-blocks";
 import { useCampusBackHandler } from "@/lib/campusNav";
 
@@ -259,50 +262,6 @@ function AptitudeRoadmap({ onOpenTopic }) {
 
 // ---------------- Topic view ----------------
 
-function TopicQuiz({ mcqs, seedKey, answers, onAnswer, submitted, onSubmit }) {
-  const shuffled = useMemo(() => shuffleQuizForAttempt(mcqs, seedKey), [mcqs, seedKey]);
-  const score = mcqs.reduce((n, q, i) => n + (answers[i] === q.correctIndex ? 1 : 0), 0);
-  return (
-    <CampusCard className="p-4">
-      <p className="text-[11px] font-mono tracking-widest mb-3 flex items-center gap-1.5" style={{ color: CAMPUS.blue }}>
-        <ListChecks size={12} /> QUIZ
-      </p>
-      <div className="space-y-4">
-        {shuffled.map((q, i) => (
-          <div key={q._origIndex}>
-            <p className="text-[13px] font-medium mb-2" style={{ color: CAMPUS.ink }}>{i + 1}. {q.question}</p>
-            <div className="space-y-1.5">
-              {q.options.map((opt) => {
-                const isSelected = answers[q._origIndex] === opt.originalIndex;
-                const isCorrect = submitted && opt.originalIndex === q.correctIndex;
-                const isWrong = submitted && isSelected && opt.originalIndex !== q.correctIndex;
-                return (
-                  <button key={opt.originalIndex} disabled={submitted} onClick={() => onAnswer(q._origIndex, opt.originalIndex)}
-                    className="w-full text-left text-[12.5px] px-3 py-2 rounded-lg"
-                    style={{
-                      background: isCorrect ? CAMPUS.goodTint : isWrong ? CAMPUS.badTint : isSelected ? CAMPUS.tealTint : CAMPUS.paper,
-                      border: `1px solid ${isCorrect ? CAMPUS.good : isWrong ? CAMPUS.bad : isSelected ? CAMPUS.teal : CAMPUS.line}`,
-                      color: CAMPUS.ink,
-                    }}>
-                    {opt.text}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-      {!submitted ? (
-        <CampusButton size="sm" className="mt-4" onClick={onSubmit} disabled={Object.keys(answers).length < mcqs.length}>
-          Submit Quiz
-        </CampusButton>
-      ) : (
-        <p className="text-[12.5px] font-semibold mt-4" style={{ color: CAMPUS.teal }}>Score: {score}/{mcqs.length}</p>
-      )}
-    </CampusCard>
-  );
-}
-
 // Lightweight, CAMPUS-themed practice card - NOT the full dark-themed
 // QuestionWorkspace (see this file's header comment). Answer -> reveal
 // correctness + explanation, no bookmarking/related-questions/company-
@@ -346,36 +305,77 @@ function AptitudeTopicView({ topicId, onBack }) {
   const [topic, setTopic] = useState(null);
   const [questions, setQuestions] = useState(null);
   const [quizAnswers, setQuizAnswers] = useState({});
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  // Server-side attempt record - see lib/quizAttempts.js.
+  const [attempt, setAttempt] = useState(null);
+  const [attemptLoaded, setAttemptLoaded] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [showGoingDeeper, setShowGoingDeeper] = useState(false);
 
   const quizSeedKey = buildQuizSeedKey({ uid: user?.uid, scope: `aptitude:${topicId}` });
-  const quizDraftKey = user ? `aptitude:${user.uid}:${topicId}` : null;
 
   useEffect(() => {
-    fetchAptitudeTopic(topicId).then(setTopic).catch(() => setTopic(null));
-    fetchTopicQuestions(topicId).then(setQuestions).catch(() => setQuestions([]));
+    let cancelled = false;
+    setTopic(null);
+    setQuestions(null);
+    setQuizAnswers({});
+    setAttempt(null);
+    setAttemptLoaded(false);
+    setLastResult(null);
+    setJustCompleted(false);
+    setAlreadyDone(false);
+
+    fetchAptitudeTopic(topicId).then(t => { if (!cancelled) setTopic(t); }).catch(() => { if (!cancelled) setTopic(null); });
+    fetchTopicQuestions(topicId).then(q => { if (!cancelled) setQuestions(q); }).catch(() => { if (!cancelled) setQuestions([]); });
     if (user) {
       getDoc(doc(db, "user_aptitude_progress", user.uid))
-        .then(snap => setAlreadyDone(!!snap.data()?.completedTopicIds?.includes(topicId)))
+        .then(snap => { if (!cancelled) setAlreadyDone(!!snap.data()?.completedTopicIds?.includes(topicId)); })
         .catch(() => {});
+      fetchAttempt(user.uid, "aptitude", topicId)
+        .then(a => { if (!cancelled) { setAttempt(a); setAttemptLoaded(true); } })
+        .catch(() => { if (!cancelled) setAttemptLoaded(true); });
+    } else {
+      setAttemptLoaded(true);
     }
+
+    return () => { cancelled = true; };
   }, [topicId, user]);
 
-  useEffect(() => {
-    if (!quizDraftKey) { setQuizAnswers({}); setQuizSubmitted(false); return; }
-    const draft = loadQuizDraft(quizDraftKey);
-    setQuizAnswers(draft?.answers || {});
-    setQuizSubmitted(!!draft?.submitted);
-  }, [quizDraftKey]);
-
-  useEffect(() => {
-    if (!quizDraftKey) return;
-    saveQuizDraft(quizDraftKey, { answers: quizAnswers, submitted: quizSubmitted });
-  }, [quizDraftKey, quizAnswers, quizSubmitted]);
+  const handleSubmitQuiz = async () => {
+    if (!user || !topic) return;
+    setSubmitting(true);
+    try {
+      const res = await submitQuizAttempt({
+        uid: user.uid,
+        moduleKey: "aptitude",
+        scopeId: topicId,
+        mcqs: topic.mcqs || [],
+        answers: quizAnswers,
+        item: topic,
+        progressRef: aptitudeProgressRef(user.uid),
+        progressPayload: {
+          completedIdField: "completedTopicIds",
+          completedId: topicId,
+          data: aptitudeCompletionPayload(topicId),
+        },
+        activityId: topicId,
+        transactionType: "aptitude_topic_completed",
+        sourceModule: "aptitude",
+      });
+      setLastResult(res);
+      if (res.status === "graded") {
+        setJustCompleted(res.passed);
+        if (res.passed) setAlreadyDone(true);
+      }
+      const fresh = await fetchAttempt(user.uid, "aptitude", topicId).catch(() => null);
+      setAttempt(fresh);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleComplete = async () => {
     if (!user) return;
@@ -402,7 +402,10 @@ function AptitudeTopicView({ topicId, onBack }) {
   }
 
   const hasContent = topicHasContent(topic);
-  const quizPending = topic.mcqs?.length > 0 && !quizSubmitted;
+  const mcqs = topic.mcqs || [];
+  const hasQuiz = mcqs.length > 0;
+  const policy = policyFor("aptitude", topic);
+  const quizState = attemptState(attempt, policy);
 
   return (
     <div className="max-w-3xl">
@@ -465,9 +468,18 @@ function AptitudeTopicView({ topicId, onBack }) {
             </CampusCard>
           )}
 
-          {topic.mcqs?.length > 0 && (
-            <TopicQuiz mcqs={topic.mcqs} seedKey={quizSeedKey} answers={quizAnswers} onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
-              submitted={quizSubmitted} onSubmit={() => setQuizSubmitted(true)} />
+          {hasQuiz && (
+            <GradedQuiz
+              mcqs={mcqs}
+              seedKey={quizSeedKey}
+              answers={quizState.locked && quizState.lastAnswers ? quizState.lastAnswers : quizAnswers}
+              onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
+              state={quizState}
+              policy={policy}
+              result={lastResult}
+              loading={!attemptLoaded}
+              submitting={submitting}
+              onSubmit={handleSubmitQuiz} />
           )}
 
           {topic.assignment && (
@@ -479,29 +491,30 @@ function AptitudeTopicView({ topicId, onBack }) {
             </CampusCard>
           )}
 
-          <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <p className="text-[13px] font-semibold" style={{ color: CAMPUS.ink }}>
-                {alreadyDone ? "Topic completed" : "Mark this topic complete"}
-              </p>
-              {!alreadyDone && (
-                <p className="text-[11px] flex items-center gap-2 mt-0.5" style={{ color: CAMPUS.inkFaint }}>
-                  <span className="flex items-center gap-1"><Zap size={11} /> +{topic.xpReward || 15} XP</span>
-                  <span className="flex items-center gap-1"><Coins size={11} /> +{topic.coinReward || 5} coins</span>
+          {/* A topic with a quiz is completed BY the quiz - see campus-cscore.jsx
+              for the same change and why a second button here was the leak. */}
+          {(!hasQuiz || alreadyDone) && (
+            <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-[13px] font-semibold" style={{ color: CAMPUS.ink }}>
+                  {alreadyDone ? "Topic completed" : "Mark this topic complete"}
                 </p>
+                {!alreadyDone && (
+                  <p className="text-[11px] flex items-center gap-2 mt-0.5" style={{ color: CAMPUS.inkFaint }}>
+                    <span className="flex items-center gap-1"><Zap size={11} /> +{topic.xpReward || 15} XP</span>
+                    <span className="flex items-center gap-1"><Coins size={11} /> +{topic.coinReward || 5} coins</span>
+                  </p>
+                )}
+              </div>
+              {alreadyDone ? (
+                <CampusChip color={CAMPUS.good} icon={Check}>DONE</CampusChip>
+              ) : (
+                <CampusButton onClick={handleComplete} disabled={completing || !user}>
+                  {completing ? "Saving..." : "Complete Topic"}
+                </CampusButton>
               )}
-              {!alreadyDone && quizPending && (
-                <p className="text-[11px] mt-1" style={{ color: CAMPUS.warn }}>Submit the quiz above to unlock this.</p>
-              )}
-            </div>
-            {alreadyDone ? (
-              <CampusChip color={CAMPUS.good} icon={Check}>DONE</CampusChip>
-            ) : (
-              <CampusButton onClick={handleComplete} disabled={completing || !user || quizPending}>
-                {completing ? "Saving..." : "Complete Topic"}
-              </CampusButton>
-            )}
-          </CampusCard>
+            </CampusCard>
+          )}
 
           {justCompleted && (
             <p className="text-[12.5px] text-center px-3 py-2 rounded-lg" style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>

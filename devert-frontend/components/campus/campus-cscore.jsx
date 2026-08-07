@@ -24,10 +24,14 @@ import {
 import {
   fetchSubjects, fetchSubject, fetchTopics, fetchTopic,
   fetchSubjectProgress, fetchAllUserProgress, markTopicOpened, completeTopic,
+  csCoreProgressRef, csCoreCompletionPayload,
   buildCsCoreSearchIndex,
 } from "@/lib/csCore";
 import { searchCampus, groupResults } from "@/lib/campusSearch";
-import { shuffleQuizForAttempt, buildQuizSeedKey, loadQuizDraft, saveQuizDraft } from "@/lib/quizRandom";
+import { buildQuizSeedKey } from "@/lib/quizRandom";
+import { fetchAttempt, submitQuizAttempt, attemptState } from "@/lib/quizAttempts";
+import { GradedQuiz } from "@/components/campus/graded-quiz";
+import { policyFor } from "@/lib/rewardPolicy";
 import {
   LessonBody, InfoListCard, CodeExampleBlock, LessonProgressBar, useReadingProgress,
 } from "@/components/campus/lesson-blocks";
@@ -900,7 +904,13 @@ function TopicView({ subjectId, topicId, onBack }) {
   const searchParams = useSearchParams();
   const [topic, setTopic] = useState(null);
   const [quizAnswers, setQuizAnswers] = useState({});
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  // The server's record of this (student, topic) quiz - null until loaded.
+  // Replaces the old localStorage `submitted` flag entirely; see
+  // lib/quizAttempts.js's header for the three bugs that flag caused.
+  const [attempt, setAttempt] = useState(null);
+  const [attemptLoaded, setAttemptLoaded] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [practiceScreen, setPracticeScreen] = useState(() => {
     const problemId = searchParams.get("practiceProblem");
     return problemId ? { view: "problem", problemId } : { view: "list" };
@@ -919,34 +929,87 @@ function TopicView({ subjectId, topicId, onBack }) {
 
   // Same seed every render for this (student, topic) - shuffleQuizForAttempt
   // reproduces the identical question/option order on every refresh with
-  // nothing to persist. Only the in-progress answers/submitted flag need an
-  // explicit resume mechanism (this quiz has no Firestore doc of its own).
+  // nothing to persist.
   const quizSeedKey = buildQuizSeedKey({ uid: user?.uid, scope: `${subjectId}:${topicId}` });
-  const quizDraftKey = user ? `cscore:${user.uid}:${subjectId}:${topicId}` : null;
+  const quizScopeId = `${subjectId}_${topicId}`;
 
+  // Everything keyed to this topic is reset SYNCHRONOUSLY as topicId changes,
+  // and every async result is discarded if the topic changed while it was in
+  // flight. The previous version left `topic`, `alreadyDone` and the quiz flag
+  // holding the PREVIOUS topic's values until each fetch resolved, so opening a
+  // second topic briefly rendered the first topic's content, its "DONE" chip
+  // and an already-unlocked completion button under the new topic's id.
   useEffect(() => {
-    fetchTopic(subjectId, topicId).then(setTopic).catch(() => setTopic(null));
+    let cancelled = false;
+    setTopic(null);
+    setQuizAnswers({});
+    setAttempt(null);
+    setAttemptLoaded(false);
+    setLastResult(null);
+    setJustCompleted(false);
+    setAlreadyDone(false);
+
+    fetchTopic(subjectId, topicId)
+      .then(t => { if (!cancelled) setTopic(t); })
+      .catch(() => { if (!cancelled) setTopic(null); });
+
     if (user) {
       markTopicOpened(user.uid, subjectId, topicId).catch(() => {});
-      fetchSubjectProgress(user.uid, subjectId).then(p => setAlreadyDone(!!p?.completedTopicIds?.includes(topicId))).catch(() => {});
+      fetchSubjectProgress(user.uid, subjectId)
+        .then(p => { if (!cancelled) setAlreadyDone(!!p?.completedTopicIds?.includes(topicId)); })
+        .catch(() => {});
+      // The cross-device check. A tab opened on another machine loads the same
+      // record and renders the quiz locked, instead of offering a submit button
+      // that would be refused server-side anyway.
+      fetchAttempt(user.uid, "cscore", quizScopeId)
+        .then(a => { if (!cancelled) { setAttempt(a); setAttemptLoaded(true); } })
+        .catch(() => { if (!cancelled) setAttemptLoaded(true); });
+    } else {
+      setAttemptLoaded(true);
     }
-  }, [subjectId, topicId, user]);
 
-  // Restore an in-progress (or already-submitted) quiz attempt for this
-  // topic the moment it's known who's viewing it - a refresh or navigating
-  // away and back must never reset an unsubmitted quiz to blank.
-  useEffect(() => {
-    if (!quizDraftKey) { setQuizAnswers({}); setQuizSubmitted(false); return; }
-    const draft = loadQuizDraft(quizDraftKey);
-    setQuizAnswers(draft?.answers || {});
-    setQuizSubmitted(!!draft?.submitted);
-  }, [quizDraftKey]);
+    return () => { cancelled = true; };
+  }, [subjectId, topicId, user, quizScopeId]);
 
-  useEffect(() => {
-    if (!quizDraftKey) return;
-    saveQuizDraft(quizDraftKey, { answers: quizAnswers, submitted: quizSubmitted });
-  }, [quizDraftKey, quizAnswers, quizSubmitted]);
+  // Submitting the quiz IS the completion for a topic that has one: it grades
+  // server-side, moves XP per question, and marks the topic complete only if the
+  // paper passes. There is no separate "Complete Topic" click to make afterwards
+  // - that button was the thing paying full XP for a wrong paper.
+  const handleSubmitQuiz = async () => {
+    if (!user || !topic) return;
+    setSubmitting(true);
+    try {
+      const res = await submitQuizAttempt({
+        uid: user.uid,
+        moduleKey: "cscore",
+        scopeId: quizScopeId,
+        mcqs: topic.mcqs || [],
+        answers: quizAnswers,
+        item: topic,
+        progressRef: csCoreProgressRef(user.uid, subjectId),
+        progressPayload: {
+          completedIdField: "completedTopicIds",
+          completedId: topicId,
+          data: csCoreCompletionPayload(user.uid, subjectId, topicId),
+        },
+        activityId: quizScopeId,
+        transactionType: "cscore_topic_completed",
+        sourceModule: "cscore",
+      });
+      setLastResult(res);
+      if (res.status === "graded") {
+        setJustCompleted(res.passed);
+        if (res.passed) setAlreadyDone(true);
+      }
+      const fresh = await fetchAttempt(user.uid, "cscore", quizScopeId).catch(() => null);
+      setAttempt(fresh);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
+  // Reading-only topics (no authored quiz) keep the acknowledge-to-complete
+  // flow, since there is nothing to grade.
   const handleComplete = async () => {
     if (!user) return;
     setCompleting(true);
@@ -990,11 +1053,12 @@ function TopicView({ subjectId, topicId, onBack }) {
   }
 
   const hasContent = topicHasContent(topic);
-  // Mirrors campus-programming.jsx's identical fix - a topic with an
-  // authored quiz must have it submitted before "Complete Topic" unlocks;
-  // without this, a student could skip straight past the quiz (and never
-  // even open it) and still bank the XP/coins/score.
-  const quizPending = topic.mcqs?.length > 0 && !quizSubmitted;
+  const mcqs = topic.mcqs || [];
+  const hasQuiz = mcqs.length > 0;
+  const policy = policyFor("cscore", topic);
+  // Derived from the SERVER record, so a second device, a refresh, or a cleared
+  // browser store all land on the same answer.
+  const quizState = attemptState(attempt, policy);
 
   return (
     <div className="max-w-3xl">
@@ -1076,9 +1140,18 @@ function TopicView({ subjectId, topicId, onBack }) {
             </div>
           )}
 
-          {topic.mcqs?.length > 0 && (
-            <TopicQuiz mcqs={topic.mcqs} seedKey={quizSeedKey} answers={quizAnswers} onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
-              submitted={quizSubmitted} onSubmit={() => setQuizSubmitted(true)} />
+          {hasQuiz && (
+            <GradedQuiz
+              mcqs={mcqs}
+              seedKey={quizSeedKey}
+              answers={quizState.locked && quizState.lastAnswers ? quizState.lastAnswers : quizAnswers}
+              onAnswer={(i, v) => setQuizAnswers(p => ({ ...p, [i]: v }))}
+              state={quizState}
+              policy={policy}
+              result={lastResult}
+              loading={!attemptLoaded}
+              submitting={submitting}
+              onSubmit={handleSubmitQuiz} />
           )}
 
           {topic.assignment && (
@@ -1090,29 +1163,41 @@ function TopicView({ subjectId, topicId, onBack }) {
             </CampusCard>
           )}
 
-          <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <p className="text-[13px] font-semibold" style={{ color: CAMPUS.ink }}>
-                {alreadyDone ? "Topic completed" : "Mark this topic complete"}
-              </p>
-              {!alreadyDone && (
-                <p className="text-[11px] flex items-center gap-2 mt-0.5" style={{ color: CAMPUS.inkFaint }}>
-                  <span className="flex items-center gap-1"><Zap size={11} /> +{topic.xpReward || 25} XP</span>
-                  <span className="flex items-center gap-1"><Coins size={11} /> +{topic.coinReward || 10} coins</span>
+          {/* A topic with a quiz has no separate "complete" action any more -
+              submitting the quiz grades it, pays per question and marks it
+              complete only if it passes. Keeping a second button here is exactly
+              how a wrong paper used to bank the full topic reward. Reading-only
+              topics still acknowledge completion, since there is nothing to
+              grade. */}
+          {!hasQuiz && (
+            <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-[13px] font-semibold" style={{ color: CAMPUS.ink }}>
+                  {alreadyDone ? "Topic completed" : "Mark this topic complete"}
                 </p>
+                {!alreadyDone && (
+                  <p className="text-[11px] flex items-center gap-2 mt-0.5" style={{ color: CAMPUS.inkFaint }}>
+                    <span className="flex items-center gap-1"><Zap size={11} /> +{topic.xpReward || 25} XP</span>
+                    <span className="flex items-center gap-1"><Coins size={11} /> +{topic.coinReward || 10} coins</span>
+                  </p>
+                )}
+              </div>
+              {alreadyDone ? (
+                <CampusChip color={CAMPUS.good} icon={Check}>DONE</CampusChip>
+              ) : (
+                <CampusButton onClick={handleComplete} disabled={completing || !user}>
+                  {completing ? "Saving..." : "Complete Topic"}
+                </CampusButton>
               )}
-              {!alreadyDone && quizPending && (
-                <p className="text-[11px] mt-1" style={{ color: CAMPUS.warn }}>Submit the quiz above to unlock this.</p>
-              )}
-            </div>
-            {alreadyDone ? (
+            </CampusCard>
+          )}
+
+          {hasQuiz && alreadyDone && (
+            <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
+              <p className="text-[13px] font-semibold" style={{ color: CAMPUS.ink }}>Topic completed</p>
               <CampusChip color={CAMPUS.good} icon={Check}>DONE</CampusChip>
-            ) : (
-              <CampusButton onClick={handleComplete} disabled={completing || !user || quizPending}>
-                {completing ? "Saving..." : "Complete Topic"}
-              </CampusButton>
-            )}
-          </CampusCard>
+            </CampusCard>
+          )}
 
           {justCompleted && (
             <motion.p
@@ -1129,51 +1214,4 @@ function TopicView({ subjectId, topicId, onBack }) {
     </div>
   );
 }
-
-function TopicQuiz({ mcqs, seedKey, answers, onAnswer, submitted, onSubmit }) {
-  // Shuffled purely for display, keyed by seedKey (student+topic) - grading
-  // below always compares against the original array index i (q.correctIndex),
-  // never the shuffled render position, so `answers` keeps its existing
-  // "keyed by original question index" shape unchanged.
-  const shuffled = useMemo(() => shuffleQuizForAttempt(mcqs, seedKey), [mcqs, seedKey]);
-  const score = mcqs.reduce((n, q, i) => n + (answers[i] === q.correctIndex ? 1 : 0), 0);
-  return (
-    <CampusCard className="p-4">
-      <p className="text-[11px] font-mono tracking-widest mb-3 flex items-center gap-1.5" style={{ color: CAMPUS.blue }}>
-        <ListChecks size={12} /> QUIZ
-      </p>
-      <div className="space-y-4">
-        {shuffled.map((q, i) => (
-          <div key={q._origIndex}>
-            <p className="text-[13px] font-medium mb-2" style={{ color: CAMPUS.ink }}>{i + 1}. {q.question}</p>
-            <div className="space-y-1.5">
-              {q.options.map((opt) => {
-                const isSelected = answers[q._origIndex] === opt.originalIndex;
-                const isCorrect = submitted && opt.originalIndex === q.correctIndex;
-                const isWrong = submitted && isSelected && opt.originalIndex !== q.correctIndex;
-                return (
-                  <button key={opt.originalIndex} disabled={submitted} onClick={() => onAnswer(q._origIndex, opt.originalIndex)}
-                    className="w-full text-left text-[12.5px] px-3 py-2 rounded-lg"
-                    style={{
-                      background: isCorrect ? CAMPUS.goodTint : isWrong ? CAMPUS.badTint : isSelected ? CAMPUS.tealTint : CAMPUS.paper,
-                      border: `1px solid ${isCorrect ? CAMPUS.good : isWrong ? CAMPUS.bad : isSelected ? CAMPUS.teal : CAMPUS.line}`,
-                      color: CAMPUS.ink,
-                    }}>
-                    {opt.text}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-      {!submitted ? (
-        <CampusButton size="sm" className="mt-4" onClick={onSubmit} disabled={Object.keys(answers).length < mcqs.length}>
-          Submit Quiz
-        </CampusButton>
-      ) : (
-        <p className="text-[12.5px] font-semibold mt-4" style={{ color: CAMPUS.teal }}>Score: {score}/{mcqs.length}</p>
-      )}
-    </CampusCard>
-  );
-}
+

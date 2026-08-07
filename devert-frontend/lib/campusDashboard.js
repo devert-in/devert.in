@@ -27,6 +27,17 @@ export const ACTIVITY_LABELS = {
   daily_learning_problem: "Daily Learning - Practice Problem",
   programming_topic: "Programming Lesson",
   cscore_topic: "CS Core Lesson",
+  // These six were missing, so activityLabel() fell through to its raw-key
+  // fallback and the admin Reward Timeline literally rendered "gate_topic" to
+  // principals. Every activityType any module actually writes (see the
+  // grantRewards call sites and REWARD_POLICY.modules in lib/rewardPolicy.js)
+  // needs an entry here, or it surfaces as a database key.
+  gate_topic: "GATE Topic",
+  gate_day: "GATE Daily Goal",
+  se_topic: "Fundamentals Topic",
+  se_lesson: "Fundamentals Lesson",
+  dsa_concept: "DSA Concept",
+  aptitude_topic: "Aptitude Topic",
   contest: "Contest",
   arena_match: "Arena Solo Challenge",
   codelab_problem: "DSA / CodeLab Problem",

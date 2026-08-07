@@ -289,6 +289,24 @@ export function resolveTargetPaper(allProgress, papers) {
   return (recent && papers.find(p => p.id === recent.paperId)) || papers[0] || null;
 }
 
+// Exposed for lib/quizAttempts.js's submitQuizAttempt, so the completion write
+// happens inside the same transaction that grades the quiz - see the identical
+// pair in lib/csCore.js for the reasoning.
+export function gateProgressRef(uid, paperId) {
+  return doc(db, "gate_progress", progressId(uid, paperId));
+}
+
+export function gateCompletionPayload(uid, paperId, subjectId, topicId) {
+  return {
+    uid, paperId,
+    completedTopicIds: arrayUnion(topicId),
+    lastOpenedSubjectId: subjectId,
+    lastOpenedTopicId: topicId,
+    lastCompletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
 export async function markTopicOpened(uid, paperId, subjectId, topicId) {
   await setDoc(doc(db, "gate_progress", progressId(uid, paperId)), {
     uid, paperId,

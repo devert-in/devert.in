@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Mail, Calendar, Clock, Pencil, KeyRound, Megaphone, Ban, UserX, UserCheck, UserMinus,
   ExternalLink, CodeXml, BrainCircuit, ListChecks, Building2, GraduationCap, User,
-  Trophy, Zap, Coins,
+  Trophy, Zap, Coins, ChevronDown, Check, X as XIcon, CircleDashed, Loader2,
 } from "lucide-react";
 import { CAMPUS, tint } from "@/lib/campus-theme";
 import { useAuth } from "@/context/AuthContext";
@@ -17,6 +17,7 @@ import { fetchStudentAnalytics } from "@/lib/studentAnalytics";
 // this admin-facing timeline and the student's own Recent Activity feed render
 // the same ledger with the same vocabulary instead of two drifting copies.
 import { activityLabel } from "@/lib/campusDashboard";
+import { fetchRewardDetail } from "@/lib/rewardDetail";
 import {
   updateStudentIdentity, suspendStudent, approveStudent, setContestRestriction,
   removeStudentFromInstitution, sendStudentPasswordReset, sendAnnouncement,
@@ -338,6 +339,162 @@ function formatGrantedAt(ts) {
   return ts.toDate().toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
+function QuizStat({ icon: Icon, value, label, color }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Icon size={12} style={{ color }} />
+      <span className="text-[12px] font-mono font-semibold" style={{ color: CAMPUS.ink }}>{value}</span>
+      <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{label}</span>
+    </div>
+  );
+}
+
+// One expanded reward. The ledger row alone answers "how much" but not "for
+// what" or "how well" - both of those live elsewhere and are fetched here, ONLY
+// when a row is actually opened. Loading them for every row up front would turn
+// one screen into a hundred reads for a timeline most of which is never expanded.
+function RewardDetail({ grant }) {
+  const [state, setState] = useState({ loading: true, data: null, error: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRewardDetail(grant)
+      .then(data => { if (!cancelled) setState({ loading: false, data, error: false }); })
+      .catch(() => { if (!cancelled) setState({ loading: false, data: null, error: true }); });
+    return () => { cancelled = true; };
+  }, [grant]);
+
+  if (state.loading) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-3 text-[12px]" style={{ color: CAMPUS.inkFaint }}>
+        <Loader2 size={13} className="animate-spin" /> Loading details…
+      </div>
+    );
+  }
+  if (state.error || !state.data) {
+    return <p className="px-3 py-3 text-[12px]" style={{ color: CAMPUS.inkFaint }}>Couldn&apos;t load the details for this reward.</p>;
+  }
+
+  const d = state.data;
+  const latest = d.history[0] || null;
+
+  return (
+    <div className="px-3 pb-3 pt-1 space-y-3">
+      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-[12px]">
+        <Detail label="Activity" value={d.kind} />
+        <Detail label="Topic" value={d.name || d.rawId || "-"} />
+        {d.context && <Detail label="Under" value={d.context} />}
+        <Detail label="Ledger id" value={d.rawId || "-"} mono />
+        <Detail label="XP" value={`${grant.xp > 0 ? "+" : ""}${grant.xp || 0}`} />
+        <Detail label="Coins" value={`${grant.coins > 0 ? "+" : ""}${grant.coins || 0}`} />
+        {grant.score != null && <Detail label="Score banked" value={grant.score} />}
+        <Detail label="Granted" value={formatGrantedAt(grant.grantedAt)} />
+        <Detail label="Granted by" value={grant.grantedBy === "system" ? "System (automatic)" : `Admin ${grant.grantedBy}`} />
+        <Detail label="Status" value={grant.status === "reversed" ? "REVERSED" : "Granted"} />
+      </div>
+
+      {d.quizless ? (
+        <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+          This activity has no quiz attached, so there are no answers to show.
+        </p>
+      ) : !latest ? (
+        <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+          No quiz attempt recorded. Rewards granted before quiz attempts were tracked server-side have no
+          answer history - the reward itself is still authoritative.
+        </p>
+      ) : (
+        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${CAMPUS.line}` }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap px-3 py-2.5" style={{ background: CAMPUS.paper }}>
+            <div className="flex items-center gap-4 flex-wrap">
+              <QuizStat icon={Check} value={latest.correct} label="correct" color={CAMPUS.good} />
+              <QuizStat icon={XIcon} value={latest.wrong} label="wrong" color={CAMPUS.bad} />
+              {!!latest.unanswered && <QuizStat icon={CircleDashed} value={latest.unanswered} label="skipped" color={CAMPUS.inkFaint} />}
+              <span className="text-[11.5px] font-mono" style={{ color: CAMPUS.inkSoft }}>
+                {latest.correct}/{latest.total} · {Math.round((latest.pct || 0) * 100)}%
+              </span>
+            </div>
+            <CampusChip color={latest.passed ? CAMPUS.good : CAMPUS.bad}>
+              {latest.passed ? "PASSED" : "FAILED"}
+            </CampusChip>
+          </div>
+
+          {/* Earlier attempts, newest first. Shown whenever there is more than
+              one, because "passed on the fourth try" is a materially different
+              fact from "passed first time" and the summary above hides it. */}
+          {d.history.length > 1 && (
+            <div style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+              <p className="text-[10px] font-mono tracking-widest px-3 pt-2.5 pb-1" style={{ color: CAMPUS.inkFaint }}>
+                ALL {d.history.length} ATTEMPTS
+              </p>
+              {d.history.map(h => (
+                <div key={h.attemptNo} className="flex items-center justify-between gap-3 px-3 py-1.5 text-[11.5px] font-mono"
+                  style={{ color: CAMPUS.inkSoft }}>
+                  <span>#{h.attemptNo}</span>
+                  <span style={{ color: CAMPUS.good }}>{h.correct} right</span>
+                  <span style={{ color: CAMPUS.bad }}>{h.wrong} wrong</span>
+                  <span>{Math.round((h.pct || 0) * 100)}%</span>
+                  <span style={{ color: h.passed ? CAMPUS.good : CAMPUS.inkFaint }}>{h.passed ? "passed" : "failed"}</span>
+                  <span style={{ color: h.xpNet < 0 ? CAMPUS.bad : CAMPUS.inkFaint }}>
+                    {h.xpNet > 0 ? "+" : ""}{h.xpNet} XP
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Detail({ label, value, mono }) {
+  return (
+    <div className="flex items-baseline gap-2 min-w-0">
+      <span className="text-[10.5px] font-mono uppercase tracking-wide flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{label}</span>
+      <span className={`truncate ${mono ? "font-mono text-[11.5px]" : "text-[12px]"}`} style={{ color: CAMPUS.ink }}>{value}</span>
+    </div>
+  );
+}
+
+// Collapsed by default; the detail underneath is fetched lazily on first open
+// and then kept mounted, so re-opening a row costs nothing.
+function RewardRow({ grant }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-lg" style={{ border: `1px solid ${CAMPUS.line}` }}>
+      <button onClick={() => setOpen(o => !o)} aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left">
+        <div className="min-w-0 flex items-center gap-2">
+          <ChevronDown size={13} style={{ color: CAMPUS.inkFaint, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }} />
+          <div className="min-w-0">
+            <p className="text-[12.5px] font-medium truncate" style={{ color: CAMPUS.ink }}>
+              {activityLabel(grant.activityType)}
+            </p>
+            <p className="text-[10.5px] font-mono truncate" style={{ color: CAMPUS.inkFaint }}>
+              {formatGrantedAt(grant.grantedAt)}
+              {grant.grantedBy && grant.grantedBy !== "system" && ` · granted by admin ${grant.grantedBy}`}
+              {grant.status === "reversed" && " · REVERSED"}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {!!grant.xp && (
+            <span className="flex items-center gap-1 text-[11.5px] font-mono font-semibold" style={{ color: grant.xp < 0 ? CAMPUS.bad : CAMPUS.teal }}>
+              <Zap size={11} /> {grant.xp > 0 ? "+" : ""}{grant.xp}
+            </span>
+          )}
+          {!!grant.coins && (
+            <span className="flex items-center gap-1 text-[11.5px] font-mono font-semibold" style={{ color: grant.coins < 0 ? CAMPUS.bad : CAMPUS.good }}>
+              <Coins size={11} /> {grant.coins > 0 ? "+" : ""}{grant.coins}
+            </span>
+          )}
+        </div>
+      </button>
+      {open && <div style={{ borderTop: `1px solid ${CAMPUS.line}` }}><RewardDetail grant={grant} /></div>}
+    </div>
+  );
+}
+
 // Requirement: an admin opening a student from the leaderboard should
 // immediately understand how every reward was earned - this reads directly
 // from the central reward_grants ledger (lib/rewards.js), never computed or
@@ -359,32 +516,7 @@ function RewardsSection({ rewards, timeline }) {
         <CampusEmptyState size="sm" icon={Trophy} title="No rewards granted yet" description="Nothing in the reward ledger for this student yet." />
       ) : (
         <div className="space-y-1.5 max-h-96 overflow-y-auto">
-          {timeline.map(t => (
-            <div key={t.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}` }}>
-              <div className="min-w-0">
-                <p className="text-[12.5px] font-medium truncate" style={{ color: CAMPUS.ink }}>
-                  {activityLabel(t.activityType)}
-                </p>
-                <p className="text-[10.5px] font-mono truncate" style={{ color: CAMPUS.inkFaint }}>
-                  {formatGrantedAt(t.grantedAt)}
-                  {t.grantedBy && t.grantedBy !== "system" && ` · granted by admin ${t.grantedBy}`}
-                  {t.status === "reversed" && " · REVERSED"}
-                </p>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                {!!t.xp && (
-                  <span className="flex items-center gap-1 text-[11.5px] font-mono font-semibold" style={{ color: t.xp < 0 ? CAMPUS.bad : CAMPUS.teal }}>
-                    <Zap size={11} /> {t.xp > 0 ? "+" : ""}{t.xp}
-                  </span>
-                )}
-                {!!t.coins && (
-                  <span className="flex items-center gap-1 text-[11.5px] font-mono font-semibold" style={{ color: t.coins < 0 ? CAMPUS.bad : CAMPUS.good }}>
-                    <Coins size={11} /> {t.coins > 0 ? "+" : ""}{t.coins}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
+          {timeline.map(t => <RewardRow key={t.id} grant={t} />)}
         </div>
       )}
     </CampusCard>

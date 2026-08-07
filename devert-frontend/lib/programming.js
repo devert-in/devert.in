@@ -144,6 +144,23 @@ export async function markTopicOpened(uid, langId, topicId) {
   }, { merge: true });
 }
 
+// Exposed for lib/quizAttempts.js's submitQuizAttempt, so a graded quiz writes
+// its completion inside the same transaction that moves the XP - see the
+// identical pair in lib/csCore.js.
+export function programmingProgressRef(uid, langId) {
+  return doc(db, "programming_progress", progressId(uid, langId));
+}
+
+export function programmingCompletionPayload(uid, langId, topicId) {
+  return {
+    uid, langId,
+    completedTopicIds: arrayUnion(topicId),
+    lastOpenedTopicId: topicId,
+    lastCompletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
 // Mirrors lib/dailyLearning.js's submitDayCompletion() - same self-reported-
 // completion trust boundary, same shared grantRewards() split (xp/coins/
 // score). The idempotency check (is topicId already in completedTopicIds?)

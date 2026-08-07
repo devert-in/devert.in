@@ -52,6 +52,22 @@ export async function fetchTopicQuestions(topicId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// Exposed for lib/quizAttempts.js's submitQuizAttempt - see lib/csCore.js's
+// identical pair. Note the doc id here is the bare uid (this module has always
+// kept one progress doc per student, not one per topic).
+export function aptitudeProgressRef(uid) {
+  return doc(db, "user_aptitude_progress", uid);
+}
+
+export function aptitudeCompletionPayload(topicId) {
+  return {
+    completedTopicIds: arrayUnion(topicId),
+    lastOpenedTopicId: topicId,
+    lastCompletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
 // Same transaction-wrapped idempotency pattern as programming.js/csCore.js's
 // completeTopic - reuses the EXISTING user_aptitude_progress/{uid} doc
 // (adding completedTopicIds alongside its current attempted/topicStats/
