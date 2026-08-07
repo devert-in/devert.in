@@ -334,9 +334,20 @@ function QuickActions({ institutionId, student, profile, adminUid, onChanged }) 
   );
 }
 
+// Seconds matter here: minute-only precision is what made a real, distinct
+// pair of completions in different modules 571ms apart read as one action
+// that had somehow paid twice (verified against the live ledger - two rows a
+// minute apart with no seconds shown are indistinguishable from duplicates,
+// even though the ledger's create-only rule and completeTopic's transaction
+// make an actual double-grant structurally impossible). Showing seconds lets
+// an admin see "0.6s apart, different modules" and read it correctly as two
+// separate submissions rather than one bug.
 function formatGrantedAt(ts) {
   if (!ts?.toDate) return "-";
-  return ts.toDate().toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+  return ts.toDate().toLocaleString(undefined, {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "numeric", minute: "2-digit", second: "2-digit",
+  });
 }
 
 function QuizStat({ icon: Icon, value, label, color }) {

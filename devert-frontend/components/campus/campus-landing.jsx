@@ -475,10 +475,20 @@ const DEVICE = {
 // The four module tiles that float around the laptop, mirroring the reference
 // render. Each is a REAL destination, so the illustration doubles as navigation
 // rather than being a picture of navigation.
-function HeroTile({ tile }) {
+// `floating` is the desktop treatment: absolutely positioned around the laptop.
+// Below sm: there is no room to float anything without covering the machine, so
+// the SAME tiles render as a plain grid underneath it instead (see HeroPreview).
+//
+// They used to be `hidden sm:flex`, which quietly cost mobile four real
+// destinations - these are links, not decoration, and on a phone they were the
+// only thing between the hero CTAs and the stats bar. Hiding navigation is only
+// acceptable when it exists somewhere else on that breakpoint; this did not.
+function HeroTile({ tile, floating }) {
   return (
     <Link href={tile.href}
-      className={`campus-btn hidden sm:flex absolute ${tile.at} flex-col items-start gap-2 px-3 py-2.5 rounded-xl w-[100px] z-20`}
+      className={floating
+        ? `campus-btn hidden sm:flex absolute ${tile.at} flex-col items-start gap-2 px-3 py-2.5 rounded-xl w-[100px] z-20`
+        : "campus-btn flex flex-col items-start gap-2 px-3 py-2.5 rounded-xl"}
       style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
       <span className="w-7 h-7 rounded-lg flex items-center justify-center"
         style={{ background: tint(tile.color, 16), color: tile.color }}>
@@ -505,7 +515,10 @@ function HeroTile({ tile }) {
 // stats bar where they are.
 function HeroPreview() {
   return (
-    <div className="relative w-full max-w-[540px] mx-auto lg:mx-0 pb-8" style={{ minHeight: 390 }}>
+    // min-height from sm: only. Below that the floating tiles are not absolutely
+    // positioned any more (they are the grid at the bottom), so reserving their
+    // space would leave a gap instead of filling it.
+    <div className="relative w-full max-w-[540px] mx-auto lg:mx-0 pb-8 sm:min-h-[390px]">
       {/* Ambient wash behind the machine - reads as a soft violet haze in light
           mode and a glow in dark mode, from one element, because tint()
           composites over whatever sits behind it. */}
@@ -598,8 +611,8 @@ function HeroPreview() {
       </div>
 
       {/* Floating module tiles - the only interactive part of the illustration.
-          Hidden below sm: where there is no room and they would crowd the CTAs. */}
-      {HERO_TILES.map(t => <HeroTile key={t.label} tile={t} />)}
+          sm: and up only; the mobile arrangement is the grid below. */}
+      {HERO_TILES.map(t => <HeroTile key={t.label} tile={t} floating />)}
 
       {/* Deliberately CAMPUS.chromeBg, the one token that stays dark in BOTH
           themes (see globals.css) - the render's XP card is a dark chip against
@@ -611,6 +624,15 @@ function HeroPreview() {
         <p className="flex items-center gap-1.5 text-[18px] font-bold leading-none" style={{ color: CAMPUS.chromeFg }}>
           350 <TrendingUp size={14} style={{ color: SCREEN.green }} />
         </p>
+      </div>
+
+      {/* The mobile counterpart of the floating tiles above. Same four links,
+          laid out in flow instead of absolutely, so a phone gets the navigation
+          rather than an illustration with nothing to tap. Not `absolute`, so it
+          adds real height - which is why HeroPreview's minHeight only applies
+          from sm: up (below that the laptop shrinks and this sits under it). */}
+      <div className="grid grid-cols-2 gap-2.5 sm:hidden mt-5">
+        {HERO_TILES.map(t => <HeroTile key={t.label} tile={t} />)}
       </div>
     </div>
   );

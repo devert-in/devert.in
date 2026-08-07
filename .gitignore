@@ -61,6 +61,7 @@ out/
 # Secrets / service accounts
 # =====================
 scripts/service-account.json
+scripts/service-account.*.json
 *-service-account.json
 serviceAccountKey.json
 

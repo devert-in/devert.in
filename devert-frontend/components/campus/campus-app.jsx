@@ -547,6 +547,12 @@ function CampusGlobalSection({ section }) {
   const [contestsLoading, setContestsLoading] = useState(section === "contests");
   const [contestsError, setContestsError] = useState(false);
   const [contestScreen, setContestScreen] = useState({ view: "list" });
+  // The portal target the active module renders its own contextual sub-nav
+  // into. State, not a ref: mutating a ref's .current does not re-render, so the
+  // module would be handed `undefined` on the render that matters and portal
+  // nothing. Same callback-ref-into-state pattern CampusWorkspace already uses
+  // for its own sidebar.
+  const [sidebarEl, setSidebarEl] = useState(null);
 
   // WHICH MODULE THIS HUB IS SHOWING IS DERIVED FROM THE URL, NOT MIRRORED INTO
   // STATE - and that is the whole fix for "clicking Programming should open
@@ -578,6 +584,14 @@ function CampusGlobalSection({ section }) {
     const m = searchParams.get("mode");
     return PRACTICE_MODES.includes(m) ? m : "coding";
   }, [searchParams]);
+
+  // Which surfaces have anything to put in the rail. The four learning modules
+  // each portal their own list into `sidebarEl` (Programming's languages, CS
+  // Core's subjects, Aptitude's topics, Fundamentals' modules); "courses" is the
+  // enrollable catalog and portals nothing, and Contests has no sub-navigation
+  // at all. Practice earns the rail only in coding mode, for the progress card.
+  const showSidebar = (section === "learning" && learnModule !== "courses")
+    || (section === "practice" && practiceMode === "coding");
 
   // Both drill-down screens are STAMPED with the mode they were opened under, so
   // changing mode discards them without an effect having to reach in and reset
@@ -670,6 +684,11 @@ function CampusGlobalSection({ section }) {
             and portal their list into it (see CampusProgrammingTab). Without a
             slot to hand them they render no sub-nav at all, which is why these
             pages came out as a bare full-width list. */}
+        {/* Only the surfaces that actually put something in the rail reserve
+            space for it - otherwise a 240px empty column sits next to Contests
+            and the Courses catalog, neither of which portals anything. The
+            learning modules each render their own list into `sidebarEl`;
+            practice's coding mode has the progress card below. */}
         <div className="flex gap-8 flex-col lg:flex-row">
           <aside className="lg:w-60 flex-shrink-0" hidden={!showSidebar}>
             <div className="flex flex-col gap-5 lg:sticky lg:top-6">
