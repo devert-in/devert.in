@@ -3,8 +3,8 @@
   "scripts": {
     "build": "npm --prefix devert-frontend run build",
     "sync:shells": "node scripts/sync-static-shells.mjs",
-    "deploy": "npm --prefix devert-frontend run build && npm run sync:shells && npx firebase-tools deploy --only hosting,firestore:rules,functions --project devert-me",
-    "deploy:rules": "npx firebase-tools deploy --only firestore:rules --project devert-me",
+    "deploy": "npm --prefix devert-frontend run build && npm run sync:shells && npx firebase-tools deploy --only hosting,firestore:rules,storage:rules,functions --project devert-me",
+    "deploy:rules": "npx firebase-tools deploy --only firestore:rules,storage:rules --project devert-me",
     "deploy:hosting": "npm --prefix devert-frontend run build && npm run sync:shells && npx firebase-tools deploy --only hosting,functions --project devert-me",
     "upload:resources": "node scripts/upload-intel-resources.mjs",
     "test": "npx firebase-tools emulators:exec --only firestore \"node --test test/\""
