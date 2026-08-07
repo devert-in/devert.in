@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { CheckCircle2, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle, Pause, Play, Send, FlaskConical } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, ListChecks, Medal, Trophy, Target, Clock, TrendingUp, TrendingDown, XCircle, MinusCircle, BarChart3, AlertTriangle, Pause, Play, Send, FlaskConical, Settings } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchContest, fetchContestQuestions, fetchContestAnswerKeys, fetchMyRegistration,
@@ -90,7 +91,8 @@ function SignInPrompt({ message }) {
 
 // ---------------- List ----------------
 
-export function CampusContestList({ contests, loading, error, onRetry, onSelect }) {
+export function CampusContestList({ contests, loading, error, onRetry, onSelect, institutionId, canManage }) {
+  const router = useRouter();
   if (loading) {
     return (
       <div className="space-y-2.5">
@@ -121,18 +123,36 @@ export function CampusContestList({ contests, loading, error, onRetry, onSelect 
       {contests.map(c => {
         const phase = contestPhase(c);
         return (
-          <button key={c.id} onClick={() => onSelect(c.id)} className="block w-full text-left">
-            <CampusCard hover className="p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.purpleTint, color: CAMPUS.purple }}>
-                <Trophy size={15} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <b className="block text-[13.5px] truncate" style={{ color: CAMPUS.ink }}>{c.title}</b>
-                <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{c.category}{c.difficulty ? ` · ${c.difficulty}` : ""}</span>
-              </div>
-              <CampusChip color={phase === "live" ? CAMPUS.good : phase === "upcoming" ? CAMPUS.warn : CAMPUS.inkFaint}>{phase.toUpperCase()}</CampusChip>
-            </CampusCard>
-          </button>
+          // CampusCard (a div, not a button) carries the "open details" click -
+          // the Manage button below is a real sibling <button>, not nested
+          // inside another button, which onSelect wrapped in a <button> would
+          // have forced and broken (nested buttons are invalid HTML and eat
+          // the inner click).
+          <CampusCard key={c.id} hover className="p-4 flex items-center gap-3" onClick={() => onSelect(c.id)}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.purpleTint, color: CAMPUS.purple }}>
+              <Trophy size={15} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <b className="block text-[13.5px] truncate" style={{ color: CAMPUS.ink }}>{c.title}</b>
+              <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{c.category}{c.difficulty ? ` · ${c.difficulty}` : ""}</span>
+            </div>
+            {/* Admin/staff-only shortcut straight into Contest Studio's Target
+                Audience step - editing which departments/years/sections/
+                classrooms a contest is scoped to, without leaving this list.
+                Same route (manage/contests?view=studio) CampusManage's own
+                contest list already opens on click; this just makes it
+                reachable from here too, since staff browse this tab as often
+                as Manage itself. */}
+            {canManage && institutionId && (
+              <button
+                onClick={(e) => { e.stopPropagation(); router.push(`/campus/${institutionId}/manage/contests?view=studio&contestId=${c.id}`); }}
+                title="Manage audience & settings" className="p-1.5 rounded-md flex-shrink-0 transition-colors hover:bg-black/5"
+                style={{ color: CAMPUS.inkFaint }}>
+                <Settings size={14} />
+              </button>
+            )}
+            <CampusChip color={phase === "live" ? CAMPUS.good : phase === "upcoming" ? CAMPUS.warn : CAMPUS.inkFaint}>{phase.toUpperCase()}</CampusChip>
+          </CampusCard>
         );
       })}
     </div>
@@ -1360,7 +1380,7 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
 // `screen`/`setScreen` can be lifted by the caller (Workspace does this, so
 // Overview's "Upcoming Contests" widget can jump straight into a contest's
 // details from a different tab) or left local (Directory's own useState).
-export function CampusContestFlow({ contests, loading, error, onRetry, screen, setScreen }) {
+export function CampusContestFlow({ contests, loading, error, onRetry, screen, setScreen, institutionId, canManage }) {
   if (screen.view === "details") {
     return <CampusContestDetails contestId={screen.contestId} onBack={() => setScreen({ view: "list" })}
       onEnterAttempt={(id, opts) => setScreen({ view: "attempt", contestId: id, dryRun: !!opts?.dryRun })}
@@ -1376,5 +1396,6 @@ export function CampusContestFlow({ contests, loading, error, onRetry, screen, s
       onBackToList={() => setScreen({ view: "list" })} />;
   }
   return <CampusContestList contests={contests} loading={loading} error={error} onRetry={onRetry}
-    onSelect={(id) => setScreen({ view: "details", contestId: id })} />;
+    onSelect={(id) => setScreen({ view: "details", contestId: id })}
+    institutionId={institutionId} canManage={canManage} />;
 }

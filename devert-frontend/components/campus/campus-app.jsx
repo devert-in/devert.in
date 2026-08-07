@@ -663,7 +663,10 @@ function CampusGlobalSection({ section }) {
     // CampusLanding for why the class came off all four public surfaces
     // together. Padding moved off <main> and onto the content wrapper so the
     // nav can span the full width the way it does everywhere else.
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme">
+    // campus-square keeps this in step with the landing and info pages - the
+    // three public surfaces share one corner language. Not campus-sharp: that
+    // one also strips inline shadows (see globals.css).
+    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square">
       <CampusPublicNav />
 
       <div className="max-w-6xl mx-auto px-6 py-8 pb-16">
@@ -1571,7 +1574,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
             <CampusContestsTabContent institutionId={slug} screen={contestScreen} setScreen={setContestScreen}
               sidebarSlot={sidebarEl} phaseFilter={contestPhaseFilter} setPhaseFilter={setContestPhaseFilter}
               student={{ uid: user?.uid, department: membership?.department, year: membership?.year, section: membership?.section, classroomId: membership?.classroomId }}
-              bypassScope={isInstAdmin || !!staffScope} />
+              bypassScope={isInstAdmin || !!staffScope} canManage={isTabAllowed("manage")} />
           )}
           {tab === "leaderboard" && <CampusLeaderboardTab slug={slug} myUid={user?.uid} myClassroom={myClassroom} />}
           {tab === "manage" && (
@@ -2695,7 +2698,7 @@ function ContestsSidebarList({ counts, active, onSelect }) {
   );
 }
 
-function CampusContestsTabContent({ institutionId, screen, setScreen, sidebarSlot, phaseFilter, setPhaseFilter, student, bypassScope }) {
+function CampusContestsTabContent({ institutionId, screen, setScreen, sidebarSlot, phaseFilter, setPhaseFilter, student, bypassScope, canManage }) {
   const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -2727,7 +2730,8 @@ function CampusContestsTabContent({ institutionId, screen, setScreen, sidebarSlo
         <ContestsSidebarList counts={counts} active={phaseFilter} onSelect={setPhaseFilter} />,
         sidebarSlot
       )}
-      <CampusContestFlow contests={visibleContests} loading={loading} error={error} onRetry={load} screen={screen} setScreen={setScreen} />
+      <CampusContestFlow contests={visibleContests} loading={loading} error={error} onRetry={load} screen={screen} setScreen={setScreen}
+        institutionId={institutionId} canManage={canManage} />
     </>
   );
 }
