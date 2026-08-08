@@ -1569,12 +1569,14 @@ service cloud.firestore {
         allow update: if isOwner(uid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                'lastHeartbeatAt', 'startedAt', 'userAgent', 'screen', 'rollNumber', 'displayName',
-               'tabSwitches', 'fullscreenExits', 'cameraLosses', 'violations', 'lastViolationAt',
+               'tabSwitches', 'fullscreenExits', 'cameraLosses', 'screenshotAttempts',
+               'violations', 'lastViolationAt',
                'snapshotCount', 'lastSnapshotAt', 'latestSnapshotPath', 'latestSnapshotUrl',
              ])
           && request.resource.data.get('tabSwitches', 0)     >= resource.data.get('tabSwitches', 0)
           && request.resource.data.get('fullscreenExits', 0)  >= resource.data.get('fullscreenExits', 0)
           && request.resource.data.get('cameraLosses', 0)     >= resource.data.get('cameraLosses', 0)
+          && request.resource.data.get('screenshotAttempts', 0) >= resource.data.get('screenshotAttempts', 0)
           && request.resource.data.get('violations', 0)       >= resource.data.get('violations', 0)
           && request.resource.data.get('snapshotCount', 0)    >= resource.data.get('snapshotCount', 0);
 
