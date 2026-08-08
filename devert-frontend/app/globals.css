@@ -449,3 +449,20 @@ html:not(.clipboard-unlocked) :is(img, svg, canvas, video) {
   -webkit-user-drag: none;
   user-drag: none;
 }
+
+/* Inside an invigilated attempt the exemptions above are withdrawn from
+   everything except the caret itself. ContentGuard lets Monaco and form fields
+   keep a normal clipboard because that is right for the rest of the product;
+   during an exam, pasting a prepared answer in is the exact thing being
+   invigilated against. use-proctor-session.js adds .proctor-active to <html>.
+
+   Note inputs/textareas/Monaco still get user-select: text - removing it takes
+   the caret with it and breaks typing. Selection there is harmless once the
+   clipboard events themselves are blocked in JS. */
+html.proctor-active :is(img, svg, canvas, video) {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-editor *) {
+  -webkit-touch-callout: none;
+}

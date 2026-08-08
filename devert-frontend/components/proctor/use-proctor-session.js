@@ -219,6 +219,15 @@ export function useProctorSession({
 
   // ---- focus / visibility / fullscreen listeners ------------------------------
 
+  // Marks the document for the duration of an invigilated attempt, so
+  // globals.css can withdraw ContentGuard's Monaco/form-field exemptions for
+  // exactly as long as the exam is running and no longer.
+  useEffect(() => {
+    if (!enabled) return;
+    document.documentElement.classList.add("proctor-active");
+    return () => document.documentElement.classList.remove("proctor-active");
+  }, [enabled]);
+
   useEffect(() => {
     if (!enabled) return;
 
@@ -245,9 +254,31 @@ export function useProctorSession({
     // security boundary - the paper's real protection is that it is only
     // readable in fullscreen with a camera on the student's face.
     const onContextMenu = e => e.preventDefault();
+
+    // Clipboard during an exam, with NO exemptions - deliberately stricter than
+    // the site-wide ContentGuard.
+    //
+    // ContentGuard exempts form fields and .monaco-editor, which is right for
+    // the rest of the product: a code editor whose clipboard does not work is
+    // broken, and the code in it belongs to the user. Inside an invigilated
+    // contest that reasoning inverts. Pasting a prepared solution into the
+    // answer box or the Monaco editor is precisely the thing being invigilated
+    // against, and copying the paper out is how question banks leak.
+    //
+    // Typing is untouched - only clipboard transfer and select-all are blocked,
+    // so students still write their own code and their own answers normally.
+    const onClipboard = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
     const onKeyDown = e => {
       const k = e.key.toLowerCase();
       const mod = e.ctrlKey || e.metaKey;
+      if (mod && !e.altKey && ["c", "x", "v", "a"].includes(k)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (k === "f12" || (mod && e.shiftKey && ["i", "j", "c"].includes(k)) || (mod && ["p", "s", "u"].includes(k))) {
         e.preventDefault();
       }
@@ -258,19 +289,28 @@ export function useProctorSession({
       logProctorEvent(contestId, uid, PROCTOR_EVENT.SESSION_END, { via: "beforeunload" });
     };
 
+    // Capture phase on all of these, so the exam's stricter policy runs before
+    // ContentGuard's exemption check and before Monaco's own handlers.
+    const cap = { capture: true };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("blur", onBlur);
     document.addEventListener("fullscreenchange", onFsChange);
-    document.addEventListener("contextmenu", onContextMenu);
-    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("contextmenu", onContextMenu, cap);
+    document.addEventListener("keydown", onKeyDown, cap);
+    document.addEventListener("copy", onClipboard, cap);
+    document.addEventListener("cut", onClipboard, cap);
+    document.addEventListener("paste", onClipboard, cap);
     window.addEventListener("beforeunload", onBeforeUnload);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("fullscreenchange", onFsChange);
-      document.removeEventListener("contextmenu", onContextMenu);
-      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("contextmenu", onContextMenu, cap);
+      document.removeEventListener("keydown", onKeyDown, cap);
+      document.removeEventListener("copy", onClipboard, cap);
+      document.removeEventListener("cut", onClipboard, cap);
+      document.removeEventListener("paste", onClipboard, cap);
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
   }, [enabled, requireFullscreen, record, contestId, uid]);
