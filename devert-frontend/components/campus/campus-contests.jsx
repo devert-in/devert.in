@@ -434,7 +434,13 @@ function ContestCodingPanel({ state, isPaused, onLanguageChange, onCodeChange, o
       {result && (
         <div className="rounded-lg p-3" style={{ background: result.verdict === "Accepted" ? CAMPUS.goodTint : CAMPUS.warnTint }}>
           <p className="text-[12.5px] font-semibold" style={{ color: result.verdict === "Accepted" ? CAMPUS.good : CAMPUS.warn }}>
-            {result.verdict} - {result.testsPassed}/{result.testsTotal} tests passed - {result.score}/{result.maxScore} marks
+            {/* Marks deliberately not shown. A per-question score mid-contest
+                tells a student exactly how much a question is worth and how far
+                they are from full credit, which is scoreRelease's decision to
+                make (settings.scoreRelease, default after_end) - not something a
+                run-tests panel should leak. Test counts are feedback on their
+                own code and stay. */}
+            {result.verdict} - {result.testsPassed}/{result.testsTotal} tests passed
           </p>
           <p className="text-[10.5px] mt-1" style={{ color: CAMPUS.inkFaint }}>You can keep editing and resubmit - the latest submission is what counts.</p>
         </div>
@@ -823,7 +829,9 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   const setAnswer = (value) => setAnswers(p => ({ ...p, [q.id]: value }));
 
   return (
-    <div className="max-w-2xl">
+    <>
+      {/* HUD layers sit outside the scroll container - each is position:fixed
+          in its own right and must not scroll away with the paper. */}
       {proctored && (
         <>
           <ProctorSelfView
@@ -845,6 +853,23 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
           )}
         </>
       )}
+
+      {/* A proctored attempt takes over the entire viewport.
+          Rendering inside the campus shell left the sidebar and top nav live
+          during the exam, so a student could open Daily Learning or another
+          contest in the same tab - and because that is a client-side route
+          change within one document, it fires NO visibilitychange and NO blur,
+          so it was not even recorded as a violation. Covering the chrome is
+          what makes "only the test is on screen" actually true, rather than
+          merely discouraged.
+
+          z-150 sits below the HUD layers (self-view 300, warning 310,
+          obstruction 320) so those stay on top of the paper. */}
+      <div
+        className={proctored ? "fixed inset-0 z-[150] overflow-y-auto" : ""}
+        style={proctored ? { background: CAMPUS.paper } : undefined}
+      >
+        <div className={proctored ? "max-w-2xl mx-auto px-4 py-6" : "max-w-2xl"}>
       <div className="flex items-center justify-between mb-5">
         <p className="text-xs" style={{ color: CAMPUS.inkFaint }}>{contest.title}</p>
         <p className="text-lg font-bold font-mono" style={{ color: timerColor }}>{h > 0 ? `${pad(h)}:` : ""}{pad(m)}:{pad(s)}</p>
@@ -958,7 +983,9 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
         style={{ color: CAMPUS.inkFaint }}>
         submit early
       </button>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }
 
