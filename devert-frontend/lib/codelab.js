@@ -219,7 +219,14 @@ export async function runCode({ language, code, stdin }) {
     body: JSON.stringify({ language, code, stdin }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Execution failed.");
+  // A 5xx here is CodeExecutionController.run()'s generic catch, which embeds the
+  // raw Java exception in data.error (e.g. a credentials/Firestore outage) - that
+  // string is meaningless to a student and looks alarming shown verbatim. Every
+  // other status the backend returns (400/401/404/429) is already a clean,
+  // human-written message, so only 5xx needs overriding here.
+  if (!res.ok) throw new Error(res.status >= 500
+    ? "The run server had a problem. Wait a moment and try again."
+    : (data.error || "Execution failed."));
   return data;
 }
 
@@ -246,7 +253,15 @@ export async function submitCode({ problemId, language, code, suppressReward = f
     body: JSON.stringify({ problemId, language, code, suppressReward }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Submission failed.");
+  // Same reasoning as runCode() above: a 5xx is gradeSubmission()'s generic
+  // catch, which embeds the raw exception (Firestore/credentials failures
+  // included) in data.error. gradeSubmission()'s very first line reads the
+  // problem doc, before anything is graded or written - so on a 5xx nothing
+  // was actually persisted server-side. Don't claim otherwise; the code the
+  // student typed is still sitting in their own editor either way.
+  if (!res.ok) throw new Error(res.status >= 500
+    ? "The grading server had a problem and this submission didn't go through. Your code is still in the editor - wait a moment and submit again."
+    : (data.error || "Submission failed."));
   return data;
 }
 
@@ -266,6 +281,11 @@ export async function submitArenaCode({ matchId, language, code }) {
     body: JSON.stringify({ matchId, language, code }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Submission failed.");
+  // Same reasoning as submitCode() above - a 5xx is the backend's generic
+  // catch, which embeds the raw exception rather than a message meant for a
+  // student to read.
+  if (!res.ok) throw new Error(res.status >= 500
+    ? "The grading server had a problem and this submission didn't go through. Your code is still in the editor - wait a moment and submit again."
+    : (data.error || "Submission failed."));
   return data;
 }
