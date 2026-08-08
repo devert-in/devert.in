@@ -37,6 +37,10 @@ export const PROCTOR_EVENT = Object.freeze({
   WINDOW_BLUR:      "window_blur",
   FULLSCREEN_EXIT:  "fullscreen_exit",
   FULLSCREEN_ENTER: "fullscreen_enter",
+  // The browser refused fullscreen outright. Informational, not a violation -
+  // the student did nothing wrong and could not have fixed it, but the
+  // invigilator must know the session ran degraded.
+  FULLSCREEN_UNAVAILABLE: "fullscreen_unavailable",
   CAMERA_LOST:      "camera_lost",
   CAMERA_RESTORED:  "camera_restored",
   SNAPSHOT:         "snapshot",

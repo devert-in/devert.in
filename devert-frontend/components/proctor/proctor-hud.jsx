@@ -154,6 +154,19 @@ export function ProctorObstruction({ cameraState, cameraError, isFullscreen, req
             Both the camera and fullscreen need to be restored.
           </p>
         )}
+
+        {/* An escape hatch that is deliberately NOT a "skip" button. If the
+            browser simply cannot go fullscreen, useProctorSession already stops
+            obstructing after a failed retry, so this overlay disappears on its
+            own - this text just stops the student thinking they are stuck while
+            that happens. Never offer to bypass the CAMERA, which is the actual
+            invigilation requirement and is fixable by the student. */}
+        {!cameraDown && (
+          <p className="font-mono text-[10px] text-white/25 mt-4 max-w-xs mx-auto leading-relaxed">
+            If your browser refuses fullscreen, press this once more - the contest
+            will continue without it and your invigilator is notified.
+          </p>
+        )}
       </div>
     </div>
   );
