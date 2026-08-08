@@ -462,9 +462,13 @@ function ContestCodingPanel({ state, isPaused, onLanguageChange, onCodeChange, o
 export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun = false }) {
   const { user, userData } = useAuth();
 
-  // Proctoring. Never applied to a dry run: that path is the Mock Reviewer
-  // previewing the paper, and filing webcam frames against a reviewer who is
-  // not sitting the exam is both pointless and a privacy problem.
+  // Proctoring - applied to a dry run exactly as to a real attempt for a
+  // proctored contest, on purpose: the whole point of a Mock Reviewer sit-
+  // through is catching a broken camera prompt or a fullscreen quirk before
+  // 500 students hit it live, not after. Session/photos still go through the
+  // dryRun-flagged path in useProctorSession (dryRunProctorSessions /
+  // proctor-dryrun), never the real proctorSessions collection, so this can
+  // never block or blend into that same reviewer's own later genuine attempt.
   const [rollNumber, setRollNumber] = useState("");
   const [proctorReady, setProctorReady] = useState(false);
 
@@ -598,7 +602,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
         options: q.options?.length ? seededShuffle(q.options, `${user.uid}:${contestId}:${q.id}`) : q.options,
       }));
 
-      const proctorOn = !dryRun && getContestSettings(c).proctoringEnabled;
+      const proctorOn = getContestSettings(c).proctoringEnabled;
       if (proctorOn) {
         // Resolved before the gate renders so the consent screen can name the
         // exact roll number the photos will be filed under.
@@ -630,7 +634,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   useEffect(load, [user, contestId]);
 
   const settings = getContestSettings(contest);
-  const proctored = !!contest && !dryRun && settings.proctoringEnabled;
+  const proctored = !!contest && settings.proctoringEnabled;
 
   // Starts the clock for a proctored attempt, once camera + fullscreen are up.
   useEffect(() => {
@@ -638,9 +642,14 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
     startedAtRef.current = Date.now();
     const end = toDate(contest.contestEnd).getTime();
     const capEnd = startedAtRef.current + (contest.durationMinutes || 60) * 60 * 1000;
-    setSecondsLeft(Math.max(0, Math.floor((Math.min(end, capEnd) - Date.now()) / 1000)));
+    // Same dry-run exception as the unproctored clock-start path above: a dry
+    // run checks the paper independent of the real schedule, often before
+    // contestStart and sometimes after contestEnd has already passed - it
+    // must never inherit "0 seconds left" from a schedule it isn't bound by.
+    const effectiveEnd = dryRun ? capEnd : Math.min(end, capEnd);
+    setSecondsLeft(Math.max(0, Math.floor((effectiveEnd - Date.now()) / 1000)));
     questionEnteredAtRef.current = Date.now();
-  }, [proctored, proctorReady, contest]);
+  }, [proctored, proctorReady, contest, dryRun]);
 
   const handleSubmit = async () => {
     if (submittedRef.current || !user) return;
@@ -698,6 +707,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
     retainFrames: settings.proctorRetainFrames,
     maxViolations: settings.proctorMaxViolations,
     onSubmitRequested: handleSubmit,
+    dryRun,
   });
 
   useEffect(() => {
@@ -788,7 +798,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   if (proctored && !proctorReady) {
     return (
       <ProctorGate
-        contestTitle={contest.title}
+        contestTitle={dryRun ? `${contest.title} (Dry Run)` : contest.title}
         rollNumber={rollNumber}
         snapshotSeconds={settings.proctorSnapshotSeconds}
         requireFullscreen={settings.proctorRequireFullscreen}

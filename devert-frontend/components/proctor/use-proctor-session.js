@@ -45,6 +45,12 @@ export function useProctorSession({
   retainFrames = false,
   onSubmitRequested,
   maxViolations = 0,
+  // A Mock Reviewer's own sit-through of the paper - every mechanic here
+  // (camera, fullscreen, violation detection) runs for real, just written to
+  // dryRunProctorSessions/proctor-dryrun instead of the real collections, so
+  // it can never blend into or block that same person's later genuine
+  // attempt (see firestore.rules' dryRunProctorSessions).
+  dryRun = false,
 }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -98,8 +104,8 @@ export function useProctorSession({
       }
     }
 
-    await logProctorEvent(contestId, uid, type, meta);
-  }, [contestId, uid, maxViolations]);
+    await logProctorEvent(contestId, uid, type, meta, dryRun);
+  }, [contestId, uid, maxViolations, dryRun]);
 
   // ---- camera ----------------------------------------------------------------
 
@@ -170,13 +176,13 @@ export function useProctorSession({
     if (requireFullscreen) await enterFullscreen();
 
     startedRef.current = true;
-    await startProctorSession(contestId, uid, { rollNumber, displayName });
+    await startProctorSession(contestId, uid, { rollNumber, displayName, dryRun });
     await logProctorEvent(contestId, uid, PROCTOR_EVENT.SESSION_START, {
       requireFullscreen, snapshotSeconds, retainFrames,
-    });
+    }, dryRun);
     return true;
   }, [contestId, uid, rollNumber, displayName, requireFullscreen, snapshotSeconds,
-      retainFrames, startCamera, enterFullscreen]);
+      retainFrames, startCamera, enterFullscreen, dryRun]);
 
   // ---- capture loop ----------------------------------------------------------
 
@@ -186,7 +192,7 @@ export function useProctorSession({
     const seq = seqRef.current + 1;
     seqRef.current = seq;
     try {
-      await uploadProctorSnapshot(contestId, uid, blob, { rollNumber, seq, retainFrames });
+      await uploadProctorSnapshot(contestId, uid, blob, { rollNumber, seq, retainFrames, dryRun });
       setSnapshotCount(seq);
     } catch (err) {
       console.error("[proctor] snapshot upload failed", err);
@@ -194,9 +200,9 @@ export function useProctorSession({
       // with the student's own answer submissions for bandwidth.
       await logProctorEvent(contestId, uid, PROCTOR_EVENT.SNAPSHOT_FAILED, {
         seq, error: String(err?.code || err?.message || err).slice(0, 200),
-      });
+      }, dryRun);
     }
-  }, [contestId, uid, rollNumber, retainFrames]);
+  }, [contestId, uid, rollNumber, retainFrames, dryRun]);
 
   useEffect(() => {
     if (!enabled || !startedRef.current || cameraState !== "live") return;
@@ -213,9 +219,9 @@ export function useProctorSession({
 
   useEffect(() => {
     if (!enabled || !startedRef.current) return;
-    const iv = setInterval(() => proctorHeartbeat(contestId, uid), HEARTBEAT_MS);
+    const iv = setInterval(() => proctorHeartbeat(contestId, uid, dryRun), HEARTBEAT_MS);
     return () => clearInterval(iv);
-  }, [enabled, contestId, uid]);
+  }, [enabled, contestId, uid, dryRun]);
 
   // ---- focus / visibility / fullscreen listeners ------------------------------
 
@@ -237,7 +243,7 @@ export function useProctorSession({
       if (!active && startedRef.current && requireFullscreen) {
         record(PROCTOR_EVENT.FULLSCREEN_EXIT);
       } else if (active && startedRef.current) {
-        logProctorEvent(contestId, uid, PROCTOR_EVENT.FULLSCREEN_ENTER);
+        logProctorEvent(contestId, uid, PROCTOR_EVENT.FULLSCREEN_ENTER, {}, dryRun);
       }
     };
 
@@ -255,7 +261,7 @@ export function useProctorSession({
     // Fires on tab close / reload / navigate-away. Recorded so an attempt that
     // vanishes mid-paper is distinguishable from one that simply ended.
     const onBeforeUnload = () => {
-      logProctorEvent(contestId, uid, PROCTOR_EVENT.SESSION_END, { via: "beforeunload" });
+      logProctorEvent(contestId, uid, PROCTOR_EVENT.SESSION_END, { via: "beforeunload" }, dryRun);
     };
 
     document.addEventListener("visibilitychange", onVisibility);
@@ -273,15 +279,15 @@ export function useProctorSession({
       document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
-  }, [enabled, requireFullscreen, record, contestId, uid]);
+  }, [enabled, requireFullscreen, record, contestId, uid, dryRun]);
 
   useEffect(() => stopCamera, [stopCamera]);
 
   const finish = useCallback(async () => {
-    await logProctorEvent(contestId, uid, PROCTOR_EVENT.SESSION_END, { via: "submit" });
+    await logProctorEvent(contestId, uid, PROCTOR_EVENT.SESSION_END, { via: "submit" }, dryRun);
     stopCamera();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  }, [contestId, uid, stopCamera]);
+  }, [contestId, uid, stopCamera, dryRun]);
 
   return {
     videoRef,

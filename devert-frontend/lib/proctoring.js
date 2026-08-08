@@ -135,13 +135,22 @@ export function rollNumberSlug(rollNumber) {
 // and because roll numbers are sequential and guessable, a readable one means
 // every student's face is at a URL anyone can construct. UID in the path,
 // roll number in metadata and in the reviewer's download filename.
-export function snapshotPath(contestId, uid, { seq = null } = {}) {
-  const base = `proctor/${contestId}/${uid}`;
+export function snapshotPath(contestId, uid, { seq = null, dryRun = false } = {}) {
+  const base = `proctor${dryRun ? "-dryrun" : ""}/${contestId}/${uid}`;
   return seq === null ? `${base}/latest.jpg` : `${base}/frames/${String(seq).padStart(4, "0")}.jpg`;
 }
 
-export async function startProctorSession(contestId, uid, { rollNumber, displayName }) {
-  const ref = doc(db, "contests", contestId, "proctorSessions", uid);
+// dryRun routes every write below to dryRunProctorSessions instead of
+// proctorSessions - a Mock Reviewer's own sit-through, kept off the real
+// collection so it can never blend into or block their own later invigilated
+// attempt if they also happen to be a genuinely registered student (see
+// firestore.rules' dryRunProctorSessions for the full reasoning).
+function proctorSessionsCollection(dryRun) {
+  return dryRun ? "dryRunProctorSessions" : "proctorSessions";
+}
+
+export async function startProctorSession(contestId, uid, { rollNumber, displayName, dryRun = false }) {
+  const ref = doc(db, "contests", contestId, proctorSessionsCollection(dryRun), uid);
   // merge: a resumed attempt (reload mid-contest) must not reset the counters a
   // reviewer will be looking at, so only the start-of-session facts are set and
   // the tallies are left to accumulate.
@@ -162,8 +171,8 @@ export async function startProctorSession(contestId, uid, { rollNumber, displayN
 // call. The two writes are deliberately NOT batched: if the counter update is
 // rejected (rules, offline) the evidence in the log must still land. Losing a
 // tally is recoverable by counting events; losing the event is not.
-export async function logProctorEvent(contestId, uid, type, meta = {}) {
-  const sessionRef = doc(db, "contests", contestId, "proctorSessions", uid);
+export async function logProctorEvent(contestId, uid, type, meta = {}, dryRun = false) {
+  const sessionRef = doc(db, "contests", contestId, proctorSessionsCollection(dryRun), uid);
 
   try {
     await addDoc(collection(sessionRef, "events"), {
@@ -192,9 +201,9 @@ export async function logProctorEvent(contestId, uid, type, meta = {}) {
   }
 }
 
-export async function proctorHeartbeat(contestId, uid) {
+export async function proctorHeartbeat(contestId, uid, dryRun = false) {
   try {
-    await updateDoc(doc(db, "contests", contestId, "proctorSessions", uid), {
+    await updateDoc(doc(db, "contests", contestId, proctorSessionsCollection(dryRun), uid), {
       lastHeartbeatAt: serverTimestamp(),
     });
   } catch {
@@ -218,6 +227,7 @@ export async function uploadProctorSnapshot(contestId, uid, blob, {
   rollNumber,
   seq,
   retainFrames = false,
+  dryRun = false,
 }) {
   const slug = rollNumberSlug(rollNumber);
   const metadata = {
@@ -234,14 +244,14 @@ export async function uploadProctorSnapshot(contestId, uid, blob, {
     },
   };
 
-  const latestRef = storageRef(storage, snapshotPath(contestId, uid));
+  const latestRef = storageRef(storage, snapshotPath(contestId, uid, { dryRun }));
   await uploadBytes(latestRef, blob, metadata);
 
   if (retainFrames) {
     // Best-effort: the rolling `latest` pointer is the contractual artefact, so
     // a failed archive copy must not fail the capture.
     try {
-      await uploadBytes(storageRef(storage, snapshotPath(contestId, uid, { seq })), blob, metadata);
+      await uploadBytes(storageRef(storage, snapshotPath(contestId, uid, { seq, dryRun })), blob, metadata);
     } catch (err) {
       console.error("[proctor] frame archive failed", err);
     }
@@ -254,14 +264,14 @@ export async function uploadProctorSnapshot(contestId, uid, blob, {
     // Read is reviewer-only by rule, so a student resolving no URL is expected.
   }
 
-  await updateDoc(doc(db, "contests", contestId, "proctorSessions", uid), {
+  await updateDoc(doc(db, "contests", contestId, proctorSessionsCollection(dryRun), uid), {
     snapshotCount: increment(1),
     lastSnapshotAt: serverTimestamp(),
-    latestSnapshotPath: snapshotPath(contestId, uid),
+    latestSnapshotPath: snapshotPath(contestId, uid, { dryRun }),
     ...(url ? { latestSnapshotUrl: url } : {}),
   });
 
-  return { path: snapshotPath(contestId, uid), url };
+  return { path: snapshotPath(contestId, uid, { dryRun }), url };
 }
 
 /**
