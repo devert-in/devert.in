@@ -376,22 +376,44 @@ exports.listProctorFrames = onCall({ region: "us-central1", maxInstances: 10 }, 
 // wins here on two counts: Razorpay's official SDK is Node, and the webhook
 // needs a stable always-warm-enough HTTPS endpoint that CI already deploys.
 //
-// The KEY SECRET is injected from Google Secret Manager via defineSecret, NOT
-// from functions/.env - that file is committed (see .gitignore's
-// !functions/.env negation), so a secret placed there would land in git. Set it
-// once with:
-//   npx firebase-tools functions:secrets:set RAZORPAY_KEY_SECRET --project devert-me
+// The KEY SECRET must never go in functions/.env - that file is committed (see
+// .gitignore's !functions/.env negation), so a secret placed there lands in git.
+// How it is supplied is covered in detail just below, at the point where it is
+// read; the short version is process.env now, Secret Manager at launch.
 //
-// The KEY ID is the publishable half and lives in functions/.env alongside the
-// frontend's NEXT_PUBLIC_RAZORPAY_KEY_ID.
+// The KEY ID is the publishable half and lives in functions/.env - it is handed
+// to every browser that opens Checkout, so it is not a secret.
 // ---------------------------------------------------------------------------
 
-const { defineSecret } = require("firebase-functions/params");
 const crypto = require("crypto");
 const Razorpay = require("razorpay");
 
-const RAZORPAY_KEY_SECRET = defineSecret("RAZORPAY_KEY_SECRET");
-const RAZORPAY_WEBHOOK_SECRET = defineSecret("RAZORPAY_WEBHOOK_SECRET");
+// Secrets are read from process.env, NOT declared with defineSecret(), and that
+// is a deliberate deployment-safety choice rather than laziness.
+//
+// defineSecret() makes the secret's existence a DEPLOY-TIME requirement: the CLI
+// refuses to deploy a function whose secret is not already in Secret Manager.
+// Combined with .github/workflows/deploy-prod.yml running
+// `deploy --only hosting,functions` as a SINGLE command, that meant a missing
+// Razorpay credential failed the functions half and took HOSTING down with it -
+// so an unlaunched payment feature could block a frontend hotfix from ever
+// shipping. That is exactly backwards for something nothing calls yet.
+//
+// Reading process.env keeps deploys green whether or not the credential exists,
+// and razorpayClient() below still refuses to run without it, so the failure
+// lands at call time with a clear message instead of at deploy time on an
+// unrelated change.
+//
+// AT LAUNCH, when payments actually go live, bind them properly so the values
+// come from Secret Manager rather than the environment:
+//   npx firebase-tools functions:secrets:set RAZORPAY_KEY_SECRET --project devert-me
+//   npx firebase-tools functions:secrets:set RAZORPAY_WEBHOOK_SECRET --project devert-me
+// then add `secrets: ["RAZORPAY_KEY_SECRET"]` to createRazorpayOrder and
+// verifyRazorpayPayment, and `secrets: ["RAZORPAY_WEBHOOK_SECRET"]` to
+// razorpayWebhook. Firebase injects a bound secret as process.env.<NAME>, so the
+// read sites below need no change at all.
+const RAZORPAY_KEY_SECRET = { value: () => process.env.RAZORPAY_KEY_SECRET || "" };
+const RAZORPAY_WEBHOOK_SECRET = { value: () => process.env.RAZORPAY_WEBHOOK_SECRET || "" };
 
 // The price list lives HERE, server-side, and the client sends only a planId.
 //
@@ -425,7 +447,7 @@ function razorpayClient() {
  * time (a build-time value would need a rebuild to rotate).
  */
 exports.createRazorpayOrder = onCall(
-  { region: "us-central1", maxInstances: 10, secrets: [RAZORPAY_KEY_SECRET] },
+  { region: "us-central1", maxInstances: 10 },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Sign in before paying.");
 
@@ -491,7 +513,7 @@ exports.createRazorpayOrder = onCall(
  * "yes, that worked" while the webhook settles.
  */
 exports.verifyRazorpayPayment = onCall(
-  { region: "us-central1", maxInstances: 10, secrets: [RAZORPAY_KEY_SECRET] },
+  { region: "us-central1", maxInstances: 10 },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
 
@@ -554,7 +576,7 @@ exports.verifyRazorpayPayment = onCall(
  * turns one bug into a stampede. Failures are logged for reconciliation instead.
  */
 exports.razorpayWebhook = onRequest(
-  { region: "us-central1", maxInstances: 10, secrets: [RAZORPAY_WEBHOOK_SECRET] },
+  { region: "us-central1", maxInstances: 10 },
   async (req, res) => {
     if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
 
