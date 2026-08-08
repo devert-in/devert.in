@@ -47,6 +47,7 @@ import {
 } from "@/lib/opportunities";
 import { StringListField, McqListField } from "@/components/campus/campus-daily-learning-editor";
 import { SeModulesPanel } from "@/components/admin/se-panel";
+import { AmbassadorPanel } from "@/components/admin/ambassador-panel";
 import {
   GatePapersPanel, GateSubjectsPanel, GatePyqPanel, GateTestsPanel,
   GateFormulaPanel, GateResourcesPanel, GateLessonImportPanel,
@@ -6892,6 +6893,11 @@ function AdminPageInner() {
                 </Section>
                 <Section title="CAMPUS INSTITUTIONS" icon={Building2} color="#0E7C86">
                   <InstitutionsPanel />
+                </Section>
+                {/* Sits next to Institutions on purpose: an approved ambassador is
+                    the usual first step toward a new institution appearing above. */}
+                <Section title="CAMPUS AMBASSADORS" icon={Building2} color="#00FFFF">
+                  <AmbassadorPanel />
                 </Section>
                 <Section title="SHIPYARD MODERATION" icon={Anchor} color="#00FFFF">
                   <ShipyardPanel />

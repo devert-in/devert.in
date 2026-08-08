@@ -626,6 +626,100 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Daily CodeLab run ledger, one doc per user per IST date.
+    //
+    // Free accounts get FREE_DAILY_CODE_RUNS runs a day (see
+    // lib/entitlements.js); Pro removes the ceiling. This is the only quota on
+    // the platform with a real per-use cost behind it - each run hits a paid
+    // execution API.
+    //
+    // HONEST LIMITATION, stated here so nobody mistakes this for enforcement:
+    // this ledger is advisory. lib/codelab.js's runCode() posts to
+    // devert-backend's /api/coding/run WITHOUT an ID token, so the backend cannot
+    // attribute a run to an account and cannot refuse one. A user who skips the
+    // client entirely still gets unlimited runs - as, today, does anybody on the
+    // internet with the URL. Closing that needs the backend to verify the token
+    // and check this ledger itself; until then these rules stop a bored student
+    // from editing the counter in devtools, which is all they can stop.
+    //
+    // +1 per write, and only ever +1: same bounded-counter shape the pulse_posts
+    // engagement counters use.
+    match /code_runs/{uid}/daily/{dateId} {
+      allow read:   if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && request.resource.data.get('count', 0) == 1;
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count', 'updatedAt'])
+        && request.resource.data.get('count', 0) == resource.data.get('count', 0) + 1;
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Campus Ambassador programme ----------
+    //
+    // An application is a REQUEST, never a grant. A student may create their own
+    // pending application and correct their own details while it is still
+    // pending - but `status` is admin-only, so nobody appoints themselves the
+    // representative of their college. Once an admin has decided, the applicant
+    // can no longer edit the doc at all: reopening a rejected application by
+    // editing it would make the decision meaningless.
+    match /ambassadors/{uid} {
+      // Readable by anyone signed in: an active ambassador is a public-facing
+      // role (named on their college page), and the queue is admin-visible.
+      allow read: if isAuth();
+
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.get('referralCode', '') is string
+        && request.resource.data.get('referralCode', '').size() <= 24
+        && request.resource.data.get('collegeName', '') is string
+        && request.resource.data.get('collegeName', '').size() <= 160
+        && request.resource.data.get('whyMe', '').size() <= 1000;
+
+      // Applicant may amend only while pending, and may never touch status.
+      allow update: if isAdmin()
+        || (isOwner(uid)
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['collegeName', 'city', 'whyMe', 'expectedReach', 'displayName', 'email']));
+
+      allow delete: if isAdmin();
+    }
+
+    // Code -> uid index, so signup attribution is one read rather than a query.
+    // Create-if-absent gives uniqueness: the second person to claim a code cannot
+    // overwrite the first, because an update is denied outright.
+    match /referral_codes/{code} {
+      allow read:   if true;   // resolved at signup, before an account exists
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Attribution, WRITE-ONCE. No update path for anyone but an admin, so a later
+    // ambassador can never steal an earlier one's signup and a user cannot
+    // re-attribute themselves to farm a bonus.
+    //
+    // Note what is deliberately absent: any reward or payout field. This codebase
+    // converts coins to real INR (see user_earnings / payout_requests and the
+    // bounded-delta warnings in CLAUDE.md), so referral rewards must be computed
+    // server-side against this collection, never written from a client that also
+    // benefits from the number.
+    match /referrals/{referredUid} {
+      allow read: if isAuth() && (
+        request.auth.uid == referredUid
+        || resource.data.get('ambassadorUid', '') == request.auth.uid
+        || isAdmin()
+      );
+      allow create: if isAuth()
+        && request.auth.uid == referredUid
+        && request.resource.data.referredUid == referredUid
+        && request.resource.data.get('ambassadorUid', '') != referredUid
+        && request.resource.data.get('ambassadorUid', '') is string;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // Follows - anyone can read; only follower can create/delete their own follow
     match /follows/{followId} {
       allow read:   if true;

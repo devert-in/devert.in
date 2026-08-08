@@ -6,6 +6,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
 import { ContentGuard } from "@/components/content-guard";
+import { ReferralCapture } from "@/components/referral-capture";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -180,6 +181,9 @@ export default function RootLayout({ children }) {
       >
         <AuthProvider>
           <ContentGuard />
+          {/* Inside AuthProvider: it needs the signed-in user to attribute, and
+              must run on every route since an ambassador link can point anywhere. */}
+          <ReferralCapture />
           <IntroProvider>
             {/* The Builder's OS window manager is deliberately NOT mounted.
                 Core DeVert opened most dock destinations as floating,
