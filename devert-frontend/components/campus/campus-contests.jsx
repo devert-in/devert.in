@@ -505,6 +505,10 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   const answersRef = useRef({});
   const startedAtRef = useRef(null);
   const submittedRef = useRef(false);
+  // True once the countdown has been positive at least once, i.e. the student
+  // genuinely had time on this paper. Guards the auto-submit below so a
+  // zero-time open can never write an empty submission and lock them out.
+  const clockRanRef = useRef(false);
   // Per-question timing for the Student Analysis Dashboard's "time per
   // question" / "fastest correct answer" - accumulated across however many
   // times a student revisits a question, not just first-visit duration.
@@ -719,7 +723,28 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   useEffect(() => {
     if (secondsLeft === null || submitted) return;
     if (isPaused) return; // frozen - no countdown, no auto-submit while paused
-    if (secondsLeft <= 0) { handleSubmit(); return; }
+
+    if (secondsLeft > 0) clockRanRef.current = true;
+
+    if (secondsLeft <= 0) {
+      // THE PHANTOM-SUBMISSION FIX. This used to call handleSubmit()
+      // unconditionally, so a paper that opened with no time left - a student
+      // arriving in the final second, a clock skewed against contestEnd, a poll
+      // that refreshed against an end time already past - wrote an EMPTY
+      // submission before the student had read a single question.
+      //
+      // fetchMySubmission() then refuses re-entry for any existing submission
+      // doc, so that empty write locked them out of a contest they never sat,
+      // permanently, with no self-service recovery. See
+      // scripts/clear-empty-contest-submissions.mjs, which exists only to undo
+      // the damage this line did.
+      //
+      // An auto-submit is only legitimate for an attempt that actually ran.
+      if (clockRanRef.current) handleSubmit();
+      else setBlocked("This contest has already ended - there was no time left when the paper opened. Nothing has been submitted for you.");
+      return;
+    }
+
     const t = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

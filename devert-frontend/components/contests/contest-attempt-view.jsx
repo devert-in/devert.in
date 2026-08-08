@@ -52,6 +52,8 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
   const answersRef = useRef({});
   const startedAtRef = useRef(null);
   const submittedRef = useRef(false);
+  // See the auto-submit guard below - true once the student genuinely had time.
+  const clockRanRef = useRef(false);
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
@@ -160,7 +162,21 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
 
   useEffect(() => {
     if (secondsLeft === null || submitted) return;
-    if (secondsLeft <= 0) { handleSubmit(); return; }
+
+    if (secondsLeft > 0) clockRanRef.current = true;
+
+    if (secondsLeft <= 0) {
+      // Auto-submit only an attempt that actually ran. Firing this on a paper
+      // that opened with zero time wrote an EMPTY submission, and
+      // fetchMySubmission() then refuses re-entry for any existing doc - so it
+      // locked students out of a contest they never sat. See the matching
+      // comment in campus-contests.jsx and
+      // scripts/clear-empty-contest-submissions.mjs.
+      if (clockRanRef.current) handleSubmit();
+      else setBlocked("This contest has already ended - there was no time left when the paper opened. Nothing has been submitted for you.");
+      return;
+    }
+
     const t = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
     return () => clearTimeout(t);
   }, [secondsLeft, submitted]);

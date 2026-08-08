@@ -52,7 +52,14 @@ export function useProctorSession({
   // attempt (see firestore.rules' dryRunProctorSessions).
   dryRun = false,
 }) {
-  const videoRef = useRef(null);
+  // The element the UI is currently showing the student. This CHANGES mid-session:
+  // ProctorGate renders one <video>, and the moment the attempt starts the gate
+  // unmounts and the HUD's self-view mounts a completely different one.
+  const videoElRef = useRef(null);
+  // A detached <video> owned by this hook, never rendered. Snapshots are taken
+  // from THIS one, never from whatever the UI happens to be showing - see
+  // captureVideoEl() for why that separation is the whole fix.
+  const captureElRef = useRef(null);
   const streamRef = useRef(null);
   const seqRef = useRef(0);
   const lastEventAtRef = useRef({});
@@ -61,6 +68,12 @@ export function useProctorSession({
   const [cameraState, setCameraState] = useState("idle"); // idle|starting|live|denied|lost
   const [cameraError, setCameraError] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Set when the browser refuses fullscreen outright. Suppresses the fullscreen
+  // half of `obstructed` for the rest of the session so a browser that CANNOT
+  // comply does not cost the student their paper - the refusal is logged for the
+  // invigilator instead. Deliberately not reset on a later success: a session
+  // that started degraded stays flagged as such in the record.
+  const [fullscreenUnavailable, setFullscreenUnavailable] = useState(false);
   const [violations, setViolations] = useState({ tabSwitches: 0, fullscreenExits: 0, total: 0 });
   const [warning, setWarning] = useState(null); // { kind, message, count }
   const [snapshotCount, setSnapshotCount] = useState(0);
@@ -109,6 +122,56 @@ export function useProctorSession({
 
   // ---- camera ----------------------------------------------------------------
 
+  // Attaches the live stream to whichever <video> is on screen right now.
+  //
+  // This is a CALLBACK ref, not a plain ref object, and that is the entire fix
+  // for "the camera goes black once the test starts". srcObject used to be
+  // assigned once, inside startCamera(), to whatever videoRef.current happened to
+  // be at that instant - the GATE's element. The gate then unmounted, the HUD
+  // mounted a different <video>, and nothing ever attached the stream to it. The
+  // student saw a dead black box for the whole attempt.
+  //
+  // A callback ref fires on every mount/unmount, so each new element gets the
+  // stream as it appears. The srcObject !== check keeps it idempotent - React can
+  // invoke a callback ref more than once for the same element.
+  const attachVideo = useCallback((el) => {
+    videoElRef.current = el;
+    if (el && streamRef.current && el.srcObject !== streamRef.current) {
+      el.srcObject = streamRef.current;
+      el.play().catch(() => {});
+    }
+  }, []);
+
+  // The element snapshots are read from. Deliberately NOT the one on screen.
+  //
+  // Same bug, worse consequence: captureFrame() was reading the UI's <video>, so
+  // once that element was swapped it had no stream, readyState stayed below 2,
+  // and every single capture returned null and was skipped in silence. A whole
+  // contest ran with zero photographic evidence while the violation counter
+  // climbed, which is the worst possible failure for an invigilation system - it
+  // looks like it is working.
+  //
+  // An offscreen element the hook owns cannot be unmounted by a UI change, so
+  // evidence capture no longer depends on what is rendered.
+  const captureVideoEl = useCallback(() => {
+    if (!streamRef.current) return null;
+    if (!captureElRef.current) {
+      const el = document.createElement("video");
+      el.muted = true;
+      el.playsInline = true;
+      // Safari refuses to decode frames from a video that was never displayed
+      // unless it is explicitly told to play.
+      el.setAttribute("playsinline", "");
+      captureElRef.current = el;
+    }
+    const el = captureElRef.current;
+    if (el.srcObject !== streamRef.current) {
+      el.srcObject = streamRef.current;
+      el.play().catch(() => {});
+    }
+    return el;
+  }, []);
+
   const startCamera = useCallback(async () => {
     if (streamRef.current) return true;
     setCameraState("starting");
@@ -119,10 +182,10 @@ export function useProctorSession({
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
-      }
+      // Attach to whatever is on screen now, and prime the offscreen capture
+      // element so the very first snapshot does not race the stream warming up.
+      attachVideo(videoElRef.current);
+      captureVideoEl();
 
       // Fires when the OS or another app seizes the camera, or the student
       // yanks a USB webcam - the deterrent is gone at that point, so it is a
@@ -148,12 +211,16 @@ export function useProctorSession({
       );
       return false;
     }
-  }, [record]);
+  }, [record, attachVideo, captureVideoEl]);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
+    if (videoElRef.current) videoElRef.current.srcObject = null;
+    if (captureElRef.current) {
+      captureElRef.current.srcObject = null;
+      captureElRef.current = null;
+    }
   }, []);
 
   // ---- fullscreen ------------------------------------------------------------
@@ -173,7 +240,27 @@ export function useProctorSession({
     if (startedRef.current) return true;
     const camOk = await startCamera();
     if (!camOk) return false;
-    if (requireFullscreen) await enterFullscreen();
+
+    if (requireFullscreen) {
+      const fsOk = await enterFullscreen();
+      if (!fsOk) {
+        // The return value used to be discarded, and that cost students their
+        // papers. requestFullscreen() can reject for reasons the student cannot
+        // do anything about - an embedded webview, a managed-browser policy, the
+        // gesture being consumed elsewhere. isFullscreen then stayed false, the
+        // obstruction overlay covered the questions, and the only offered action
+        // was a button that would fail for exactly the same reason. A permanent
+        // lockout, in an exam, caused by us.
+        //
+        // Invigilation must never hold the exam hostage. Record it loudly - the
+        // invigilator sees FULLSCREEN_UNAVAILABLE against that student and can
+        // weigh it - and let them sit the paper.
+        setFullscreenUnavailable(true);
+        await logProctorEvent(contestId, uid, PROCTOR_EVENT.FULLSCREEN_UNAVAILABLE, {
+          reason: "requestFullscreen rejected at session start",
+        }, dryRun);
+      }
+    }
 
     startedRef.current = true;
     await startProctorSession(contestId, uid, { rollNumber, displayName, dryRun });
@@ -187,7 +274,10 @@ export function useProctorSession({
   // ---- capture loop ----------------------------------------------------------
 
   const capture = useCallback(async () => {
-    const blob = await captureFrame(videoRef.current);
+    // Offscreen element, never the on-screen one - the UI's <video> is swapped
+    // when the gate hands over to the HUD, and reading it there produced null
+    // frames for an entire contest.
+    const blob = await captureFrame(captureVideoEl());
     if (!blob) return;
     const seq = seqRef.current + 1;
     seqRef.current = seq;
@@ -202,7 +292,7 @@ export function useProctorSession({
         seq, error: String(err?.code || err?.message || err).slice(0, 200),
       }, dryRun);
     }
-  }, [contestId, uid, rollNumber, retainFrames, dryRun]);
+  }, [contestId, uid, rollNumber, retainFrames, dryRun, captureVideoEl]);
 
   useEffect(() => {
     if (!enabled || !startedRef.current || cameraState !== "live") return;
@@ -350,7 +440,11 @@ export function useProctorSession({
   }, [contestId, uid, stopCamera, dryRun]);
 
   return {
-    videoRef,
+    // A callback ref, not a ref object. Consumers still write
+    // <video ref={proctor.videoRef} />, but every element that mounts now gets
+    // the live stream attached - which is what keeps the self-view alive across
+    // the gate -> HUD handover.
+    videoRef: attachVideo,
     cameraState,
     cameraError,
     isFullscreen,
@@ -361,9 +455,30 @@ export function useProctorSession({
     begin,
     finish,
     retryCamera: startCamera,
-    enterFullscreen,
+    // Wrapped rather than passed raw: if the retry ALSO fails, the student is
+    // otherwise left pressing a button that can never work. A second refusal
+    // downgrades the session instead of trapping them.
+    enterFullscreen: async () => {
+      const ok = await enterFullscreen();
+      if (!ok) {
+        setFullscreenUnavailable(true);
+        await logProctorEvent(contestId, uid, PROCTOR_EVENT.FULLSCREEN_UNAVAILABLE, {
+          reason: "requestFullscreen rejected on retry",
+        }, dryRun);
+      }
+      return ok;
+    },
+    fullscreenUnavailable,
     // The paper must be unreadable whenever the invigilation conditions are not
     // met - this single flag is what the attempt view gates its content on.
-    obstructed: enabled && (cameraState !== "live" || (requireFullscreen && !isFullscreen)),
+    //
+    // fullscreenUnavailable is excluded deliberately: a browser that cannot go
+    // fullscreen must not permanently hide the questions. The camera condition
+    // has no such escape hatch, because a proctored contest genuinely cannot
+    // proceed without one and that failure IS actionable by the student.
+    obstructed: enabled && (
+      cameraState !== "live"
+      || (requireFullscreen && !isFullscreen && !fullscreenUnavailable)
+    ),
   };
 }
