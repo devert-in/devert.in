@@ -719,7 +719,13 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   useEffect(() => {
     if (secondsLeft === null || submitted) return;
     if (isPaused) return; // frozen - no countdown, no auto-submit while paused
-    if (secondsLeft <= 0) { handleSubmit(); return; }
+    // DEFENCE IN DEPTH, independent of the poll guard above: an attempt whose
+    // clock never started cannot be out of time, so a zero here is a bug
+    // somewhere upstream, not a deadline. Auto-submitting on it is what cost 69
+    // students their papers - so the condition now requires a real start
+    // timestamp before it will ever end someone's attempt for them.
+    if (secondsLeft <= 0 && startedAtRef.current !== null) { handleSubmit(); return; }
+    if (secondsLeft <= 0) return;
     const t = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -737,6 +743,27 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
         const c = await fetchContest(contestId);
         if (!c) return;
         setIsPaused(!!c.paused);
+
+        // THE CLOCK HAS NOT STARTED YET - RECOMPUTE NOTHING.
+        //
+        // This guard is the whole fix for a live incident that submitted ~69
+        // students' papers the instant they pressed Start, before they had seen
+        // a single question.
+        //
+        // A proctored attempt leaves startedAtRef null until the student
+        // consents and the camera is up. This poll runs regardless - it has to,
+        // so Pause/Extend reach someone still on the consent gate - and it used
+        // to compute `startedAtRef.current + duration`. With null on the left,
+        // JS coerces to 0, so capEnd became 1 Jan 1970 + 60 minutes; every
+        // student on the gate had secondsLeft clamped to 0 within ten seconds of
+        // loading the page, and the countdown effect then read that as "time is
+        // up" and auto-submitted an empty paper the moment the attempt opened.
+        //
+        // Only the two clock-start effects may set the initial secondsLeft. Once
+        // startedAtRef is a real timestamp this poll resumes its actual job of
+        // applying an admin's Extend/Reduce mid-attempt.
+        if (startedAtRef.current === null) return;
+
         const end = toDate(c.contestEnd).getTime();
         const capEnd = startedAtRef.current + (c.durationMinutes || 60) * 60 * 1000;
         const effectiveEnd = (dryRun ? capEnd : Math.min(end, capEnd));
