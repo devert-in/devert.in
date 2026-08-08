@@ -57,6 +57,15 @@ out/
 # to actually ship in the repo/CI checkout, unlike every other .env above.
 !functions/.env
 
+# Emulator-only secret values (Firebase reads these for defineSecret params when
+# running locally, since Secret Manager is not reachable from the emulator).
+# These ARE real secrets - unlike functions/.env above, this must never ship.
+# The negation for functions/.env is deliberately narrow, so it does not rescue
+# this file too, but it is listed explicitly rather than left to inference.
+functions/.secret.local
+.secret.local
+**/.secret.local
+
 # =====================
 # Secrets / service accounts
 # =====================
