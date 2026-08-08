@@ -167,6 +167,42 @@ select option {
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
 }
+
+/* iOS-style bar material, for the sticky public nav only.
+   Deliberately NOT a change to .campus-glass above: that one backs CARDS, which
+   sit still over a known background and need enough fill to carry body text.
+   A sticky bar has the whole page travelling underneath it, so it can afford to
+   be nearly clear - and only reads as glass if it is.
+   The saturate() is what separates "frosted glass" from "grey veil": colour from
+   the content behind bleeds through and is boosted rather than washed out, which
+   is the whole trick in Apple's material. The blur radius carries the legibility
+   that the missing opacity used to.
+   Two fills rather than the --campus-glass-bg token because the token is tuned
+   for those cards; the bar wants its own, lower alpha in each theme. */
+.campus-glass-nav {
+  /* 0.88, arrived at by walking up from 0.45. Below ~0.7 the bar stopped being a
+     surface and became a window - hero text tracked through it and collided with
+     the nav labels on top, which is unreadable rather than stylish. The frosted
+     look comes from the blur and saturation below, NOT from low opacity, so the
+     fill can carry legibility while still reading as glass: content behind stays
+     visible as soft movement and colour rather than as text you can almost read,
+     which is the effect iOS bars actually have. */
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+}
+.campus-theme[data-theme="dark"] .campus-glass-nav {
+  /* --campus-surface (#131826) at the same alpha, so the frost keeps the dark
+     theme's blue cast instead of going flat grey. */
+  background: rgba(19, 24, 38, 0.88);
+}
+/* Safari/Chromium drop backdrop-filter entirely when the compositor cannot
+   afford it, which would leave the bar 45% transparent with text over raw
+   content. Fall back to an opaque-enough fill in that case only. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .campus-glass-nav { background: var(--campus-surface); }
+  .campus-theme[data-theme="dark"] .campus-glass-nav { background: var(--campus-surface); }
+}
 /* CampusCard's `hover` prop - a pure-CSS lift, GPU-friendly (transform +
    box-shadow only) so it stays smooth on lower-end devices and is skipped
    entirely under prefers-reduced-motion via the rule above. */
@@ -233,6 +269,26 @@ select option {
 }
 .campus-sharp [style*="box-shadow"] {
   box-shadow: none !important;
+}
+
+/* CORNERS ONLY - campus-sharp's radius half without its shadow half.
+   The public surface wants square cards, but campus-sharp also strips every
+   inline box-shadow, and that is precisely why it was taken off these pages:
+   it flattened the hero's product shot and the nav's mega-menu panel, both of
+   which read as broken without elevation. This squares the corners and leaves
+   depth alone.
+   Safe against the hero illustration by construction: the laptop's silhouette
+   is drawn with rounded-t-xl / rounded-b-md / rounded-[5px] and the light ring
+   with rounded-[50%], none of which these selectors match - only the plain
+   rounded-{md,lg,xl,2xl} used by cards, buttons and inputs. rounded-full is
+   excluded for the same reason campus-sharp excludes it: it is how CampusChip's
+   pill and the radio-select dots are drawn, and squaring those breaks their
+   meaning rather than their theme. */
+.campus-square .rounded-2xl,
+.campus-square .rounded-xl,
+.campus-square .rounded-lg,
+.campus-square .rounded-md {
+  border-radius: 0 !important;
 }
 /* The one deliberate exception to the flattening above, and the reason it is a
    CLASS: that rule matches on an inline `box-shadow` in the style attribute, so

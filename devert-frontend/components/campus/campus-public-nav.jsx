@@ -211,8 +211,14 @@ export function CampusPublicNav() {
           absolutely-positioned child resolves against its ancestor's PADDING box,
           so with px-6 on the nav the dropdown panel below would sit inset by
           24-40px on each side instead of spanning the full bar. */}
-      <nav ref={navRef}
-        style={{ borderBottom: `1px solid ${CAMPUS.line}`, background: CAMPUS.surface, position: "sticky", top: 0, zIndex: 30 }}>
+      {/* .campus-glass-nav, not .campus-glass - see globals.css. The card glass
+          is far too opaque for a bar; this is the iOS material: ~45% fill, a
+          30px blur and a saturation boost so colour from the page bleeds through
+          instead of being washed grey. Sticky is what makes it read as glass at
+          all - content has to travel underneath for the backdrop-filter to have
+          anything to work on. */}
+      <nav ref={navRef} className="campus-glass-nav"
+        style={{ borderBottom: `1px solid ${CAMPUS.line}`, position: "sticky", top: 0, zIndex: 30 }}>
         <div className="flex items-center gap-4 px-6 sm:px-10" style={{ height: 72 }}>
           <Link href="/campus" onClick={closeAll} className="flex items-center gap-2.5 font-bold text-[17px] flex-shrink-0" style={{ color: CAMPUS.ink }}>
             <CampusBadge size={30} />

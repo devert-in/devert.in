@@ -1413,7 +1413,7 @@ export function CampusInfoPage({ section }) {
   return (
     // Same rounded treatment as CampusLanding below - see its own comment for
     // why campus-sharp came off the public surface.
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme">
+    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square">
       <CampusPublicNav />
       {page.bands()}
       <LandingFooter />
@@ -1501,17 +1501,14 @@ export function CampusLanding() {
   } : null;
 
   return (
-    // NO campus-sharp. That class squared every corner and stripped every inline
-    // shadow across the pre-auth surface (globals.css), which is the opposite of
-    // the look this page is now built to: pill eyebrow, rounded CTAs, a lifted
-    // product preview and a rounded stats bar all depend on the radius and
-    // elevation the class was deleting. Dropped from all four public surfaces
-    // together (here, CampusInfoPage, and CampusGlobalSection in campus-app.jsx)
-    // so the public pages share ONE language again - the rounded, shadowed
-    // CampusCard vocabulary the authenticated workspace already uses. The rule
-    // itself stays in globals.css, now unused, rather than being deleted in the
-    // same pass as a visual change.
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme">
+    // campus-square, NOT campus-sharp. Square corners are wanted here; the
+    // shadow-stripping that campus-sharp bundles with them is not - it flattened
+    // the hero's product shot and the nav's mega-menu panel, which is why that
+    // class came off these pages in the first place. campus-square is the radius
+    // half on its own (globals.css), so the cards go square and the elevation
+    // stays. Applied to all three public surfaces together (here, CampusInfoPage
+    // and CampusGlobalSection in campus-app.jsx) so they share one language.
+    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square">
       {directoryJsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd) }} />
       )}
