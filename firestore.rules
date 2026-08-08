@@ -595,6 +595,37 @@ service cloud.firestore {
       allow write: if isOwner(uid) || isAdmin();
     }
 
+    // ---------- Razorpay payments & individual subscriptions ----------
+    //
+    // Both collections are WRITE-DENIED to every client, without exception.
+    // They are written only by the Cloud Functions in functions/index.js
+    // (createRazorpayOrder / verifyRazorpayPayment / razorpayWebhook), which go
+    // through the Admin SDK and bypass these rules entirely.
+    //
+    // This is the entire trust boundary for paid access. If a client could write
+    // subscriptions/{uid} then "am I a paying subscriber" would be a field the
+    // subscriber sets about themselves, and the paywall would be a suggestion.
+    // Same reasoning that keeps problems/{id}/hiddenTests unreadable here.
+    //
+    // Note the absence of an isAdmin() write escape hatch too: a support action
+    // that needs to comp someone a subscription should run through a function or
+    // a script with the Admin SDK, where it is logged as such, rather than being
+    // indistinguishable from a forged client write.
+    match /payments/{orderId} {
+      // Owner can watch their own payment progress (the checkout UI polls this
+      // while the webhook settles); staff can read for reconciliation.
+      allow read: if isAuth() && (resource.data.get('uid', '') == request.auth.uid || isAdmin());
+      allow write: if false;
+    }
+
+    match /subscriptions/{uid} {
+      // Publicly-unreadable but owner-readable: the client needs to know its own
+      // entitlement to render the paywall, and nobody else's is any of its
+      // business.
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+    }
+
     // Follows - anyone can read; only follower can create/delete their own follow
     match /follows/{followId} {
       allow read:   if true;

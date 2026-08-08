@@ -364,3 +364,284 @@ exports.listProctorFrames = onCall({ region: "us-central1", maxInstances: 10 }, 
   frames.sort((a, b) => b.seq - a.seq);
   return { frames };
 });
+
+// ---------------------------------------------------------------------------
+// Razorpay Standard Checkout - order creation, signature verification, webhook.
+//
+// Why here and not devert-frontend: the frontend is output: "export" (a static
+// export), so it has no API routes at all and never will. Order creation needs
+// the key secret and signature verification needs to be untamperable, so both
+// have to be server-side. devert-backend (Spring Boot) was the other candidate
+// and is where CLAUDE.md points for browser-unsafe work, but Cloud Functions
+// wins here on two counts: Razorpay's official SDK is Node, and the webhook
+// needs a stable always-warm-enough HTTPS endpoint that CI already deploys.
+//
+// The KEY SECRET is injected from Google Secret Manager via defineSecret, NOT
+// from functions/.env - that file is committed (see .gitignore's
+// !functions/.env negation), so a secret placed there would land in git. Set it
+// once with:
+//   npx firebase-tools functions:secrets:set RAZORPAY_KEY_SECRET --project devert-me
+//
+// The KEY ID is the publishable half and lives in functions/.env alongside the
+// frontend's NEXT_PUBLIC_RAZORPAY_KEY_ID.
+// ---------------------------------------------------------------------------
+
+const { defineSecret } = require("firebase-functions/params");
+const crypto = require("crypto");
+const Razorpay = require("razorpay");
+
+const RAZORPAY_KEY_SECRET = defineSecret("RAZORPAY_KEY_SECRET");
+const RAZORPAY_WEBHOOK_SECRET = defineSecret("RAZORPAY_WEBHOOK_SECRET");
+
+// The price list lives HERE, server-side, and the client sends only a planId.
+//
+// This is a deliberate departure from the usual "client posts an amount" sample
+// code. An amount chosen by the browser is an amount an attacker chooses: paying
+// 100 paise for an annual plan is a one-line devtools edit. The server is the
+// only party allowed to say what something costs.
+//
+// amount is in PAISE (Razorpay's smallest-unit convention). 100 paise is
+// Razorpay's own documented minimum.
+const PLANS = Object.freeze({
+  individual_monthly: { amount: 9900, currency: "INR", label: "DeVert Campus - Individual (1 month)", days: 31 },
+  individual_annual: { amount: 49900, currency: "INR", label: "DeVert Campus - Individual (12 months)", days: 366 },
+});
+
+function razorpayClient() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = RAZORPAY_KEY_SECRET.value();
+  if (!keyId || !keySecret) {
+    throw new HttpsError("failed-precondition",
+      "Payments are not configured on the server (missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET).");
+  }
+  return new Razorpay({ key_id: keyId, key_secret: keySecret });
+}
+
+/**
+ * Creates a Razorpay order for one of the server-defined plans.
+ *
+ * Returns exactly what Checkout needs and nothing more - notably the key id, so
+ * the frontend never has to hardcode it or read it from its own env at build
+ * time (a build-time value would need a rebuild to rotate).
+ */
+exports.createRazorpayOrder = onCall(
+  { region: "us-central1", maxInstances: 10, secrets: [RAZORPAY_KEY_SECRET] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Sign in before paying.");
+
+    const planId = String((request.data || {}).planId || "");
+    const plan = PLANS[planId];
+    if (!plan) throw new HttpsError("invalid-argument", `Unknown plan "${planId}".`);
+    if (plan.amount < 100) throw new HttpsError("internal", "Plan amount is below Razorpay's 100 paise minimum.");
+
+    // receipt is our own correlation id and is capped at 40 chars by Razorpay.
+    const receipt = `dv_${planId.slice(0, 12)}_${request.auth.uid.slice(0, 10)}_${Date.now().toString(36)}`.slice(0, 40);
+
+    let order;
+    try {
+      order = await razorpayClient().orders.create({
+        amount: plan.amount,
+        currency: plan.currency,
+        receipt,
+        // notes come back on the webhook payload, which is how the webhook
+        // knows which account to entitle without trusting anything the browser
+        // says at verify time.
+        notes: { uid: request.auth.uid, planId },
+      });
+    } catch (err) {
+      const status = err?.statusCode;
+      logger.error("razorpay order create failed", { status, err: err?.error || String(err) });
+      if (status === 401) throw new HttpsError("failed-precondition", "Razorpay rejected our credentials.");
+      throw new HttpsError("internal", "Could not start the payment. Please try again.");
+    }
+
+    // Recorded before the user ever sees Checkout, so a payment that succeeds at
+    // Razorpay but whose callback never reaches us is still reconcilable.
+    await admin.firestore().doc(`payments/${order.id}`).set({
+      uid: request.auth.uid,
+      planId,
+      amount: plan.amount,
+      currency: plan.currency,
+      receipt,
+      status: "created",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      label: plan.label,
+    };
+  }
+);
+
+/**
+ * Verifies the Checkout callback signature.
+ *
+ * HMAC-SHA256(order_id + "|" + payment_id, key_secret) compared against
+ * razorpay_signature, in constant time.
+ *
+ * This confirms the callback genuinely came from Razorpay and was not forged in
+ * the browser. It is NOT the authority for granting access - the webhook is.
+ * A client can simply never call this (close the tab at the right moment), so
+ * treating it as the entitlement trigger would make entitlement depend on the
+ * attacker's cooperation. It exists to give the user an immediate, trustworthy
+ * "yes, that worked" while the webhook settles.
+ */
+exports.verifyRazorpayPayment = onCall(
+  { region: "us-central1", maxInstances: 10, secrets: [RAZORPAY_KEY_SECRET] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+
+    const { razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature } =
+      request.data || {};
+    if (!orderId || !paymentId || !signature) {
+      throw new HttpsError("invalid-argument", "orderId, paymentId and signature are all required.");
+    }
+
+    const expected = crypto
+      .createHmac("sha256", RAZORPAY_KEY_SECRET.value())
+      .update(`${orderId}|${paymentId}`)
+      .digest("hex");
+
+    // timingSafeEqual throws on length mismatch, so compare lengths first.
+    const ok = expected.length === String(signature).length
+      && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(String(signature)));
+
+    if (!ok) {
+      logger.warn("razorpay signature mismatch", { orderId, paymentId, uid: request.auth.uid });
+      await admin.firestore().doc(`payments/${orderId}`).set({
+        status: "signature_mismatch",
+        signatureCheckedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      throw new HttpsError("permission-denied", "Payment signature did not match. Nothing has been activated.");
+    }
+
+    const ref = admin.firestore().doc(`payments/${orderId}`);
+    const snap = await ref.get();
+    // The order was created against a uid; a different signed-in account
+    // presenting the same callback is not the payer.
+    if (snap.exists && snap.get("uid") && snap.get("uid") !== request.auth.uid) {
+      throw new HttpsError("permission-denied", "This payment belongs to a different account.");
+    }
+
+    await ref.set({
+      paymentId,
+      status: "verified",
+      verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return { verified: true, orderId, paymentId };
+  }
+);
+
+/**
+ * Razorpay webhook - the authority for granting access.
+ *
+ * Plain onRequest rather than a callable because Razorpay POSTs here directly
+ * and knows nothing about Firebase callable envelopes. Signature is verified
+ * over the RAW body: re-serialising the parsed JSON changes the bytes and the
+ * HMAC will never match.
+ *
+ * Idempotent by design. Razorpay retries on any non-2xx and can deliver the same
+ * event more than once, so granting is written with a deterministic doc id and a
+ * status guard rather than blindly incrementing anything.
+ *
+ * Always answers 200 once the signature is valid, even if our own bookkeeping
+ * then fails - a non-2xx makes Razorpay retry the same event for hours, which
+ * turns one bug into a stampede. Failures are logged for reconciliation instead.
+ */
+exports.razorpayWebhook = onRequest(
+  { region: "us-central1", maxInstances: 10, secrets: [RAZORPAY_WEBHOOK_SECRET] },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+
+    const signature = req.get("X-Razorpay-Signature") || "";
+    const secret = RAZORPAY_WEBHOOK_SECRET.value();
+    if (!secret) { logger.error("webhook secret not configured"); res.status(500).send("not configured"); return; }
+
+    // req.rawBody is the untouched request bytes - the only thing the HMAC is
+    // computed over.
+    const raw = req.rawBody ? req.rawBody.toString("utf8") : JSON.stringify(req.body || {});
+    const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+    const valid = expected.length === signature.length
+      && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+
+    if (!valid) {
+      logger.warn("razorpay webhook signature invalid");
+      res.status(400).send("invalid signature");
+      return;
+    }
+
+    let event;
+    try { event = JSON.parse(raw); } catch { res.status(400).send("bad json"); return; }
+
+    const type = event.event || "";
+    const payment = event.payload?.payment?.entity || null;
+    logger.info("razorpay webhook", { type, paymentId: payment?.id, orderId: payment?.order_id });
+
+    try {
+      if ((type === "payment.captured" || type === "order.paid") && payment) {
+        const orderId = payment.order_id;
+        const uid = payment.notes?.uid;
+        const planId = payment.notes?.planId;
+        const plan = PLANS[planId];
+
+        await admin.firestore().doc(`payments/${orderId}`).set({
+          status: "paid",
+          paymentId: payment.id,
+          method: payment.method || "",
+          amountPaid: payment.amount,
+          paidAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+
+        if (uid && plan) {
+          const subRef = admin.firestore().doc(`subscriptions/${uid}`);
+          await admin.firestore().runTransaction(async (tx) => {
+            const cur = await tx.get(subRef);
+            // Extend from the later of now and any existing expiry, so paying
+            // again before expiry adds time instead of discarding it.
+            const now = Date.now();
+            const existing = cur.exists ? cur.get("expiresAtMs") || 0 : 0;
+            const base = Math.max(now, existing);
+            const expiresAtMs = base + plan.days * 24 * 60 * 60 * 1000;
+
+            // Same payment arriving twice must not extend twice.
+            const seen = cur.exists ? (cur.get("appliedPaymentIds") || []) : [];
+            if (seen.includes(payment.id)) return;
+
+            tx.set(subRef, {
+              uid,
+              plan: planId,
+              status: "active",
+              activatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              expiresAtMs,
+              expiresAt: admin.firestore.Timestamp.fromMillis(expiresAtMs),
+              lastOrderId: orderId,
+              lastPaymentId: payment.id,
+              appliedPaymentIds: [...seen, payment.id].slice(-20),
+            }, { merge: true });
+          });
+          logger.info("subscription granted", { uid, planId });
+        } else {
+          logger.error("paid payment missing uid/plan notes - manual reconciliation needed",
+            { orderId, uid, planId });
+        }
+      } else if (type === "payment.failed" && payment) {
+        await admin.firestore().doc(`payments/${payment.order_id}`).set({
+          status: "failed",
+          paymentId: payment.id,
+          failureReason: payment.error_description || "",
+          failedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
+    } catch (err) {
+      // Deliberately still a 200 - see the header comment.
+      logger.error("razorpay webhook bookkeeping failed", { type, err: String(err) });
+    }
+
+    res.status(200).send("ok");
+  }
+);
