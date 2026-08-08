@@ -277,6 +277,24 @@ export function useProctorSession({
       e.preventDefault();
       e.stopPropagation();
     };
+    // Screenshots cannot be prevented from a web page - there is no API for it,
+    // and Win+Shift+S / Snipping Tool / a phone camera all live entirely outside
+    // the browser. What IS possible is noticing the attempts we can see and
+    // making them expensive:
+    //
+    // - PrintScreen fires a keyup in Chromium on Windows. We cannot stop the
+    //   capture (it has already happened by then) but we can overwrite the
+    //   clipboard immediately, so a paste yields the placeholder rather than the
+    //   paper, and we can record the attempt against the student.
+    // - Win+Shift+S does NOT reach the page at all. It does usually steal focus,
+    //   which the existing blur handler already records as a tab switch - so
+    //   that path is caught, just under a different label.
+    const onScreenshotKey = (e) => {
+      if (e.key !== "PrintScreen") return;
+      navigator.clipboard?.writeText("Screenshots are not permitted during this contest.").catch(() => {});
+      record(PROCTOR_EVENT.SCREENSHOT_ATTEMPT, { via: "printscreen" });
+    };
+
     const onKeyDown = e => {
       const k = e.key.toLowerCase();
       const mod = e.ctrlKey || e.metaKey;
@@ -303,6 +321,7 @@ export function useProctorSession({
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("contextmenu", onContextMenu, cap);
     document.addEventListener("keydown", onKeyDown, cap);
+    document.addEventListener("keyup", onScreenshotKey, cap);
     document.addEventListener("copy", onClipboard, cap);
     document.addEventListener("cut", onClipboard, cap);
     document.addEventListener("paste", onClipboard, cap);
@@ -314,6 +333,7 @@ export function useProctorSession({
       document.removeEventListener("fullscreenchange", onFsChange);
       document.removeEventListener("contextmenu", onContextMenu, cap);
       document.removeEventListener("keydown", onKeyDown, cap);
+      document.removeEventListener("keyup", onScreenshotKey, cap);
       document.removeEventListener("copy", onClipboard, cap);
       document.removeEventListener("cut", onClipboard, cap);
       document.removeEventListener("paste", onClipboard, cap);

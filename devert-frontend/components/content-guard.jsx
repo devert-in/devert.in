@@ -6,24 +6,30 @@ import { useAuth } from "@/context/AuthContext";
 // Surfaces that keep native clipboard/right-click even for locked-down readers.
 //
 // - Form fields: the lockdown stops text moving in or out, not typing, so the
-//   caret has to survive.
-// - .monaco-editor: a code editor whose copy/paste you cannot use is broken, and
-//   the code in it belongs to the user, not to DeVert. The problem statement
-//   rendered NEXT to the editor is still locked, which is the part worth
-//   protecting. Monaco also drives its own hidden textarea and context menu,
-//   both of which a document-level block would break.
+//   caret has to survive. Blocking the clipboard here still leaves login,
+//   search and every answer box fully typeable.
 // - [data-allow-clipboard]: per-element hatch, applies to any role.
+//
+// .monaco-editor was on this list and is deliberately NOT any more. The original
+// reasoning was that a code editor whose clipboard does not work is broken and
+// the code in it belongs to the user - true for a hobby playground, false here.
+// Every Monaco surface on this site is a graded one (CodeLab problems, contest
+// coding questions, campus practice), so a working paste in the editor is a
+// working paste of somebody else's solution. Typing is untouched; only clipboard
+// transfer and select-all are blocked.
 const EXEMPT_SURFACES = [
   "input",
   "textarea",
   "select",
   "[contenteditable='']",
   "[contenteditable='true']",
-  ".monaco-editor",
   "[data-allow-clipboard]",
 ].join(", ");
 
-// Selection has to stay alive inside these or the caret goes with it.
+// Selection has to stay alive inside these or the caret goes with it. Monaco
+// stays here even though it is no longer clipboard-exempt: killing user-select
+// inside it takes the caret and breaks typing outright, and selection alone is
+// harmless once the clipboard events themselves are blocked.
 const EDITABLE = "input, textarea, select, [contenteditable=''], [contenteditable='true'], .monaco-editor";
 
 const CLIPBOARD_KEYS = new Set(["c", "x", "v", "a"]);

@@ -41,6 +41,7 @@ export const PROCTOR_EVENT = Object.freeze({
   CAMERA_RESTORED:  "camera_restored",
   SNAPSHOT:         "snapshot",
   SNAPSHOT_FAILED:  "snapshot_failed",
+  SCREENSHOT_ATTEMPT: "screenshot_attempt",
   SESSION_END:      "session_end",
 });
 
@@ -48,9 +49,10 @@ export const PROCTOR_EVENT = Object.freeze({
 // counter on the session doc they bump. Events not listed here are recorded in
 // the log but are informational (a restored camera is not a violation).
 const VIOLATION_COUNTER = {
-  [PROCTOR_EVENT.TAB_SWITCH]:      "tabSwitches",
-  [PROCTOR_EVENT.FULLSCREEN_EXIT]: "fullscreenExits",
-  [PROCTOR_EVENT.CAMERA_LOST]:     "cameraLosses",
+  [PROCTOR_EVENT.TAB_SWITCH]:         "tabSwitches",
+  [PROCTOR_EVENT.FULLSCREEN_EXIT]:    "fullscreenExits",
+  [PROCTOR_EVENT.CAMERA_LOST]:        "cameraLosses",
+  [PROCTOR_EVENT.SCREENSHOT_ATTEMPT]: "screenshotAttempts",
 };
 
 export function isViolation(type) {
