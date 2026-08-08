@@ -13,6 +13,7 @@ import { resolveRollNumber } from "@/lib/proctoring";
 import { useProctorSession } from "@/components/proctor/use-proctor-session";
 import { ProctorGate } from "@/components/proctor/proctor-gate";
 import { ProctorSelfView, ProctorWarning, ProctorObstruction } from "@/components/proctor/proctor-hud";
+import { ContestClipboardLock } from "@/components/proctor/contest-clipboard-lock";
 
 function toDate(v) {
   if (!v) return null;
@@ -240,6 +241,11 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
 
       {proctored && (
         <>
+          {/* Clipboard lockdown, mounted for the attempt only. The site-wide
+              content guard exempts .monaco-editor by design, which leaves the
+              code editor - the one field worth pasting a solution into - open
+              during an invigilated paper. See that component own header. */}
+          <ContestClipboardLock />
           {/* Self-view stays mounted even while obstructed - seeing your own
               face is what makes the overlay feel supervised rather than broken. */}
           <ProctorSelfView
