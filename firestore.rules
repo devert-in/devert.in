@@ -1533,6 +1533,63 @@ service cloud.firestore {
         }
       }
 
+      // Dry-run counterpart of proctorSessions above - a Mock Reviewer's own
+      // sit-through of the invigilation flow (camera, fullscreen, violation
+      // detection) exercised for real, so a broken camera prompt or a
+      // fullscreen quirk on some browser is caught before 500 students hit it
+      // live, not after.
+      //
+      // A SEPARATE collection, not a reviewer reusing proctorSessions/{uid},
+      // for the same reason dryRuns is separate from submissions below: a
+      // reviewer is frequently also a genuinely registered student in this
+      // contest's audience, and proctorSessions/{uid} create is gated on
+      // isApprovedForContest() - a reviewer testing BEFORE the contest opens
+      // (the whole point) usually is not yet approved/registered at all, so
+      // that create would simply fail. Keeping it separate also means a
+      // reviewer's test run can never overwrite or blend into their own
+      // later real invigilation record for the same contest.
+      //
+      // Gated on isContestReviewer(), never isApprovedForContest() - same
+      // audience check dryRuns/{uid} write already uses. Owner may also
+      // delete their own (unlike the real session, admin-only-delete) so a
+      // reviewer can redo a dry run cleanly, same generosity dryRuns/{uid}
+      // already grants.
+      match /dryRunProctorSessions/{uid} {
+        allow read: if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId)
+          || isContestInstitutionStaff(contestId);
+
+        allow create: if (isOwner(uid) && isContestReviewer(contestId))
+          && request.resource.data.startedAt != null
+          && request.resource.data.lastHeartbeatAt != null
+          && request.resource.data.get('rollNumber', '') is string
+          && request.resource.data.get('rollNumber', '').size() <= 64;
+
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               'lastHeartbeatAt', 'startedAt', 'userAgent', 'screen', 'rollNumber', 'displayName',
+               'tabSwitches', 'fullscreenExits', 'cameraLosses', 'violations', 'lastViolationAt',
+               'snapshotCount', 'lastSnapshotAt', 'latestSnapshotPath', 'latestSnapshotUrl',
+             ])
+          && request.resource.data.get('tabSwitches', 0)     >= resource.data.get('tabSwitches', 0)
+          && request.resource.data.get('fullscreenExits', 0)  >= resource.data.get('fullscreenExits', 0)
+          && request.resource.data.get('cameraLosses', 0)     >= resource.data.get('cameraLosses', 0)
+          && request.resource.data.get('violations', 0)       >= resource.data.get('violations', 0)
+          && request.resource.data.get('snapshotCount', 0)    >= resource.data.get('snapshotCount', 0);
+
+        allow delete: if isAdmin() || isContestInstitutionAdmin(contestId) || isOwner(uid);
+
+        match /events/{eventId} {
+          allow read:   if isOwner(uid) || isAdmin() || isContestInstitutionAdmin(contestId)
+            || isContestInstitutionStaff(contestId);
+          allow create: if isOwner(uid)
+            && request.resource.data.at != null
+            && request.resource.data.get('type', '') is string
+            && request.resource.data.get('type', '').size() <= 40;
+          allow update: if false;
+          allow delete: if isAdmin() || isOwner(uid);
+        }
+      }
+
       // Owner creates their own submission once, with raw answers only (no score/grade
       // fields yet). The one legal follow-up is the owner flipping graded false->true
       // after contestEnd, with xpEarned/coinsEarned bounded to the contest's own prize

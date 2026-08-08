@@ -125,5 +125,24 @@ service firebase.storage {
         && request.resource.contentType == 'image/jpeg';
       allow delete: if false;
     }
+
+    // Dry-run counterpart of /proctor above - a Mock Reviewer's own sit-
+    // through, kept under its own path so it can never land in the same
+    // object a real invigilated attempt by that same uid would use (a
+    // reviewer is frequently also a genuinely registered student). Same
+    // ownership-only shape; real eligibility (isContestReviewer()) is
+    // enforced on the Firestore dryRunProctorSessions write, not here - same
+    // division of labor the /proctor path above already relies on. Delete IS
+    // allowed here, unlike /proctor, since this is disposable test data a
+    // reviewer may legitimately want to redo.
+    match /proctor-dryrun/{contestId}/{uid}/{allPaths=**} {
+      allow read: if request.auth != null
+        && request.auth.token.get('admin', false) == true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }
