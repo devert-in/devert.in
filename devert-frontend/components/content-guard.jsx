@@ -47,7 +47,19 @@ function element(event) {
 
 function isExempt(event) {
   const el = element(event);
-  return el !== null && el.closest(EXEMPT_SURFACES) !== null;
+  if (el === null) return false;
+
+  // The explicit per-element hatch always wins, including inside an editor.
+  if (el.closest("[data-allow-clipboard]") !== null) return true;
+
+  // Monaco does NOT get the clipboard back, and dropping ".monaco-editor" from
+  // EXEMPT_SURFACES is not enough on its own to achieve that. Monaco's editing
+  // surface is a real <textarea class="inputarea"> living inside .monaco-editor,
+  // so the generic "textarea" exemption below matches it and would hand the
+  // editor its clipboard straight back. This check has to come first.
+  if (el.closest(".monaco-editor") !== null) return false;
+
+  return el.closest(EXEMPT_SURFACES) !== null;
 }
 
 function isEditable(event) {
