@@ -667,3 +667,131 @@ exports.razorpayWebhook = onRequest(
     res.status(200).send("ok");
   }
 );
+
+// ---------------------------------------------------------------------------
+// Contest submission auto-grading
+// ---------------------------------------------------------------------------
+//
+// Grading used to be lazy and client-only: lib/contests.js's persistGrading()
+// ran in the student's own browser, the first time they reopened their
+// result AFTER contestEnd - and firestore.rules blocked that write entirely
+// until then, specifically so a graded score could never sit in a document
+// the student can always read (their own submission) while the contest was
+// still open to everyone else. A student who never came back stayed
+// "pending" forever, needing an admin to run a manual grading sweep
+// (gradeUngradedSubmissions) - and that sweep is ALSO blocked by the same
+// contestEnd gate, so a contest whose window got extended (e.g. to give
+// students a retry after an outage) left every straggler ungraded and
+// unreachable from the UI until the new end time actually arrived.
+//
+// This trigger grades every submission the moment it's written, admin-SDK
+// side - which already bypasses firestore.rules entirely, so the contestEnd
+// gate stays exactly as strict as before for every client-side path (a
+// compromised or malicious browser still cannot grade early). It does NOT
+// expose anything to the student early: the results/leaderboard screen only
+// ever fetches leaderboard data once contestPhase(contest) === "past" (see
+// CampusContestResults in campus-contests.jsx), and isSettingReleased()'s
+// "after_end" mode resolves the same way - both keyed off contestEnd, not
+// off this `graded` flag. Grading early just means the number is already
+// sitting there, correctly computed, for the moment release time arrives -
+// exactly mirroring what an admin already did by hand via a one-off script
+// during the 2026-08-08/09 outage.
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+
+function isContestAnswerCorrect(question, key, given) {
+  if (question.type === "multiselect") {
+    const a = [...(given || [])].sort();
+    const b = [...(key.correctOptionIds || [])].sort();
+    return a.length === b.length && a.every((v, i) => v === b[i]);
+  }
+  if (question.type === "fillblank") {
+    const accepted = (key.correctText || "").split("|").map(s => s.trim().toLowerCase()).filter(Boolean);
+    return accepted.includes(String(given).trim().toLowerCase());
+  }
+  return given === (key.correctOptionIds || [])[0];
+}
+
+// Mirrors lib/contests.js's gradeSubmission() field-for-field - any change
+// there needs the same change here, or the two grading paths (this trigger,
+// and the client's own lazy self-grade / admin sweep, both of which check
+// `graded` first and no-op if this already ran) would silently disagree.
+function computeContestGrade(questions, answerKeys, answers, codingResults) {
+  let score = 0, maxScore = 0, correctCount = 0, attemptedCount = 0;
+  for (const q of questions) {
+    const marks = q.marks || 1;
+    maxScore += marks;
+    if (q.type === "coding") {
+      const result = codingResults[q.id];
+      if (!result) continue;
+      attemptedCount++;
+      score += Math.max(0, Math.min(marks, result.score || 0));
+      if (result.verdict === "Accepted") correctCount++;
+      continue;
+    }
+    const key = answerKeys[q.id];
+    const given = answers ? answers[q.id] : undefined;
+    const isBlank = given === undefined || given === null || given === ""
+      || (Array.isArray(given) && given.length === 0);
+    if (!key || isBlank) continue;
+    attemptedCount++;
+    if (isContestAnswerCorrect(q, key, given)) { score += marks; correctCount++; }
+    else if (q.negativeMarks) score -= q.negativeMarks;
+  }
+  const accuracy = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : 0;
+  return { score, maxScore, correctCount, attemptedCount, accuracy };
+}
+
+// asia-south1, not us-central1 like every other function in this file -
+// that's where this Firestore database actually lives, and a Firestore
+// trigger must run in its database's region or every event pays an
+// unnecessary cross-region hop (Firebase warns on deploy if this drifts).
+exports.gradeContestSubmissionOnCreate = onDocumentCreated(
+  { region: "asia-south1", document: "contests/{contestId}/submissions/{uid}" },
+  async (event) => {
+    const { contestId, uid } = event.params;
+    const snap = event.data;
+    if (!snap) return;
+    const sub = snap.data();
+    if (sub.graded) return; // already graded some other way - nothing to do
+
+    const db = admin.firestore();
+    const submissionRef = snap.ref;
+
+    try {
+      const [questionsSnap, answerKeysSnap, codingResultsSnap] = await Promise.all([
+        db.collection("contests").doc(contestId).collection("questions").get(),
+        db.collection("contests").doc(contestId).collection("answerKeys").get(),
+        submissionRef.collection("codingResults").get(),
+      ]);
+      const questions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const answerKeys = {};
+      answerKeysSnap.forEach(d => { answerKeys[d.id] = d.data(); });
+      const codingResults = {};
+      codingResultsSnap.forEach(d => { codingResults[d.id] = d.data(); });
+
+      const grading = computeContestGrade(questions, answerKeys, sub.answers || {}, codingResults);
+
+      // Transaction, re-reading `graded` live: the client's own lazy
+      // self-grade path could theoretically win a race against this trigger
+      // (Cloud Functions at-least-once delivery can also redeliver this same
+      // event) - whichever writes first wins, the other is a no-op.
+      await db.runTransaction(async (tx) => {
+        const current = await tx.get(submissionRef);
+        if (current.data()?.graded) return;
+        tx.update(submissionRef, {
+          graded: true,
+          score: grading.score,
+          accuracy: grading.accuracy,
+          correctCount: grading.correctCount,
+        });
+      });
+      logger.info("contest submission auto-graded", { contestId, uid, score: grading.score, maxScore: grading.maxScore });
+    } catch (err) {
+      // Never throws past this point - the client-side lazy grade and the
+      // admin's manual sweep both remain as fallbacks, so a transient failure
+      // here (e.g. a Firestore hiccup) doesn't leave the submission stuck;
+      // it just grades a little later than "immediately".
+      logger.error("contest auto-grading failed", { contestId, uid, err: String(err) });
+    }
+  }
+);
