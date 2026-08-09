@@ -274,8 +274,24 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
 
       {countdown && (
         <CampusCard className="p-5 text-center mb-5">
-          <p className="text-[10px] font-mono tracking-wider mb-2" style={{ color: CAMPUS.inkFaint }}>{phase === "live" ? "TIME REMAINING" : "STARTS IN"}</p>
+          {/* "TIME REMAINING" was actively misleading on a windowed contest. This
+              counts down to contestEnd - the moment the WINDOW shuts - which on a
+              paper open 07:00-23:30 reads as "16:01:57" and looks to a student
+              like sixteen hours of exam time. Their real allowance is
+              durationMinutes from the moment they press Start.
+              So the label now names what the number actually is, and the student's
+              own allowance is stated next to it rather than left to be inferred
+              from a number that contradicts it. */}
+          <p className="text-[10px] font-mono tracking-wider mb-2" style={{ color: CAMPUS.inkFaint }}>
+            {phase === "live" ? "CONTEST WINDOW CLOSES IN" : "WINDOW OPENS IN"}
+          </p>
           <p className="text-3xl font-bold font-mono" style={{ color: phase === "live" ? CAMPUS.warn : CAMPUS.teal }}>{countdown}</p>
+          {contest.durationMinutes > 0 && (
+            <p className="text-[11.5px] mt-3 leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
+              You get <b style={{ color: CAMPUS.ink }}>{contest.durationMinutes} minutes</b> from the moment you press
+              start - not the time above. Start any time before the window closes.
+            </p>
+          )}
         </CampusCard>
       )}
 
