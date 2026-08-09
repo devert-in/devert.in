@@ -99,15 +99,15 @@ export default function PayTestPage() {
 
             <div className="space-y-4 mb-6">
               <RazorpayCheckoutButton
-                planId={PLANS.INDIVIDUAL_MONTHLY}
+                planId={PLANS.MONTHLY}
                 label="Subscribe monthly"
-                priceLabel="Rs 99"
+                priceLabel="Rs 29"
                 onPaid={(r) => setOrderId(r.orderId || "")}
               />
               <RazorpayCheckoutButton
-                planId={PLANS.INDIVIDUAL_ANNUAL}
+                planId={PLANS.YEARLY}
                 label="Subscribe annually"
-                priceLabel="Rs 499"
+                priceLabel="Rs 229"
                 onPaid={(r) => setOrderId(r.orderId || "")}
               />
             </div>

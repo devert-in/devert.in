@@ -424,9 +424,25 @@ const RAZORPAY_WEBHOOK_SECRET = { value: () => process.env.RAZORPAY_WEBHOOK_SECR
 //
 // amount is in PAISE (Razorpay's smallest-unit convention). 100 paise is
 // Razorpay's own documented minimum.
+// MUST match the published ladder in components/campus/campus-landing.jsx's
+// PLANS/LIFETIME exactly. A price the page advertises but the server does not
+// charge is the one bug a payment screen can never ship: the earlier values here
+// (9900 / 49900) predated that page, so a student clicking the advertised Rs 29
+// would have been charged Rs 99.
+//
+// Keys mirror that file's plan.key so the two are greppable together. amount is
+// in PAISE. days is the entitlement length, sized one day over the nominal month
+// count so a renewal never lands a few hours short.
 const PLANS = Object.freeze({
-  individual_monthly: { amount: 9900, currency: "INR", label: "DeVert Campus - Individual (1 month)", days: 31 },
-  individual_annual: { amount: 49900, currency: "INR", label: "DeVert Campus - Individual (12 months)", days: 366 },
+  monthly:    { amount: 2900,  currency: "INR", label: "DeVert Premium - 1 month",   days: 31 },
+  quarterly:  { amount: 6900,  currency: "INR", label: "DeVert Premium - 3 months",  days: 92 },
+  halfyear:   { amount: 12900, currency: "INR", label: "DeVert Premium - 6 months",  days: 183 },
+  ninemonth:  { amount: 17900, currency: "INR", label: "DeVert Premium - 9 months",  days: 275 },
+  yearly:     { amount: 22900, currency: "INR", label: "DeVert Premium - 12 months", days: 366 },
+  // One-time, no renewal. days is a century rather than a null/Infinity special
+  // case, so the webhook's max(now, existing) + days arithmetic and every
+  // expiry comparison downstream keep working unchanged.
+  lifetime:   { amount: 99900, currency: "INR", label: "DeVert Lifetime Founder Pass", days: 36600 },
 });
 
 function razorpayClient() {

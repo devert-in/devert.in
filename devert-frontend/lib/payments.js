@@ -17,12 +17,17 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 
-// Plan ids must match the PLANS map in functions/index.js. Only the id travels
-// over the wire - the amount is the server's to decide, so a tampered client
-// cannot buy an annual plan for one rupee.
+// Plan ids must match the PLANS map in functions/index.js, which in turn mirrors
+// the published ladder in components/campus/campus-landing.jsx. Only the id
+// travels over the wire - the amount is the server's to decide, so a tampered
+// client cannot buy the yearly plan for one rupee.
 export const PLANS = Object.freeze({
-  INDIVIDUAL_MONTHLY: "individual_monthly",
-  INDIVIDUAL_ANNUAL: "individual_annual",
+  MONTHLY: "monthly",
+  QUARTERLY: "quarterly",
+  HALFYEAR: "halfyear",
+  NINEMONTH: "ninemonth",
+  YEARLY: "yearly",
+  LIFETIME: "lifetime",
 });
 
 let scriptPromise = null;

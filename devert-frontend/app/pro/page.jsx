@@ -44,7 +44,7 @@ export default function ProPage() {
         </p>
         <h1 className="font-sans text-3xl sm:text-4xl font-bold tracking-tighter text-white leading-none mb-4">
           The content is free.<br />
-          <span className="text-neon-cyan text-glow-cyan">The proof costs ₹499.</span>
+          <span className="text-neon-cyan text-glow-cyan">The proof costs ₹229.</span>
         </h1>
         <p className="font-mono text-sm text-white/40 leading-relaxed mb-10 max-w-xl">
           <span style={{ color: "rgba(0,255,65,0.55)" }}>$</span> Every problem, roadmap and subject on
@@ -127,11 +127,11 @@ export default function ProPage() {
             </div>
             <div className="p-5">
               <div className="flex items-end gap-2 mb-1">
-                <p className="font-sans text-2xl font-bold text-white">₹499</p>
+                <p className="font-sans text-2xl font-bold text-white">₹229</p>
                 <p className="font-mono text-[11px] text-white/35 mb-1">/ year</p>
               </div>
               <p className="font-mono text-[11px] text-white/35 mb-5">
-                ₹42 a month. Or ₹99 monthly if you would rather not commit.
+                ₹19.1 a month. Or ₹29 monthly if you would rather not commit.
               </p>
 
               <ul className="space-y-2.5 mb-6">
@@ -157,8 +157,8 @@ export default function ProPage() {
                 </a>
               ) : isCampus ? null : (
                 <div className="space-y-3">
-                  <RazorpayCheckoutButton planId={PLANS.INDIVIDUAL_ANNUAL} label="Get Pro for a year" priceLabel="₹499" />
-                  <RazorpayCheckoutButton planId={PLANS.INDIVIDUAL_MONTHLY} label="Pay monthly" priceLabel="₹99" />
+                  <RazorpayCheckoutButton planId={PLANS.YEARLY} label="Get Premium for a year" priceLabel="₹229" />
+                  <RazorpayCheckoutButton planId={PLANS.MONTHLY} label="Pay monthly" priceLabel="₹29" />
                 </div>
               )}
             </div>
