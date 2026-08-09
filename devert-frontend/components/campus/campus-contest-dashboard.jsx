@@ -976,8 +976,22 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
 
       {countdown && (
         <CampusCard className="p-4 text-center my-4">
-          <p className="text-[10px] font-mono tracking-wider mb-1.5" style={{ color: CAMPUS.inkFaint }}>{phase === "live" ? "TIME REMAINING" : "STARTS IN"}</p>
+          {/* Counts down to contestEnd - when the WINDOW shuts - not to any one
+              student's deadline. On a paper open 07:00-23:30 that reads as ~14
+              hours, which under a bare "TIME REMAINING" looks like the exam
+              length. Each student gets durationMinutes from their own start, so
+              both numbers are stated rather than one being mistaken for the
+              other. Same fix as the student-facing details card in
+              campus-contests.jsx. */}
+          <p className="text-[10px] font-mono tracking-wider mb-1.5" style={{ color: CAMPUS.inkFaint }}>
+            {phase === "live" ? "CONTEST WINDOW CLOSES IN" : "WINDOW OPENS IN"}
+          </p>
           <p className="text-2xl font-bold font-mono" style={{ color: phase === "live" ? CAMPUS.warn : CAMPUS.teal }}>{countdown}</p>
+          {contest.durationMinutes > 0 && (
+            <p className="text-[11px] mt-2" style={{ color: CAMPUS.inkSoft }}>
+              Each student gets <b style={{ color: CAMPUS.ink }}>{contest.durationMinutes} min</b> from their own start
+            </p>
+          )}
         </CampusCard>
       )}
 
