@@ -310,6 +310,8 @@ function AptitudeTopicView({ topicId, onBack }) {
   const [attemptLoaded, setAttemptLoaded] = useState(false);
   const [lastResult, setLastResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Surfaces a failed quiz write instead of silently re-enabling the button.
+  const [quizError, setQuizError] = useState("");
   const [completing, setCompleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [alreadyDone, setAlreadyDone] = useState(false);
@@ -347,6 +349,7 @@ function AptitudeTopicView({ topicId, onBack }) {
   const handleSubmitQuiz = async () => {
     if (!user || !topic) return;
     setSubmitting(true);
+    setQuizError("");
     try {
       const res = await submitQuizAttempt({
         uid: user.uid,
@@ -372,6 +375,11 @@ function AptitudeTopicView({ topicId, onBack }) {
       }
       const fresh = await fetchAttempt(user.uid, "aptitude", topicId).catch(() => null);
       setAttempt(fresh);
+    } catch (e) {
+      console.error("aptitude quiz submit failed", e);
+      setQuizError(e?.code === "permission-denied"
+        ? "Your account is not allowed to record this attempt."
+        : "Could not submit - " + (e?.message || "unknown error") + ".");
     } finally {
       setSubmitting(false);
     }
@@ -477,6 +485,7 @@ function AptitudeTopicView({ topicId, onBack }) {
               state={quizState}
               policy={policy}
               result={lastResult}
+              error={quizError}
               loading={!attemptLoaded}
               submitting={submitting}
               onSubmit={handleSubmitQuiz} />

@@ -270,6 +270,8 @@ export function GateTopicView() {
   const [attemptLoaded, setAttemptLoaded] = useState(false);
   const [lastResult, setLastResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Surfaces a failed quiz write instead of silently re-enabling the button.
+  const [quizError, setQuizError] = useState("");
   const [natAnswers, setNatAnswers] = useState({});
   const [natRevealed, setNatRevealed] = useState({});
   const [showDeepDive, setShowDeepDive] = useState(false);
@@ -369,6 +371,7 @@ export function GateTopicView() {
   const handleSubmitQuiz = async () => {
     if (!user || !topic) return;
     setSubmitting(true);
+    setQuizError("");
     try {
       const res = await submitQuizAttempt({
         uid: user.uid,
@@ -394,6 +397,11 @@ export function GateTopicView() {
       }
       const fresh = await fetchAttempt(user.uid, "gate", quizScopeId).catch(() => null);
       setAttempt(fresh);
+    } catch (e) {
+      console.error("gate quiz submit failed", e);
+      setQuizError(e?.code === "permission-denied"
+        ? "Your account is not allowed to record this attempt."
+        : "Could not submit - " + (e?.message || "unknown error") + ".");
     } finally {
       setSubmitting(false);
     }
@@ -598,6 +606,7 @@ export function GateTopicView() {
               state={quizState}
               policy={policy}
               result={lastResult}
+              error={quizError}
               loading={!attemptLoaded}
               submitting={submitting}
               onSubmit={handleSubmitQuiz} />

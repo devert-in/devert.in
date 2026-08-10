@@ -474,6 +474,8 @@ function TopicView({ langId, topicId, onBack }) {
   const [attemptLoaded, setAttemptLoaded] = useState(false);
   const [lastResult, setLastResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Surfaces a failed quiz write instead of silently re-enabling the button.
+  const [quizError, setQuizError] = useState("");
   const [practiceScreen, setPracticeScreen] = useState(() => {
     const problemId = searchParams.get("practiceProblem");
     return problemId ? { view: "problem", problemId } : { view: "list" };
@@ -527,6 +529,7 @@ function TopicView({ langId, topicId, onBack }) {
   const handleSubmitQuiz = async () => {
     if (!user || !topic) return;
     setSubmitting(true);
+    setQuizError("");
     try {
       const res = await submitQuizAttempt({
         uid: user.uid,
@@ -552,6 +555,11 @@ function TopicView({ langId, topicId, onBack }) {
       }
       const fresh = await fetchAttempt(user.uid, "programming", quizScopeId).catch(() => null);
       setAttempt(fresh);
+    } catch (e) {
+      console.error("programming quiz submit failed", e);
+      setQuizError(e?.code === "permission-denied"
+        ? "Your account is not allowed to record this attempt."
+        : "Could not submit - " + (e?.message || "unknown error") + ".");
     } finally {
       setSubmitting(false);
     }
@@ -692,6 +700,7 @@ function TopicView({ langId, topicId, onBack }) {
               state={quizState}
               policy={policy}
               result={lastResult}
+              error={quizError}
               loading={!attemptLoaded}
               submitting={submitting}
               onSubmit={handleSubmitQuiz} />

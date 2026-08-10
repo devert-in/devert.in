@@ -26,6 +26,9 @@ export function GradedQuiz({
   state,
   policy,
   result,
+  // Set by the caller's catch. Rendered next to the Submit button so a failed
+  // write is visible where the student is already looking.
+  error,
   loading,
   submitting,
   onSubmit,
@@ -113,6 +116,37 @@ export function GradedQuiz({
                     ? "You get one submission. It locks after this."
                     : `${state.attemptsLeft} attempts left.`}
               </p>
+
+              {/* THE FAILURE THAT WAS INVISIBLE. Every module's submit handler
+                  wrapped submitQuizAttempt in try/finally with NO catch, so a
+                  rejected write (a rules denial, a failed transaction, a dropped
+                  connection) only re-enabled the button. The student pressed
+                  Submit, nothing happened, and no reason was ever shown - the
+                  reported "CS Core quiz isn't submitting". The write itself is
+                  fine in the general case; what was broken was that a failure
+                  said nothing.
+                  Surfacing the real message also makes the next report
+                  diagnosable instead of a guess. */}
+              {error && (
+                <p className="text-[11.5px] mt-2 leading-relaxed" style={{ color: CAMPUS.bad }}>
+                  {error} Your answers are still selected - press Submit again.
+                </p>
+              )}
+
+              {/* A "locked" or "not-signed-in" result is not an error, but it is
+                  also not graded - and with only the graded branch handled, it
+                  used to render as silence too. */}
+              {!error && result && result.status !== "graded" && (
+                <p className="text-[11.5px] mt-2 leading-relaxed" style={{ color: CAMPUS.warn }}>
+                  {result.reason === "not-signed-in"
+                    ? "You are signed out. Sign in again and resubmit."
+                    : result.reason === "already-passed"
+                      ? "You have already passed this quiz."
+                      : result.reason === "attempts-exhausted"
+                        ? "No attempts left on this quiz - ask your admin to reopen it."
+                        : "This quiz could not be graded. Nothing was recorded."}
+                </p>
+              )}
             </div>
           ) : (
             <QuizResult state={state} result={result} policy={policy} />

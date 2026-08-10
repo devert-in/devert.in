@@ -90,22 +90,10 @@ function exportParticipantsCsv(rows, title) {
   URL.revokeObjectURL(url);
 }
 
-// Every class, every student, ranked within their own class - the full list an
-// HOD or class teacher actually wants, rather than the top 3 the card shows.
-function exportClasswiseCsv(classwise, title) {
-  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = "class,classRank,name,rollNumber,score,maxScore,percent,correct,attempted,accuracy,timeTaken,timeTakenSeconds";
-  const rows = classwise.flatMap(cls => cls.rows.map((r, i) =>
-    [cls.label, i + 1, r.name, r.rollNumber, r.score, r.maxScore, r.pct, r.correct, r.attempted, r.accuracy,
-     formatDuration(r.timeTakenSeconds), r.timeTakenSeconds ?? ""].map(esc).join(",")
-  ));
-  const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `${title.replace(/\s+/g, "-").toLowerCase()}-classwise-results.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+// The hand-rolled CSV-only exporter that used to live here is gone. The
+// Classwise Results card now uses ReportDownloadButton, which offers CSV, Excel
+// AND PDF from one getReport() via lib/campusReports.js - so this function was
+// both redundant and the reason there was no PDF option.
 
 // One ranked block - the printable classwise report's layout brought in-app:
 // a heading carrying the class's own summary, then the full table (rank, name,
@@ -1217,10 +1205,35 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
                 {classwise.overall.rows.length} students &middot; {classwise.classes.length} {classwise.classes.length === 1 ? "class" : "classes"}
               </span>
             </p>
-            <button onClick={() => exportClasswiseCsv(classwise.classes, contest.title)}
-              className="flex items-center gap-1 text-[11px]" style={{ color: CAMPUS.teal }}>
-              <Download size={11} /> export csv
-            </button>
+            {/* Was a CSV-only anchor. ReportDownloadButton is the existing
+                report control (campus-ui.jsx) and already offers CSV, Excel and
+                PDF off one `getReport()` - lib/campusReports.js does the PDF via
+                jspdf + jspdf-autotable, both already dependencies. So a PDF of
+                the classwise sheet needed wiring, not new machinery.
+                Rows are flattened class-by-class with the class label and the
+                WITHIN-CLASS rank on each row, so the ordering that makes the
+                on-screen blocks readable survives into a flat table. */}
+            <ReportDownloadButton
+              label="Download results"
+              size="sm"
+              getReport={() => ({
+                title: `${contest.title} - Classwise Results`,
+                filename: `${contest.title.replace(/\s+/g, "-").toLowerCase()}-classwise-results`,
+                columns: [
+                  { label: "Class", value: r => r.className },
+                  { label: "Rank in class", value: r => r.classRank },
+                  { label: "Name", value: r => r.name },
+                  { label: "Roll number", value: r => r.rollNumber },
+                  { label: "Score", value: r => `${r.score}/${r.maxScore}` },
+                  { label: "Percent", value: r => `${r.pct}%` },
+                  { label: "Correct", value: r => r.correct },
+                  { label: "Attempted", value: r => r.attempted },
+                  { label: "Accuracy", value: r => `${r.accuracy}%` },
+                  { label: "Time taken", value: r => formatDuration(r.timeTakenSeconds) },
+                ],
+                rows: classwise.classes.flatMap(cls =>
+                  cls.rows.map((r, i) => ({ ...r, className: cls.label, classRank: i + 1 }))),
+              })} />
           </div>
           {classwise.mixedPapers && (
             <p className="text-[10.5px] mb-3 px-2.5 py-1.5 rounded-md"
