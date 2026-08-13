@@ -209,7 +209,7 @@ export const CampusBrandingForm = forwardRef(function CampusBrandingForm(
       <div className="flex items-center gap-3">
         <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
           style={{ border: `1px solid ${CAMPUS.line}`, background: CAMPUS.paper }}>
-          {logoUrl ? <img src={logoUrl} alt="" className="w-full h-full object-contain" /> : <span className="text-[9px]" style={{ color: CAMPUS.inkFaint }}>LOGO</span>}
+          {logoUrl ? <img src={logoUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-[9px]" style={{ color: CAMPUS.inkFaint }}>LOGO</span>}
         </div>
         <label className="text-[12px] font-semibold px-3 py-1.5 rounded-lg cursor-pointer inline-flex items-center gap-1.5"
           style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }}>

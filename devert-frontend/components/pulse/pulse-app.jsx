@@ -8,7 +8,7 @@ import {
   Activity, Heart, MessageCircle, Bookmark, BookmarkCheck,
   Share2, Plus, X, Image as ImageIcon, Code2, Link2,
   Send, ChevronDown, Check, Loader2, Upload, UserPlus, UserMinus,
-  MoreVertical, Pencil, Trash2, Eye, Repeat, Wallet,
+  MoreVertical, Pencil, Trash2, Eye, Repeat, Wallet, Users, ArrowLeft,
 } from "lucide-react";
 import { db, storage } from "@/lib/firebase";
 import {
@@ -72,7 +72,7 @@ export const PULSE_CATEGORIES = [
   { v: "Other",       c: "rgba(255,255,255,0.4)" },
 ];
 
-function CreatePostModal({ user, userData, onClose, existing, onSaved }) {
+function CreatePostModal({ user, userData, onClose, existing, onSaved, communityId }) {
   const isEditing = !!existing;
   const overlayClass = useOverlayClass("z-[60] flex items-end md:items-center justify-center");
   const [title,      setTitle]      = useState(existing?.title || "");
@@ -166,6 +166,7 @@ function CreatePostModal({ user, userData, onClose, existing, onSaved }) {
         imageUrl:     imageUrls[0] || null,
         imageUrls,
         tags:         tags.split(",").map(t => t.trim()).filter(Boolean),
+        communityId:  communityId || null,
         likeCount:    0,
         commentCount: 0,
         saveCount:    0,
@@ -642,7 +643,7 @@ function MediaPreview({ post }) {
   return null;
 }
 
-function PostCard({ post, user, userData, liked, likeBusy, saved, saveBusy, isFollowing, followBusy, isReposted, repostBusy, onLike, onSave, onComment, onToggleFollow, onToggleRepost, onEdit, onDelete, onGuestAction, autoOpenDetail }) {
+function PostCard({ post, user, userData, liked, likeBusy, saved, saveBusy, isFollowing, followBusy, isReposted, repostBusy, onLike, onSave, onComment, onToggleFollow, onToggleRepost, onEdit, onDelete, onGuestAction, autoOpenDetail, communityName }) {
   const router = useRouter();
   const [showComments, setShowComments] = useState(false);
   const [showDetail,   setShowDetail]   = useState(false);
@@ -830,9 +831,14 @@ function PostCard({ post, user, userData, liked, likeBusy, saved, saveBusy, isFo
           )}
         </div>
 
-        {/* Category */}
-        <div className="px-4 pb-2 flex-shrink-0">
+        {/* Category (+ community badge, if this post belongs to one) */}
+        <div className="px-4 pb-2 flex-shrink-0 flex items-center gap-2">
           <CategoryBadge category={post.category} />
+          {communityName && (
+            <span className="font-mono text-[9px] text-neon-cyan/70 border border-neon-cyan/25 px-2 py-0.5 rounded">
+              {communityName}
+            </span>
+          )}
         </div>
 
         {/* Content - bounded, never grows the card past its max-height */}
@@ -964,6 +970,54 @@ function PostDetailModal({ post, onClose, actionsBar }) {
 
 const PAGE_SIZE = 20;
 
+// ── communities directory ──────────────────────────────────────────────────────
+// Admin-created content (same pattern as missions/hackathons) - this surface
+// only discovers/joins, it never creates. Reuses the exact join/leave batch
+// shape handleToggleFollow already uses below (join-doc + bounded ±1 counter).
+function CommunityDirectory({ communities, myCommunityIds, busyId, onToggleMembership, onOpen, onGuestAction, user, loading }) {
+  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading communities...</p>;
+  if (communities.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-20 text-center">
+        <Users size={40} className="text-white/10" />
+        <p className="font-mono text-sm text-white/20">no communities yet</p>
+        <p className="font-mono text-[10px] text-white/12">// first one is brewing - stay tuned</p>
+      </div>
+    );
+  }
+  return (
+    <div className="grid sm:grid-cols-2 gap-3">
+      {communities.map(c => {
+        const joined = myCommunityIds.has(c.id);
+        return (
+          <button key={c.id} onClick={() => onOpen(c)} className="terminal-window p-4 text-left transition-colors hover:border-white/15">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-bold text-white truncate">{c.name}</p>
+                {c.topic && <p className="font-mono text-[9px] text-neon-cyan/60 mt-0.5">#{c.topic}</p>}
+              </div>
+              <span
+                onClick={e => { e.stopPropagation(); user ? onToggleMembership(c) : onGuestAction(); }}
+                className="flex-shrink-0 font-mono text-[10px] px-2.5 py-1 rounded-full border transition-all cursor-pointer"
+                style={{
+                  opacity: busyId === c.id ? 0.5 : 1,
+                  ...(joined
+                    ? { color: "rgba(255,255,255,0.35)", borderColor: "rgba(255,255,255,0.12)" }
+                    : { color: "#00FF41", borderColor: "rgba(0,255,65,0.35)", background: "rgba(0,255,65,0.04)" }),
+                }}
+              >
+                {joined ? "joined" : "join"}
+              </span>
+            </div>
+            <p className="font-mono text-[10px] text-white/35 leading-relaxed line-clamp-2 mb-3">{c.description}</p>
+            <p className="font-mono text-[9px] text-white/22 flex items-center gap-1"><Users size={10} /> {c.memberCount ?? 0} members</p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function PulseApp() {
   const { user, userData }          = useAuth();
   const windowed = useIsWindowed();
@@ -992,6 +1046,71 @@ export function PulseApp() {
   const [editingPost, setEditingPost] = useState(null);
   const [deletingId,  setDeletingId]  = useState(null);
   const [guestPromptOpen, setGuestPromptOpen] = useState(false);
+
+  const [view, setView] = useState("feed"); // "feed" | "communities"
+  const [communities, setCommunities] = useState([]);
+  const [communitiesLoading, setCommunitiesLoading] = useState(true);
+  const [myCommunityIds, setMyCommunityIds] = useState(new Set());
+  const [communityBusyId, setCommunityBusyId] = useState(null);
+  const [activeCommunity, setActiveCommunity] = useState(null);
+  const [communityPosts, setCommunityPosts] = useState([]);
+  const [communityPostsLoading, setCommunityPostsLoading] = useState(false);
+
+  useEffect(() => {
+    getDocs(query(collection(db, "communities"), orderBy("memberCount", "desc")))
+      .then(snap => setCommunities(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => setCommunities([]))
+      .finally(() => setCommunitiesLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!user) { setMyCommunityIds(new Set()); return; }
+    getDocs(query(collection(db, "community_members"), where("uid", "==", user.uid)))
+      .then(snap => setMyCommunityIds(new Set(snap.docs.map(d => d.data().communityId))))
+      .catch(() => setMyCommunityIds(new Set()));
+  }, [user]);
+
+  const communitiesById = Object.fromEntries(communities.map(c => [c.id, c]));
+
+  const handleToggleCommunityMembership = async (community) => {
+    if (!user || communityBusyId) return;
+    const joined = myCommunityIds.has(community.id);
+    setCommunityBusyId(community.id);
+    setMyCommunityIds(prev => { const n = new Set(prev); joined ? n.delete(community.id) : n.add(community.id); return n; });
+    setCommunities(prev => prev.map(c => c.id === community.id ? { ...c, memberCount: Math.max(0, (c.memberCount || 0) + (joined ? -1 : 1)) } : c));
+    const memberRef = doc(db, "community_members", `${community.id}_${user.uid}`);
+    try {
+      const batch = writeBatch(db);
+      if (joined) {
+        batch.delete(memberRef);
+        batch.update(doc(db, "communities", community.id), { memberCount: increment(-1) });
+      } else {
+        batch.set(memberRef, { communityId: community.id, uid: user.uid, joinedAt: serverTimestamp() });
+        batch.update(doc(db, "communities", community.id), { memberCount: increment(1) });
+      }
+      await batch.commit();
+    } catch (e) {
+      console.error(e);
+      setMyCommunityIds(prev => { const n = new Set(prev); joined ? n.add(community.id) : n.delete(community.id); return n; });
+      setCommunities(prev => prev.map(c => c.id === community.id ? { ...c, memberCount: Math.max(0, (c.memberCount || 0) + (joined ? 1 : -1)) } : c));
+    } finally {
+      setCommunityBusyId(null);
+    }
+  };
+
+  const openCommunity = (community) => {
+    setActiveCommunity(community);
+    setCommunityPostsLoading(true);
+    getDocs(query(
+      collection(db, "pulse_posts"),
+      where("communityId", "==", community.id), where("status", "==", "approved"),
+      orderBy("createdAt", "desc"),
+    ))
+      .then(snap => setCommunityPosts(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => setCommunityPosts([]))
+      .finally(() => setCommunityPostsLoading(false));
+  };
+  const closeCommunity = () => { setActiveCommunity(null); setCommunityPosts([]); };
 
   // Realtime feed - only approved posts, newest first. New posts (or admin
   // approvals) reflect for every connected user without a manual refresh.
@@ -1285,10 +1404,79 @@ export function PulseApp() {
               )}
             </div>
             <p className="font-mono text-sm text-white/35 mt-2">Dev content. Real conversations. Community-built.</p>
+
+            {/* Feed / Communities toggle */}
+            <div className="flex gap-2 mt-5">
+              {[{ v: "feed", label: "FEED" }, { v: "communities", label: "COMMUNITIES" }].map(t => (
+                <button key={t.v}
+                  onClick={() => { setView(t.v); if (t.v === "feed") closeCommunity(); }}
+                  className="font-mono text-[10px] tracking-widest px-3 py-1.5 rounded transition-all"
+                  style={view === t.v
+                    ? { color: "#00FF41", borderBottom: "1px solid #00FF41", background: "rgba(0,255,65,0.06)" }
+                    : { color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.08)" }}
+                >{t.label}</button>
+              ))}
+            </div>
           </motion.div>
 
+          {view === "communities" && !activeCommunity && (
+            <CommunityDirectory
+              communities={communities}
+              myCommunityIds={myCommunityIds}
+              busyId={communityBusyId}
+              onToggleMembership={handleToggleCommunityMembership}
+              onOpen={openCommunity}
+              onGuestAction={() => setGuestPromptOpen(true)}
+              user={user}
+              loading={communitiesLoading}
+            />
+          )}
+
+          {view === "communities" && activeCommunity && (
+            <div>
+              <button onClick={closeCommunity} className="flex items-center gap-1.5 font-mono text-[10px] text-white/25 hover:text-white/45 transition-colors mb-4">
+                <ArrowLeft size={11} /> communities
+              </button>
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <p className="font-sans text-lg font-bold text-white">{activeCommunity.name}</p>
+                  {activeCommunity.topic && <p className="font-mono text-[10px] text-neon-cyan/60">#{activeCommunity.topic}</p>}
+                </div>
+              </div>
+              {communityPostsLoading ? (
+                <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
+              ) : communityPosts.length === 0 ? (
+                <div className="flex flex-col items-center gap-4 py-16">
+                  <p className="font-mono text-sm text-white/20">no posts in this community yet</p>
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                    onClick={() => user ? setCreateOpen(true) : setGuestPromptOpen(true)}
+                    className="font-mono text-xs px-6 py-2.5 border border-neon-green/30 text-neon-green hover:bg-neon-green/8 transition-all">
+                    [ POST HERE ]
+                  </motion.button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {communityPosts.map(post => (
+                    <PostCard key={post.id}
+                      post={post} user={user} userData={userData}
+                      communityName={communitiesById[post.communityId]?.name}
+                      liked={likedIds.has(post.id)} likeBusy={likeBusyId === post.id}
+                      saved={savedIds.has(post.id)} saveBusy={saveBusyId === post.id}
+                      isFollowing={followingIds.has(post.uid)} followBusy={followBusyId === post.uid}
+                      isReposted={repostedIds.has(post.id)} repostBusy={repostBusyId === post.id}
+                      onLike={handleLike} onSave={handleSave} onComment={() => {}}
+                      onToggleFollow={handleToggleFollow} onToggleRepost={handleToggleRepost}
+                      onEdit={setEditingPost} onDelete={handleDeletePost}
+                      onGuestAction={() => setGuestPromptOpen(true)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Feed */}
-          {loading ? (
+          {view === "feed" && (loading ? (
             <div className="space-y-4">
               {[1,2,3].map(i => (
                 <div key={i} className="terminal-window p-5 animate-pulse space-y-3">
@@ -1353,11 +1541,14 @@ export function PulseApp() {
                 </div>
               )}
             </div>
-          )}
+          ))}
         </div>
       </main>
 
-      {/* Floating + button - visible to guests too; prompts sign-in instead of hiding */}
+      {/* Floating + button - visible to guests too; prompts sign-in instead of hiding.
+          Hidden in the communities directory (no post target yet) - still shown
+          inside an open community (posts there) and in the main feed. */}
+      {view !== "communities" || activeCommunity ? (
       <motion.button
         initial={{ scale: 0 }} animate={{ scale: 1 }}
         transition={{ delay: 0.3, type: "spring", stiffness: 300, damping: 20 }}
@@ -1373,6 +1564,7 @@ export function PulseApp() {
       >
         <Plus size={22} color="#050505" strokeWidth={2.5} />
       </motion.button>
+      ) : null}
 
       {/* Modals */}
       <AnimatePresence>
@@ -1380,7 +1572,9 @@ export function PulseApp() {
           <CreatePostModal
             user={user}
             userData={userData}
+            communityId={activeCommunity?.id}
             onClose={() => setCreateOpen(false)}
+            onSaved={() => activeCommunity && openCommunity(activeCommunity)}
           />
         )}
         {editingPost && (

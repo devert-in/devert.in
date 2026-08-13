@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Anchor, ExternalLink, Plus, Filter, Flame, Wrench, X, Check } from "lucide-react";
+import { Anchor, ExternalLink, Plus, Filter, Flame, Wrench, X, Check, Heart, MessageCircle, Send, Trash2 } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, increment, serverTimestamp } from "firebase/firestore";
+import {
+  collection, query, orderBy, where, getDocs, addDoc, doc, setDoc, deleteDoc,
+  updateDoc, increment, serverTimestamp, writeBatch,
+} from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 
 const TAG_META = {
@@ -138,6 +141,130 @@ function DockModal({ onClose, onSubmit, submitting }) {
   );
 }
 
+// Mirrors Pulse's own CommentsDrawer data flow (load / batched write /
+// optimistic append / error-preserves-typed-text) against project_comments
+// instead of pulse_comments - not a literal reuse of that component, since
+// it's module-private to pulse-app.jsx, hardwired to pulse_comments, and
+// built on the windowed-desktop overlay system Shipyard doesn't use.
+function ProjectCommentsDrawer({ project, user, userData, onClose, onCommented }) {
+  const [comments, setComments] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [text,     setText]     = useState("");
+  const [sending,  setSending]  = useState(false);
+  const [error,    setError]    = useState("");
+
+  useEffect(() => {
+    getDocs(query(collection(db, "project_comments"), where("projectId", "==", project.id), orderBy("createdAt", "asc")))
+      .then(snap => setComments(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => setError("Couldn't load comments."))
+      .finally(() => setLoading(false));
+  }, [project.id]);
+
+  const handleSend = async () => {
+    if (!text.trim() || sending) return;
+    setSending(true); setError("");
+    const typed = text.trim();
+    try {
+      const batch = writeBatch(db);
+      const commentRef = doc(collection(db, "project_comments"));
+      batch.set(commentRef, {
+        projectId: project.id, uid: user.uid,
+        handle: userData?.handle || "", displayName: userData?.displayName || "",
+        text: typed, createdAt: serverTimestamp(),
+      });
+      batch.update(doc(db, "projects", project.id), { commentCount: increment(1) });
+      if (project.ownerId && project.ownerId !== user.uid) {
+        batch.update(doc(db, "users", project.ownerId), { totalCommentsReceived: increment(1) });
+      }
+      await batch.commit();
+      setComments(c => [...c, { id: commentRef.id, projectId: project.id, uid: user.uid, handle: userData?.handle || "", displayName: userData?.displayName || "", text: typed }]);
+      setText("");
+      onCommented();
+    } catch {
+      setError("Couldn't post that comment. Try again.");
+      setText(typed);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDelete = async (c) => {
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "project_comments", c.id));
+      batch.update(doc(db, "projects", project.id), { commentCount: increment(-1) });
+      if (project.ownerId && project.ownerId !== user.uid) {
+        batch.update(doc(db, "users", project.ownerId), { totalCommentsReceived: increment(-1) });
+      }
+      await batch.commit();
+      setComments(cs => cs.filter(x => x.id !== c.id));
+      onCommented(-1);
+    } catch { /* leave the comment in place on failure */ }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: "rgba(0,0,0,0.8)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 12 }}
+        className="terminal-window w-full max-w-md max-h-[80vh] flex flex-col"
+      >
+        <div className="terminal-header">
+          <div className="terminal-dot bg-red-500/70" />
+          <div className="terminal-dot bg-yellow-500/70" />
+          <div className="terminal-dot bg-green-500/70" />
+          <span className="font-mono text-[10px] text-white/25 ml-2">comments.log</span>
+          <button onClick={onClose} className="ml-auto text-white/25 hover:text-white/60 transition-colors">
+            <X size={13} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {loading ? (
+            <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
+          ) : comments.length === 0 ? (
+            <p className="font-mono text-xs text-white/20 text-center py-6">no comments yet - say something</p>
+          ) : comments.map(c => (
+            <div key={c.id} className="flex items-start gap-2 group">
+              <div className="flex-1 min-w-0">
+                <p className="font-mono text-[10px] text-neon-green/60">@{c.handle || "dev"}</p>
+                <p className="font-mono text-xs text-white/65 leading-relaxed break-words">{c.text}</p>
+              </div>
+              {(c.uid === user?.uid) && (
+                <button onClick={() => handleDelete(c)}
+                  className="text-white/0 group-hover:text-white/25 hover:!text-red-400 transition-colors flex-shrink-0">
+                  <Trash2 size={11} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="p-3 border-t border-white/6 space-y-2">
+          {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
+          <div className="flex items-center gap-2">
+            <input value={text} onChange={e => setText(e.target.value)} placeholder="write a comment..." maxLength={280}
+              onKeyDown={e => e.key === "Enter" && handleSend()}
+              className="flex-1 font-mono text-xs text-white/80 px-3 py-2 rounded outline-none"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+              onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
+              onBlur={e  => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+            />
+            <button onClick={handleSend} disabled={sending || !text.trim()}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center text-neon-cyan border border-neon-cyan/30 rounded hover:bg-neon-cyan/8 transition-colors disabled:opacity-40">
+              <Send size={13} />
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function ShipyardPage() {
   const { user, userData, refreshProfile } = useAuth();
   const [projects,   setProjects]   = useState([]);
@@ -145,6 +272,9 @@ export default function ShipyardPage() {
   const [filter,     setFilter]     = useState("all");
   const [showModal,  setShowModal]  = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [likedIds,   setLikedIds]   = useState(new Set());
+  const [likeBusy,   setLikeBusy]   = useState({});
+  const [commentsOn, setCommentsOn] = useState(null);
 
   const fetchProjects = () => {
     setLoading(true);
@@ -155,6 +285,45 @@ export default function ShipyardPage() {
   };
 
   useEffect(() => { fetchProjects(); }, []);
+
+  useEffect(() => {
+    if (!user) { setLikedIds(new Set()); return; }
+    getDocs(query(collection(db, "project_likes"), where("uid", "==", user.uid)))
+      .then(snap => setLikedIds(new Set(snap.docs.map(d => d.data().projectId))))
+      .catch(() => setLikedIds(new Set()));
+  }, [user]);
+
+  const handleLike = async (p) => {
+    if (!user) { window.location.href = "/login"; return; }
+    if (likeBusy[p.id]) return;
+    setLikeBusy(b => ({ ...b, [p.id]: true }));
+    const alreadyLiked = likedIds.has(p.id);
+    const likeRef = doc(db, "project_likes", `${p.id}_${user.uid}`);
+    try {
+      const batch = writeBatch(db);
+      if (alreadyLiked) {
+        batch.delete(likeRef);
+        batch.update(doc(db, "projects", p.id), { likeCount: increment(-1) });
+        if (p.ownerId && p.ownerId !== user.uid) batch.update(doc(db, "users", p.ownerId), { totalLikesReceived: increment(-1) });
+      } else {
+        batch.set(likeRef, { projectId: p.id, uid: user.uid, likedAt: serverTimestamp() });
+        batch.update(doc(db, "projects", p.id), { likeCount: increment(1) });
+        if (p.ownerId && p.ownerId !== user.uid) batch.update(doc(db, "users", p.ownerId), { totalLikesReceived: increment(1) });
+      }
+      await batch.commit();
+      setLikedIds(ids => {
+        const next = new Set(ids);
+        alreadyLiked ? next.delete(p.id) : next.add(p.id);
+        return next;
+      });
+      setProjects(prev => prev.map(x => x.id === p.id ? { ...x, likeCount: Math.max(0, (x.likeCount || 0) + (alreadyLiked ? -1 : 1)) } : x));
+    } catch (e) { console.error(e); }
+    finally { setLikeBusy(b => ({ ...b, [p.id]: false })); }
+  };
+
+  const bumpCommentCount = (projectId, delta = 1) => {
+    setProjects(prev => prev.map(x => x.id === projectId ? { ...x, commentCount: Math.max(0, (x.commentCount || 0) + delta) } : x));
+  };
 
   const handleDock = async (data) => {
     if (!user) return;
@@ -195,6 +364,15 @@ export default function ShipyardPage() {
             onClose={() => setShowModal(false)}
             onSubmit={handleDock}
             submitting={submitting}
+          />
+        )}
+        {commentsOn && user && (
+          <ProjectCommentsDrawer
+            project={projects.find(x => x.id === commentsOn)}
+            user={user}
+            userData={userData}
+            onClose={() => setCommentsOn(null)}
+            onCommented={(delta) => bumpCommentCount(commentsOn, delta ?? 1)}
           />
         )}
       </AnimatePresence>
@@ -311,13 +489,29 @@ export default function ShipyardPage() {
                       </span>
                     </div>
                     <p className="font-mono text-[10px] text-white/32 mb-4 leading-relaxed">{p.description}</p>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-3">
                       <span className="font-mono text-[10px] text-neon-green/60">@{p.ownerHandle}</span>
                       <div className="flex gap-1 flex-wrap justify-end">
                         {(p.stack || []).slice(0, 2).map(t => (
                           <span key={t} className="font-mono text-[9px] text-white/25 border border-white/8 px-1 py-0.5 rounded">{t}</span>
                         ))}
                       </div>
+                    </div>
+                    <div className="flex items-center gap-3 pt-2 border-t border-white/5">
+                      <button
+                        onClick={e => { e.stopPropagation(); handleLike(p); }}
+                        disabled={likeBusy[p.id]}
+                        className="flex items-center gap-1.5 font-mono text-[10px] transition-colors disabled:opacity-50"
+                        style={{ color: likedIds.has(p.id) ? "#FF5050" : "rgba(255,255,255,0.3)" }}
+                      >
+                        <Heart size={11} fill={likedIds.has(p.id) ? "#FF5050" : "none"} /> {p.likeCount ?? 0}
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); user ? setCommentsOn(p.id) : window.location.href = "/login"; }}
+                        className="flex items-center gap-1.5 font-mono text-[10px] text-white/30 hover:text-neon-cyan transition-colors"
+                      >
+                        <MessageCircle size={11} /> {p.commentCount ?? 0}
+                      </button>
                     </div>
                   </div>
                 </motion.div>

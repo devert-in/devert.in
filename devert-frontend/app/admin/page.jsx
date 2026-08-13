@@ -11,7 +11,7 @@ import {
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
-  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network, Inbox,
+  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network, Inbox, Heart,
 } from "lucide-react";
 import {
   db, auth
@@ -54,6 +54,7 @@ import {
   GateFormulaPanel, GateResourcesPanel, GateLessonImportPanel,
 } from "@/components/admin/gate-panel";
 import { fetchAptitudeTopics, saveAptitudeTopic } from "@/lib/aptitude";
+import { EVENT_TYPES, isHackathon } from "@/lib/eventTypes";
 import { withVersionSnapshot } from "@/lib/contentVersioning";
 import { LanguageLogo } from "@/components/campus/language-logo";
 import { subjectIcon } from "@/components/campus/campus-cscore";
@@ -1825,6 +1826,115 @@ function PulsePanel() {
           className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Plus size={12} /> {saving ? "publishing..." : "publish post"}
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
+// ── Communities panel (Pulse chapters) ────────────────────────────────────────
+// Admin-created content, same editingId/startEdit CRUD pattern used
+// elsewhere in this file. Deleting a community here does NOT delete the
+// pulse_posts tagged with its id or the community_members join docs - those
+// are left as harmless orphans (same tradeoff already accepted for a
+// deleted hackathon's slug-keyed docs elsewhere) rather than adding a bulk
+// cleanup pass for what's expected to be rare, admin-only content churn.
+
+function blankCommunityForm() {
+  return { slug: "", name: "", topic: "", description: "" };
+}
+
+function CommunitiesPanel() {
+  const [communities, setCommunities] = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [error,       setError]       = useState("");
+  const [editingId,   setEditingId]   = useState(null);
+  const [form, setForm] = useState(blankCommunityForm);
+  const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+
+  const load = () => {
+    setLoading(true);
+    getDocs(query(collection(db, "communities"), orderBy("createdAt", "desc")))
+      .then(snap => setCommunities(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const startEdit = (c) => {
+    setEditingId(c.id);
+    setError("");
+    setForm({ slug: c.id, name: c.name || "", topic: c.topic || "", description: c.description || "" });
+  };
+  const cancelEdit = () => { setEditingId(null); setForm(blankCommunityForm()); setError(""); };
+
+  const handleSave = async () => {
+    if (!editingId && !form.slug.trim()) return setError("Slug is required.");
+    if (!form.name.trim()) return setError("Name is required.");
+    setSaving(true); setError("");
+    try {
+      const payload = { name: form.name.trim(), topic: form.topic.trim(), description: form.description.trim() };
+      if (editingId) {
+        await updateDoc(doc(db, "communities", editingId), payload);
+      } else {
+        await setDoc(doc(db, "communities", form.slug.trim()), {
+          ...payload, memberCount: 0, createdAt: serverTimestamp(),
+        });
+      }
+      cancelEdit();
+      load();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm(`Delete community "${id}"?`)) return;
+    await deleteDoc(doc(db, "communities", id));
+    if (editingId === id) cancelEdit();
+    load();
+  };
+
+  return (
+    <div className="space-y-5">
+      {loading ? (
+        <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
+      ) : (
+        <div className="space-y-2">
+          {communities.length === 0 && <p className="font-mono text-xs text-white/20">No communities yet.</p>}
+          {communities.map(c => (
+            <div key={c.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-3">
+              <span className="font-mono text-[10px] text-white/35 flex-shrink-0">{c.id}</span>
+              <span className="font-mono text-xs text-white/75 flex-1 truncate">{c.name}</span>
+              <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">{c.memberCount ?? 0} members</span>
+              <button onClick={() => startEdit(c)} className="text-white/20 hover:text-yellow-400 transition-colors flex-shrink-0"><Pencil size={12} /></button>
+              <button onClick={() => handleDelete(c.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="border border-white/6 rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">{editingId ? `// editing ${editingId}` : "// create community"}</p>
+          {editingId && (
+            <button onClick={cancelEdit} className="font-mono text-[10px] text-white/30 hover:text-white/55 flex items-center gap-1">
+              <X size={10} /> cancel
+            </button>
+          )}
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="ai-builders" hint={editingId ? "locked once created" : undefined} />
+          <Input label="NAME" value={form.name} onChange={f("name")} placeholder="AI Builders" />
+        </div>
+        <Input label="TOPIC (optional)" value={form.topic} onChange={f("topic")} placeholder="ai" />
+        <Textarea label="DESCRIPTION" value={form.description} onChange={f("description")} placeholder="What's this community about?" rows={2} />
+        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
+        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+          onClick={handleSave} disabled={saving}
+          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <Plus size={12} /> {saving ? "saving..." : editingId ? "save changes" : "create community"}
         </motion.button>
       </div>
     </div>
@@ -5906,28 +6016,54 @@ function CodingProblemsPanel() {
   );
 }
 
-// ── Hackathons panel ──────────────────────────────────────────────────────────
-
+// ── Events panel (hackathons + workshops/meetups/open-mic/tech-talks) ─────────
+// "live" used to be the stored value here while every read path
+// (hackathons-app.jsx/hackathon-detail-view.jsx's statusMeta()) switched on
+// "active" - a hackathon set live via this form silently rendered as
+// "upcoming" forever. Fixed to "active" alongside adding eventType since this
+// form needed touching anyway; a hackathon already stuck on the old "live"
+// value just needs its status re-clicked once after this ships.
 const HACKATHON_STATUSES = [
   { v: "upcoming", c: "#00FFFF" },
-  { v: "live",     c: "#00FF41" },
+  { v: "active",   c: "#00FF41" },
   { v: "judging",  c: "#FF9500" },
   { v: "ended",    c: "rgba(255,255,255,0.3)" },
 ];
+
+function blankHackathonForm() {
+  return {
+    slug: "", title: "", tagline: "", description: "", theme: "", accentColor: "#00FF41",
+    eventType: "hackathon", host: "",
+    prizes: [
+      { place: "1st", label: "1st Place", reward: "" },
+      { place: "2nd", label: "2nd Place", reward: "" },
+      { place: "3rd", label: "3rd Place", reward: "" },
+    ],
+    registrationOpen: "", submissionDeadline: "", resultsDate: "",
+    maxTeamSize: "4", tags: "", status: "upcoming",
+  };
+}
+
+// Firestore Timestamp -> <input type="datetime-local"/type="date"> value.
+function tsToInputStr(ts, withTime) {
+  const ms = ts?.toDate?.()?.getTime?.() ?? (typeof ts === "number" ? ts : null);
+  if (!ms) return "";
+  const iso = new Date(ms - new Date().getTimezoneOffset() * 60000).toISOString();
+  return withTime ? iso.slice(0, 16) : iso.slice(0, 10);
+}
 
 function HackathonsPanel() {
   const [hackathons, setHackathons] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [error,      setError]      = useState("");
+  const [editingId,  setEditingId]  = useState(null);
 
-  const blank = {
-    slug: "", title: "", tagline: "", prize: "",
-    deadline: "", maxTeamSize: "4", registrations: "0",
-    tags: "", status: "upcoming",
-  };
-  const [form, setForm] = useState(blank);
+  const [form, setForm] = useState(blankHackathonForm);
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+  const setPrize = (i, k) => (v) => setForm(p => ({
+    ...p, prizes: p.prizes.map((pr, idx) => idx === i ? { ...pr, [k]: v } : pr),
+  }));
 
   const load = () => {
     setLoading(true);
@@ -5939,24 +6075,60 @@ function HackathonsPanel() {
 
   useEffect(() => { load(); }, []);
 
-  const handleCreate = async () => {
-    if (!form.slug.trim() || !form.title.trim()) return setError("Slug and title are required.");
+  const startEdit = (h) => {
+    setEditingId(h.id);
+    setError("");
+    setForm({
+      slug: h.id, title: h.title || "", tagline: h.tagline || "",
+      description: h.description || "", theme: h.theme || "", accentColor: h.accentColor || "#00FF41",
+      eventType: h.eventType || "hackathon", host: h.host || "",
+      prizes: blankHackathonForm().prizes.map(p => {
+        const existing = h.prizes?.find(pr => pr.place === p.place);
+        return existing ? { ...p, ...existing } : p;
+      }),
+      registrationOpen:   tsToInputStr(h.registrationOpen, true),
+      submissionDeadline: tsToInputStr(h.submissionDeadline, true),
+      resultsDate:        tsToInputStr(h.resultsDate, false),
+      maxTeamSize: String(h.maxTeamSize ?? "4"),
+      tags: (h.tags || []).join(", "),
+      status: h.status || "upcoming",
+    });
+  };
+
+  const cancelEdit = () => { setEditingId(null); setForm(blankHackathonForm()); setError(""); };
+
+  const handleSave = async () => {
+    if (!editingId && !form.slug.trim()) return setError("Slug is required.");
+    if (!form.title.trim()) return setError("Title is required.");
     setSaving(true); setError("");
     try {
       const statusObj = HACKATHON_STATUSES.find(s => s.v === form.status) || HACKATHON_STATUSES[0];
-      await setDoc(doc(db, "hackathons", form.slug.trim()), {
+      const isHack = form.eventType === "hackathon";
+      const payload = {
         title:         form.title.trim(),
         tagline:       form.tagline.trim(),
-        prize:         form.prize.trim(),
-        deadline:      form.deadline.trim(),
+        description:   form.description.trim(),
+        theme:         form.theme.trim(),
+        accentColor:   form.accentColor,
+        eventType:     form.eventType,
+        host:          isHack ? "" : form.host.trim(),
+        prizes:        isHack ? form.prizes.filter(p => p.reward.trim()) : [],
+        registrationOpen:   form.registrationOpen   ? new Date(form.registrationOpen)   : null,
+        submissionDeadline: form.submissionDeadline ? new Date(form.submissionDeadline) : null,
+        resultsDate:        form.resultsDate         ? new Date(form.resultsDate)        : null,
         maxTeamSize:   parseInt(form.maxTeamSize) || 4,
-        registrations: parseInt(form.registrations) || 0,
         tags:          form.tags.split(",").map(t => t.trim()).filter(Boolean),
         status:        form.status,
         statusColor:   statusObj.c,
-        createdAt:     serverTimestamp(),
-      });
-      setForm(blank);
+      };
+      if (editingId) {
+        await updateDoc(doc(db, "hackathons", editingId), payload);
+      } else {
+        await setDoc(doc(db, "hackathons", form.slug.trim()), {
+          ...payload, registrationCount: 0, submissionCount: 0, createdAt: serverTimestamp(),
+        });
+      }
+      cancelEdit();
       load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -5968,7 +6140,7 @@ function HackathonsPanel() {
   // resurrect old, unrelated students' registrations/submissions as if they
   // belonged to the new event.
   const handleDelete = async (id) => {
-    if (!confirm(`Delete hackathon "${id}"?`)) return;
+    if (!confirm(`Delete event "${id}"?`)) return;
     const [regSnap, subSnap] = await Promise.all([
       getDocs(query(collection(db, "hackathon_registrations"), where("hackathonSlug", "==", id))),
       getDocs(query(collection(db, "hackathon_submissions"), where("hackathonSlug", "==", id))),
@@ -5979,6 +6151,7 @@ function HackathonsPanel() {
       refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
       await batch.commit();
     }
+    if (editingId === id) cancelEdit();
     load();
   };
 
@@ -5989,23 +6162,29 @@ function HackathonsPanel() {
     load();
   };
 
+  const isHack = form.eventType === "hackathon";
+
   return (
     <div className="space-y-5">
       {loading ? (
         <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
       ) : (
         <div className="space-y-2">
-          {hackathons.length === 0 && <p className="font-mono text-xs text-white/20">No hackathons yet.</p>}
+          {hackathons.length === 0 && <p className="font-mono text-xs text-white/20">No events yet.</p>}
           {hackathons.map(h => {
             const sc = HACKATHON_STATUSES.find(s => s.v === h.status) || HACKATHON_STATUSES[0];
+            const typeLabel = EVENT_TYPES.find(t => t.v === (h.eventType || "hackathon"))?.label || "Hackathon";
             return (
               <div key={h.id} className="border border-white/6 rounded-lg px-4 py-3 space-y-2">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-[10px] text-white/35 flex-shrink-0">{h.id}</span>
                   <span className="font-mono text-xs text-white/75 flex-1 truncate">{h.title}</span>
-                  <span className="font-mono text-[10px] flex-shrink-0" style={{ color: sc.c }}>{h.status.toUpperCase()}</span>
-                  <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">{h.prize}</span>
-                  <button onClick={() => handleDelete(h.id)} className="text-white/20 hover:text-red-400 transition-colors ml-1 flex-shrink-0">
+                  <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded flex-shrink-0">{typeLabel}</span>
+                  <span className="font-mono text-[10px] flex-shrink-0" style={{ color: sc.c }}>{(h.status || "upcoming").toUpperCase()}</span>
+                  <button onClick={() => startEdit(h)} className="flex items-center gap-1 font-mono text-[10.5px] px-1 flex-shrink-0" style={{ color: "#FFD700" }}>
+                    <Pencil size={12} />
+                  </button>
+                  <button onClick={() => handleDelete(h.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -6027,21 +6206,69 @@ function HackathonsPanel() {
         </div>
       )}
       <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-cyan tracking-wider">// create hackathon</p>
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">{editingId ? `// editing ${editingId}` : "// create event"}</p>
+          {editingId && (
+            <button onClick={cancelEdit} className="font-mono text-[10px] text-white/30 hover:text-white/55 flex items-center gap-1">
+              <X size={10} /> cancel
+            </button>
+          )}
+        </div>
+
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">EVENT TYPE</p>
+          <div className="flex gap-2 flex-wrap">
+            {EVENT_TYPES.map(t => (
+              <button key={t.v} onClick={() => setForm(p => ({ ...p, eventType: t.v }))}
+                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
+                style={{
+                  color:      form.eventType === t.v ? "#00FFFF" : "rgba(255,255,255,0.3)",
+                  background: form.eventType === t.v ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                  border:     form.eventType === t.v ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                }}
+              >{t.label.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="devcon-2026" />
+          <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="devcon-2026" hint={editingId ? "locked once created" : undefined} />
           <Input label="TITLE" value={form.title} onChange={f("title")} placeholder="DevCon Hackathon 2026" />
         </div>
         <Input label="TAGLINE" value={form.tagline} onChange={f("tagline")} placeholder="Build the future in 48 hours" />
+        <Textarea label="DESCRIPTION" value={form.description} onChange={f("description")} placeholder="What's this event about?" rows={3} />
+
+        {!isHack && (
+          <Input label="HOST / SPEAKER" value={form.host} onChange={f("host")} placeholder="e.g. Jane Doe, Senior SWE @ Acme" />
+        )}
+
         <div className="grid sm:grid-cols-3 gap-3">
-          <Input label="PRIZE" value={form.prize} onChange={f("prize")} placeholder="₹1,00,000" />
-          <Input label="DEADLINE" value={form.deadline} onChange={f("deadline")} placeholder="Aug 31, 2026" />
+          <Input label="THEME (optional)" value={form.theme} onChange={f("theme")} placeholder="AI, Web3, Open Innovation" />
+          <Input label="ACCENT COLOR" type="color" value={form.accentColor} onChange={f("accentColor")} />
           <Input label="MAX TEAM SIZE" value={form.maxTeamSize} onChange={f("maxTeamSize")} placeholder="4" />
         </div>
+        <Input label="TAGS (comma separated)" value={form.tags} onChange={f("tags")} placeholder="Web, AI, Mobile" />
+
+        {isHack && (
+          <div>
+            <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">PRIZES</p>
+            <div className="grid sm:grid-cols-3 gap-3">
+              {form.prizes.map((p, i) => (
+                <Input key={p.place} label={p.label} value={p.reward} onChange={setPrize(i, "reward")} placeholder="₹50,000" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="font-mono text-[10px] text-white/40 tracking-widest pt-2">TIMELINE</p>
         <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="REGISTRATIONS" value={form.registrations} onChange={f("registrations")} placeholder="0" />
-          <Input label="TAGS (comma separated)" value={form.tags} onChange={f("tags")} placeholder="Web, AI, Mobile" />
+          <Input label="REGISTRATIONS OPEN" type="datetime-local" value={form.registrationOpen} onChange={f("registrationOpen")} />
+          <Input label={isHack ? "SUBMISSION DEADLINE" : "EVENT DATE/TIME"} type="datetime-local" value={form.submissionDeadline} onChange={f("submissionDeadline")} />
         </div>
+        {isHack && (
+          <Input label="RESULTS DATE" type="date" value={form.resultsDate} onChange={f("resultsDate")} />
+        )}
+
         <div>
           <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
           <div className="flex gap-2 flex-wrap">
@@ -6059,10 +6286,10 @@ function HackathonsPanel() {
         </div>
         {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
         <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleCreate} disabled={saving}
+          onClick={handleSave} disabled={saving}
           className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <Plus size={12} /> {saving ? "creating..." : "create hackathon"}
+          <Plus size={12} /> {saving ? "saving..." : editingId ? "save changes" : "create event"}
         </motion.button>
       </div>
     </div>
@@ -6251,9 +6478,28 @@ function ShipyardPanel() {
     finally { setWorking(w => ({ ...w, [p.id]: false })); }
   };
 
+  // Mirrors PulseModerationPanel's own delete/reject handlers: batch-delete
+  // the dependent engagement docs and roll back the owner's aggregate
+  // counters, rather than leaving project_comments/project_likes rows
+  // pointing at a project that no longer exists and a profile stat that
+  // drifts from reality forever (no reconciliation job exists for either).
   const handleDelete = async (p) => {
     if (!confirm(`Delete project "${p.name}"?`)) return;
-    await deleteDoc(doc(db, "projects", p.id));
+    const [likeSnap, commentSnap] = await Promise.all([
+      getDocs(query(collection(db, "project_likes"), where("projectId", "==", p.id))),
+      getDocs(query(collection(db, "project_comments"), where("projectId", "==", p.id))),
+    ]);
+    const batch = writeBatch(db);
+    likeSnap.docs.forEach(d => batch.delete(d.ref));
+    commentSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(doc(db, "projects", p.id));
+    if (p.ownerId && (p.likeCount || p.commentCount)) {
+      batch.update(doc(db, "users", p.ownerId), {
+        totalLikesReceived:    increment(-(p.likeCount    || 0)),
+        totalCommentsReceived: increment(-(p.commentCount || 0)),
+      });
+    }
+    await batch.commit();
     load();
   };
 
@@ -6275,7 +6521,11 @@ function ShipyardPanel() {
                   <p className="font-sans text-sm text-white/80 truncate">{p.name}</p>
                   <p className="font-mono text-[10px] text-neon-green/60">@{p.ownerHandle}</p>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="font-mono text-[9px] text-white/25 flex items-center gap-2">
+                    <Heart size={10} /> {p.likeCount ?? 0}
+                    <MessageSquare size={10} /> {p.commentCount ?? 0}
+                  </span>
                   {p.url && (
                     <a href={p.url} target="_blank" rel="noreferrer" className="text-white/20 hover:text-neon-cyan transition-colors">
                       <ExternalLink size={12} />
@@ -6320,7 +6570,9 @@ function HackathonJudgingPanel() {
   useEffect(() => {
     getDocs(query(collection(db, "hackathons"), orderBy("createdAt", "desc")))
       .then(snap => {
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Judging has no meaning for a workshop/meetup/open-mic/tech-talk -
+        // only actual hackathons ever get a hackathon_submissions doc.
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(isHackathon);
         setHackathons(list);
         if (list.length && !slug) setSlug(list[0].id);
       })
@@ -6915,6 +7167,9 @@ function AdminPageInner() {
                 </Section>
                 <Section title="PULSE FEED" icon={Activity} color="#00FF41">
                   <PulsePanel />
+                </Section>
+                <Section title="COMMUNITIES" icon={Users} color="#00FF41">
+                  <CommunitiesPanel />
                 </Section>
                 <Section title="NOTIFICATIONS" icon={Megaphone} color="#C77DFF">
                   <NotificationsPanel />

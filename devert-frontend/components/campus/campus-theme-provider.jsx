@@ -3,7 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Moon, Sun } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, campusPhotoBg } from "@/lib/campus-theme";
 
 // Extracted out of campus-app.jsx into its own file so OTHER top-level
 // Campus screens (campus-staff-login.jsx's three dedicated login pages) can
@@ -29,11 +29,13 @@ export function CampusThemeProvider({ children }) {
   // Lazy initializer, not a mount effect - localStorage is already
   // synchronously available the first time this ever renders (this
   // component only lives inside the client-only Campus workspace tree).
-  // Dark is the default identity now (premium-SaaS redesign) - light stays
-  // fully supported, just no longer the fallback for a first-time visitor.
+  // Light is the default identity again (Google Material redesign - clean
+  // white/light-gray surfaces, not the previous dark-glass premium-SaaS
+  // look) - dark stays fully supported, a first-time visitor just sees
+  // light first.
   const [theme, setTheme] = useState(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("campus-theme") : null;
-    return saved === "dark" || saved === "light" ? saved : "dark";
+    return saved === "dark" || saved === "light" ? saved : "light";
   });
   const toggleTheme = () => setTheme(t => {
     const next = t === "light" ? "dark" : "light";
@@ -71,8 +73,8 @@ export function CampusThemeToggle({ className = "" }) {
 export function CampusShell({ children, nav = null }) {
   const { theme } = useCampusTheme();
   return (
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }}
-      className={`campus-theme relative ${nav ? "flex flex-col" : "flex items-center justify-center px-6"}`}>
+    <main data-theme={theme} style={{ ...campusPhotoBg(theme), minHeight: "100vh", colorScheme: theme }}
+      className={`campus-theme campus-photo-bg relative ${nav ? "flex flex-col" : "flex items-center justify-center px-6"}`}>
       {nav}
       {/* Without the nav, this is the ONLY way out, so it stays pinned to the
           corner. With it, the header already carries the Campus logo home, and

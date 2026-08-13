@@ -1327,11 +1327,35 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
         onJumpToAssessment={jumpToAssessment} onSearchSelect={handleSearchSelect} onRequestExit={exitGuard.requestExit}
         themeToggle={<CampusThemeToggle />}
         onSignOut={async () => { await logout(); router.push("/campus"); }} />
-      <div className="flex-1 min-w-0 flex flex-col gap-3 lg:gap-4">
+      {/* Manage + Dashboard: CampusTopBar has the rest of the workspace's
+          content scroll underneath it by design (see CampusTopBar's own
+          comment - .campus-glass-nav is deliberately readable-through for
+          that, at 88% opacity precisely so text doesn't stay legible through
+          it while scrolling). That's fine for a feed-like tab, but on the
+          tabs whose FIRST element is a large heading/hero sitting right at
+          the top (Manage's own pages, the admin Dashboard's StaffDashboardHero)
+          the heading starts close enough to the bar that it visibly collides
+          with it almost immediately - not just "soft colour" scrolling past,
+          actual heading/subtitle text behind the bar. So these tabs get their
+          own bounded, internally-scrolling region instead: same sticky/
+          height-calc formula the sidebar already uses (lg:top-4 +
+          lg:h-[calc(100vh-2rem)]), wrapped around CampusTopBar + content
+          together so content can never be laid out behind the bar at all,
+          regardless of scroll position - a bigger top margin only buys a few
+          more pixels before the same slide-under happens, it doesn't stop it.
+          CampusTopBar's own `sticky` becomes inert here (its containing block
+          no longer scrolls), which is harmless - not worth a prop just to
+          suppress a no-op class. Other tabs (Fundamentals, Programming, DSA,
+          GATE, etc.) keep the original whole-page-scroll behavior unchanged -
+          several of them (campus-practice.jsx, gate-app.jsx, campus-dsa-
+          sheet.jsx, campus-landing.jsx, lesson-blocks.jsx) read window scroll
+          position directly, so switching their scroll container needs each
+          one checked first, not a blanket change. */}
+      <div className={`flex-1 min-w-0 flex flex-col gap-3 lg:gap-4 ${(tab === "manage" || tab === "dashboard") ? "lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:overflow-hidden" : ""}`}>
         <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user?.uid} membership={membership}
           onOpenDrawer={() => setDrawerOpen(true)} drawerOpen={drawerOpen}
           tab={tab} hiddenTabKeys={hiddenTabKeys} onRequestExit={exitGuard.requestExit} glass />
-        <div className="flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-0 min-w-0">
+        <div className={`flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-0 min-w-0 ${(tab === "manage" || tab === "dashboard") ? "lg:overflow-y-auto" : ""}`}>
           {NAV_ITEMS.find(i => i.key === tab)?.moduleKey && !isTabAllowed(tab) ? (
             <ModuleAccessRestricted moduleLabel={NAV_ITEMS.find(i => i.key === tab)?.label || "This section"} onBack={() => goTab("dashboard")} />
           ) : tab === "dashboard" && isInstAdmin ? (
@@ -2016,9 +2040,13 @@ function CampusTopBar({ institution, userData, setTab, slug, uid, membership, on
     // Floating pill, same opaque Material surface + shadow as the sidebar by
     // default - sticky top-3/lg:top-4 matches the sidebar's own inset so
     // scrolled content stays pinned at the same gap on both instead of one
-    // flush at 0 and the other floating at 1rem. `glass` mirrors the
-    // sidebar's own prop - see its comment for when/why.
-    <header className={`flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0 sticky top-3 lg:top-4 z-30 rounded-[22px] ${glass ? "campus-glass" : ""}`}
+    // flush at 0 and the other floating at 1rem. `glass` uses .campus-glass-nav,
+    // NOT .campus-glass (the sidebar's own card-glass variant) - this bar has
+    // the whole tab's content scrolling underneath it, same as campus-public-
+    // nav.jsx's <nav>, and .campus-glass's weaker blur/saturation lets that
+    // scrolling text stay readable through the bar instead of softening into
+    // "colour and movement". See both classes' comments in globals.css.
+    <header className={`flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0 sticky top-3 lg:top-4 z-30 rounded-[22px] ${glass ? "campus-glass-nav" : ""}`}
       style={{ ...(glass ? {} : { background: CAMPUS.surface }), border: `1px solid ${glass ? CAMPUS.glassBorder : CAMPUS.line}`, boxShadow: CAMPUS.shadow }}>
       <button onClick={onOpenDrawer} aria-label="Open navigation" aria-expanded={drawerOpen} aria-haspopup="dialog"
         className="lg:hidden flex items-center justify-center flex-shrink-0 rounded-lg -ml-1.5"
@@ -2774,7 +2802,7 @@ function CampusIdentityForm({ slug, institution, user, onSubmitted }) {
     return (
       <CampusCard className="p-7 w-full max-w-sm">
         <h3 className="text-[16px] font-semibold mb-4" style={{ color: CAMPUS.ink }}>Confirm your Campus Identity</h3>
-        <div className="rounded-lg p-3.5 mb-5" style={{ background: CAMPUS.warnTint, border: `1px solid ${CAMPUS.warn}40` }}>
+        <div className="rounded-lg p-3.5 mb-5" style={{ background: CAMPUS.warnTint, border: `1px solid ${tint(CAMPUS.warn, 25)}` }}>
           <p className="flex items-center gap-1.5 text-[12px] font-semibold mb-1.5" style={{ color: CAMPUS.warn }}>
             <AlertTriangle size={13} /> Campus Identity
           </p>

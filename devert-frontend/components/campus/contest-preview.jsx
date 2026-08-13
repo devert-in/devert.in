@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   AlertTriangle, Check, Eye, EyeOff, FileText, ListChecks, Lock, X as XIcon,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusChip, CampusSkeleton } from "@/components/campus/campus-ui";
 import { Inline } from "@/components/campus/lesson-blocks";
 import { useKeyedFetch } from "@/lib/useKeyedFetch";
@@ -125,7 +125,7 @@ function ContestPreviewModal({ contestId, onClose }) {
           <button onClick={() => setShowAnswers(v => !v)}
             className="flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-lg"
             style={showAnswers
-              ? { background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50` }
+              ? { background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 31)}` }
               : { background: CAMPUS.paper, color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
             {showAnswers ? <EyeOff size={12} /> : <Eye size={12} />}
             {showAnswers ? "Hide answers" : "Show answers"}
@@ -148,7 +148,7 @@ function ContestPreviewModal({ contestId, onClose }) {
               </div>
 
               {problems.length > 0 ? (
-                <div className="p-3 rounded-xl mb-4" style={{ background: CAMPUS.badTint, border: `1px solid ${CAMPUS.bad}40` }}>
+                <div className="p-3 rounded-xl mb-4" style={{ background: CAMPUS.badTint, border: `1px solid ${tint(CAMPUS.bad, 25)}` }}>
                   <p className="text-[12px] font-semibold flex items-center gap-1.5 mb-1" style={{ color: CAMPUS.bad }}>
                     <AlertTriangle size={13} /> {problems.length} problem{problems.length === 1 ? "" : "s"} would break grading
                   </p>
@@ -202,7 +202,7 @@ function QuestionCard({ q, keyDoc, tests, showAnswers }) {
             return (
               <div key={o.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px]"
                 style={isRight
-                  ? { background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${CAMPUS.good}40` }
+                  ? { background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 25)}` }
                   : { color: CAMPUS.inkSoft, border: `1px solid ${CAMPUS.line}` }}>
                 <span className="font-mono font-bold uppercase">{o.id}</span>
                 <span className="flex-1">{o.text}</span>

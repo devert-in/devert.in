@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   BookOpen, ExternalLink, FileText, Library, Megaphone, Pin, PlaySquare, ScrollText,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusSkeleton, CampusEmptyState,
 } from "@/components/campus/campus-ui";
@@ -63,7 +63,7 @@ export function GateResources() {
         <div className="space-y-2">
           {announcements.map(a => (
             <CampusCard key={a.id} className="p-4"
-              style={a.pinned ? { border: `1px solid ${CAMPUS.gold}40`, background: CAMPUS.goldTint } : undefined}>
+              style={a.pinned ? { border: `1px solid ${tint(CAMPUS.gold, 25)}`, background: CAMPUS.goldTint } : undefined}>
               <div className="flex items-center gap-2 mb-1.5">
                 {a.pinned
                   ? <Pin size={13} style={{ color: CAMPUS.gold }} />

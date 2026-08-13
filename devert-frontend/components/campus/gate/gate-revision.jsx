@@ -5,7 +5,7 @@ import {
   AlertTriangle, ArrowRight, Brain, CalendarClock, Check, Clock, FileText,
   Moon, Printer, Repeat, ScrollText, Timer, Zap,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusEmptyState,
 } from "@/components/campus/campus-ui";
@@ -94,7 +94,7 @@ export function GateRevision() {
       </div>
 
       {/* today's session */}
-      <CampusCard className="p-4" style={{ border: `1px solid ${CAMPUS.purple}40`, background: CAMPUS.purpleTint }}>
+      <CampusCard className="p-4" style={{ border: `1px solid ${tint(CAMPUS.purple, 25)}`, background: CAMPUS.purpleTint }}>
         <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
           <div>
             <div className="flex items-center gap-1.5 mb-1">

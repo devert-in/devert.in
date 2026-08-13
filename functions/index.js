@@ -388,30 +388,20 @@ exports.listProctorFrames = onCall({ region: "us-central1", maxInstances: 10 }, 
 const crypto = require("crypto");
 const Razorpay = require("razorpay");
 
-// Secrets are read from process.env, NOT declared with defineSecret(), and that
-// is a deliberate deployment-safety choice rather than laziness.
+// Launched 2026-08-09: both secrets are now in Secret Manager and bound via
+// `secrets: [...]` on createRazorpayOrder/verifyRazorpayPayment (KEY_SECRET)
+// and razorpayWebhook (WEBHOOK_SECRET) - Firebase injects a bound secret as
+// process.env.<NAME>, so the read sites below needed no change at all.
 //
-// defineSecret() makes the secret's existence a DEPLOY-TIME requirement: the CLI
-// refuses to deploy a function whose secret is not already in Secret Manager.
-// Combined with .github/workflows/deploy-prod.yml running
-// `deploy --only hosting,functions` as a SINGLE command, that meant a missing
-// Razorpay credential failed the functions half and took HOSTING down with it -
-// so an unlaunched payment feature could block a frontend hotfix from ever
-// shipping. That is exactly backwards for something nothing calls yet.
-//
-// Reading process.env keeps deploys green whether or not the credential exists,
-// and razorpayClient() below still refuses to run without it, so the failure
-// lands at call time with a clear message instead of at deploy time on an
-// unrelated change.
-//
-// AT LAUNCH, when payments actually go live, bind them properly so the values
-// come from Secret Manager rather than the environment:
-//   npx firebase-tools functions:secrets:set RAZORPAY_KEY_SECRET --project devert-me
-//   npx firebase-tools functions:secrets:set RAZORPAY_WEBHOOK_SECRET --project devert-me
-// then add `secrets: ["RAZORPAY_KEY_SECRET"]` to createRazorpayOrder and
-// verifyRazorpayPayment, and `secrets: ["RAZORPAY_WEBHOOK_SECRET"]` to
-// razorpayWebhook. Firebase injects a bound secret as process.env.<NAME>, so the
-// read sites below need no change at all.
+// Before launch, this deliberately read process.env with NO `secrets: [...]`
+// binding and no defineSecret() at all: defineSecret() makes a secret's
+// existence a DEPLOY-TIME requirement, and with deploy-prod.yml running
+// `deploy --only hosting,functions` as one command, a missing Razorpay
+// credential would have failed the functions half and taken hosting down
+// with it - so an unlaunched payment feature could have blocked an unrelated
+// frontend hotfix from ever shipping. That risk is gone now that the secrets
+// genuinely exist and aren't going away, but it's why the two-step
+// (env-only, then bind once real) shape existed at all.
 const RAZORPAY_KEY_SECRET = { value: () => process.env.RAZORPAY_KEY_SECRET || "" };
 const RAZORPAY_WEBHOOK_SECRET = { value: () => process.env.RAZORPAY_WEBHOOK_SECRET || "" };
 
@@ -447,7 +437,7 @@ function razorpayClient() {
  * time (a build-time value would need a rebuild to rotate).
  */
 exports.createRazorpayOrder = onCall(
-  { region: "us-central1", maxInstances: 10 },
+  { region: "us-central1", maxInstances: 10, secrets: ["RAZORPAY_KEY_SECRET"] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Sign in before paying.");
 
@@ -513,7 +503,7 @@ exports.createRazorpayOrder = onCall(
  * "yes, that worked" while the webhook settles.
  */
 exports.verifyRazorpayPayment = onCall(
-  { region: "us-central1", maxInstances: 10 },
+  { region: "us-central1", maxInstances: 10, secrets: ["RAZORPAY_KEY_SECRET"] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
 
@@ -576,7 +566,7 @@ exports.verifyRazorpayPayment = onCall(
  * turns one bug into a stampede. Failures are logged for reconciliation instead.
  */
 exports.razorpayWebhook = onRequest(
-  { region: "us-central1", maxInstances: 10 },
+  { region: "us-central1", maxInstances: 10, secrets: ["RAZORPAY_WEBHOOK_SECRET"] },
   async (req, res) => {
     if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
 

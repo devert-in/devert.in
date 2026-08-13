@@ -1075,7 +1075,7 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
       </motion.div>
 
       {readOnly && (
-        <motion.div variants={reveal} initial="hidden" animate="visible" className="mb-4 px-3.5 py-2.5 rounded-lg text-[11.5px] font-medium" style={{ color: CAMPUS.purple, background: CAMPUS.purpleTint, border: `1px solid ${CAMPUS.purple}40` }}>
+        <motion.div variants={reveal} initial="hidden" animate="visible" className="mb-4 px-3.5 py-2.5 rounded-lg text-[11.5px] font-medium" style={{ color: CAMPUS.purple, background: CAMPUS.purpleTint, border: `1px solid ${tint(CAMPUS.purple, 25)}` }}>
           Admin preview - this is exactly what students see. Correct MCQ answers are highlighted below; nothing here is saved.
         </motion.div>
       )}
@@ -1096,7 +1096,7 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
             <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>Read through the concept above before continuing.</span>
             {readOnly ? null : !markedRead ? (
               <button onClick={() => setMarkedRead(true)} className="text-[11px] font-semibold px-3.5 py-1.5 rounded-lg transition-colors flex-shrink-0"
-                style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+                style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
                 mark as read
               </button>
             ) : (
@@ -1135,9 +1135,9 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
             {problems.map(p => {
               const status = problemStatus(p.id);
               const cardStyle = status === "solved"
-                ? { border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }
+                ? { border: `1px solid ${tint(CAMPUS.good, 31)}`, background: CAMPUS.goodTint }
                 : status === "inProgress"
-                  ? { border: `1px solid ${CAMPUS.warn}50`, background: CAMPUS.warnTint }
+                  ? { border: `1px solid ${tint(CAMPUS.warn, 31)}`, background: CAMPUS.warnTint }
                   : undefined;
               const draftAt = codeDrafts[p.id]?.updatedAt;
               return (
@@ -1176,7 +1176,7 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
 
           {result && (
             <CampusCard className="p-4 mb-3 flex items-center justify-between gap-4 flex-wrap"
-              style={{ background: CAMPUS.goodTint, border: `1px solid ${CAMPUS.good}40` }}>
+              style={{ background: CAMPUS.goodTint, border: `1px solid ${tint(CAMPUS.good, 25)}` }}>
               <div>
                 <p className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: CAMPUS.good }}>
                   <CheckCircle2 size={14} /> Knowledge Check completed
@@ -1249,8 +1249,8 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
         <motion.div variants={reveal} initial="hidden" animate="visible"
           className="flex items-center gap-2 mt-5 px-3.5 py-2.5 rounded-lg text-[12px] font-medium"
           style={saveNotice.type === "error"
-            ? { color: CAMPUS.bad, background: CAMPUS.badTint, border: `1px solid ${CAMPUS.bad}40` }
-            : { color: CAMPUS.teal, background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.teal}40` }}>
+            ? { color: CAMPUS.bad, background: CAMPUS.badTint, border: `1px solid ${tint(CAMPUS.bad, 25)}` }
+            : { color: CAMPUS.teal, background: CAMPUS.tealTint, border: `1px solid ${tint(CAMPUS.teal, 25)}` }}>
           {saveNotice.type === "error" ? <AlertTriangle size={13} /> : <CheckCircle2 size={13} />}
           {saveNotice.message}
         </motion.div>
@@ -1266,7 +1266,7 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
           // always the single-attempt state - a real Retake flow (with
           // attempt history) would need that admin toggle to exist first.
           <div className="w-full flex items-center justify-center gap-2 text-sm font-semibold py-3 rounded-xl"
-            style={{ background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${CAMPUS.good}40` }}>
+            style={{ background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 25)}` }}>
             <CheckCircle2 size={15} /> {mcqs.length > 0 ? "Knowledge Check Submitted" : "Today's learning complete"}
           </div>
         ) : (

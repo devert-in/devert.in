@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { useIsWindowed, useOverlayClass } from "@/components/window/is-windowed";
+import { isHackathon } from "@/lib/eventTypes";
 
 /* ─── helpers ─── */
 
@@ -287,9 +288,9 @@ export function HackathonDetailView({ slug, onBack }) {
     })();
   }, [user, slug]);
 
-  /* ── load all submissions (judging/ended) ── */
+  /* ── load all submissions (judging/ended, hackathons only) ── */
   useEffect(() => {
-    if (!hackathon || !["judging", "ended"].includes(hackathon.status)) return;
+    if (!hackathon || !isHackathon(hackathon) || !["judging", "ended"].includes(hackathon.status)) return;
     (async () => {
       const snap = await getDocs(
         query(collection(db, "hackathon_submissions"), where("hackathonSlug", "==", slug), orderBy("score", "desc"), limit(20))
@@ -345,8 +346,9 @@ export function HackathonDetailView({ slug, onBack }) {
 
   const countdown  = useCountdown(countdownMs);
   const sm         = hackathon ? statusMeta(hackathon.status) : null;
+  const isHack      = hackathon ? isHackathon(hackathon) : true;
   const canRegister = hackathon && ["upcoming", "active"].includes(hackathon.status);
-  const canSubmit   = hackathon && hackathon.status === "active" && registered;
+  const canSubmit   = hackathon && isHack && hackathon.status === "active" && registered;
 
   const rootClass = `${windowed ? "min-h-full" : "min-h-screen"}`;
 
@@ -355,7 +357,7 @@ export function HackathonDetailView({ slug, onBack }) {
     <main className={`${rootClass} flex items-center justify-center`}>
       <div className="flex flex-col items-center gap-4">
         <div className="w-8 h-8 border border-white/10 border-t-neon-cyan rounded-full animate-spin" />
-        <p className="font-mono text-xs text-white/20">loading hackathon...</p>
+        <p className="font-mono text-xs text-white/20">loading event...</p>
       </div>
     </main>
   );
@@ -364,11 +366,11 @@ export function HackathonDetailView({ slug, onBack }) {
     <main className={`${rootClass} flex items-center justify-center px-6`}>
       <div className="text-center">
         <p className="font-mono text-2xl text-white/20 mb-3">404</p>
-        <p className="font-mono text-sm text-white/30 mb-2">Hackathon not found</p>
+        <p className="font-mono text-sm text-white/30 mb-2">Event not found</p>
         <p className="font-mono text-xs text-white/15 mb-8">// check the URL or wait for announcements</p>
         <button onClick={onBack}
           className="font-mono text-xs text-neon-cyan/60 border border-neon-cyan/20 px-4 py-2 rounded hover:bg-neon-cyan/6 transition-colors">
-          ← all hackathons
+          ← all events
         </button>
       </div>
     </main>
@@ -407,7 +409,7 @@ export function HackathonDetailView({ slug, onBack }) {
           <div className="flex items-center gap-3 mb-8">
             <button onClick={onBack}
               className="flex items-center gap-1.5 font-mono text-[10px] text-white/20 hover:text-white/40 transition-colors">
-              <ArrowLeft size={10} /> hackathons
+              <ArrowLeft size={10} /> events
             </button>
             <span className="font-mono text-[10px] text-white/10">/</span>
             <span className="font-mono text-[10px] text-white/25 truncate max-w-[160px]">{slug}</span>
@@ -473,7 +475,9 @@ export function HackathonDetailView({ slug, onBack }) {
               </div>
               <div className="p-5">
                 <p className="font-mono text-[9px] text-white/25 tracking-widest mb-4">
-                  {hackathon.status === "upcoming" ? "// HACKATHON STARTS IN" : "// SUBMISSION DEADLINE IN"}
+                  {hackathon.status === "upcoming"
+                    ? "// EVENT STARTS IN"
+                    : isHack ? "// SUBMISSION DEADLINE IN" : "// EVENT ENDS IN"}
                 </p>
                 <div className="flex items-end gap-4 flex-wrap">
                   <CountBlock value={countdown.d} label="DAYS" />
@@ -513,8 +517,25 @@ export function HackathonDetailView({ slug, onBack }) {
                 </motion.div>
               )}
 
-              {/* My submission */}
-              {submission && (
+              {/* Host / speaker (non-hackathon event types) */}
+              {!isHack && hackathon.host && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Users size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">host.json</span>
+                  </div>
+                  <div className="p-5">
+                    <p className="font-mono text-xs text-white/45 leading-relaxed">{hackathon.host}</p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* My submission (hackathons only) */}
+              {isHack && submission && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
                   className="terminal-window"
                   style={{ borderColor: `${ac}30` }}>
@@ -566,8 +587,8 @@ export function HackathonDetailView({ slug, onBack }) {
                 </motion.div>
               )}
 
-              {/* Submissions leaderboard (judging / ended) */}
-              {["judging", "ended"].includes(hackathon.status) && submissions.length > 0 && (
+              {/* Submissions leaderboard (judging / ended, hackathons only) */}
+              {isHack && ["judging", "ended"].includes(hackathon.status) && submissions.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
                   className="terminal-window">
                   <div className="terminal-header">
@@ -611,8 +632,8 @@ export function HackathonDetailView({ slug, onBack }) {
             {/* ── Right (1/3): prizes + dates + actions ── */}
             <div className="space-y-5">
 
-              {/* Prizes */}
-              {hackathon.prizes?.length > 0 && (
+              {/* Prizes (hackathons only) */}
+              {isHack && hackathon.prizes?.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="terminal-window">
                   <div className="terminal-header">
@@ -650,8 +671,8 @@ export function HackathonDetailView({ slug, onBack }) {
                 <div className="p-5 space-y-4">
                   {[
                     { label: "REGISTRATIONS OPEN", ts: hackathon.registrationOpen },
-                    { label: "SUBMISSION DEADLINE", ts: hackathon.submissionDeadline },
-                    { label: "RESULTS",            ts: hackathon.resultsDate },
+                    { label: isHack ? "SUBMISSION DEADLINE" : "EVENT DATE", ts: hackathon.submissionDeadline },
+                    ...(isHack ? [{ label: "RESULTS", ts: hackathon.resultsDate }] : []),
                   ].map(({ label, ts }) => (
                     <div key={label} className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[9px] text-white/25 tracking-wider">{label}</span>
@@ -670,10 +691,10 @@ export function HackathonDetailView({ slug, onBack }) {
                   <div className="terminal-dot bg-green-500/70" />
                   <span className="font-mono text-[10px] text-white/25 ml-2">stats.json</span>
                 </div>
-                <div className="p-5 grid grid-cols-2 gap-3">
+                <div className={`p-5 grid gap-3 ${isHack ? "grid-cols-2" : "grid-cols-1"}`}>
                   {[
                     { label: "REGISTERED", value: hackathon.registrationCount ?? 0, color: "#00FFFF" },
-                    { label: "SUBMITTED",  value: hackathon.submissionCount ?? 0,   color: "#00FF41" },
+                    ...(isHack ? [{ label: "SUBMITTED", value: hackathon.submissionCount ?? 0, color: "#00FF41" }] : []),
                   ].map(s => (
                     <div key={s.label} className="flex flex-col items-center border border-white/6 rounded-lg p-3">
                       <span className="font-mono text-xl font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -732,7 +753,7 @@ export function HackathonDetailView({ slug, onBack }) {
                   <AnimatePresence mode="wait">
                     {shared
                       ? <motion.span key="y" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex items-center gap-2"><Check size={11}/> link copied!</motion.span>
-                      : <motion.span key="n" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex items-center gap-2"><Share2 size={11}/> share this hackathon</motion.span>
+                      : <motion.span key="n" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex items-center gap-2"><Share2 size={11}/> share this event</motion.span>
                     }
                   </AnimatePresence>
                 </motion.button>

@@ -17,11 +17,28 @@ import { DIGITAL_LOGIC } from "./digital-logic.mjs";
 import { THEORY_OF_COMPUTATION } from "./theory-of-computation.mjs";
 import { COMPUTER_ORGANIZATION_AND_ARCHITECTURE } from "./computer-organization-and-architecture.mjs";
 import { PROGRAMMING_AND_DATA_STRUCTURES } from "./programming-and-data-structures.mjs";
+import { OPERATING_SYSTEM } from "./operating-system.mjs";
 
+// digital-logic.mjs was re-authored from scratch (14 topics covering Boolean
+// Algebra/Minimization, Combinational/Sequential Circuits, and Number
+// Representation/Arithmetic; "karnaugh-map" was already authored separately
+// and is deliberately left out of that file, not missing) and is registered
+// here again now that it's a real module rather than the earlier broken stub.
+//
+// operating-system.mjs is complete (all 12 topics: Processes and Threads,
+// Concurrency and Synchronization, Deadlock, Scheduling, Memory Management,
+// File Systems).
+//
+// programming-and-data-structures.mjs is PARTIAL (4/14 topics) - the missing
+// topics were mid-write when its authoring agent hit the org's spend limit.
+// That's fine per this file's own module-at-a-time rollout model; the
+// remaining topics just need a follow-up authoring pass before they show
+// real content.
 export const GATE_LESSONS = {
   "general-aptitude": GENERAL_APTITUDE,
   "digital-logic": DIGITAL_LOGIC,
   "theory-of-computation": THEORY_OF_COMPUTATION,
   "computer-organization-and-architecture": COMPUTER_ORGANIZATION_AND_ARCHITECTURE,
   "programming-and-data-structures": PROGRAMMING_AND_DATA_STRUCTURES,
+  "operating-system": OPERATING_SYSTEM,
 };

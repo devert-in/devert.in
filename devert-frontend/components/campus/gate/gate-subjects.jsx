@@ -6,9 +6,9 @@ import {
   AlertTriangle, ArrowRight, Award, Brain, Check, CheckCircle2, ChevronDown,
   ChevronRight, Clock, Coins, FileQuestion, FileText, Layers, Lightbulb,
   ListChecks, Repeat, Rocket, Sigma, Sparkles, Target, TrendingUp, Zap, Play,
-  Briefcase, Footprints,
+  Briefcase, Footprints, Youtube, ExternalLink,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
   CampusSkeleton, CampusProgressBar, CampusBreadcrumb,
@@ -491,6 +491,31 @@ export function GateTopicView() {
               color={CAMPUS.purple} tint={CAMPUS.purpleTint} />
           )}
 
+          {/* --- 1b. Video - watch first, read second. Only ever a real,
+                    verified link (see scripts/gate-lessons/*.mjs's own rule
+                    against inventing URLs); a topic with no verified match
+                    simply has no resources entry, not a placeholder. --- */}
+          {topic.resources?.length > 0 && (
+            <div className="space-y-2">
+              {topic.resources.map((r, i) => (
+                <a key={i} href={r.url} target="_blank" rel="noreferrer noopener" className="block">
+                  <CampusCard hover className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: CAMPUS.badTint, color: CAMPUS.bad }}>
+                      <Youtube size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-mono tracking-widest mb-0.5" style={{ color: CAMPUS.inkFaint }}>WATCH ON YOUTUBE</p>
+                      <b className="block text-[13px] truncate" style={{ color: CAMPUS.ink }}>{r.title}</b>
+                      {r.description && <span className="block text-[11px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>{r.description}</span>}
+                    </div>
+                    <ExternalLink size={13} className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }} />
+                  </CampusCard>
+                </a>
+              ))}
+            </div>
+          )}
+
           {/* --- 2. Theory (the plain explanation, with diagrams/flows/checkpoints
                     authored inline via the shared lesson-block syntax) --- */}
           {topic.concept?.trim() && (
@@ -538,7 +563,7 @@ export function GateTopicView() {
 
           {/* --- 6. Dry run / visual walkthrough --- */}
           {topic.dryRun?.trim() && (
-            <CampusCard className="p-5" style={{ border: `1px solid ${CAMPUS.blue}40`, background: `${CAMPUS.blue}0D` }}>
+            <CampusCard className="p-5" style={{ border: `1px solid ${tint(CAMPUS.blue, 25)}`, background: tint(CAMPUS.blue, 5) }}>
               <div className="flex items-center gap-2 mb-2.5">
                 <Footprints size={14} style={{ color: CAMPUS.blue }} />
                 <span className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.blue }}>STEP-BY-STEP DRY RUN</span>
@@ -578,7 +603,7 @@ export function GateTopicView() {
 
           {/* --- 8. Exam and career context --- */}
           {topic.pyqRelevance?.trim() && (
-            <CampusCard className="p-4" style={{ border: `1px solid ${CAMPUS.gold}40`, background: CAMPUS.goldTint }}>
+            <CampusCard className="p-4" style={{ border: `1px solid ${tint(CAMPUS.gold, 25)}`, background: CAMPUS.goldTint }}>
               <div className="flex items-center gap-2 mb-2">
                 <FileQuestion size={13} style={{ color: CAMPUS.gold }} />
                 <span className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.gold }}>HOW GATE ASKS THIS</span>
@@ -621,7 +646,7 @@ export function GateTopicView() {
 
           {/* --- 11. Revision summary --- */}
           {topic.revisionSummary?.trim() && (
-            <CampusCard className="p-4" style={{ border: `1px solid ${CAMPUS.good}40`, background: CAMPUS.goodTint }}>
+            <CampusCard className="p-4" style={{ border: `1px solid ${tint(CAMPUS.good, 25)}`, background: CAMPUS.goodTint }}>
               <div className="flex items-center gap-2 mb-2">
                 <Repeat size={13} style={{ color: CAMPUS.good }} />
                 <span className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.good }}>REVISION SUMMARY</span>

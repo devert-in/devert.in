@@ -12,7 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
-  CampusSkeleton, CampusProgressBar,
+  CampusSkeleton, CampusProgressBar, RoadmapTimeline,
 } from "@/components/campus/campus-ui";
 import {
   APTITUDE_CATEGORIES, fetchAptitudeTopics, fetchAptitudeTopic, fetchTopicQuestions,
@@ -143,7 +143,7 @@ function AptitudeSidebarList({ activeTopicId, onSelectTopic }) {
                   background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
                   color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
                 }}>
-                <span className="text-[12.5px] truncate">{t.name}</span>
+                <span className="text-[12.5px] leading-snug">{t.name}</span>
               </button>
             ))}
           </div>
@@ -178,6 +178,13 @@ function AptitudeRoadmap({ onOpenTopic }) {
     (topics || []).forEach(t => { if (grouped[t.category]) grouped[t.category].push(t); });
     return grouped;
   }, [topics]);
+
+  // RoadmapTimeline's generic {module, topics} shape, filtering out any
+  // category nobody has authored topics for yet - same behavior the old
+  // inline accordion's `if (catTopics.length === 0) return null` had.
+  const modules = useMemo(() => (
+    APTITUDE_CATEGORIES.map(cat => ({ module: cat, topics: byCategory[cat] })).filter(m => m.topics.length > 0)
+  ), [byCategory]);
 
   const completedIds = new Set(progress?.completedTopicIds || []);
   const toggleCategory = (cat) => setOpenCategories(prev => {
@@ -214,47 +221,9 @@ function AptitudeRoadmap({ onOpenTopic }) {
       {total === 0 ? (
         <CampusEmptyState icon={BookOpen} title="Curriculum coming soon" description="Check back soon - your Training & Placement Cell is setting this up." />
       ) : (
-        <div className="space-y-3">
-          {APTITUDE_CATEGORIES.map(cat => {
-            const catTopics = byCategory[cat];
-            if (catTopics.length === 0) return null;
-            const open = openCategories.has(cat);
-            const catCompleted = catTopics.filter(t => completedIds.has(t.id)).length;
-            const Meta = CATEGORY_META[cat] || CATEGORY_META.Quantitative;
-            return (
-              <CampusCard key={cat} className="overflow-hidden">
-                <button onClick={() => toggleCategory(cat)} className="w-full flex items-center justify-between p-4">
-                  <div className="flex items-center gap-2">
-                    {open ? <ChevronDown size={15} style={{ color: CAMPUS.inkFaint }} /> : <ChevronRight size={15} style={{ color: CAMPUS.inkFaint }} />}
-                    <Meta.icon size={15} style={{ color: Meta.color }} />
-                    <b className="text-[13.5px]" style={{ color: CAMPUS.ink }}>{cat}</b>
-                  </div>
-                  <span className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>{catCompleted}/{catTopics.length}</span>
-                </button>
-                {open && (
-                  <div style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-                    {catTopics.map(t => {
-                      const done = completedIds.has(t.id);
-                      const hasContent = topicHasContent(t);
-                      return (
-                        <button key={t.id} onClick={() => onOpenTopic(t.id)}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                          style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={{ background: done ? CAMPUS.goodTint : CAMPUS.paper, border: `1px solid ${done ? CAMPUS.good : CAMPUS.line}` }}>
-                            {done && <Check size={11} style={{ color: CAMPUS.good }} />}
-                          </div>
-                          <span className="flex-1 text-[13px]" style={{ color: CAMPUS.ink }}>{t.name}</span>
-                          {!hasContent && <CampusChip color={CAMPUS.inkFaint}>COMING SOON</CampusChip>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </CampusCard>
-            );
-          })}
-        </div>
+        <RoadmapTimeline modules={modules} completedIds={completedIds} openModules={openCategories}
+          onToggleModule={toggleCategory} onOpenTopic={onOpenTopic} topicHasContent={topicHasContent}
+          topicLabel={(t) => t.name} moduleIcon={(cat) => CATEGORY_META[cat] || CATEGORY_META.Quantitative} />
       )}
     </div>
   );

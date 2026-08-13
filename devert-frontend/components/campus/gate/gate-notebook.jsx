@@ -5,7 +5,7 @@ import {
   AlertTriangle, Bookmark, Check, CheckCircle2, FileQuestion, FileText, Sigma,
   Trash2, Undo2,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusEmptyState, CampusSkeleton,
 } from "@/components/campus/campus-ui";
@@ -262,7 +262,7 @@ export function GateMistakes() {
       ) : (
         <>
           {weak.length > 0 && (
-            <CampusCard className="p-4" style={{ border: `1px solid ${CAMPUS.bad}40`, background: CAMPUS.badTint }}>
+            <CampusCard className="p-4" style={{ border: `1px solid ${tint(CAMPUS.bad, 25)}`, background: CAMPUS.badTint }}>
               <p className="text-[10px] font-mono tracking-widest mb-2.5" style={{ color: CAMPUS.bad }}>
                 CONCEPTS TO GO BACK TO, NOT JUST QUESTIONS TO REDO
               </p>
@@ -273,7 +273,7 @@ export function GateMistakes() {
                     <button key={t.topicId} disabled={!meta}
                       onClick={meta ? () => go("subjects", { subjectId: meta.subjectId, topicId: t.topicId }) : undefined}
                       className="text-[11.5px] font-semibold px-2.5 py-1 rounded-full"
-                      style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.bad}40`, color: CAMPUS.ink }}>
+                      style={{ background: CAMPUS.surface, border: `1px solid ${tint(CAMPUS.bad, 25)}`, color: CAMPUS.ink }}>
                       {meta?.title || t.topicId} <span style={{ color: CAMPUS.bad }}>×{t.hits}</span>
                     </button>
                   );

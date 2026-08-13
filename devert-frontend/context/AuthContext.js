@@ -34,6 +34,13 @@ export function AuthProvider({ children }) {
   // callers (the admin route's gate) wait for it instead of racing it.
   const [isAdmin, setIsAdmin]           = useState(false);
   const [adminChecked, setAdminChecked] = useState(false);
+  // Derived from the `superAdmin` custom auth claim (see
+  // scripts/set-super-admin-claim.mjs) - a strictly smaller circle than
+  // `admin`, for surfaces (payments/revenue) that an ordinary institution or
+  // platform admin has no business seeing. Resolves alongside isAdmin, off
+  // the same token fetch, so it shares adminChecked as its own "ready" signal
+  // rather than adding a second one that would always flip at the same time.
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
     console.log("[Auth Debug] AuthContext mounted, setting up onAuthStateChanged listener...");
@@ -43,6 +50,7 @@ export function AuthProvider({ children }) {
       if (!currentUser) {
         setUserData(null);
         setIsAdmin(false);
+        setIsSuperAdmin(false);
         setAdminChecked(true);
         setLoading(false);
         // Back to the least-privileged set on sign-out, so a signed-out tab
@@ -54,6 +62,7 @@ export function AuthProvider({ children }) {
         const token = await currentUser.getIdTokenResult();
         console.log("[Auth Debug] Token fetched successfully for", currentUser.uid);
         setIsAdmin(token.claims.admin === true);
+        setIsSuperAdmin(token.claims.superAdmin === true);
         // Publish this reader's content audiences for every content query to
         // use - see lib/audiences.js on why this is ambient rather than threaded
         // through eight lib modules. No account carries the `auds` claim yet, so
@@ -63,6 +72,7 @@ export function AuthProvider({ children }) {
       } catch (err) {
         console.error("[Auth Debug] Token fetch failed:", err);
         setIsAdmin(false);
+        setIsSuperAdmin(false);
         // A failed token fetch must not leave stale audiences in place.
         setCurrentAudiences(null);
       } finally {
@@ -236,7 +246,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, isAdmin, adminChecked, logout, refreshProfile, updateProfile, getTier }}>
+    <AuthContext.Provider value={{ user, userData, loading, isAdmin, adminChecked, isSuperAdmin, logout, refreshProfile, updateProfile, getTier }}>
       {children}
     </AuthContext.Provider>
   );

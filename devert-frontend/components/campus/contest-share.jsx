@@ -5,7 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   Check, Copy, Link2, Mail, MessageCircle, QrCode, Send, Share2, X as XIcon,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 
 // Share sheet for a Campus contest - copy link, QR, WhatsApp, Telegram, email,
 // and the OS share sheet on mobile.
@@ -151,8 +151,8 @@ function ContestShareSheet({ url, title, startText, onClose }) {
           <button onClick={copy}
             className="w-full flex items-center justify-center gap-2 text-[13px] font-semibold py-2.5 rounded-lg mb-2 transition-colors"
             style={copied
-              ? { color: CAMPUS.good, background: CAMPUS.goodTint, border: `1px solid ${CAMPUS.good}50` }
-              : { color: CAMPUS.teal, background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.teal}50` }}>
+              ? { color: CAMPUS.good, background: CAMPUS.goodTint, border: `1px solid ${tint(CAMPUS.good, 31)}` }
+              : { color: CAMPUS.teal, background: CAMPUS.tealTint, border: `1px solid ${tint(CAMPUS.teal, 31)}` }}>
             {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy link</>}
           </button>
 

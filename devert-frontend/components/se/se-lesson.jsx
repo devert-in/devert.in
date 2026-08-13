@@ -20,7 +20,7 @@ import {
   SeReadingBar, SeVideoSlot, usePalette, useCampusAccent,
 } from "@/components/se/se-ui";
 import { useSe } from "@/components/se/se-app";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 
 // The lesson reader.
 //
@@ -201,7 +201,7 @@ export function SeLessonReader() {
               {lesson.title}
             </h1>
             {lesson.subtitle && (
-              <p className="text-[14px] mt-2 leading-relaxed" style={{ color: `${accent}CC` }}>{lesson.subtitle}</p>
+              <p className="text-[14px] mt-2 leading-relaxed" style={{ color: tint(accent, 80) }}>{lesson.subtitle}</p>
             )}
           </div>
           {user && (
@@ -265,9 +265,9 @@ export function SeLessonReader() {
 
           {/* 5. the main body - full sectioned reading experience with jump rail */}
           {lesson.concept?.trim() && (
-            <div className="pt-1">
+            <SeCard className="p-5 sm:p-6">
               <SeLessonBody text={lesson.concept} />
-            </div>
+            </SeCard>
           )}
 
           {/* 6. step-by-step walkthrough */}
@@ -316,7 +316,7 @@ export function SeLessonReader() {
 
           {/* 14. summary */}
           {lesson.summary?.trim() && (
-            <SeCard className="p-5" style={{ background: `${greenAccent}0A`, border: `1px solid ${greenAccent}2E` }}>
+            <SeCard className="p-5" style={{ background: tint(greenAccent, 6), border: `1px solid ${tint(greenAccent, 18)}` }}>
               <div className="flex items-center gap-2 mb-2.5">
                 <CheckCircle2 size={13} style={{ color: greenAccent }} />
                 <SeLabel color={SE_ACCENT.green}>THE WHOLE LESSON IN ONE PARAGRAPH</SeLabel>
@@ -397,7 +397,7 @@ export function SeLessonReader() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.28, ease: "easeOut" }}
               className="text-[12.5px] text-center px-3 py-2.5 rounded-lg flex items-center justify-center gap-2"
-              style={{ background: `${greenAccent}14`, color: greenAccent }}>
+              style={{ background: tint(greenAccent, 14), color: greenAccent }}>
               <Sparkles size={13} /> Lesson complete. XP and coins added.
             </motion.p>
           )}
@@ -442,7 +442,7 @@ function TextSection({ sectionKey, title, color, text, footnote }) {
   const p = usePalette();
   const resolvedColor = useCampusAccent(color);
   return (
-    <SeCard className="p-5" style={{ background: `${resolvedColor}08`, border: `1px solid ${resolvedColor}26` }}>
+    <SeCard className="p-5" style={{ background: tint(resolvedColor, 8), border: `1px solid ${tint(resolvedColor, 20)}` }}>
       <div className="flex items-center gap-2 mb-3">
         <Icon size={13} style={{ color: resolvedColor }} />
         <SeLabel color={color}>{title.toUpperCase()}</SeLabel>
@@ -458,7 +458,7 @@ function ListSection({ sectionKey, title, items, color, checkItems = false }) {
   const p = usePalette();
   const resolvedColor = useCampusAccent(color);
   return (
-    <SeCard className="p-4" style={{ background: `${resolvedColor}08`, border: `1px solid ${resolvedColor}26` }}>
+    <SeCard className="p-4" style={{ background: tint(resolvedColor, 8), border: `1px solid ${tint(resolvedColor, 20)}` }}>
       <div className="flex items-center gap-2 mb-2.5">
         <Icon size={13} style={{ color: resolvedColor }} />
         <SeLabel color={color}>{title.toUpperCase()}</SeLabel>
@@ -555,8 +555,8 @@ function KnowledgeCheck({ checks, seedKey, answers, submitted, onAnswer, onSubmi
                       onClick={() => onAnswer(q._origIndex, opt.originalIndex)}
                       className="w-full flex items-start gap-2 text-left text-[12.5px] px-3 py-2 rounded-lg transition-colors"
                       style={{
-                        background: isCorrect ? `${greenAccent}12` : isWrong ? `${redAccent}12`
-                          : selected ? `${cyanAccent}12` : p.cardBg,
+                        background: isCorrect ? tint(greenAccent, 12) : isWrong ? tint(redAccent, 12)
+                          : selected ? tint(cyanAccent, 12) : p.cardBg,
                         border: `1px solid ${border}`,
                         color: p.inkSoft,
                       }}>
@@ -613,8 +613,8 @@ function LabSection({ lab, done, canToggle, onToggle }) {
             <button onClick={onToggle}
               className="flex items-center gap-1.5 font-mono text-[10.5px] px-2.5 py-1 rounded-full transition-colors"
               style={{
-                background: done ? `${greenAccent}14` : p.cardBg,
-                border: `1px solid ${done ? `${greenAccent}55` : p.cardBorder}`,
+                background: done ? tint(greenAccent, 14) : p.cardBg,
+                border: `1px solid ${done ? tint(greenAccent, 33) : p.cardBorder}`,
                 color: done ? greenAccent : p.inkFainter,
               }}>
               {done ? <><Check size={10} /> DONE</> : "MARK AS DONE"}
@@ -630,7 +630,7 @@ function LabSection({ lab, done, canToggle, onToggle }) {
             {lab.steps.map((s, i) => (
               <li key={i} className="flex items-start gap-2.5 text-[12.5px] leading-relaxed" style={{ color: p.inkSoft }}>
                 <span className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 font-mono text-[10px] font-bold mt-[1px]"
-                  style={{ background: `${greenAccent}14`, color: greenAccent }}>{i + 1}</span>
+                  style={{ background: tint(greenAccent, 14), color: greenAccent }}>{i + 1}</span>
                 <span><Inline text={s} /></span>
               </li>
             ))}
@@ -662,7 +662,7 @@ function AssignmentSection({ assignment }) {
   const purpleAccent = useCampusAccent(SE_ACCENT.purple);
   if (parts.length === 0) return null;
   return (
-    <SeCard className="p-5" style={{ background: `${purpleAccent}08`, border: `1px solid ${purpleAccent}26` }}>
+    <SeCard className="p-5" style={{ background: tint(purpleAccent, 8), border: `1px solid ${tint(purpleAccent, 20)}` }}>
       <div className="flex items-center gap-2 mb-3">
         <Target size={13} style={{ color: purpleAccent }} />
         <SeLabel color={SE_ACCENT.purple}>ASSIGNMENT</SeLabel>
@@ -671,11 +671,11 @@ function AssignmentSection({ assignment }) {
         {parts.map(part => (
           <div key={part.key} className="flex items-start gap-2.5">
             <span className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-[1px]"
-              style={{ background: `${purpleAccent}14`, color: purpleAccent }}>
+              style={{ background: tint(purpleAccent, 14), color: purpleAccent }}>
               <part.icon size={12} />
             </span>
             <div className="min-w-0">
-              <span className="block font-mono text-[9.5px] tracking-wider mb-0.5" style={{ color: `${purpleAccent}CC` }}>
+              <span className="block font-mono text-[9.5px] tracking-wider mb-0.5" style={{ color: tint(purpleAccent, 80) }}>
                 {part.label.toUpperCase()}
               </span>
               <p className="text-[12.5px] leading-relaxed" style={{ color: p.inkSoft }}><Inline text={assignment[part.key]} /></p>
@@ -722,7 +722,7 @@ function ResourceList({ resources }) {
           const inner = (
             <div className="flex items-start gap-3">
               <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: `${cyanAccent}12`, color: cyanAccent }}>
+                style={{ background: tint(cyanAccent, 12), color: cyanAccent }}>
                 <Icon size={14} />
               </span>
               <div className="min-w-0 flex-1">

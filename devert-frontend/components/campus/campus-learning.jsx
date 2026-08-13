@@ -7,7 +7,7 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, orderBy, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { fetchCourseTree, flattenTasks, getTaskStatus, getCurrentTask, courseProgressPct, completeTask } from "@/lib/learning";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusProgressBar, CampusGoogleButton, CampusSkeleton, CampusEmptyState } from "@/components/campus/campus-ui";
 
 // Native, light-themed port of app/learn/page.jsx for DeVert Campus - reuses
@@ -116,7 +116,7 @@ function CampusCourseCatalog({ onEnrolled }) {
           {c.category && <span className="inline-block mb-4"><CampusChip color={CAMPUS.inkFaint}>{c.category}</CampusChip></span>}
           <button onClick={() => handleEnroll(c)} disabled={enrolling === c.id}
             className="w-full text-xs font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
-            style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+            style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
             {enrolling === c.id ? "enrolling..." : "start learning"}
           </button>
         </CampusCard>
@@ -312,12 +312,12 @@ function CampusLessonViewer({ courseId, onBrowseCourses, onEnrolled }) {
                     )}
                     {nextTask ? (
                       <button onClick={() => goToTask(nextTask.id)} className="text-xs font-semibold px-5 py-2.5 rounded-lg transition-colors"
-                        style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+                        style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}` }}>
                         next task →
                       </button>
                     ) : (
                       <button onClick={onBrowseCourses} className="text-xs font-semibold px-5 py-2.5 rounded-lg transition-colors"
-                        style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+                        style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}` }}>
                         browse more courses
                       </button>
                     )}

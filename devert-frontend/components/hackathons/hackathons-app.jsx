@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useIsWindowed } from "@/components/window/is-windowed";
 import { HackathonDetailView } from "@/components/hackathons/hackathon-detail-view";
+import { isHackathon } from "@/lib/eventTypes";
 
 /* ─── helpers ─── */
 function statusMeta(status) {
@@ -76,13 +77,14 @@ export function HackathonsApp() {
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-          <p className="font-mono text-xs text-neon-green/55 mb-3 tracking-wider">// hackathons.log</p>
+          <p className="font-mono text-xs text-neon-green/55 mb-3 tracking-wider">// events.log</p>
           <h1 className="font-sans font-bold tracking-tighter text-white leading-none"
             style={{ fontSize: "clamp(2rem,5vw,4rem)" }}>
-            HACK<span className="text-neon-cyan">ATHONS</span>
+            EV<span className="text-neon-cyan">ENTS</span>
           </h1>
           <p className="font-mono text-xs text-white/30 mt-3 max-w-lg">
-            Build something real. Ship under pressure. Win XP, credits, and bragging rights.
+            Hackathons, workshops, meetups, open mics and tech talks. Build something real,
+            learn from other builders, or just show up.
           </p>
         </motion.div>
 
@@ -109,7 +111,7 @@ export function HackathonsApp() {
         ) : visible.length === 0 ? (
           <div className="text-center py-20">
             <Flame size={28} className="mx-auto mb-4 text-white/10" />
-            <p className="font-mono text-sm text-white/22">No hackathons yet</p>
+            <p className="font-mono text-sm text-white/22">No events yet</p>
             <p className="font-mono text-[10px] text-white/12 mt-1">// first one is brewing - stay tuned</p>
           </div>
         ) : (
@@ -117,7 +119,7 @@ export function HackathonsApp() {
             {visible.map((h, i) => {
               const sm  = statusMeta(h.status);
               const tl  = timeLabel(h);
-              const top = h.prizes?.[0];
+              const top = isHackathon(h) ? h.prizes?.[0] : null;
               return (
                 <motion.div key={h.id}
                   initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
@@ -163,13 +165,18 @@ export function HackathonsApp() {
                         )}
 
                         <div className="mt-auto pt-3 border-t border-white/5 flex items-center justify-between">
-                          {/* Top prize */}
-                          {top && (
+                          {/* Top prize (hackathons) or host (other event types) */}
+                          {top ? (
                             <div className="flex items-center gap-1.5">
                               <Trophy size={10} style={{ color: "#FFD700" }} />
                               <span className="font-mono text-[10px] text-white/45">{top.reward}</span>
                             </div>
-                          )}
+                          ) : h.host ? (
+                            <div className="flex items-center gap-1.5">
+                              <Users size={10} className="text-white/25" />
+                              <span className="font-mono text-[10px] text-white/45">{h.host}</span>
+                            </div>
+                          ) : null}
                           {/* Reg count */}
                           <div className="flex items-center gap-1.5 ml-auto">
                             <Users size={10} className="text-white/25" />

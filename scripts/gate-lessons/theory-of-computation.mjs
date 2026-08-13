@@ -10,6 +10,13 @@ export const THEORY_OF_COMPUTATION = {
     difficulty: "Moderate",
     estimatedMinutes: 40,
     xpReward: 30, coinReward: 12,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Introduction to Finite Automata - Neso Academy",
+      url: "https://www.youtube.com/watch?v=k3AP20v1yBw",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "What a finite automaton is, and what \"finite memory\" actually costs you",
       "DFA versus NFA - the difference in definition, and why it is not a difference in power",
@@ -277,6 +284,13 @@ Equivalence chain: epsilon-NFA -> NFA -> DFA -> regular expression -> epsilon-NF
     difficulty: "Moderate",
     estimatedMinutes: 35,
     xpReward: 30, coinReward: 12,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Theory of Computation 01 | Regular Expressions and Regular Languages | GATE 2024",
+      url: "https://www.youtube.com/watch?v=tDZtcw3RA1E",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "The three operators that generate every regular expression",
       "Why regular expressions and finite automata describe exactly the same languages",
@@ -505,6 +519,13 @@ Not expressible: a^n b^n, balanced brackets, a repeated arbitrary substring.`,
     difficulty: "Moderate",
     estimatedMinutes: 35,
     xpReward: 30, coinReward: 12,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Minimization of Deterministic Finite Automata (DFA) - Neso Academy",
+      url: "https://www.youtube.com/watch?v=hOzc4BUIXRk",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "What makes two states equivalent, and why that makes the minimal DFA unique",
       "The table-filling (Myhill-Nerode) algorithm, run step by step",
@@ -993,6 +1014,13 @@ All four decision problems - membership, emptiness, finiteness, equivalence - ar
     "coinReward": 10,
     "difficulty": "Hard",
     "estimatedMinutes": 40,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    "resources": [{
+      "kind": "video",
+      "title": "Pumping Lemma (For Regular Languages) - Neso Academy",
+      "url": "https://www.youtube.com/watch?v=dikEDuepOtI",
+      "description": "Whole video covers this topic from the start.",
+    }],
     "whatYoullLearn": [
       "The exact statement of the pumping lemma, including all three conditions",
       "Why the lemma can prove a language is NOT regular but can never prove one IS regular",
@@ -1131,6 +1159,13 @@ All four decision problems - membership, emptiness, finiteness, equivalence - ar
     difficulty: "Moderate",
     estimatedMinutes: 40,
     xpReward: 30, coinReward: 12,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Context Free Grammar & Context Free Language",
+      url: "https://www.youtube.com/watch?v=5_tfVe7ED3g",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "What a grammar generates, as opposed to what an automaton accepts",
       "Derivations, parse trees, and why leftmost/rightmost derivations matter",
@@ -1328,6 +1363,13 @@ That simultaneity is the mechanism a finite automaton cannot reproduce. It is no
     difficulty: "Moderate",
     estimatedMinutes: 40,
     xpReward: 30, coinReward: 12,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Pushdown Automata (Introduction) - Neso Academy",
+      url: "https://www.youtube.com/watch?v=4ejIAmp_Atw",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "What adding one stack buys you over a finite automaton",
       "The PDA transition, and why the stack is the only unbounded memory",
@@ -1718,6 +1760,13 @@ Forwards it GUARANTEES context-freeness (CFL intersect Regular is a CFL). Backwa
     difficulty: "Hard",
     estimatedMinutes: 40,
     xpReward: 35, coinReward: 15,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Pumping Lemma for Context Free Languages (Intro)",
+      url: "https://www.youtube.com/watch?v=HmSTXxMPQ_M",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "The CFL pumping lemma statement, and how its five-part split differs from the regular one",
       "Why the split is uvxyz and what |vxy| <= p actually constrains",
@@ -1906,6 +1955,13 @@ The window bound is doing all the work here.
     difficulty: "Moderate",
     estimatedMinutes: 40,
     xpReward: 30, coinReward: 12,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Turing Machine - Introduction (Part 1) - Neso Academy",
+      url: "https://www.youtube.com/watch?v=PvLaPKPzq2I",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "What removing the stack restriction buys: an unbounded, rewritable, randomly-accessible tape",
       "The TM transition, and why halting is a genuinely new possibility",
@@ -2101,6 +2157,15 @@ A stack loses what it pops. This machine rewrites marks in place and re-reads th
     difficulty: "Hard",
     estimatedMinutes: 40,
     xpReward: 35, coinReward: 15,
+    // Verified real (title confirmed via direct fetch, 2026-08-13) - covers
+    // undecidability via the halting problem specifically, not a general
+    // decidability survey.
+    resources: [{
+      kind: "video",
+      title: "Undecidability of the Halting Problem",
+      url: "https://www.youtube.com/watch?v=_eM0-KfAmhQ",
+      description: "Covers undecidability via the Halting Problem specifically.",
+    }],
     whatYoullLearn: [
       "What it means for a problem to be undecidable, as opposed to merely hard",
       "The halting problem and the diagonalisation argument behind it",
@@ -2299,6 +2364,13 @@ One word moved the question across the boundary. That is exactly the discriminat
     difficulty: "Hard",
     estimatedMinutes: 35,
     xpReward: 35, coinReward: 15,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Halting Problem Reduction - Theory of Computation",
+      url: "https://www.youtube.com/watch?v=TBWEnz8euxo",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "What a mapping reduction is, and the direction that makes a proof valid",
       "How to prove a new problem undecidable by reducing FROM a known one",

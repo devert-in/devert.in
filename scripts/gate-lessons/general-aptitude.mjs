@@ -640,6 +640,13 @@ Learn confusable pairs as pairs - affect/effect, principle/principal, complement
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "Verbal Aptitude For GATE | Part 06 | Reading Comprehension | GATE 2024 FastTrack Batch",
+      url: "https://www.youtube.com/watch?v=uedYDVbeD1o",
+      description: "Whole video covers this topic from the start.",
+    }],
     whatYoullLearn: [
       "The four question types a GATE passage asks, and which are safe to attempt fast",
       "Stated versus inferred - the distinction that decides most wrong answers",
@@ -923,6 +930,13 @@ Method: eliminate impossible openers, build two confident forced pairs, then tes
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified real (title confirmed via direct fetch, 2026-08-13).
+    resources: [{
+      kind: "video",
+      title: "#39 | Data Interpretation - Tables | General Aptitude | COMPLETE COURSE | GATE 2023 | Christy",
+      url: "https://www.youtube.com/watch?v=YZhFFAMPiOQ",
+      description: "Covers table-based data interpretation specifically.",
+    }],
     whatYoullLearn: [
       "Why DI is a reading test with arithmetic attached, not a maths test",
       "The chart types GATE uses and what each one hides",

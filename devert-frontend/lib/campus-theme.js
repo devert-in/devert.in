@@ -18,12 +18,22 @@ export const CAMPUS = {
   ink: "var(--campus-ink)",
   inkSoft: "var(--campus-ink-soft)",
   inkFaint: "var(--campus-ink-faint)",
-  // Primary interactive accent (Indigo) - kept the `teal` name since hundreds
-  // of already-shipped components key their primary color off CAMPUS.teal;
-  // see globals.css's .campus-theme comment for why that made this a
-  // one-file palette swap instead of a per-component migration.
+  // Primary interactive accent - kept the `teal` name since hundreds of
+  // already-shipped components key their primary color off CAMPUS.teal; see
+  // globals.css's .campus-theme comment for why that made this a one-file
+  // palette swap instead of a per-component migration. Now warm orange/amber
+  // (was Purple, before that Indigo) - third pivot, this time to match the
+  // photographic hanging-bulb background behind the student Dashboard.
   teal: "var(--campus-teal)",
   tealTint: "var(--campus-teal-tint)",
+  // Secondary accent (Pink) - new token, no prior name to repoint.
+  pink: "var(--campus-pink)",
+  pinkTint: "var(--campus-pink-tint)",
+  // Tertiary decorative accent (Orange) - new token, distinct from `gold`
+  // (which stays reserved for currency/coins everywhere it's already used -
+  // repointing it would break that semantic pairing across the app).
+  orange: "var(--campus-orange)",
+  orangeTint: "var(--campus-orange-tint)",
   cyan: "var(--campus-cyan)",
   cyanTint: "var(--campus-cyan-tint)",
   gold: "var(--campus-gold)",
@@ -71,6 +81,35 @@ export const CAMPUS = {
 // a fixed white, so a tint stays correct in both light and dark themes.
 export function tint(color, pct = 12) {
   return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+}
+
+// The photographic hanging-bulb backdrop behind EVERY Campus surface (the
+// authenticated workspace's every tab, the public landing/info pages, the
+// pre-auth gate screens) - not just the student Dashboard the redesign
+// started on. One function so every page reads the same two files and
+// applies the same scrim math, rather than five near-identical inline style
+// objects silently drifting apart over time. `backgroundAttachment: "fixed"`
+// keeps the photo pinned to the viewport rather than tiling/scrolling with
+// page content, which matters most on the long marketing pages.
+// `customUrl` - a student's own uploaded photo (users/{uid}.campusBgUrl, see
+// BackgroundUploadCard in campus-app.jsx) - overrides the default theme
+// photo everywhere this is called, so picking one photo once re-skins the
+// whole app rather than just the Dashboard tab that exposes the control.
+// Returns a CSS custom property, not a direct `backgroundImage` - the photo
+// itself renders through the "campus-photo-bg" class's ::before layer
+// (globals.css), which is what carries the blur. A literal `filter: blur()`
+// on THIS element would blur its own children too (every card and every
+// line of text on the page) - putting the blurred photo on a separate
+// negative-z-index pseudo-element behind the real content is what lets the
+// backdrop soften without smearing anything sitting on top of it. Callers
+// must add the "campus-photo-bg" class alongside this style spread - see
+// its call sites (CampusWorkspace, CampusLanding, CampusShell, etc).
+export function campusPhotoBg(theme, customUrl) {
+  const url = customUrl || (theme === "dark" ? "/campus-bg-dark-theme.jpg" : "/campus-bg-light-theme.jpg");
+  const scrim = theme === "dark" ? "rgba(10,14,23,0.62)" : "rgba(248,249,250,0.55)";
+  return {
+    "--campus-bg-image": `linear-gradient(${scrim}, ${scrim}), url(${url})`,
+  };
 }
 
 // Fixed literal hex, deliberately NOT CAMPUS.* var() references - an

@@ -637,7 +637,7 @@ function CompanyQuestionCard({ q, seedKey, selected, submitted, solved, bookmark
           let bg = CAMPUS.paper, border = CAMPUS.line, color = CAMPUS.inkSoft;
           if (submitted && isCorrectOpt) { bg = CAMPUS.goodTint; border = CAMPUS.good; color = CAMPUS.good; }
           else if (submitted && isSelected) { bg = CAMPUS.badTint; border = CAMPUS.bad; color = CAMPUS.bad; }
-          else if (!submitted && isSelected) { bg = CAMPUS.tealTint; border = `${CAMPUS.teal}60`; color = CAMPUS.ink; }
+          else if (!submitted && isSelected) { bg = CAMPUS.tealTint; border = tint(CAMPUS.teal, 38); color = CAMPUS.ink; }
           return (
             <button key={opt.originalIndex} onClick={() => !submitted && onSelect(opt.originalIndex)} disabled={submitted}
               className="w-full flex items-center gap-2.5 px-4 py-3 rounded-lg text-left transition-colors disabled:cursor-default"

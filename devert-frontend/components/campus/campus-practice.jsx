@@ -669,7 +669,7 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
                     </div>
                   )}
                   <button onClick={() => onSelect(p.id)} className="text-left w-full">
-                    <CampusCard hover className="p-4 h-full" style={hidden ? { opacity: 0.5 } : (solved ? { borderColor: `${CAMPUS.good}50` } : undefined)}>
+                    <CampusCard hover className="p-4 h-full" style={hidden ? { opacity: 0.5 } : (solved ? { borderColor: tint(CAMPUS.good, 31) } : undefined)}>
                       <div className="flex items-center gap-2 mb-2 flex-wrap pr-16">
                         <CampusChip color={CAMPUS.inkFaint}>{p.category}</CampusChip>
                         <CampusChip color={DIFF_COLOR[p.difficulty] || CAMPUS.good}>{p.difficulty}</CampusChip>
@@ -984,7 +984,7 @@ function SubmitProgressLine({ stageIndex }) {
   return (
     <div className="flex items-center gap-2.5 rounded-lg p-3" style={{ border: `1px solid ${CAMPUS.line}`, background: CAMPUS.paper }}>
       <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
-        className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ border: `2px solid ${CAMPUS.teal}40`, borderTopColor: CAMPUS.teal }} />
+        className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ border: `2px solid ${tint(CAMPUS.teal, 25)}`, borderTopColor: CAMPUS.teal }} />
       <AnimatePresence mode="wait">
         <motion.span key={stageIndex} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
           className="text-[12px] font-medium" style={{ color: CAMPUS.inkSoft }}>
@@ -1443,7 +1443,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
                 {problem.videoUrl && (
                   <a href={problem.videoUrl} target="_blank" rel="noreferrer" title="Watch video explanation"
                     className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-                    style={{ color: CAMPUS.bad, border: `1px solid ${CAMPUS.bad}40`, background: CAMPUS.badTint }}>
+                    style={{ color: CAMPUS.bad, border: `1px solid ${tint(CAMPUS.bad, 25)}`, background: CAMPUS.badTint }}>
                     <Youtube size={13} /> Watch
                   </a>
                 )}
@@ -1459,7 +1459,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
               <div className="rounded-lg p-3.5 mb-4" style={{ background: CAMPUS.purpleTint, border: `1px solid ${tint(CAMPUS.purple, 26)}` }}>
                 <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{problem.solutions[activeSolution].explanation}</p>
                 {(problem.solutions[activeSolution].timeComplexity || problem.solutions[activeSolution].spaceComplexity) && (
-                  <div className="flex items-center gap-4 text-[11px] font-mono mt-2.5 pt-2.5" style={{ color: CAMPUS.purple, borderTop: `1px solid ${CAMPUS.purple}25` }}>
+                  <div className="flex items-center gap-4 text-[11px] font-mono mt-2.5 pt-2.5" style={{ color: CAMPUS.purple, borderTop: `1px solid ${tint(CAMPUS.purple, 15)}` }}>
                     {problem.solutions[activeSolution].timeComplexity && <span>Time: {problem.solutions[activeSolution].timeComplexity}</span>}
                     {problem.solutions[activeSolution].spaceComplexity && <span>Space: {problem.solutions[activeSolution].spaceComplexity}</span>}
                   </div>
@@ -1468,7 +1468,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
             )}
 
             {hasSimpleExplanation(problem) && (
-              <div className="rounded-lg mb-4 overflow-hidden" style={{ background: CAMPUS.goldTint, border: `1px solid ${CAMPUS.gold}40` }}>
+              <div className="rounded-lg mb-4 overflow-hidden" style={{ background: CAMPUS.goldTint, border: `1px solid ${tint(CAMPUS.gold, 25)}` }}>
                 <button onClick={() => setShowSimpleExplanation(o => !o)} className="w-full flex items-center gap-2 p-3.5 text-left">
                   <Lightbulb size={14} style={{ color: CAMPUS.gold, flexShrink: 0 }} />
                   <span className="text-[12.5px] font-semibold flex-1" style={{ color: CAMPUS.ink }}>Simple Explanation</span>
@@ -1648,12 +1648,12 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
               <div className="hidden lg:flex gap-2">
                 <button onClick={handleRun} disabled={running || sampleTests.length === 0}
                   className="flex-1 text-xs font-semibold py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
-                  style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+                  style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
                   <Play size={12} /> {running ? "running..." : "run"}
                 </button>
                 <button onClick={handleSubmit} disabled={submitting}
                   className="flex-1 text-xs font-semibold py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
-                  style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
+                  style={{ color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 31)}`, background: CAMPUS.goodTint }}>
                   <Send size={12} /> {submitting ? "submitting..." : "submit"}
                 </button>
               </div>

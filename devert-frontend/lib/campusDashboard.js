@@ -45,6 +45,7 @@ export const ACTIVITY_LABELS = {
   aptitude_question: "Aptitude Question",
   admin_manual: "Manual Admin Adjustment",
   duplicate_reversal: "Duplicate Reward Correction",
+  disallowed_module_reversal: "Module Access Reward Reversed",
 };
 
 export function activityLabel(activityType) {
@@ -199,6 +200,17 @@ export async function fetchDashboardInsights(uid, options = {}) {
     aptitudeAccuracyPct: aptitude?.overallAccuracyPct ?? null,
     aptitudeQuestionsAttempted: aptitude?.questionsAttempted || 0,
   };
+}
+
+// A transparent, stated milestone ladder derived from real XP - not a stored
+// field and not a fabricated metric (contrast lib/studentAnalytics.js's
+// "never invent a number with no collection behind it": XP itself IS the
+// real, tracked collection here, Level is just a deterministic bucket of it).
+// 500 XP per level, flat - simple enough that a student can recompute it
+// themselves from the XP number sitting right next to it.
+export const XP_PER_LEVEL = 500;
+export function levelFromXp(xp) {
+  return Math.floor((xp || 0) / XP_PER_LEVEL) + 1;
 }
 
 // Relative timestamp for the activity feed ("2h ago"), falling back to an

@@ -35,7 +35,7 @@ export function ProGate({ feature, title, children, freeAlternative, compact = f
 
   if (compact) {
     return (
-      <Link href="/pro" className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+      <Link href="/campus/pro" className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         style={{ background: "rgba(0,255,255,0.05)", border: "1px solid rgba(0,255,255,0.22)" }}>
         <Lock size={12} style={{ color: "#00FFFF" }} />
         <span className="font-mono text-[11px]" style={{ color: "#00FFFF" }}>
@@ -64,7 +64,7 @@ export function ProGate({ feature, title, children, freeAlternative, compact = f
           </p>
         )}
 
-        <Link href="/pro"
+        <Link href="/campus/pro"
           className="inline-flex items-center gap-2 font-mono text-xs px-5 py-2.5 rounded-lg transition-colors"
           style={{ color: "#00FFFF", border: "1px solid rgba(0,255,255,0.3)", background: "rgba(0,255,255,0.06)" }}>
           see what Pro includes <ArrowRight size={12} />

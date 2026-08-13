@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Users, BarChart3, Trophy, Download, Pencil, Copy, Medal, Settings, ChevronDown, ChevronUp, Award, X, Printer, RotateCcw, AlertTriangle, Workflow, Play, Pause, Search } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusStat, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton, ReportDownloadButton } from "@/components/campus/campus-ui";
 import {
   fetchContest, contestPhase, fetchContestRegistrations, fetchContestSubmissions,
@@ -112,7 +112,7 @@ function ClasswiseSection({ group, title, limit, open, onToggle }) {
     : (collapsible && !open) ? group.rows.slice(0, PREVIEW)
     : group.rows;
   const hidden = group.rows.length - rows.length;
-  const medalTint = (i) => i === 0 ? `${CAMPUS.gold}1F` : i === 1 ? "#9CA3AF1F" : i === 2 ? "#B873331F" : "transparent";
+  const medalTint = (i) => i === 0 ? tint(CAMPUS.gold, 12) : i === 1 ? "#9CA3AF1F" : i === 2 ? "#B873331F" : "transparent";
   const th = "text-[9.5px] uppercase tracking-wide font-semibold py-1 whitespace-nowrap";
 
   return (
@@ -872,7 +872,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
     return (
       <div>
         <div className="mb-3 px-3.5 py-2.5 rounded-lg flex items-center gap-2 flex-wrap"
-          style={{ background: CAMPUS.warnTint, color: CAMPUS.warn, border: `1px solid ${CAMPUS.warn}40` }}>
+          style={{ background: CAMPUS.warnTint, color: CAMPUS.warn, border: `1px solid ${tint(CAMPUS.warn, 25)}` }}>
           <AlertTriangle size={14} />
           <span className="text-[12.5px] flex-1">
             <b>Dry run</b> — this is the real paper on the real timer, but nothing you do here counts.
@@ -944,8 +944,8 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
       {sweepResult && (
         <div className="mb-3 px-3.5 py-2.5 rounded-lg text-[12.5px]"
           style={sweepResult.failed
-            ? { background: CAMPUS.badTint, color: CAMPUS.bad, border: `1px solid ${CAMPUS.bad}40` }
-            : { background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${CAMPUS.good}40` }}>
+            ? { background: CAMPUS.badTint, color: CAMPUS.bad, border: `1px solid ${tint(CAMPUS.bad, 25)}` }
+            : { background: CAMPUS.goodTint, color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 25)}` }}>
           Graded {sweepResult.graded} of {sweepResult.total} pending submission{sweepResult.total === 1 ? "" : "s"}.
           {/* Naming the ones that failed, not just counting them - "3 failed"
               gives an admin nothing to act on. */}
@@ -1127,7 +1127,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
               <button key={v} onClick={() => setParticipantStatus(v)}
                 className="text-[11px] px-2.5 py-1.5 rounded-lg transition-colors"
                 style={participantStatus === v
-                  ? { background: `${CAMPUS.purple}1F`, color: CAMPUS.purple, border: `1px solid ${CAMPUS.purple}55` }
+                  ? { background: tint(CAMPUS.purple, 12), color: CAMPUS.purple, border: `1px solid ${tint(CAMPUS.purple, 33)}` }
                   : { background: CAMPUS.paper, color: CAMPUS.inkFaint, border: `1px solid ${CAMPUS.line}` }}>
                 {label}
               </button>
@@ -1237,7 +1237,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
           </div>
           {classwise.mixedPapers && (
             <p className="text-[10.5px] mb-3 px-2.5 py-1.5 rounded-md"
-              style={{ color: CAMPUS.inkSoft, background: `${CAMPUS.warn}14`, borderLeft: `2px solid ${CAMPUS.warn}` }}>
+              style={{ color: CAMPUS.inkSoft, background: tint(CAMPUS.warn, 8), borderLeft: `2px solid ${CAMPUS.warn}` }}>
               Students sat papers of different lengths, so ranking is by <b>percentage</b> - ranking on raw score
               would place a perfect 10/10 below a 12/20.
             </p>

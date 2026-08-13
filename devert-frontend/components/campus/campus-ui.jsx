@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronRight, Download } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { CAMPUS, tint } from "@/lib/campus-theme";
@@ -23,7 +23,23 @@ import { CAMPUS, tint } from "@/lib/campus-theme";
 // via a CSS transition instead of manual mouseenter/leave handlers, so the
 // motion itself is GPU-friendly (transform + opacity only) and respects
 // prefers-reduced-motion for free (see globals.css's campus-theme override).
-export function CampusCard({ children, className = "", hover = false, glass = false, style, as: As = "div", ...rest }) {
+// Deliberately staying on rounded-2xl, not a bigger arbitrary radius: this
+// exact class name is what .campus-sharp/.campus-square (globals.css) match
+// on to flatten cards for the pre-auth public pages. Swapping it for
+// rounded-3xl or rounded-[22px] would silently break that - those rules list
+// specific Tailwind radius class NAMES, not "whatever CampusCard emits".
+// The bigger-radius look lives on the hand-styled shells instead (hero,
+// sidebar, top bar, banners - raw divs, not this component).
+// `glass` now DEFAULTS to true: every Campus surface sits over the
+// photographic backdrop (see lib/campus-theme.js's campusPhotoBg) now, not
+// just the student Dashboard this treatment started on - flipping the
+// default here is what makes every existing CampusCard call site across the
+// whole app (Programming, Aptitude, DSA, Manage, the public landing page...)
+// pick up the same frosted look for free, instead of hand-editing `glass`
+// onto hundreds of call sites one file at a time. Pass `glass={false}`
+// explicitly for the rare spot that genuinely wants a flat, fully opaque
+// card (there are none as of this writing, but the escape hatch stays).
+export function CampusCard({ children, className = "", hover = false, glass = true, style, as: As = "div", ...rest }) {
   return (
     <As
       className={`rounded-2xl transition-all duration-200 ${hover ? "cursor-pointer campus-card-hover" : ""} ${glass ? "campus-glass" : ""} ${className}`}
@@ -164,7 +180,7 @@ export function CampusSkeleton({ variant = "text", width, height, className = ""
 // than anything else in this app. `action`/`secondaryAction` are whole
 // button elements (usually a CampusButton), not click handlers - keeps this
 // component's own API tiny.
-export function CampusEmptyState({ icon: Icon, title, description, action, secondaryAction, size = "md", color = CAMPUS.teal, className = "" }) {
+export function CampusEmptyState({ icon: Icon, title, description, action, secondaryAction, size = "md", color = CAMPUS.teal, glass = false, className = "" }) {
   const compact = size === "sm";
   return (
     // flex column throughout, so an empty state sitting in a stretched grid
@@ -173,7 +189,7 @@ export function CampusEmptyState({ icon: Icon, title, description, action, secon
     // pt-3.5` on the action row is what does it: with slack above, mt-auto
     // pushes the row to the bottom; with no slack, mt-auto collapses to 0 and
     // pt-3.5 preserves exactly the spacing this had before.
-    <CampusCard className={`${compact ? "p-5" : "p-6"} flex flex-col ${className}`}>
+    <CampusCard glass={glass} className={`${compact ? "p-5" : "p-6"} flex flex-col ${className}`}>
       <div className="flex items-start gap-3.5 flex-1">
         {Icon && (
           <div className={`${compact ? "w-8 h-8" : "w-10 h-10"} rounded-lg flex items-center justify-center flex-shrink-0`}
@@ -247,21 +263,28 @@ export function CampusButton({ variant = "primary", size = "md", rounded = "lg",
 // `tabs`: [{ key, label, icon? }]. Renders real <button>s in a tablist, so
 // keyboard focus order and screen-reader semantics come for free - the previous
 // hand-rolled rows were divs of buttons with no tablist role.
+// Fully-rounded pill track + solid-fill active pill (Material-style
+// segmented tabs) - rounded-full on both the track and the buttons, active
+// tab filled solid with CAMPUS.teal + white text instead of the previous
+// surface+shadow "lifted tile" look. This one component backs tab rows
+// across dozens of screens (department/classroom/admin dashboards, Manage
+// sub-tabs), so this is a one-file way to make "pill tabs" the app-wide
+// pattern rather than a per-screen hand-edit.
 export function CampusTabBar({ tabs, value, onChange, className = "", size = "md" }) {
   const compact = size === "sm";
   return (
     <div role="tablist" aria-orientation="horizontal"
-      className={`inline-flex items-center gap-1 p-1 rounded-xl max-w-full overflow-x-auto ${className}`}
+      className={`inline-flex items-center gap-1 p-1 rounded-full max-w-full overflow-x-auto ${className}`}
       style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
       {tabs.map(t => {
         const active = t.key === value;
         return (
           <button key={t.key} role="tab" aria-selected={active} onClick={() => onChange(t.key)}
-            className={`inline-flex items-center gap-1.5 font-semibold rounded-lg whitespace-nowrap flex-shrink-0 transition-all duration-200 ${compact ? "px-2.5 py-1 text-[11.5px]" : "px-3 py-1.5 text-[12.5px]"}`}
+            className={`inline-flex items-center gap-1.5 font-semibold rounded-full whitespace-nowrap flex-shrink-0 transition-all duration-200 ${compact ? "px-3 py-1 text-[11.5px]" : "px-3.5 py-1.5 text-[12.5px]"}`}
             style={active
-              ? { background: CAMPUS.surface, color: CAMPUS.ink, boxShadow: CAMPUS.shadow }
+              ? { background: CAMPUS.teal, color: "#fff", boxShadow: CAMPUS.shadow }
               : { background: "transparent", color: CAMPUS.inkFaint }}>
-            {t.icon && <t.icon size={compact ? 11 : 13} style={{ color: active ? CAMPUS.teal : "currentColor" }} />}
+            {t.icon && <t.icon size={compact ? 11 : 13} style={{ color: active ? "#fff" : "currentColor" }} />}
             {t.label}
           </button>
         );
@@ -432,6 +455,106 @@ export function CampusTable({ columns, rows, rowKey = "id", emptyState, rowStyle
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ---------------- roadmap timeline ----------------
+
+// The Learn modules' "Roadmap" tab (a subject's or a language's topic tree,
+// grouped by module) used to render as a flat stack of accordion cards -
+// functionally fine (click a module, its topics unfold) but visually
+// indistinguishable from any other list on the page. This renders the exact
+// same data as a connected vertical timeline instead - a numbered/checked
+// node per module on a spine - while keeping the identical click-to-expand
+// interaction, so it's a drop-in replacement for the hand-rolled block
+// campus-cscore.jsx and campus-programming.jsx used to duplicate byte-for-
+// byte. `modules`: [{ module, topics: [{ id, title }] }]. `completedIds`/
+// `openModules` are Sets the caller already owns (progress + accordion
+// state) - this component renders them, it doesn't fetch or track either.
+// `topicLabel`/`moduleIcon` are accessors, not a data-shape requirement -
+// campus-aptitude.jsx's AptitudeRoadmap groups by category (not "module")
+// and names its topics `.name` rather than `.title`, and shows a category
+// icon CS Core/Programming don't have; both read through these instead of
+// each caller reshaping its data to match one hardcoded field name.
+export function RoadmapTimeline({
+  modules, completedIds, openModules, onToggleModule, onOpenTopic,
+  topicHasContent = () => true, topicLabel = (t) => t.title,
+  moduleIcon = () => null, accent = CAMPUS.teal,
+}) {
+  return (
+    <div className="relative">
+      {/* The spine, centered on the 40px (w-10) nodes below (20px = their
+          half-width). top-5/bottom-5 land it roughly at the first and last
+          node's own center, not their card's - a few px of slack either way
+          reads as normal in this genre of diagram, same as the GATE-style
+          reference this is modeled on. */}
+      <div className="absolute left-5 top-5 bottom-5 w-px" style={{ background: CAMPUS.line }} aria-hidden="true" />
+      <div className="space-y-4">
+        {modules.map(({ module, topics }, i) => {
+          const total = topics.length;
+          const completed = topics.filter(t => completedIds.has(t.id)).length;
+          const done = total > 0 && completed === total;
+          const started = completed > 0;
+          const open = openModules.has(module);
+          const icon = moduleIcon(module);
+          return (
+            <div key={module} className="relative pl-14">
+              {/* A second, cosmetic control over the same module - the node
+                  and the card header below both toggle the identical state,
+                  same as a stepper's number bubble and its label always
+                  pointing at one one step. */}
+              <button onClick={() => onToggleModule(module)}
+                aria-label={`${open ? "Collapse" : "Expand"} ${module}`}
+                className="absolute left-0 top-0 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-colors"
+                style={done
+                  ? { background: accent, color: "#fff" }
+                  : started
+                    ? { background: tint(accent, 16), color: accent, border: `2px solid ${accent}` }
+                    : { background: CAMPUS.surface, color: CAMPUS.inkFaint, border: `2px solid ${CAMPUS.line}` }}>
+                {done ? <Check size={17} /> : <span className="text-[13px] font-bold">{i + 1}</span>}
+              </button>
+              <CampusCard className="overflow-hidden">
+                <button onClick={() => onToggleModule(module)} aria-expanded={open}
+                  className="w-full flex items-center justify-between gap-3 p-4 text-left">
+                  <span className="flex items-center gap-2 min-w-0">
+                    {icon && <icon.icon size={15} style={{ color: icon.color, flexShrink: 0 }} />}
+                    <b className="text-[13.5px] truncate" style={{ color: CAMPUS.ink }}>{module}</b>
+                  </span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>{completed}/{total}</span>
+                    <ChevronDown size={15} style={{
+                      color: CAMPUS.inkFaint, flexShrink: 0,
+                      transform: open ? "rotate(180deg)" : "none",
+                      transition: "transform 0.18s",
+                    }} />
+                  </div>
+                </button>
+                {open && (
+                  <div style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+                    {topics.map(t => {
+                      const topicDone = completedIds.has(t.id);
+                      const hasContent = topicHasContent(t);
+                      return (
+                        <button key={t.id} onClick={() => onOpenTopic(t.id)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                          style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ background: topicDone ? CAMPUS.goodTint : CAMPUS.paper, border: `1px solid ${topicDone ? CAMPUS.good : CAMPUS.line}` }}>
+                            {topicDone && <Check size={11} style={{ color: CAMPUS.good }} />}
+                          </div>
+                          <span className="flex-1 text-[13px]" style={{ color: CAMPUS.ink }}>{topicLabel(t)}</span>
+                          {!hasContent && <CampusChip color={CAMPUS.inkFaint}>COMING SOON</CampusChip>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </CampusCard>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -41,7 +41,7 @@ function formatAttemptTime(seconds) {
 import { ContestShareButton } from "@/components/campus/contest-share";
 import { Inline } from "@/components/campus/lesson-blocks";
 import { seededShuffle } from "@/lib/quizRandom";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusGoogleButton, CampusBackButton, CampusBreadcrumb, CampusButton, CampusSkeleton, CampusEmptyState, CampusTable } from "@/components/campus/campus-ui";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -332,7 +332,7 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
           </p>
           <button onClick={() => onEnterAttempt(contestId, { dryRun: true })}
             className="w-full text-sm font-semibold py-3 rounded-xl transition-colors"
-            style={{ color: CAMPUS.purple, border: `1px solid ${CAMPUS.purple}50`, background: `${CAMPUS.purple}14` }}>
+            style={{ color: CAMPUS.purple, border: `1px solid ${tint(CAMPUS.purple, 31)}`, background: tint(CAMPUS.purple, 8) }}>
             start dry run →
           </button>
         </CampusCard>
@@ -351,22 +351,22 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
           {registered ? (
             phase === "live" ? (
               <button onClick={() => onEnterAttempt(contestId)} className="flex-1 text-center text-sm font-semibold py-3 rounded-xl transition-colors"
-                style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
+                style={{ color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 31)}`, background: CAMPUS.goodTint }}>
                 enter contest →
               </button>
             ) : phase === "past" ? (
               <button onClick={() => onViewResults(contestId)} className="flex-1 text-center text-sm font-semibold py-3 rounded-xl transition-colors"
-                style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+                style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
                 view results
               </button>
             ) : (
-              <span className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-3 rounded-xl" style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50` }}>
+              <span className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-3 rounded-xl" style={{ color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 31)}` }}>
                 <CheckCircle2 size={14} /> registered — come back at start time
               </span>
             )
           ) : phase === "past" ? (
             <button onClick={() => onViewResults(contestId)} className="flex-1 text-center text-sm font-semibold py-3 rounded-xl transition-colors"
-              style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+              style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
               view results
             </button>
           ) : phase === "closed" ? (
@@ -374,7 +374,7 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
           ) : (
             <div className="flex-1">
               <button onClick={handleRegister} disabled={registering} className="w-full text-sm font-semibold py-3 rounded-xl disabled:opacity-50 transition-colors"
-                style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
+                style={{ color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 31)}`, background: CAMPUS.goodTint }}>
                 {registering ? "registering..." : "register for contest"}
               </button>
               {registerError && <p className="text-xs mt-2" style={{ color: CAMPUS.bad }}>{registerError}</p>}
@@ -423,12 +423,12 @@ function ContestCodingPanel({ state, isPaused, onLanguageChange, onCodeChange, o
       <div className="flex gap-2">
         <button onClick={onRun} disabled={running || isPaused || !sampleTestsLoaded || sampleTests.length === 0}
           className="flex-1 text-xs font-semibold py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
-          style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+          style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
           <Play size={12} /> {running ? "running..." : "run sample tests"}
         </button>
         <button onClick={onSubmit} disabled={submitting || isPaused}
           className="flex-1 text-xs font-semibold py-2.5 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
-          style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
+          style={{ color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 31)}`, background: CAMPUS.goodTint }}>
           <Send size={12} /> {submitting ? "submitting..." : "submit for grading"}
         </button>
       </div>
@@ -853,7 +853,7 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
         <h1 className="text-lg font-bold mb-2" style={{ color: CAMPUS.ink }}>Submission Recorded</h1>
         <p className="text-xs mb-5" style={{ color: CAMPUS.inkFaint }}>Results and the leaderboard unlock once the contest ends.</p>
         <button onClick={() => onViewResults(contestId)} className="text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
-          style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+          style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}` }}>
           go to results page
         </button>
       </CampusCard>
@@ -1024,13 +1024,13 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
           {qIndex < questions.length - 1 ? (
             <button onClick={() => goToQuestion(Math.min(questions.length - 1, qIndex + 1))} disabled={isPaused}
               className="flex-1 text-xs font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-30"
-              style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+              style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
               next →
             </button>
           ) : (
             <button onClick={handleSubmit} disabled={submitting || isPaused}
               className="flex-1 text-xs font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
-              style={{ color: CAMPUS.good, border: `1px solid ${CAMPUS.good}50`, background: CAMPUS.goodTint }}>
+              style={{ color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 31)}`, background: CAMPUS.goodTint }}>
               {submitting ? "submitting..." : "submit contest"}
             </button>
           )}
@@ -1407,7 +1407,7 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
                     <button onClick={() => setShowNonAttempters(v => !v)}
                       className="text-[11px] px-2.5 py-1.5 rounded-lg"
                       style={showNonAttempters
-                        ? { background: `${CAMPUS.purple}1F`, color: CAMPUS.purple, border: `1px solid ${CAMPUS.purple}55` }
+                        ? { background: tint(CAMPUS.purple, 12), color: CAMPUS.purple, border: `1px solid ${tint(CAMPUS.purple, 33)}` }
                         : { background: CAMPUS.paper, color: CAMPUS.inkFaint, border: `1px solid ${CAMPUS.line}` }}>
                       {showNonAttempters ? "hide" : "show"} no-attempt ({nonAttempters.length})
                     </button>

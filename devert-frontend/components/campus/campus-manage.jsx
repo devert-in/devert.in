@@ -955,7 +955,7 @@ function ManageDailyLearning({ institutionId, scopeDepartment = null }) {
             </button>
           )}
           <button onClick={() => setShowPreview(true)} className="flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg"
-            style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+            style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
             <Eye size={12} /> preview as student
           </button>
         </div>
@@ -1099,7 +1099,7 @@ function ManagePracticePreview({ institutionId }) {
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{problems.length} PROBLEMS - {students.length} APPROVED STUDENTS</p>
         <button onClick={() => setView("preview")} className="flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg"
-          style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50`, background: CAMPUS.tealTint }}>
+          style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}`, background: CAMPUS.tealTint }}>
           <Eye size={12} /> preview / hide problems
         </button>
       </div>

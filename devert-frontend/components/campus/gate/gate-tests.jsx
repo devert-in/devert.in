@@ -6,7 +6,7 @@ import {
   ClipboardList, Clock, Flag, Gauge, ListChecks, Lock, MinusCircle, Play,
   SkipForward, Target, Timer, Trophy, XCircle, Repeat,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusSkeleton, CampusEmptyState,
   CampusBackButton, CampusProgressBar,
@@ -282,7 +282,7 @@ function TestInstructions({ test, questions, onBack, onBegin, busy, signedIn }) 
         </div>
 
         {test.instructions?.trim() && (
-          <div className="rounded-xl p-4 mb-4" style={{ background: CAMPUS.warnTint, border: `1px solid ${CAMPUS.warn}40` }}>
+          <div className="rounded-xl p-4 mb-4" style={{ background: CAMPUS.warnTint, border: `1px solid ${tint(CAMPUS.warn, 25)}` }}>
             <p className="text-[10px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.warn }}>BEFORE YOU START</p>
             <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap" style={{ color: CAMPUS.inkSoft }}>{test.instructions}</p>
           </div>

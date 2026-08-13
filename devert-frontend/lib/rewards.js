@@ -108,7 +108,21 @@ export async function grantRewards(uid, {
     const ledgerRef = rewardLedgerRef(uid, activityType, activityId);
     const ledgerData = {
       uid, activityType, activityId,
-      xp: xpReward, coins: coinReward, score: scoreReward || xpReward,
+      // NOT `scoreReward || xpReward` - that reads a legitimate, computed
+      // zero (e.g. lib/quizAttempts.js's per-question scoring on a paper
+      // with zero correct answers) as "caller didn't pass one" and falls
+      // through to xpReward instead, which can be NEGATIVE on a mostly-wrong
+      // quiz (xp deducts for wrong answers; score does not - see
+      // computeQuizReward's own comment). A negative `score` here fails
+      // firestore.rules' reward_grants create check (score must be >= 0),
+      // which rejects the ENTIRE grading transaction with permission-denied -
+      // the exact "your account is not allowed to record this attempt"
+      // reports from CS Core/Programming/Aptitude/GATE quizzes. Every caller
+      // already computes and passes its own correct scoreReward (see the
+      // call sites across csCore.js/programming.js/gate.js/aptitude.js/
+      // dailyLearning.js/dsaConcepts.js/softwareEngineering.js), so no
+      // fallback is actually needed.
+      xp: xpReward, coins: coinReward, score: scoreReward,
       sourceModule: sourceModule || activityType,
       grantedAt: serverTimestamp(), grantedBy, status: "granted",
     };

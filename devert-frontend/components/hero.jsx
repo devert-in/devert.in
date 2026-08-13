@@ -128,7 +128,7 @@ export function Hero() {
         </motion.p>
 
         <motion.div variants={item} className="flex flex-wrap gap-3 mb-16 md:mb-0">
-          <GlitchButton href="/grind" primary>[ START_BUILDING ]</GlitchButton>
+          <GlitchButton href="/shipyard" primary>[ START_BUILDING ]</GlitchButton>
           <GlitchButton href="/intel" primary={false}>[ EXPLORE_INTEL ]</GlitchButton>
         </motion.div>
       </div>

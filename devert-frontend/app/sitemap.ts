@@ -40,6 +40,7 @@ export default async function sitemap() {
     { url: "https://devert.in/broadcast", changeFrequency: "weekly", priority: 0.7 },
     { url: "https://devert.in/ranks", changeFrequency: "daily", priority: 0.8 },
     { url: "https://devert.in/hackathons", changeFrequency: "weekly", priority: 0.8 },
+    { url: "https://devert.in/about", changeFrequency: "monthly", priority: 0.5 },
     { url: "https://devert.in/login", changeFrequency: "monthly", priority: 0.5 },
     { url: "https://devert.in/privacy", changeFrequency: "monthly", priority: 0.3 },
     { url: "https://devert.in/terms", changeFrequency: "monthly", priority: 0.3 },

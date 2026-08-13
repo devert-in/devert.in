@@ -26,7 +26,22 @@ export function usePalette() {
   const { campusMode } = useSe();
   return campusMode
     ? {
-      cardBg: CAMPUS.surface, cardBgHover: CAMPUS.surface2, cardBorder: CAMPUS.line, cardBorderHover: null,
+      // Glass, not a flat CAMPUS.surface fill - every one of these cards
+      // renders over the Dashboard's photo backdrop (campusPhotoBg), and an
+      // opaque fill blocked it out entirely, same bug the sidebar/topbar had
+      // before they picked up .campus-glass. var(--campus-glass-*) are the
+      // exact same tokens that class reads, so this stays in lockstep with
+      // whatever globals.css tunes them to - see its own comment. The
+      // gradient sheen is .campus-glass's own recipe (globals.css), copied
+      // here because these render via a plain inline `background:` string
+      // rather than that class - there is no backdrop-filter blur riding
+      // along with it (that needs the actual CSS property, not a color
+      // string), but the photo behind is already blurred by
+      // .campus-photo-bg, so a translucent fill alone already reads as
+      // frosted rather than a flat grey window.
+      cardBg: "linear-gradient(165deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 45%), var(--campus-glass-bg)",
+      cardBgHover: "linear-gradient(165deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 45%), var(--campus-glass-bg)",
+      cardBorder: "var(--campus-glass-border)", cardBorderHover: null,
       ink: CAMPUS.ink, inkSoft: CAMPUS.inkSoft, inkFaint: CAMPUS.inkFaint, inkFainter: CAMPUS.inkFaint,
       track: CAMPUS.line, rowBorder: CAMPUS.line, rowHoverBg: CAMPUS.surface2,
       chipDefault: CAMPUS.inkFaint, labelDefault: CAMPUS.inkFaint, primaryAccent: CAMPUS.teal,
@@ -90,6 +105,7 @@ export function SeTerminal({ label, children, className = "", accent }) {
 
 export function SeCard({ children, className = "", accent, hover = false, as: As = "div", ...rest }) {
   const [lifted, setLifted] = useState(false);
+  const { campusMode } = useSe();
   const p = usePalette();
   const resolvedAccent = useCampusAccent(accent);
   return (
@@ -98,6 +114,12 @@ export function SeCard({ children, className = "", accent, hover = false, as: As
       style={{
         background: lifted ? p.cardBgHover : p.cardBg,
         border: `1px solid ${lifted && resolvedAccent && p.cardBorderHover ? `${resolvedAccent}${p.cardBorderHover}` : lifted && resolvedAccent ? resolvedAccent : p.cardBorder}`,
+        // Real frosting (not just usePalette()'s translucent fill) for the
+        // one card primitive most of the lesson UI actually renders through -
+        // same blur/saturate recipe as .campus-glass (globals.css), applied
+        // here rather than via that class since this element's background is
+        // a per-instance computed string, not a fixed CSS rule.
+        ...(campusMode ? { backdropFilter: "blur(28px) saturate(165%)", WebkitBackdropFilter: "blur(28px) saturate(165%)" } : null),
       }}
       onMouseEnter={hover ? () => setLifted(true) : undefined}
       onMouseLeave={hover ? () => setLifted(false) : undefined}
@@ -248,8 +270,14 @@ export function SeReadingBar({ pct }) {
   const { campusMode } = useSe();
   const p = usePalette();
   return (
-    <div className="sticky top-0 z-20 -mx-1 px-1 py-2 backdrop-blur"
-      style={{ background: campusMode ? CAMPUS.paper : "rgba(5,5,5,0.88)" }}>
+    // In Campus, this sticks inside the same window-scrolling flow as the
+    // workspace's own sticky top bar (CampusTopBar, campus-app.jsx - top-3/
+    // lg:top-4 plus its own padded height) - top-0 here would park this bar
+    // (and the lesson text scrolling past it) in the gap ABOVE that chrome
+    // instead of flush beneath it. Standalone (non-Campus) SE has no such
+    // chrome above it, so it keeps sticking at the literal viewport top.
+    <div className={`sticky z-20 -mx-1 px-1 py-2 ${campusMode ? "top-[88px] lg:top-[82px] campus-glass-nav" : "top-0 backdrop-blur"}`}
+      style={campusMode ? undefined : { background: "rgba(5,5,5,0.88)" }}>
       <div className="flex items-center gap-2.5">
         <span className="font-mono text-[9px] tracking-[0.15em] flex-shrink-0" style={{ color: p.inkFainter }}>PROGRESS</span>
         <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: p.track }}>
@@ -375,7 +403,7 @@ export function SeLessonRow({ lesson, index, done, accent, hasContent, onClick, 
         </span>
       )}
       <span className="flex-1 min-w-0">
-        <span className="block text-[13px] truncate" style={{ color: p.inkSoft }}>{lesson.title}</span>
+        <span className="block text-[13px] leading-snug" style={{ color: p.inkSoft }}>{lesson.title}</span>
         {showModule && lesson.moduleTitle && (
           <span className="block font-mono text-[10px] mt-0.5" style={{ color: p.inkFaint }}>
             Module {lesson.moduleNumber} · {lesson.moduleTitle}

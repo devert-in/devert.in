@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Search, X as CloseIcon } from "lucide-react";
 import { fetchPublishedProblems, CODELAB_LANGUAGES } from "@/lib/codelab";
 import { saveItem, dowOfDate, DOW_LABELS } from "@/lib/dailyLearning";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusBackButton } from "@/components/campus/campus-ui";
 
 // The single create/edit form for a Daily Learning day (lesson OR test -
@@ -42,7 +42,7 @@ export function StringListField({ label, items, onChange, placeholder }) {
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{label} ({list.length})</label>
-        <button onClick={add} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+        <button onClick={add} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}` }}>
           <Plus size={10} /> add
         </button>
       </div>
@@ -84,7 +84,7 @@ export function McqListField({ label = "QUIZ (MCQS)", items, onChange }) {
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{label} ({list.length})</label>
-        <button onClick={add} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+        <button onClick={add} className="flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}` }}>
           <Plus size={10} /> add question
         </button>
       </div>
@@ -311,7 +311,7 @@ export function DailyLearningItemEditor({ slug, item, defaultDate, onClose, onSa
                   className="w-14 text-[12px] px-2 py-1 rounded-lg outline-none" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
                 <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>min</span>
               </div>
-              <button onClick={addMcq} className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${CAMPUS.teal}50` }}>
+              <button onClick={addMcq} className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 31)}` }}>
                 <Plus size={11} /> add question
               </button>
             </div>

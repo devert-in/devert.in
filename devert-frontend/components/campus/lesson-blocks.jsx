@@ -9,7 +9,7 @@ import {
   Info, Keyboard, Layers, Lightbulb, Lock, MemoryStick, Microscope, Network, Play,
   Quote, RotateCcw, ScrollText, Shield, Sparkles, Target, Timer, Users, X as XIcon,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { parseLesson, parseLessonBlocks, tokenizeInline } from "@/lib/lessonBlocks";
 import { CODELAB_LANGUAGES, runCode } from "@/lib/codelab";
 import { CampusCard } from "@/components/campus/campus-ui";
@@ -363,7 +363,7 @@ function Checkpoint({ title, question, options, explanation }) {
 
   return (
     <motion.div {...motionProps}>
-      <CampusCard className="p-4" style={{ border: `1px solid ${CAMPUS.blue}40`, background: `${CAMPUS.blue}0D` }}>
+      <CampusCard className="p-4" style={{ border: `1px solid ${tint(CAMPUS.blue, 25)}`, background: tint(CAMPUS.blue, 5) }}>
         <div className="flex items-center gap-2 mb-2">
           <HelpCircle size={14} style={{ color: CAMPUS.blue, flexShrink: 0 }} />
           <span className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.blue }}>CHECKPOINT</span>
@@ -659,10 +659,12 @@ export function useReadingProgress(ref) {
 }
 
 // Slim sticky bar showing lesson progress. Sits under the workspace's own
-// chrome rather than at viewport top, so it never covers the back button.
+// chrome (CampusTopBar - top-3/lg:top-4 plus its own padded height) rather
+// than at literal viewport top-0, so it never overlaps that bar (or the
+// content scrolling behind it) instead of just tucking in below it.
 export function LessonProgressBar({ pct, label = "LESSON PROGRESS" }) {
   return (
-    <div className="sticky top-0 z-20 -mx-1 px-1 py-2 backdrop-blur"
+    <div className="sticky top-[88px] lg:top-[82px] z-20 -mx-1 px-1 py-2 backdrop-blur"
       style={{ background: `color-mix(in srgb, ${CAMPUS.paper} 88%, transparent)` }}>
       <div className="flex items-center gap-2.5">
         <span className="text-[9.5px] font-mono tracking-widest flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{label}</span>

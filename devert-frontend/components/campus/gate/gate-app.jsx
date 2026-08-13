@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Activity, AlertTriangle, BarChart3, BookMarked, BookOpen, Bookmark, CalendarCheck,
-  ClipboardList, FileQuestion, GraduationCap, Layers, Library, ListChecks, Repeat,
+  ClipboardList, FileQuestion, GraduationCap, Layers, Library, ListChecks, Map, Repeat,
   ScrollText, Sigma, Target, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -25,6 +25,7 @@ import { GateOverview } from "@/components/campus/gate/gate-overview";
 import { GateSyllabus } from "@/components/campus/gate/gate-syllabus";
 import { GateSubjects, GateTopicView } from "@/components/campus/gate/gate-subjects";
 import { GateDaily } from "@/components/campus/gate/gate-daily";
+import { GateRoadmap } from "@/components/campus/gate/gate-roadmap";
 import { GatePractice } from "@/components/campus/gate/gate-practice";
 import { GatePyqBrowser } from "@/components/campus/gate/gate-pyq";
 import { GateTestList, GateTestFlow } from "@/components/campus/gate/gate-tests";
@@ -60,6 +61,7 @@ export const GATE_SECTIONS = [
   { key: "syllabus", label: "Syllabus", icon: ListChecks, group: "prepare" },
   { key: "subjects", label: "Subjects", icon: Layers, group: "prepare" },
   { key: "daily", label: "Daily GATE", icon: CalendarCheck, group: "prepare" },
+  { key: "roadmap", label: "Roadmap", icon: Map, group: "prepare" },
 
   { key: "practice", label: "Topic Practice", icon: BookOpen, group: "practice" },
   { key: "pyq", label: "Previous Year Questions", icon: FileQuestion, group: "practice" },
@@ -307,6 +309,7 @@ const SECTION_COMPONENTS = {
   syllabus: GateSyllabus,
   subjects: SubjectsRoute,
   daily: GateDaily,
+  roadmap: GateRoadmap,
   practice: GatePractice,
   pyq: GatePyqBrowser,
   mocks: MocksRoute,

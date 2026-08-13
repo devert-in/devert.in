@@ -21,6 +21,15 @@ service cloud.firestore {
       return isAuth() && request.auth.token.get('admin', false) == true;
     }
 
+    // Strictly smaller than isAdmin() - see scripts/set-super-admin-claim.mjs.
+    // For surfaces (payments/revenue) that an ordinary institution or platform
+    // admin has no business seeing, not a stronger version of admin-ness for
+    // everything else. Everywhere else in this file, isAdmin() alone remains
+    // the right check.
+    function isSuperAdmin() {
+      return isAuth() && request.auth.token.get('superAdmin', false) == true;
+    }
+
     // ---------- same-day reward window ----------
     // Daily Learning pays XP/coins only on the day a lesson is FOR. These build
     // today's date as an ISO string so it can be compared against the log's own
@@ -613,16 +622,19 @@ service cloud.firestore {
     // indistinguishable from a forged client write.
     match /payments/{orderId} {
       // Owner can watch their own payment progress (the checkout UI polls this
-      // while the webhook settles); staff can read for reconciliation.
-      allow read: if isAuth() && (resource.data.get('uid', '') == request.auth.uid || isAdmin());
+      // while the webhook settles); isSuperAdmin() (NOT isAdmin() - revenue
+      // data is a strictly smaller circle than every institution/platform
+      // admin) can read for reconciliation.
+      allow read: if isAuth() && (resource.data.get('uid', '') == request.auth.uid || isSuperAdmin());
       allow write: if false;
     }
 
     match /subscriptions/{uid} {
       // Publicly-unreadable but owner-readable: the client needs to know its own
       // entitlement to render the paywall, and nobody else's is any of its
-      // business.
-      allow read: if isOwner(uid) || isAdmin();
+      // business. isSuperAdmin(), not isAdmin() - same reasoning as payments
+      // above.
+      allow read: if isOwner(uid) || isSuperAdmin();
       allow write: if false;
     }
 
@@ -727,11 +739,43 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.followerId == request.auth.uid;
     }
 
-    // Projects (Shipyard) - public read, owner writes
+    // Projects (Shipyard) - public read, owner writes. likeCount/commentCount
+    // use the exact same bounded-shared-counter shape as pulse_posts below -
+    // a non-owner may bump exactly one of them by exactly +-1, never set an
+    // arbitrary value. Create-time zero-lock stops a poster from forging a
+    // starting count before that bound ever applies.
     match /projects/{projectId} {
-      allow read:           if true;
-      allow create:         if isAuth() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.get('likeCount', 0)    == 0
+        && request.resource.data.get('commentCount', 0) == 0;
+      allow update: if isAuth() && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount', 'commentCount'])
+          && request.resource.data.diff(resource.data).affectedKeys().size() == 1
+          && (request.resource.data.get('likeCount', 0)    - resource.data.get('likeCount', 0))    in [-1, 0, 1]
+          && (request.resource.data.get('commentCount', 0) - resource.data.get('commentCount', 0)) in [-1, 0, 1]
+        )
+      );
+      allow delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    // Shipyard likes - public read, auth user manages their own like. Mirrors
+    // pulse_likes exactly, including the `${projectId}_${uid}` doc-id convention.
+    match /project_likes/{likeId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // Shipyard comments - public read, auth user creates their own; owner/admin
+    // deletes. Mirrors pulse_comments exactly (top-level collection + a
+    // projectId foreign key, not a subcollection - see pulse_comments below).
+    match /project_comments/{commentId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
     }
 
     // Missions - admin creates, public reads. Any signed-in user may bump
@@ -1026,6 +1070,29 @@ service cloud.firestore {
     // Pulse saves - owner reads/writes their own saves
     match /pulse_saves/{uid} {
       allow read, write: if isOwner(uid);
+    }
+
+    // Communities (Pulse chapters) - admin-created content, same pattern as
+    // missions/hackathons. memberCount uses the exact same bounded-shared-
+    // counter shape as pulse_posts' engagement counters: a non-owner joining/
+    // leaving may move it by exactly +-1, never an arbitrary value.
+    match /communities/{communityId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount'])
+        && (request.resource.data.get('memberCount', 0) - resource.data.get('memberCount', 0)) in [-1, 1]);
+    }
+
+    // Community membership - join-doc collection keyed `${communityId}_${uid}`,
+    // same composite-id convention as follows/{followerId}_{followedId} above.
+    // No membership gate on posting into a community (see pulse_posts below) -
+    // membership only drives the directory/join-button/"my communities" list
+    // and the memberCount tally, kept deliberately lightweight.
+    match /community_members/{membershipId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
     }
 
     // Reads either resource (an existing doc) or 0 - shared by user_earnings'
@@ -2300,6 +2367,30 @@ service cloud.firestore {
         || isAdminOfStudent(dailyId.split('_')[0]) || isHodOfStudent(dailyId.split('_')[0]) || isFacultyOfStudent(dailyId.split('_')[0])));
       allow write: if isAdmin() || (isAuth() && dailyId.split('_')[0] == request.auth.uid
         && (resource == null || resource.data.get('rewarded', false) == false || request.resource.data.get('rewarded', false) == true));
+    }
+
+    // GATE Roadmap - a fixed, dated day-by-day plan layered on top of the
+    // syllabus tree (lib/gateRoadmap.js). Same shape as gatePapers itself:
+    // a shared, admin-authored catalog, not a per-user doc - every student on
+    // a paper sees the identical plan, so it's world-readable-when-published
+    // rather than owner-scoped.
+    match /gate_roadmap_days/{dayId} {
+      allow read:  if contentReadable() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Per-user roadmap completion - one doc per (uid, paperId), id
+    // `${uid}_${paperId}`, identical id/monotonicity shape as gate_progress.
+    // completedDayNumbers.hasAll(...) makes it append-only for the same
+    // reward-replay reason completedTopicIds is on gate_progress: without it,
+    // removing a dayNumber and re-completing it would re-earn that day's
+    // XP/coins indefinitely (reward_grants' create-only ledger is the second,
+    // independent backstop - see completeRoadmapDay's activityId).
+    match /gate_roadmap_progress/{progressId} {
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid
+        || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
+        && (resource == null || !('completedDayNumbers' in resource.data) || request.resource.data.get('completedDayNumbers', []).hasAll(resource.data.completedDayNumbers)));
     }
 
     // Test attempts contain the student's own answers, so they are OWNER-ONLY -

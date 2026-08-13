@@ -13,7 +13,7 @@ import {
 import { fetchInstitutions, DEPARTMENTS } from "@/lib/institutions";
 import { fetchPublishedContests, bucketContests, contestPhase } from "@/lib/contests";
 import { fetchPublicCatalog } from "@/lib/campusCatalog";
-import { CAMPUS, tint } from "@/lib/campus-theme";
+import { CAMPUS, tint, campusPhotoBg } from "@/lib/campus-theme";
 import { LanguageLogo } from "@/components/campus/language-logo";
 import { useCampusTheme } from "@/components/campus/campus-theme-provider";
 import { CampusPublicNav, SUPPORT_EMAIL } from "@/components/campus/campus-public-nav";
@@ -666,18 +666,19 @@ function Hero({ stats }) {
           <div>
             <div className="inline-flex items-center gap-1.5 text-[11px] font-mono tracking-widest px-3.5 py-2 rounded-full mb-7"
               style={{ background: tint(CAMPUS.teal, 12), color: CAMPUS.teal, border: `1px solid ${tint(CAMPUS.teal, 26)}` }}>
-              <Sparkles size={11} /> BUILT FOR LEARNERS. MADE FOR YOU.
+              <Sparkles size={11} /> YOUR JOURNEY. YOUR SKILLS. YOUR FUTURE.
             </div>
-            {/* The accent lands on "every day" because that is the claim the rest
-                of the page has to keep - the daily habit, not the one-off cram. */}
+            {/* The accent lands on "Become ready for them" - the page's actual
+                promise (readiness, not just cramming for one interview). */}
             <h1 className="font-bold leading-[1.05] mb-6 tracking-tight" style={{ color: CAMPUS.ink, fontSize: "clamp(2.1rem,4.6vw,3.4rem)" }}>
-              Master technical skills.<br />Ace placements.<br />
-              Learn <span style={{ color: CAMPUS.teal }}>every day.</span>
+              Don&apos;t just prepare for placements.<br />
+              <span style={{ color: CAMPUS.teal }}>Become ready for them.</span>
             </h1>
             <p className="text-[15.5px] mb-8 max-w-[52ch] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>
-              Programming, CS Core, aptitude, DSA and company-wise interview prep - open to anyone,
-              no college required. Colleges add the layer on top: scheduled Daily Learning,
-              assessments, contests and their own leaderboards.
+              Learn the skills companies look for - from programming and DSA to CS fundamentals,
+              aptitude and interview preparation.{" "}
+              <b style={{ color: CAMPUS.ink }}>Practice every day, track your progress, compete
+              with your peers, and build the confidence to crack what comes next.</b>
             </p>
             {/* Real routes, not scrollIntoView. Campuses and For-institutions are
                 their own pages now (LANDING_PAGES), so scrolling this page to a
@@ -696,7 +697,7 @@ function Hero({ stats }) {
               </Link>
               <Link href="/campus/institutions"
                 className="text-[14px] font-bold px-4 py-3.5 inline-flex items-center gap-1.5" style={{ color: CAMPUS.teal }}>
-                For institutions <ArrowUpRight size={14} />
+                Bring DeVert to your campus <ArrowUpRight size={14} />
               </Link>
             </div>
           </div>
@@ -926,7 +927,7 @@ function InstitutionCard({ inst, featured }) {
         <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-[15px] mb-4 overflow-hidden"
           style={inst.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.gradientPrimary, color: "#fff" }}>
           {inst.logoUrl
-            ? <img src={inst.logoUrl} alt="" className="w-full h-full object-contain" />
+            ? <img src={inst.logoUrl} alt="" className="w-full h-full object-cover" />
             : (inst.name?.slice(0, 2).toUpperCase() || "??")}
         </div>
         <h4 className="text-[16px] font-semibold mb-1" style={{ color: CAMPUS.ink }}>{inst.name}</h4>
@@ -1413,7 +1414,7 @@ export function CampusInfoPage({ section }) {
   return (
     // Same rounded treatment as CampusLanding below - see its own comment for
     // why campus-sharp came off the public surface.
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square">
+    <main data-theme={theme} style={{ ...campusPhotoBg(theme), minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square campus-photo-bg">
       <CampusPublicNav />
       {page.bands()}
       <LandingFooter />
@@ -1508,7 +1509,7 @@ export function CampusLanding() {
     // half on its own (globals.css), so the cards go square and the elevation
     // stays. Applied to all three public surfaces together (here, CampusInfoPage
     // and CampusGlobalSection in campus-app.jsx) so they share one language.
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square">
+    <main data-theme={theme} style={{ ...campusPhotoBg(theme), minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square campus-photo-bg">
       {directoryJsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd) }} />
       )}

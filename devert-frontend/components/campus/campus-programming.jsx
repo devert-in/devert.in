@@ -4,15 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Rocket, Flame, Clock, Briefcase, TrendingUp, ChevronDown, ChevronRight, ChevronLeft,
-  Check, Lock, Lightbulb, ListChecks, Target, BookOpen, Code2, Trophy,
+  Rocket, Clock, Briefcase, TrendingUp, ChevronDown, ChevronLeft,
+  Check, Lightbulb, ListChecks, Target, BookOpen, Code2,
   AlertTriangle, Sparkles, Coins, Zap, ArrowRight, GraduationCap,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
-  CampusSkeleton, CampusProgressBar,
+  CampusSkeleton, CampusProgressBar, RoadmapTimeline,
 } from "@/components/campus/campus-ui";
 import {
   fetchLanguages, fetchLanguage, fetchTopics, fetchTopic,
@@ -130,10 +130,10 @@ function ProgrammingLanguageSidebar({ onSelect }) {
       <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>PROGRAMMING</div>
       {languages === null ? <CampusSkeleton height={100} className="mx-1" /> : languages.map(lang => (
         <button key={lang.id} onClick={() => onSelect(lang.id)}
-          className="campus-btn flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
+          className="campus-btn flex items-start gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
           style={{ color: CAMPUS.inkSoft }}>
-          <LanguageLogo name={lang.name} size={16} />
-          <span className="text-[13px] font-medium truncate">{lang.name}</span>
+          <LanguageLogo name={lang.name} size={16} className="flex-shrink-0 mt-0.5" />
+          <span className="text-[13px] font-medium leading-snug">{lang.name}</span>
         </button>
       ))}
     </>
@@ -168,7 +168,7 @@ function ProgrammingTopicSidebar({ langId, activeTopicId, onSelectTopic, onBackT
                 background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
                 color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
               }}>
-              <span className="text-[12.5px] truncate">{t.title}</span>
+              <span className="text-[12.5px] leading-snug">{t.title}</span>
             </button>
           ))}
         </div>
@@ -419,43 +419,8 @@ function LanguageRoadmap({ langId, onBack, onOpenTopic }) {
       {total === 0 ? (
         <CampusEmptyState icon={Code2} title="Roadmap coming soon" description={`${lang.name}'s topic list is being written - check back soon.`} />
       ) : (
-        <div className="space-y-3">
-          {modules.map(({ module, topics: moduleTopics }) => {
-            const open = openModules.has(module);
-            const moduleCompleted = moduleTopics.filter(t => completedIds.has(t.id)).length;
-            return (
-              <CampusCard key={module} className="overflow-hidden">
-                <button onClick={() => toggleModule(module)} className="w-full flex items-center justify-between p-4">
-                  <div className="flex items-center gap-2">
-                    {open ? <ChevronDown size={15} style={{ color: CAMPUS.inkFaint }} /> : <ChevronRight size={15} style={{ color: CAMPUS.inkFaint }} />}
-                    <b className="text-[13.5px]" style={{ color: CAMPUS.ink }}>{module}</b>
-                  </div>
-                  <span className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>{moduleCompleted}/{moduleTopics.length}</span>
-                </button>
-                {open && (
-                  <div style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-                    {moduleTopics.map(t => {
-                      const done = completedIds.has(t.id);
-                      const hasContent = topicHasContent(t);
-                      return (
-                        <button key={t.id} onClick={() => onOpenTopic(t.id)}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                          style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={{ background: done ? CAMPUS.goodTint : CAMPUS.paper, border: `1px solid ${done ? CAMPUS.good : CAMPUS.line}` }}>
-                            {done && <Check size={11} style={{ color: CAMPUS.good }} />}
-                          </div>
-                          <span className="flex-1 text-[13px]" style={{ color: CAMPUS.ink }}>{t.title}</span>
-                          {!hasContent && <CampusChip color={CAMPUS.inkFaint}>COMING SOON</CampusChip>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </CampusCard>
-            );
-          })}
-        </div>
+        <RoadmapTimeline modules={modules} completedIds={completedIds} openModules={openModules}
+          onToggleModule={toggleModule} onOpenTopic={onOpenTopic} topicHasContent={topicHasContent} />
       )}
     </div>
   );
