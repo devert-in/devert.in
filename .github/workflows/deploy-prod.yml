@@ -53,7 +53,13 @@ jobs:
         run: npm ci
         working-directory: functions
 
+      # --force: a function landing in a region with no Artifact Registry
+      # cleanup policy yet (e.g. gradeContestSubmissionOnCreate's asia-south1)
+      # makes the CLI exit 1 right after uploading Hosting files but before
+      # finalizing/releasing that version - the deploy looks like it ran but
+      # devert.in never actually updates. --force auto-configures the missing
+      # policy instead of erroring, same fix that unblocked this manually.
       - name: Deploy to Firebase Hosting + Functions (live)
-        run: npx firebase-tools deploy --only hosting,functions --project devert-me
+        run: npx firebase-tools deploy --only hosting,functions --project devert-me --force
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
