@@ -17,7 +17,7 @@ import {
   fetchModuleConfig, grantDailyLearningProblemReward, TRACK_CATALOG, fetchTrackProgress,
   isSameDayAsToday, shiftWeek,
 } from "@/lib/dailyLearning";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { shuffleQuizForAttempt, buildQuizSeedKey } from "@/lib/quizRandom";
 import {
   CampusCard, CampusChip, CampusTable, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusButton, CampusBreadcrumb,
@@ -166,7 +166,7 @@ function TrackSidebarItem({ slug, track, active, onSelect }) {
       style={{
         background: active ? CAMPUS.gradientPrimary : "transparent",
         color: active ? "#fff" : CAMPUS.inkSoft,
-        boxShadow: active ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+        boxShadow: active ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
       }}>
       <Icon size={15} className="flex-shrink-0" />
       <span className="flex-1 min-w-0">
@@ -736,7 +736,7 @@ function AssessmentsSidebarList({ tests, logs, activeDate, onSelect }) {
             style={{
               background: active ? CAMPUS.gradientPrimary : "transparent",
               color: active ? "#fff" : CAMPUS.inkSoft,
-              boxShadow: active ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+              boxShadow: active ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
             }}>
             {locked ? <Lock size={13} className="flex-shrink-0" /> : log ? <CheckCircle2 size={13} className="flex-shrink-0" /> : <ClipboardCheck size={13} className="flex-shrink-0" />}
             <span className="text-[13px] font-medium truncate">{t.title}</span>

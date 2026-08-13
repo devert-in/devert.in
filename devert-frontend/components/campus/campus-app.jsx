@@ -5,14 +5,14 @@ import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  BookOpen, ClipboardCheck, Trophy, BarChart3,
+  BookOpen, ClipboardCheck, BarChart3,
   ShieldCheck, Clock, XCircle, Ban, LogOut, IdCard, ArrowLeft,
   Mail, Phone, GraduationCap, Building2, Hash, Rocket, Target,
   ChevronRight, ArrowUpRight, Medal, Code2, Briefcase,
   PanelLeftClose, PanelLeftOpen,
   Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
   AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator,
-  Zap, Coins as CoinsIcon, CheckCircle2, Shield, Camera, Loader2,
+  Zap, Coins as CoinsIcon, Camera, Loader2, Flame, TrendingUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, storage } from "@/lib/firebase";
@@ -31,15 +31,15 @@ import { ROLE_CATALOG } from "@/lib/permissions";
 import { CampusPermissionsContext } from "@/lib/campusPermissions";
 import Dropdown from "@/components/dropdown";
 import { fetchPublishedInstitutionContests, fetchPublishedContests, bucketContests, contestMatchesStudent } from "@/lib/contests";
-import { fetchCourseTree, flattenTasks, getCurrentTask, courseProgressPct } from "@/lib/learning";
 import { CODELAB_DIFFICULTIES, fetchUserCodelabProgress, fetchPublishedProblems } from "@/lib/codelab";
 import { subscribeToProblemNotes, isRevisionDue } from "@/lib/problemNotes";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, campusPhotoBg, tint } from "@/lib/campus-theme";
 import { slideUp, staggerContainer } from "@/lib/campus-motion";
-import { fetchDashboardInsights } from "@/lib/campusDashboard";
+import { fetchDashboardInsights, levelFromXp } from "@/lib/campusDashboard";
 import {
-  DashboardHero, WeeklyProgressCard, RecentActivityCard, StreakRingCard,
-  ContestCtaBanner, WeakTopicsCard, UpcomingCard,
+  DashboardHero, WeeklyProgressCard, RecentActivityCard,
+  ContestCtaBanner, WeakTopicsCard, UpcomingCard, DashboardStatPill,
+  GoalsRingsCard, DashboardProfileCard, ContinueLearningTiles,
 } from "@/components/campus/campus-dashboard-widgets";
 import {
   CampusCard, CampusChip, CampusProgressBar, CampusStat, CampusGoogleButton,
@@ -59,7 +59,7 @@ import { CampusProgrammingTab } from "@/components/campus/campus-programming";
 import { CampusCsCoreTab } from "@/components/campus/campus-cscore";
 import { CampusAptitudeTab } from "@/components/campus/campus-aptitude";
 import { CampusGateTab } from "@/components/campus/gate/gate-app";
-import { mondayOf, DOW_LABELS, todayISO, fetchWeekItems, fetchModuleConfig, fetchUserWeekLogs } from "@/lib/dailyLearning";
+import { mondayOf, DOW_LABELS, todayISO, fetchWeekItems } from "@/lib/dailyLearning";
 import { pingActivity, PING_INTERVAL_MIN } from "@/lib/activity";
 import { useCampusBackHandler, popCampusBack, OVERLAY_BACK_DEPTH } from "@/lib/campusNav";
 import { fetchContentVisibility } from "@/lib/contentVisibility";
@@ -352,174 +352,6 @@ function SectionHeading({ icon: Icon, title, action }) {
 // - see the import at the top of this file for why. Everything remaining below
 // belongs to an authenticated, institution-scoped workspace.
 
-// `sharp` opts into the pre-auth square/hairline language rather than the
-// rounded CampusCard this component renders as on the authenticated
-// workspace's Overview tab.
-function LearningJourneyCard({ onContinue, sharp }) {
-  const { user } = useAuth();
-  const [state, setState] = useState({ loading: true, course: null, progress: null });
-
-  useEffect(() => {
-    if (!user) { setState({ loading: false, course: null, progress: null }); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        const { doc, getDoc } = await import("firebase/firestore");
-        const progSnap = await getDoc(doc(db, "user_learning", user.uid));
-        if (!progSnap.exists()) { if (!cancelled) setState({ loading: false, course: null, progress: null }); return; }
-        const progress = progSnap.data();
-        const course = await fetchCourseTree(progress.enrolledCourseId);
-        if (!cancelled) setState({ loading: false, course, progress });
-      } catch {
-        if (!cancelled) setState({ loading: false, course: null, progress: null });
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user]);
-
-  if (!user) return null;
-
-  if (state.loading) {
-    const skeleton = <CampusSkeleton variant="rect" height={54} />;
-    return sharp
-      ? <div className="p-5 h-full" style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}` }}>{skeleton}</div>
-      : <CampusCard className="p-5 h-full">{skeleton}</CampusCard>;
-  }
-
-  if (!state.course) {
-    const emptyContent = (
-      <>
-        <div>
-          <b className="block text-[13.5px] mb-0.5" style={{ color: CAMPUS.ink }}>You haven&apos;t started a course yet</b>
-          <span className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>Browse Daily Learning to pick one up.</span>
-        </div>
-        <button onClick={onContinue} className="text-[12.5px] font-semibold flex items-center gap-1 flex-shrink-0" style={{ color: CAMPUS.teal }}>
-          Browse <ArrowUpRight size={13} />
-        </button>
-      </>
-    );
-    return sharp ? (
-      <div className="p-5 flex items-center justify-between gap-4 h-full" style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}` }}>{emptyContent}</div>
-    ) : (
-      <CampusCard className="p-5 flex items-center justify-between gap-4 h-full">{emptyContent}</CampusCard>
-    );
-  }
-
-  const flatTasks = flattenTasks(state.course);
-  const completedTaskIds = state.progress?.completedTaskIds || [];
-  const current = getCurrentTask(flatTasks, completedTaskIds);
-  const pct = courseProgressPct(flatTasks, completedTaskIds);
-
-  const progressContent = (
-    <>
-      <div className="flex items-center justify-between mb-2">
-        <b className="text-[13.5px]" style={{ color: CAMPUS.ink }}>{state.course.title}</b>
-        <span className="font-mono text-xs font-bold" style={{ color: CAMPUS.teal }}>{pct}%</span>
-      </div>
-      <CampusProgressBar pct={pct} color={CAMPUS.teal} />
-      {current && (
-        <p className="text-[12px] mt-2.5" style={{ color: CAMPUS.inkFaint }}>
-          Next: {current.title}
-        </p>
-      )}
-    </>
-  );
-
-  return (
-    <button onClick={onContinue} className="block w-full h-full text-left">
-      {sharp ? (
-        <div className="p-5 h-full flex flex-col justify-center" style={{ background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}` }}>{progressContent}</div>
-      ) : (
-        <CampusCard hover className="p-5 h-full flex flex-col justify-center">{progressContent}</CampusCard>
-      )}
-    </button>
-  );
-}
-
-// The institution-scoped counterpart to LearningJourneyCard above - shows
-// THIS week's actual Daily Learning progress (day completions logged in
-// dailyLearningLog) instead of the unrelated global `user_learning` enrolled
-// course, whose "Next: Day N" content becomes unreachable the moment an
-// institution has a real weekly program (see CampusDailyLearningTab - it
-// shows the weekly program instead of the generic catalog, never both).
-function DailyLearningJourneyCard({ slug, onContinue }) {
-  const { user } = useAuth();
-  const [state, setState] = useState({ loading: true, items: [], logs: {} });
-  const weekId = mondayOf();
-
-  useEffect(() => {
-    if (!user) { setState({ loading: false, items: [], logs: {} }); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        const [items, logs] = await Promise.all([fetchWeekItems(slug, weekId), fetchUserWeekLogs(slug, user.uid, weekId)]);
-        if (!cancelled) setState({ loading: false, items, logs });
-      } catch {
-        if (!cancelled) setState({ loading: false, items: [], logs: {} });
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user, slug, weekId]);
-
-  if (!user) return null;
-  if (state.loading) return <CampusCard className="p-5 h-full"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
-
-  const today = todayISO();
-  const openItems = state.items.filter(it => it.date <= today);
-
-  if (openItems.length === 0) {
-    return (
-      <CampusCard className="p-5 flex items-center justify-between gap-4 h-full">
-        <div>
-          <b className="block text-[13.5px] mb-0.5" style={{ color: CAMPUS.ink }}>This week&apos;s learning hasn&apos;t opened yet</b>
-          <span className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>Check back once the first day unlocks.</span>
-        </div>
-      </CampusCard>
-    );
-  }
-
-  const completedCount = openItems.filter(it => state.logs[it.date]).length;
-  const pct = Math.round((completedCount / openItems.length) * 100);
-  const current = openItems.find(it => !state.logs[it.date]) || openItems[openItems.length - 1];
-  const allDone = !!state.logs[current.date];
-
-  return (
-    <button onClick={onContinue} className="block w-full h-full text-left">
-      <CampusCard hover className="p-5 h-full flex flex-col justify-center">
-        <div className="flex items-center justify-between mb-2">
-          <b className="text-[13.5px]" style={{ color: CAMPUS.ink }}>This Week&apos;s Learning</b>
-          <span className="font-mono text-xs font-bold" style={{ color: CAMPUS.teal }}>{pct}%</span>
-        </div>
-        <CampusProgressBar pct={pct} color={CAMPUS.teal} />
-        <p className="text-[12px] mt-2.5" style={{ color: CAMPUS.inkFaint }}>
-          {allDone ? "All caught up - " : "Next: "}{current.title}
-        </p>
-      </CampusCard>
-    </button>
-  );
-}
-
-// Picks between the two cards above so Overview never promises a "Next"
-// that the Learning tab can't actually deliver - CampusDailyLearningTab
-// itself decides generic-catalog vs weekly-program per institution on this
-// exact same enabled+items check, so this mirrors it rather than guessing.
-function ContinueLearningCard({ slug, onContinue }) {
-  const [dailyLearningActive, setDailyLearningActive] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([fetchModuleConfig(slug), fetchWeekItems(slug, mondayOf())])
-      .then(([cfg, items]) => { if (!cancelled) setDailyLearningActive(cfg.enabled !== false && items.length > 0); })
-      .catch(() => { if (!cancelled) setDailyLearningActive(false); });
-    return () => { cancelled = true; };
-  }, [slug]);
-
-  if (dailyLearningActive === null) return <CampusCard className="p-5 h-full"><CampusSkeleton variant="rect" height={54} /></CampusCard>;
-  return dailyLearningActive
-    ? <DailyLearningJourneyCard slug={slug} onContinue={onContinue} />
-    : <LearningJourneyCard onContinue={onContinue} />;
-}
-
 // ---------------- Global sections (/campus/contests, /campus/learning, /campus/practice) ----------------
 
 // Real, dedicated, linkable paths for the pre-auth-usable flows (see
@@ -666,7 +498,7 @@ function CampusGlobalSection({ section }) {
     // campus-square keeps this in step with the landing and info pages - the
     // three public surfaces share one corner language. Not campus-sharp: that
     // one also strips inline shadows (see globals.css).
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square">
+    <main data-theme={theme} style={{ ...campusPhotoBg(theme), minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square campus-photo-bg">
       <CampusPublicNav />
 
       <div className="max-w-6xl mx-auto px-6 py-8 pb-16">
@@ -788,6 +620,39 @@ const CAMPUS_PHASE = {
 // here rather than inline because it is also the ?dsa= whitelist - an unknown
 // value in the URL must fall back to the default, never render a blank tab.
 const DSA_MODES = ["sheet", "concepts", "problems"];
+
+// CAMPUS_PHASE.CHECKING's screen - shaped like the real sidebar+topbar+content
+// workspace shell (same widths, same photo background) rather than a
+// generic centered spinner, so the fetch resolving reads as content filling
+// in rather than a different app appearing. Deliberately NOT CampusCard/glass
+// for the skeleton blocks themselves (CampusSkeleton's own shimmer is the
+// point) - only the outer shell chrome borrows the real glass treatment.
+function CampusWorkspaceSkeleton({ theme, campusBgUrl }) {
+  return (
+    <div data-theme={theme} style={{ ...campusPhotoBg(theme, campusBgUrl), minHeight: "100vh", colorScheme: theme }}
+      className="campus-theme campus-photo-bg flex flex-col lg:flex-row gap-3 p-3 lg:gap-4 lg:p-4">
+      <aside className="hidden lg:flex flex-shrink-0 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:w-[230px] campus-glass rounded-[24px] p-4 flex-col gap-4"
+        style={{ border: `1px solid ${CAMPUS.glassBorder}`, boxShadow: CAMPUS.shadow }}>
+        <CampusSkeleton variant="rect" height={32} />
+        <CampusSkeleton variant="rect" height={36} />
+        <div className="flex flex-col gap-2 mt-2">
+          {[0, 1, 2, 3, 4].map(i => <CampusSkeleton key={i} variant="rect" height={36} />)}
+        </div>
+      </aside>
+      <div className="flex-1 min-w-0 flex flex-col gap-3 lg:gap-4">
+        <div className="campus-glass rounded-[22px] px-5 sm:px-8 py-3.5 h-[61px] flex-shrink-0"
+          style={{ border: `1px solid ${CAMPUS.glassBorder}`, boxShadow: CAMPUS.shadow }} />
+        <div className="flex-1 px-5 sm:px-8 py-6 space-y-4">
+          <CampusSkeleton variant="rect" height={180} />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map(i => <CampusSkeleton key={i} variant="rect" height={90} />)}
+          </div>
+          <CampusSkeleton variant="rect" height={260} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab, initialManageStudentsView }) {
   const { theme } = useCampusTheme();
@@ -1341,8 +1206,17 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
 
   // Exactly one screen per phase. Nothing here re-derives or second-
   // guesses `phase` - it was already decided, once, by the effect above.
+  //
+  // CHECKING used to render CampusGateShell (the public marketing nav +
+  // "Loading..."), which is visually almost the same chrome as the plain
+  // /campus landing page - so every single load of an institution slug
+  // looked like "/campus loads, THEN /campus/{slug} loads", a full chrome
+  // swap the instant the institution/membership fetch resolved. A skeleton
+  // shaped like the REAL workspace shell (same sidebar/topbar geometry, same
+  // photo background) turns that into content filling in, not a different
+  // app appearing.
   if (phase === CAMPUS_PHASE.CHECKING) {
-    return <CampusGateShell><Centered>Loading...</Centered></CampusGateShell>;
+    return <CampusWorkspaceSkeleton theme={theme} campusBgUrl={userData?.campusBgUrl} />;
   }
   if (phase === CAMPUS_PHASE.NOT_FOUND) {
     return <CampusGateShell><Centered>This college isn&apos;t on DeVert Campus (yet).</Centered></CampusGateShell>;
@@ -1417,6 +1291,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
 
   // Only CAMPUS_PHASE.APPROVED, CAMPUS_PHASE.ADMIN, or CAMPUS_PHASE.STAFF
   // reach here.
+
   return (
     <CampusPermissionsContext.Provider value={permissionsCtxValue}>
     {/* NOT campus-sharp. That class exists for the pre-auth landing flows only
@@ -1429,14 +1304,22 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
         rendered square and flat - nullifying the rounded-corner-and-soft-shadow
         vocabulary that CampusCard, the CAMPUS.shadow* tokens and the whole
         premium-SaaS design system are built on. */}
-    <div data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }} className="campus-theme flex flex-col lg:flex-row">
+    {/* Floating-shell layout: sidebar and top bar are no longer flush against
+        the viewport/each other - gap-3/p-3 (lg: 4) insets everything. The
+        photographic backdrop (campusPhotoBg) and the glass sidebar/top bar
+        now apply to EVERY tab of the workspace, not just the student
+        Dashboard this treatment started on - a student opening DSA or a
+        principal opening Manage sees the same chrome language rather than
+        the app visually splitting in two depending which tab is active. */}
+    <div data-theme={theme} style={{ ...campusPhotoBg(theme, userData?.campusBgUrl), minHeight: "100vh", colorScheme: theme }}
+      className="campus-theme campus-photo-bg flex flex-col lg:flex-row gap-3 p-3 lg:gap-4 lg:p-4">
       <CampusExitConfirmDialog open={exitGuard.exitDialogOpen} institutionName={institution.name}
         onStay={exitGuard.stay} onLeave={exitGuard.leave} />
       <CampusContextSidebar institution={institution} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapsed}
         slotRef={setSidebarEl} hasContent={hasSidebarContent}
         slug={slug} hiddenTabKeys={hiddenTabKeys} tab={tab} setTab={goTab}
-        onSearchSelect={handleSearchSelect}
-        onExpandSidebar={() => setSidebarCollapsed(false)} />
+        onSearchSelect={handleSearchSelect} userData={userData}
+        onExpandSidebar={() => setSidebarCollapsed(false)} glass />
       <CampusMobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}
         institution={institution} slug={slug} tab={tab} goTab={goTab} isInstAdmin={isInstAdmin}
         hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onJumpToTrack={jumpToTrack}
@@ -1444,11 +1327,11 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
         onJumpToAssessment={jumpToAssessment} onSearchSelect={handleSearchSelect} onRequestExit={exitGuard.requestExit}
         themeToggle={<CampusThemeToggle />}
         onSignOut={async () => { await logout(); router.push("/campus"); }} />
-      <div className="flex-1 min-w-0 flex flex-col">
-        <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user?.uid}
+      <div className="flex-1 min-w-0 flex flex-col gap-3 lg:gap-4">
+        <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user?.uid} membership={membership}
           onOpenDrawer={() => setDrawerOpen(true)} drawerOpen={drawerOpen}
-          tab={tab} hiddenTabKeys={hiddenTabKeys} onRequestExit={exitGuard.requestExit} />
-        <div className="flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-6 min-w-0">
+          tab={tab} hiddenTabKeys={hiddenTabKeys} onRequestExit={exitGuard.requestExit} glass />
+        <div className="flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-0 min-w-0">
           {NAV_ITEMS.find(i => i.key === tab)?.moduleKey && !isTabAllowed(tab) ? (
             <ModuleAccessRestricted moduleLabel={NAV_ITEMS.find(i => i.key === tab)?.label || "This section"} onBack={() => goTab("dashboard")} />
           ) : tab === "dashboard" && isInstAdmin ? (
@@ -1761,7 +1644,7 @@ function CompanySidebarList({ activeCompanyId, onSelect }) {
           style={{
             background: activeCompanyId === c.id ? CAMPUS.gradientPrimary : "transparent",
             color: activeCompanyId === c.id ? "#fff" : CAMPUS.inkSoft,
-            boxShadow: activeCompanyId === c.id ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+            boxShadow: activeCompanyId === c.id ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
           }}>
           <span className="text-[13px] font-medium truncate">{c.name}</span>
         </button>
@@ -1782,12 +1665,16 @@ function TopNavItem({ item, tab, setTab }) {
   const Icon = item.icon;
   const active = tab === item.key;
   return (
+    // Solid filled pill on the active tab (rounded-full, not a tint wash in
+    // a rounded-lg box) - the Material-style segmented-tab pattern, matching
+    // the reference's solid-color active pill rather than the previous
+    // subtle-tint treatment.
     <button onClick={() => setTab(item.key)}
-      className="relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-colors"
-      style={{ color: active ? CAMPUS.ink : CAMPUS.inkSoft }}>
+      className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold whitespace-nowrap flex-shrink-0 transition-colors"
+      style={{ color: active ? "#fff" : CAMPUS.inkSoft }}>
       {active && (
-        <motion.span layoutId="campus-top-nav-active" className="absolute inset-0 rounded-lg -z-10"
-          style={{ background: CAMPUS.tealTint }} transition={{ type: "spring", stiffness: 500, damping: 35 }} />
+        <motion.span layoutId="campus-top-nav-active" className="absolute inset-0 rounded-full -z-10"
+          style={{ background: CAMPUS.teal }} transition={{ type: "spring", stiffness: 500, damping: 35 }} />
       )}
       <Icon size={14} className="flex-shrink-0" /> {item.label}
     </button>
@@ -1826,13 +1713,19 @@ function SidebarNavButton({ item, active, collapsed, onClick }) {
   const Icon = item.icon;
   return (
     <button onClick={onClick} title={collapsed ? item.label : undefined}
-      className={`flex items-center gap-2.5 rounded-lg text-[12.5px] font-medium transition-colors ${collapsed ? "justify-center py-2" : "px-2.5 py-2"}`}
-      style={{
-        background: active ? CAMPUS.tealTint : "transparent",
-        color: active ? CAMPUS.teal : CAMPUS.inkSoft,
-        borderLeft: collapsed ? "none" : `2px solid ${active ? CAMPUS.teal : "transparent"}`,
-      }}>
-      <Icon size={15} className="flex-shrink-0" />
+      className={`flex items-center gap-2.5 rounded-xl text-[12.5px] font-semibold transition-all ${collapsed ? "justify-center py-1.5" : "px-2 py-1.5"}`}
+      style={{ color: active ? CAMPUS.ink : CAMPUS.inkSoft }}>
+      {/* Filled CAMPUS.gradientPrimary badge behind the icon on the active
+          item, not a tinted row + left bar - a solid indigo/violet chip
+          reads as "current location" more clearly than a wash, and reuses
+          the same gradient the sidebar's own logo badge and every primary
+          button already use (no new color introduced). */}
+      <span className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0 transition-all"
+        style={active
+          ? { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: `0 6px 16px ${tint(CAMPUS.teal, 38)}` }
+          : { background: "transparent", color: "inherit" }}>
+        <Icon size={15} />
+      </span>
       {!collapsed && item.label}
     </button>
   );
@@ -1862,11 +1755,23 @@ const SIDEBAR_GLOBAL_ITEMS = NAV_ITEMS.filter(i => i.sidebarGlobal);
 
 function CampusContextSidebar({
   institution, collapsed, onToggleCollapse, slotRef, hasContent,
-  slug, hiddenTabKeys, tab, setTab, onSearchSelect, onExpandSidebar,
+  slug, hiddenTabKeys, tab, setTab, onSearchSelect, onExpandSidebar, userData, glass = false,
 }) {
   return (
-    <aside style={{ background: CAMPUS.surface, borderRight: `1px solid ${CAMPUS.line}` }}
-      className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:self-start py-4 flex-col transition-[width] duration-200 ${collapsed ? "lg:w-[60px]" : "lg:w-[230px]"}`}>
+    // A floating rail, inset on every side by the workspace shell's own
+    // gap/padding (campus-app.jsx's root div) rather than a flush panel with
+    // one right border. Opaque Material surface + soft shadow elevation
+    // (CAMPUS.surface/CAMPUS.shadow, the same fill/shadow CampusCard uses by
+    // default), NOT .campus-glass/backdrop-filter by default - real Google
+    // Material's own depth language is layered shadow elevation, not frosted
+    // blur. `glass` opts into .campus-glass instead - passed true only while
+    // the student Dashboard's photo backdrop is showing (CampusWorkspace's
+    // isStudentDashboardHome), where an opaque panel would hide the photo
+    // entirely rather than let it read through like every other card there.
+    // lg:top-4/h-[calc(...)] keep it pinned at that 1rem inset instead of
+    // overflowing past the viewport by the padding it now sits inside.
+    <aside style={{ ...(glass ? {} : { background: CAMPUS.surface }), border: `1px solid ${glass ? CAMPUS.glassBorder : CAMPUS.line}`, boxShadow: CAMPUS.shadow }}
+      className={`hidden lg:flex flex-shrink-0 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:self-start rounded-[24px] overflow-hidden py-4 flex-col transition-[width] duration-200 ${glass ? "campus-glass" : ""} ${collapsed ? "lg:w-[60px]" : "lg:w-[230px]"}`}>
       {/* Institution logo/name also appears in CampusTopBar (the global
           "where am I" chrome) - kept here too, at the requester's ask, so
           the sidebar keeps its own identity marker even when scrolled past
@@ -1875,9 +1780,9 @@ function CampusContextSidebar({
         <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
           style={institution?.logoUrl
             ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }
-            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: "0 4px 14px rgba(99,102,241,0.32)" }}>
+            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: `0 4px 14px ${tint(CAMPUS.teal, 32)}` }}>
           {institution?.logoUrl
-            ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
+            ? <img src={institution.logoUrl} alt="" className="w-full h-full object-cover" />
             : institution?.name?.slice(0, 2).toUpperCase()}
         </div>
         {!collapsed && (
@@ -1904,6 +1809,26 @@ function CampusContextSidebar({
       <div ref={slotRef}
         className={`flex-1 overflow-y-auto min-h-0 px-3 flex flex-col gap-1 ${hasContent ? "pt-3 mt-3" : ""}`}
         style={hasContent ? { borderTop: `1px solid ${CAMPUS.line}` } : undefined} />
+      {/* Streak footer widget - real userData.streak/bestStreak, same honest
+          "% of your own best" framing StreakRingCard uses on the dashboard
+          (no streak GOAL exists in the data model, so that's the only
+          truthful denominator). Hidden when collapsed - there's no room for
+          copy at 60px, and a bare flame icon with no number is just noise. */}
+      {!collapsed && userData && (
+        <div className="px-3 pt-3 mt-1">
+          <div className="rounded-xl p-3" style={{ background: CAMPUS.orangeTint }}>
+            <div className="flex items-center gap-2">
+              <Flame size={14} style={{ color: CAMPUS.orange }} />
+              <span className="text-[12.5px] font-bold" style={{ color: CAMPUS.ink }}>
+                {userData.streak ?? 0} {(userData.streak ?? 0) === 1 ? "Day" : "Days"} Streak
+              </span>
+            </div>
+            <p className="text-[10.5px] mt-1 leading-snug" style={{ color: CAMPUS.inkSoft }}>
+              {(userData.streak ?? 0) > 0 ? "Keep the momentum going!" : "Complete an activity today to start."}
+            </p>
+          </div>
+        </div>
+      )}
       <button onClick={onToggleCollapse}
         className={`flex items-center gap-1.5 text-[11px] font-medium pt-3 mt-1 mx-3 transition-colors ${collapsed ? "justify-center" : ""}`}
         style={{ color: CAMPUS.inkFaint, borderTop: `1px solid ${CAMPUS.line}` }}>
@@ -1943,11 +1868,14 @@ function CampusBottomNav({ tab, setTab, hiddenTabKeys }) {
 // Share (native share sheet where supported, falls back to copy), Copy link,
 // and Save this Campus (a real toggle, written to the user's own profile doc
 // via toggleFavoriteInstitution - not a UI stub with no effect).
-// Everything anchored to the top-right profile avatar - Share/Copy link/Save
-// this Campus, then View Profile and Sign out below a divider. Consolidated
-// here (rather than a separate "..." icon) so the avatar is the one place
-// every account/campus-level action lives.
-function CampusProfileMenu({ institution, slug, userData, uid, setTab, onRequestExit }) {
+// Everything anchored to the top-right profile avatar. Opens on an identity
+// header (photo, name, roll number - the same membership field ProfileTab's
+// own "Roll number" row reads) so the menu confirms who you're signed in as
+// before listing actions, then Share/Copy link/Save this Campus, then
+// Return to DeVert and Sign out below a divider. Consolidated here (rather
+// than a separate "..." icon) so the avatar is the one place every account/
+// campus-level action lives.
+function CampusProfileMenu({ institution, slug, userData, uid, membership, setTab, onRequestExit }) {
   const { logout } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -2003,16 +1931,50 @@ function CampusProfileMenu({ institution, slug, userData, uid, setTab, onRequest
   const onEnter = (e) => { e.currentTarget.style.background = CAMPUS.paper; };
   const onLeave = (e) => { e.currentTarget.style.background = "transparent"; };
 
+  const goToProfile = () => { setTab("profile"); setOpen(false); };
+
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)} title="Account"
-        className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+        className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 overflow-hidden"
         style={{ background: CAMPUS.goldTint, color: CAMPUS.gold }}>
-        {(userData?.displayName || "?").slice(0, 2).toUpperCase()}
+        {userData?.photoURL
+          ? <img src={userData.photoURL} alt="" className="w-full h-full object-cover" />
+          : (userData?.displayName || "?").slice(0, 2).toUpperCase()}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-30 rounded-lg overflow-hidden"
-          style={{ width: 230, background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
+        <div className="absolute right-0 top-full mt-2 z-30 rounded-lg overflow-hidden campus-glass"
+          style={{ width: 250, border: `1px solid ${CAMPUS.glassBorder}`, boxShadow: CAMPUS.shadowLg }}>
+          {/* Identity header - who's signed in, plus a one-tap way to the full
+              ProfileTab (avatar upload, department/phone/contact email, and
+              this same roll number). Not a duplicate of that page, just the
+              at-a-glance version + a way there. */}
+          <div className="flex items-center gap-2.5 px-3.5 pt-3.5 pb-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0 overflow-hidden"
+              style={{ background: CAMPUS.goldTint, color: CAMPUS.gold }}>
+              {userData?.photoURL
+                ? <img src={userData.photoURL} alt="" className="w-full h-full object-cover" />
+                : (userData?.displayName || "?").slice(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{userData?.displayName || "Your account"}</p>
+              {membership?.rollNumber
+                ? (
+                  <p className="flex items-center gap-1 text-[11.5px] font-mono truncate" style={{ color: CAMPUS.inkFaint }}>
+                    <Hash size={10} /> {membership.rollNumber}
+                  </p>
+                )
+                : userData?.handle && (
+                  <p className="text-[11.5px] truncate" style={{ color: CAMPUS.inkFaint }}>@{userData.handle}</p>
+                )}
+            </div>
+          </div>
+          <button onClick={goToProfile} onMouseEnter={onEnter} onMouseLeave={onLeave}
+            className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-[12.5px] text-left transition-colors"
+            style={{ ...ITEM_STYLE, borderTop: `1px solid ${CAMPUS.line}`, borderBottom: `1px solid ${CAMPUS.line}` }}>
+            <span className="flex items-center gap-2.5"><IdCard size={14} style={{ color: CAMPUS.teal }} /> View full profile</span>
+            <ChevronRight size={14} style={{ color: CAMPUS.inkFaint }} />
+          </button>
           <button onClick={handleShare} onMouseEnter={onEnter} onMouseLeave={onLeave}
             className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[12.5px] text-left transition-colors" style={ITEM_STYLE}>
             <Share2 size={14} style={{ color: CAMPUS.teal }} /> Share {institution.name}
@@ -2031,16 +1993,11 @@ function CampusProfileMenu({ institution, slug, userData, uid, setTab, onRequest
               {isSaved ? "Saved to your Campuses" : "Save this Campus"}
             </button>
           )}
-          <button onClick={() => { setTab("profile"); setOpen(false); }} onMouseEnter={onEnter} onMouseLeave={onLeave}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[12.5px] text-left transition-colors"
-            style={{ ...ITEM_STYLE, borderTop: `1px solid ${CAMPUS.line}` }}>
-            <IdCard size={14} style={{ color: CAMPUS.inkFaint }} /> View Profile
-          </button>
           {onRequestExit && (
             <button onClick={() => { setOpen(false); onRequestExit("/"); }} onMouseEnter={onEnter} onMouseLeave={onLeave}
               className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[12.5px] text-left transition-colors"
               style={{ ...ITEM_STYLE, borderTop: `1px solid ${CAMPUS.line}` }}>
-              <ArrowLeft size={14} style={{ color: CAMPUS.inkFaint }} /> Return to DeVert
+              <ArrowLeft size={14} style={{ color: CAMPUS.inkFaint }} /> Return to DeVert Campus
             </button>
           )}
           <button onClick={handleLogout} onMouseEnter={onEnter} onMouseLeave={onLeave}
@@ -2054,10 +2011,15 @@ function CampusProfileMenu({ institution, slug, userData, uid, setTab, onRequest
   );
 }
 
-function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, drawerOpen, tab, hiddenTabKeys, onRequestExit }) {
+function CampusTopBar({ institution, userData, setTab, slug, uid, membership, onOpenDrawer, drawerOpen, tab, hiddenTabKeys, onRequestExit, glass = false }) {
   return (
-    <header className="flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0 sticky top-0 z-30"
-      style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
+    // Floating pill, same opaque Material surface + shadow as the sidebar by
+    // default - sticky top-3/lg:top-4 matches the sidebar's own inset so
+    // scrolled content stays pinned at the same gap on both instead of one
+    // flush at 0 and the other floating at 1rem. `glass` mirrors the
+    // sidebar's own prop - see its comment for when/why.
+    <header className={`flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0 sticky top-3 lg:top-4 z-30 rounded-[22px] ${glass ? "campus-glass" : ""}`}
+      style={{ ...(glass ? {} : { background: CAMPUS.surface }), border: `1px solid ${glass ? CAMPUS.glassBorder : CAMPUS.line}`, boxShadow: CAMPUS.shadow }}>
       <button onClick={onOpenDrawer} aria-label="Open navigation" aria-expanded={drawerOpen} aria-haspopup="dialog"
         className="lg:hidden flex items-center justify-center flex-shrink-0 rounded-lg -ml-1.5"
         style={{ width: 44, height: 44, color: CAMPUS.inkSoft }}>
@@ -2066,7 +2028,7 @@ function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, 
       <div className="lg:hidden w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[12px] flex-shrink-0 overflow-hidden"
         style={institution.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.teal, color: "#fff" }}>
         {institution.logoUrl
-          ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
+          ? <img src={institution.logoUrl} alt="" className="w-full h-full object-cover" />
           : institution.name?.slice(0, 2).toUpperCase()}
       </div>
       {/* Institution branding lives only in CampusContextSidebar now - was
@@ -2074,8 +2036,15 @@ function CampusTopBar({ institution, userData, setTab, slug, uid, onOpenDrawer, 
           in both places. */}
       <CampusTopNavbar tab={tab} setTab={setTab} hiddenTabKeys={hiddenTabKeys} />
       <div className="lg:hidden flex-1" />
+      {/* Real XP balance (userData.xp, the same number the dashboard's own
+          stat card shows) as its own pill - CAMPUS.teal, same primary accent
+          the rest of the chrome uses, not a new color. */}
+      <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full flex-shrink-0" style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
+        <Zap size={13} />
+        <span className="text-[12px] font-bold tabular-nums">{(userData?.xp ?? 0).toLocaleString()} XP</span>
+      </div>
       <CampusThemeToggle />
-      <CampusProfileMenu institution={institution} slug={slug} userData={userData} uid={uid} setTab={setTab} onRequestExit={onRequestExit} />
+      <CampusProfileMenu institution={institution} slug={slug} userData={userData} uid={uid} membership={membership} setTab={setTab} onRequestExit={onRequestExit} />
     </header>
   );
 }
@@ -2105,37 +2074,6 @@ function useMyInstitutionRank(slug, myUid) {
   return rank;
 }
 
-// Real navigation shortcuts only - every entry routes to a tab that already
-// exists and already works, never a placeholder feature.
-function QuickActionsRow({ onDsa, onCompanyVault, onLeaderboard, onLearning, onAssessments, onManage, onProgramming, onCsCore, onAptitude, isInstAdmin }) {
-  const actions = [
-    { label: "Daily Learning", icon: BookOpen, onClick: onLearning, color: CAMPUS.teal },
-    { label: "Programming", icon: CodeXml, onClick: onProgramming, color: CAMPUS.blue },
-    { label: "CS Core", icon: BrainCircuit, onClick: onCsCore, color: CAMPUS.cyan },
-    { label: "Aptitude", icon: Calculator, onClick: onAptitude, color: CAMPUS.warn },
-    { label: "DSA", icon: Code2, onClick: onDsa, color: CAMPUS.good },
-    { label: "Company Vault", icon: Briefcase, onClick: onCompanyVault, color: CAMPUS.bad },
-    { label: "Assessments", icon: ClipboardCheck, onClick: onAssessments, color: CAMPUS.gold },
-    { label: "Leaderboard", icon: BarChart3, onClick: onLeaderboard, color: CAMPUS.purple },
-    ...(isInstAdmin ? [{ label: "Manage", icon: ShieldCheck, onClick: onManage, color: CAMPUS.teal }] : []),
-  ];
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      {actions.map(a => (
-        <CampusCard key={a.label} hover onClick={a.onClick} as="button"
-          className="w-full p-4 flex items-center gap-3 text-left group">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
-            style={{ background: `${a.color}18`, color: a.color }}>
-            <a.icon size={18} />
-          </div>
-          <span className="flex-1 text-[13px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{a.label}</span>
-          <ChevronRight size={15} className="flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" style={{ color: CAMPUS.inkFaint }} />
-        </CampusCard>
-      ))}
-    </div>
-  );
-}
-
 function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOpenContest, onContinueLearning, onBrowseDsa, onBrowseCompanyVault, onBrowseLeaderboard, onAssessments, onManage, onProgramming, onCsCore, onAptitude, onBrowseContests }) {
   const rank = useMyInstitutionRank(slug, userData?.uid);
   const [contests, setContests] = useState([]);
@@ -2144,6 +2082,23 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [noticeItem, setNoticeItem] = useState(undefined); // undefined = loading, null = no weekly program
   const [insights, setInsights] = useState(undefined);     // undefined = loading, null = read failed
+  // DSA solved/total - same two reads DsaProgressSummary already makes
+  // elsewhere in this file, just for GoalsRingsCard's "DSA Progress" ring.
+  const [dsaStats, setDsaStats] = useState(undefined);      // undefined = loading, null = read failed
+
+  useEffect(() => {
+    if (!userData?.uid) { setDsaStats(null); return; }
+    let cancelled = false;
+    Promise.all([fetchPublishedProblems(), fetchUserCodelabProgress(userData.uid)])
+      .then(([problems, progress]) => {
+        if (cancelled) return;
+        const total = problems.length;
+        const solved = Object.keys(progress?.solvedProblems || {}).length;
+        setDsaStats({ solved, total, pct: total ? (solved / total) * 100 : 0 });
+      })
+      .catch(() => { if (!cancelled) setDsaStats(null); });
+    return () => { cancelled = true; };
+  }, [userData?.uid]);
 
   useEffect(() => {
     const student = { uid: userData?.uid, department: membership?.department, year: membership?.year, section: membership?.section, classroomId: membership?.classroomId };
@@ -2186,82 +2141,47 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
   }, [userData?.uid]);
 
   const insightsLoading = insights === undefined;
+  const streak = userData?.streak ?? 0;
+  const xp = userData?.xp ?? 0;
+  const coins = totalCoins ?? 0;
+  const level = levelFromXp(xp);
+  const roleLabel = isInstAdmin ? "Institution Admin" : (membership?.department ? `${membership.department}${membership.year ? ` - ${membership.year}` : ""}` : "Student");
 
-  // One vertical rhythm for the whole dashboard - space-y-5, matching the
-  // grids' own gap-5 - instead of a per-child mb-6. Those individual margins
-  // were out of step with the gaps and stacked into visibly uneven bands
-  // between rows.
+  // Two-column shell matching the redesign: a wide left column (welcome,
+  // stats, learning progress + goals, continue learning) and a narrow right
+  // column (identity, wallet, recent activity) that runs the full height of
+  // the left one. Below lg: the right column simply drops beneath the left
+  // one - grid-cols-1 there makes both `lg:col-span-2` blocks further down a
+  // no-op, so nothing needs a separate mobile layout.
   return (
-    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-5">
-      {/* The decorative flourish here used to be a Lucide icon in a gradient
-          blob, on the reasoning that Campus is a Lucide-only design system.
-          That rule is about ICONS (and about never reaching for an emoji) - an
-          original inline SVG scene is a different thing, and it's what the
-          approved dashboard design calls for. HeroIllustration is authored in
-          this repo and painted entirely in CAMPUS.* tokens, so unlike an image
-          asset it re-tints itself in dark mode and still ships no external
-          request (the CSP would block one anyway). */}
-      <motion.div variants={slideUp}>
-        <DashboardHero
-          name={userData?.displayName}
-          streak={userData?.streak ?? 0}
-          bestStreak={userData?.bestStreak ?? userData?.longestStreak ?? 0}
-          xp={userData?.xp ?? 0}
-          coins={totalCoins ?? 0}
-          rank={rank}
-          badge={isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")}
-        />
-      </motion.div>
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible"
+      className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5 items-start">
+      <div className="flex flex-col gap-5 min-w-0">
+        {/* The decorative flourish here used to be a Lucide icon in a gradient
+            blob, on the reasoning that Campus is a Lucide-only design system.
+            That rule is about ICONS (and about never reaching for an emoji) -
+            an original inline SVG scene is a different thing, and it's what
+            the approved dashboard design calls for. HeroIllustration is
+            authored in this repo and painted entirely in CAMPUS.* tokens, so
+            unlike an image asset it re-tints itself in dark mode and still
+            ships no external request (the CSP would block one anyway). */}
+        <motion.div variants={slideUp}>
+          <DashboardHero name={userData?.displayName} badge={isInstAdmin ? "ADMIN" : (membership?.department || "STUDENT")} />
+        </motion.div>
 
-      <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <CampusStat label="Score" value={userData?.score ?? 0} color={CAMPUS.purple} icon={Trophy}
-          hint="Your permanent academic performance score. Never decreases and is never spent - this is what leaderboards and rankings are based on." />
-        {/* trend is a REAL period-over-period delta computed from this uid's
-            reward_grants timestamps (last 7 days vs the 7 before) - see
-            lib/campusDashboard.js's pctChange, which returns null rather than
-            a confident-looking "0%" when there's nothing to claim, so the
-            arrow simply doesn't render on a flat or first-ever week. */}
-        <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal} icon={Zap}
-          trend={insights?.xpTrend || undefined}
-          hint="Spendable reward points earned from learning activities. Convert XP to Coins in the Wallet - this can go down." />
-        <CampusStat label="Coins" value={totalCoins ?? 0} color={CAMPUS.gold} icon={CoinsIcon}
-          hint="Your real wallet balance. Coins can be withdrawn as INR from the Wallet page." />
-        <CampusStat label="Activities Completed" value={insights?.activitiesCompleted ?? userData?.problemsSolvedCount ?? 0}
-          color={CAMPUS.blue} icon={CheckCircle2} trend={insights?.activityTrend || undefined}
-          hint="Every rewarded activity you've completed - lessons, problems, contests and Daily Learning days - counted from the reward ledger." />
-        <CampusStat label="Campus Rank" value={rank ? `#${rank}` : "-"} color={CAMPUS.good} icon={Shield}
-          hint="Your rank within this campus, based on Score." />
-      </motion.div>
+        <motion.div variants={slideUp} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <DashboardStatPill icon={Flame} color={CAMPUS.warn} value={`${streak} Day${streak === 1 ? "" : "s"} Streak`} label="Keep it going!" />
+          <DashboardStatPill icon={Zap} color={CAMPUS.teal} value={`${xp.toLocaleString()} XP`} label="Keep learning!" />
+          <DashboardStatPill icon={CoinsIcon} color={CAMPUS.gold} value={`${coins.toLocaleString()} Coins`} label="Collect more!" />
+          <DashboardStatPill icon={TrendingUp} color={CAMPUS.blue} value={`Level ${level}`} label="Keep growing!" />
+        </motion.div>
 
-      <motion.div variants={slideUp}>
-        <QuickActionsRow onDsa={onBrowseDsa} onCompanyVault={onBrowseCompanyVault} onLeaderboard={onBrowseLeaderboard} onLearning={onContinueLearning} onAssessments={onAssessments} onManage={onManage}
-          onProgramming={onProgramming} onCsCore={onCsCore} onAptitude={onAptitude} isInstAdmin={isInstAdmin} />
-      </motion.div>
-
-      {/* Main analytics row. Continue Learning + the streak ring stack in the
-          narrow column so the chart gets the width it needs to stay readable -
-          a 7-to-30-point line squeezed into a third of the content area reads
-          as decoration, not data.
-          items-start, not grid's default stretch: stretch forces the shorter
-          column to match the taller one, and in dark mode CAMPUS.surface
-          barely contrasts against CAMPUS.paper, so the padded-out card reads
-          as a blank gap in the page rather than an oversized card. */}
-      <motion.div variants={slideUp} className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] gap-5 items-start">
-        <div className="flex flex-col gap-5">
-          {/* ContinueLearningCard is the one card here with no title of its
-              own, so it keeps an outer SectionHeading. Every other card on this
-              dashboard renders its own <h3>, and stacking a SectionHeading on
-              top of those printed the title twice with 16px of dead space
-              between the copies. */}
-          <div className="flex flex-col">
-            <SectionHeading icon={Rocket} title="Continue Learning" />
-            <ContinueLearningCard slug={slug} onContinue={onContinueLearning} />
-          </div>
-          <StreakRingCard streak={userData?.streak ?? 0}
-            bestStreak={userData?.bestStreak ?? userData?.longestStreak ?? 0} />
-        </div>
-
-        <div className="flex flex-col">
+        {/* items-start, not grid's default stretch: stretch forces the
+            shorter column to match the taller one, and in dark mode
+            CAMPUS.surface barely contrasts against CAMPUS.paper, so the
+            padded-out card reads as a blank gap rather than an oversized
+            card. */}
+        <motion.div variants={slideUp} className="grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-5 items-start">
           <WeeklyProgressCard
             series7={insights?.series7 || []}
             series30={insights?.series30 || []}
@@ -2277,83 +2197,165 @@ function OverviewTab({ slug, userData, totalCoins, membership, isInstAdmin, onOp
               },
             ] : undefined}
           />
-        </div>
-      </motion.div>
-
-      {/* Recent Activity / Upcoming / Revision Due. All three were "coming
-          soon" placeholder cards before; each is now backed by data that
-          already existed (the reward ledger, scheduled contests, and
-          lib/aptitude.js's own weak-topic detector respectively). */}
-      {/* No items-start here, unlike the two-column grids above and below:
-          these three are peers in a single row and each carries its own
-          call-to-action, so ragged heights left the buttons on three different
-          baselines. Default stretch, plus [&>*]:h-full so each card fills the
-          cell it was stretched into - done here rather than by threading an
-          h-full prop through all three components' loading/empty/loaded
-          branches. CampusEmptyState bottom-aligns its own action row, so the
-          buttons line up once the heights match. */}
-      <motion.div variants={slideUp} className="grid lg:grid-cols-3 gap-5 [&>*]:h-full">
-        <RecentActivityCard items={insights?.recent || []} loading={insightsLoading}
-          onViewAll={onBrowseLeaderboard} />
-        <UpcomingCard contests={contests} loading={contestsLoading}
-          onOpenContest={onOpenContest} onBrowseContests={onBrowseContests} />
-        <WeakTopicsCard topics={insights?.weakTopics || []} accuracyPct={insights?.aptitudeAccuracyPct}
-          loading={insightsLoading} onPractice={onAptitude} />
-      </motion.div>
-
-      <motion.div variants={slideUp}>
-        <ContestCtaBanner contestCount={contests.length} onExplore={onBrowseContests} />
-      </motion.div>
-
-      {/* initial/animate declared HERE rather than inherited from the
-          staggerContainer parent. noticeItem starts undefined and is filled by
-          an async fetch, so this block MOUNTS AFTER the parent has already
-          finished animating to "visible" - and a variant child that appears
-          late never picks that state up. It stayed at slideUp's `hidden`
-          (opacity 0) forever while still occupying full layout height, which
-          read as ~450px of blank space between the contests banner and the
-          announcements grid. Any other conditionally-rendered child of a
-          stagger container needs the same treatment. */}
-      {noticeItem && (
-        <motion.div variants={slideUp} initial="hidden" animate="visible">
-          <SectionHeading icon={Megaphone} title={`Noticeboard - ${DOW_LABELS[noticeItem.dow]}'s Leaderboard`} />
-          <CampusDayLeaderboard slug={slug} date={noticeItem.date} dayLabel={DOW_LABELS[noticeItem.dow]} myUid={userData?.uid} compact />
-          <button onClick={onBrowseLeaderboard} className="mt-2 text-[11px] font-medium" style={{ color: CAMPUS.teal }}>
-            view full leaderboard &rarr;
-          </button>
+          <GoalsRingsCard dsaPct={dsaStats?.pct} aptitudePct={insights?.aptitudeAccuracyPct}
+            loading={insightsLoading || dsaStats === undefined} />
         </motion.div>
-      )}
 
-      {/* The "Recent Activity" and "Learning Analytics" placeholders that used
-          to sit here are gone because both are now real cards above, built on
-          the reward ledger. Placement Readiness stays a stated coming-soon: it
-          would need a scoring model that genuinely doesn't exist yet, and
-          inventing a readiness number for a student would be worse than
-          admitting it isn't built. */}
-      <motion.div variants={slideUp} className="grid lg:grid-cols-2 gap-5 items-start">
-        {announcementsLoading ? (
-          <CampusCard className="p-4 space-y-2"><CampusSkeleton variant="text" width="60%" /><CampusSkeleton variant="text" width="90%" /></CampusCard>
-        ) : announcements.length === 0 ? (
-          <CampusEmptyState size="sm" icon={Megaphone} color={CAMPUS.gold} title="Announcements"
-            description="Institution-wide announcements from your Training & Placement Cell will appear here once available." />
-        ) : (
-          <CampusCard className="p-4">
-            <p className="text-[11px] font-mono tracking-widest mb-2.5 flex items-center gap-1.5" style={{ color: CAMPUS.gold }}><Megaphone size={12} /> ANNOUNCEMENTS</p>
-            <div className="space-y-2.5">
-              {announcements.map(a => (
-                <div key={a.id} style={{ borderTop: `1px solid ${CAMPUS.line}` }} className="pt-2 first:border-0 first:pt-0">
-                  <b className="text-[12.5px]" style={{ color: CAMPUS.ink }}>{a.title}</b>
-                  <p className="text-[11.5px] mt-0.5" style={{ color: CAMPUS.inkSoft }}>{a.message}</p>
-                  <p className="text-[10px] mt-1" style={{ color: CAMPUS.inkFaint }}>{a.createdAt?.toDate ? a.createdAt.toDate().toLocaleDateString() : ""}</p>
-                </div>
-              ))}
-            </div>
-          </CampusCard>
+        <motion.div variants={slideUp}>
+          <ContinueLearningTiles onLearning={onContinueLearning} onProgramming={onProgramming} onCsCore={onCsCore}
+            onAptitude={onAptitude} onDsa={onBrowseDsa} onCompanyVault={onBrowseCompanyVault}
+            onAssessments={onAssessments} onLeaderboard={onBrowseLeaderboard} />
+        </motion.div>
+
+        {isInstAdmin && (
+          <motion.div variants={slideUp}>
+            <CampusButton variant="secondary" icon={ShieldCheck} onClick={onManage}>Manage this Campus</CampusButton>
+          </motion.div>
         )}
-        <CampusEmptyState size="sm" icon={Target} color={CAMPUS.warn} title="Placement Readiness"
-          description="A readiness score based on your practice, contests, and learning progress is coming soon." />
-      </motion.div>
+
+        {/* Everything below this line existed on the dashboard before this
+            redesign and isn't part of the new reference composition, but
+            still carries real, working functionality (a live contest
+            countdown, weak-topic detection, institution announcements) that
+            dropping outright would have thrown away for no reason beyond
+            "the screenshot doesn't show it" - so it stays, further down the
+            page rather than competing with the redesigned fold above. */}
+        <motion.div variants={slideUp} className="grid lg:grid-cols-2 gap-5 [&>*]:h-full">
+          <UpcomingCard contests={contests} loading={contestsLoading}
+            onOpenContest={onOpenContest} onBrowseContests={onBrowseContests} />
+          <WeakTopicsCard topics={insights?.weakTopics || []} accuracyPct={insights?.aptitudeAccuracyPct}
+            loading={insightsLoading} onPractice={onAptitude} />
+        </motion.div>
+
+        <motion.div variants={slideUp}>
+          <ContestCtaBanner contestCount={contests.length} onExplore={onBrowseContests} rank={rank} xp={xp} />
+        </motion.div>
+
+        {/* initial/animate declared HERE rather than inherited from the
+            staggerContainer parent. noticeItem starts undefined and is filled
+            by an async fetch, so this block MOUNTS AFTER the parent has
+            already finished animating to "visible" - and a variant child that
+            appears late never picks that state up. It stayed at slideUp's
+            `hidden` (opacity 0) forever while still occupying full layout
+            height, which read as ~450px of blank space. Any other
+            conditionally-rendered child of a stagger container needs the
+            same treatment. */}
+        {noticeItem && (
+          <motion.div variants={slideUp} initial="hidden" animate="visible">
+            <SectionHeading icon={Megaphone} title={`Noticeboard - ${DOW_LABELS[noticeItem.dow]}'s Leaderboard`} />
+            <CampusDayLeaderboard slug={slug} date={noticeItem.date} dayLabel={DOW_LABELS[noticeItem.dow]} myUid={userData?.uid} compact />
+            <button onClick={onBrowseLeaderboard} className="mt-2 text-[11px] font-medium" style={{ color: CAMPUS.teal }}>
+              view full leaderboard &rarr;
+            </button>
+          </motion.div>
+        )}
+
+        <motion.div variants={slideUp} className="grid lg:grid-cols-2 gap-5 items-start">
+          {announcementsLoading ? (
+            <CampusCard glass className="p-4 space-y-2"><CampusSkeleton variant="text" width="60%" /><CampusSkeleton variant="text" width="90%" /></CampusCard>
+          ) : announcements.length === 0 ? (
+            <CampusEmptyState glass size="sm" icon={Megaphone} color={CAMPUS.gold} title="Announcements"
+              description="Institution-wide announcements from your Training & Placement Cell will appear here once available." />
+          ) : (
+            <CampusCard glass className="p-4">
+              <p className="text-[11px] font-mono tracking-widest mb-2.5 flex items-center gap-1.5" style={{ color: CAMPUS.gold }}><Megaphone size={12} /> ANNOUNCEMENTS</p>
+              <div className="space-y-2.5">
+                {announcements.map(a => (
+                  <div key={a.id} style={{ borderTop: `1px solid ${CAMPUS.line}` }} className="pt-2 first:border-0 first:pt-0">
+                    <b className="text-[12.5px]" style={{ color: CAMPUS.ink }}>{a.title}</b>
+                    <p className="text-[11.5px] mt-0.5" style={{ color: CAMPUS.inkSoft }}>{a.message}</p>
+                    <p className="text-[10px] mt-1" style={{ color: CAMPUS.inkFaint }}>{a.createdAt?.toDate ? a.createdAt.toDate().toLocaleDateString() : ""}</p>
+                  </div>
+                ))}
+              </div>
+            </CampusCard>
+          )}
+          <CampusEmptyState glass size="sm" icon={Target} color={CAMPUS.warn} title="Placement Readiness"
+            description="A readiness score based on your practice, contests, and learning progress is coming soon." />
+        </motion.div>
+      </div>
+
+      {/* Right column - identity, recent activity - stays pinned alongside
+          the left column on desktop (self-start, sticky) so it reads as one
+          persistent panel rather than scrolling away under the much taller
+          left column. Wallet balance/access deliberately doesn't appear
+          anywhere in Campus - it's a devert.in/wallet-only surface. */}
+      <div className="flex flex-col gap-5 min-w-0 lg:sticky lg:top-4">
+        <motion.div variants={slideUp}>
+          <DashboardProfileCard name={userData?.displayName} photoURL={userData?.photoURL} roleLabel={roleLabel} />
+        </motion.div>
+        <motion.div variants={slideUp}>
+          <RecentActivityCard items={insights?.recent || []} loading={insightsLoading} onViewAll={onBrowseLeaderboard} />
+        </motion.div>
+        <motion.div variants={slideUp}>
+          <BackgroundUploadCard userData={userData} />
+        </motion.div>
+      </div>
     </motion.div>
+  );
+}
+
+// Lets a student swap the default hanging-bulb photo (campusPhotoBg's own
+// dark/light defaults) for one of their own - stored on their own profile
+// doc (users/{uid}.campusBgUrl) via the same updateProfile() ProfileTab's
+// avatar upload already uses, so it re-skins every tab of the workspace
+// (CampusWorkspace reads it off userData, not just this Dashboard screen),
+// not only the card that exposes the control. 1920px cap (vs the avatar
+// upload's 512px): this is a full-viewport backdrop, not a small thumbnail.
+function BackgroundUploadCard({ userData }) {
+  const { user, updateProfile } = useAuth();
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) { setError("Please choose an image file."); return; }
+    if (file.size > 8 * 1024 * 1024) { setError("Image must be under 8MB."); return; }
+    setError("");
+    setUploading(true);
+    try {
+      const resized = await resizeAvatarImage(file, 1920);
+      const sRef = storageRef(storage, `campus-backgrounds/${user.uid}/background.jpg`);
+      await uploadBytes(sRef, resized);
+      const campusBgUrl = await getDownloadURL(sRef);
+      await updateProfile({ campusBgUrl });
+    } catch (err) {
+      console.error(err);
+      setError("Upload failed - try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    try { await updateProfile({ campusBgUrl: "" }); } catch (err) { console.error(err); }
+  };
+
+  return (
+    <CampusCard className="p-4">
+      <p className="text-[10px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>DASHBOARD BACKGROUND</p>
+      <p className="text-[11.5px] leading-relaxed mb-3" style={{ color: CAMPUS.inkSoft }}>
+        Use your own photo as the backdrop across Campus instead of the default.
+      </p>
+      <div className="flex items-center gap-2">
+        <label className={`campus-btn inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-lg flex-1 ${uploading ? "" : "cursor-pointer"}`}
+          style={{ background: CAMPUS.gradientPrimary, color: "#fff" }}>
+          {uploading ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
+          {uploading ? "Uploading..." : "Upload photo"}
+          <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={handleFile} />
+        </label>
+        {userData?.campusBgUrl && (
+          <button onClick={handleReset} title="Reset to default background"
+            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
+            <XCircle size={15} />
+          </button>
+        )}
+      </div>
+      {error && <p className="text-[11px] mt-2" style={{ color: CAMPUS.bad }}>{error}</p>}
+    </CampusCard>
   );
 }
 
@@ -2686,7 +2688,7 @@ function ContestsSidebarList({ counts, active, onSelect }) {
           style={{
             background: active === f.key ? CAMPUS.gradientPrimary : "transparent",
             color: active === f.key ? "#fff" : CAMPUS.inkSoft,
-            boxShadow: active === f.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+            boxShadow: active === f.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
           }}>
           <span className="text-[13px] font-medium">{f.label}</span>
           <span className="text-[10.5px] font-mono flex-shrink-0" style={{ color: active === f.key ? "rgba(255,255,255,0.8)" : CAMPUS.inkFaint }}>

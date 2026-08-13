@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Plus, ShieldCheck, KeyRound, Ban, CheckCircle2, RotateCcw, History, X,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusButton, CampusChip, CampusEmptyState, CampusSkeleton, CampusTable } from "@/components/campus/campus-ui";
 import { DEPARTMENTS, fetchRoleAssignments, fetchClassrooms, fetchAdminActivityLog } from "@/lib/institutions";
 import { ROLE_CATALOG, PERMISSIONS, PERMISSION_LABELS } from "@/lib/permissions";
@@ -56,7 +56,7 @@ export function CampusManageAdmins({ institutionId }) {
             style={{
               background: tab === t.key ? CAMPUS.gradientPrimary : "transparent",
               color: tab === t.key ? "#fff" : CAMPUS.inkSoft,
-              boxShadow: tab === t.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+              boxShadow: tab === t.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
             }}>
             {t.label}
           </button>

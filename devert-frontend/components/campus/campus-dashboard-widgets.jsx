@@ -18,11 +18,13 @@
 // A fixed viewBox scaled to width="100%" keeps it resolution-independent with
 // no ResizeObserver and no layout measurement.
 
-import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
 import {
-  Flame, Zap, Coins, Trophy, Target, Medal, BookOpen, ArrowRight, Gift,
-  Activity, AlertTriangle, Quote as QuoteIcon, ChevronRight, Clock,
+  Flame, Zap, Coins, Trophy, Target, BookOpen, ArrowRight, Gift,
+  Activity, AlertTriangle, ChevronRight, Clock, CodeXml,
+  BrainCircuit, Calculator, Code2, Briefcase, ClipboardCheck, BarChart3,
+  LayoutGrid, Rocket,
 } from "lucide-react";
 import { CAMPUS, tint } from "@/lib/campus-theme";
 // CampusSkeleton, not a hand-rolled `animate-pulse` block: its shimmer runs
@@ -173,115 +175,26 @@ export function HeroIllustration({ className = "" }) {
   );
 }
 
-/* ---------------------------------------------------------------- quote card */
+/* ------------------------------------------------------------------ stat pill */
 
-// Curated, attributable quotes only - no scraped "motivational" text with a
-// dubious byline, since this renders as a factual attribution to a real person.
-const QUOTES = [
-  { text: "The expert in anything was once a beginner.", author: "Helen Hayes" },
-  { text: "The only way to learn a new programming language is by writing programs in it.", author: "Dennis Ritchie" },
-  { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
-  { text: "Programs must be written for people to read, and only incidentally for machines to execute.", author: "Harold Abelson" },
-  { text: "Talk is cheap. Show me the code.", author: "Linus Torvalds" },
-  { text: "It always seems impossible until it's done.", author: "Nelson Mandela" },
-  { text: "Learning never exhausts the mind.", author: "Leonardo da Vinci" },
-  { text: "The beautiful thing about learning is that no one can take it away from you.", author: "B.B. King" },
-  { text: "Make it work, make it right, make it fast.", author: "Kent Beck" },
-  { text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier" },
-];
-
-function dayOfYear(d) {
-  return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
-}
-
-// Rotates once per calendar day, indexed by day-of-year rather than random, so
-// the quote is stable across tabs/reloads within a day (a quote that reshuffles
-// on every re-render reads as a glitch, not a flourish).
-//
-// useSyncExternalStore, not a date read during render: this app is a static
-// export, so the HTML is prerendered at BUILD time, and a build-day-dependent
-// index would disagree with whatever day the visitor actually loads it on -
-// a hydration mismatch on visible text. The server snapshot pins index 0 for
-// the prerender and the client snapshot resolves the real day, which is exactly
-// the contract this hook exists for. getSnapshot stays consistent between
-// renders (the day doesn't change mid-render), so it can't loop.
-const subscribeToNothing = () => () => {};
-
-function useDailyQuoteIndex() {
-  return useSyncExternalStore(
-    subscribeToNothing,
-    () => dayOfYear(new Date()) % QUOTES.length,
-    () => 0,
-  );
-}
-
-export function DailyQuoteCard({ className = "" }) {
-  const reduce = useReducedMotion();
-  const index = useDailyQuoteIndex();
-  const quote = QUOTES[index];
-
+// The dashboard's top stat row (Streak / XP / Coins / Level) - a compact
+// glass pill (icon-in-circle + bold value + caption), deliberately lighter
+// than CampusStat's card treatment since four of these sit in a single row
+// directly under the welcome header rather than as their own section.
+export function DashboardStatPill({ icon: Icon, color, value, label }) {
   return (
-    <div className={`rounded-2xl p-5 flex flex-col justify-center ${className}`}
-      style={{ background: tint(CAMPUS.surface, 62), border: `1px solid ${CAMPUS.line}` }}>
-      <QuoteIcon size={22} style={{ color: tint(CAMPUS.teal, 70) }} aria-hidden="true" />
-      <motion.blockquote
-        key={index}
-        initial={reduce ? false : { opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="mt-2"
-      >
-        <p className="text-[15px] font-semibold leading-snug" style={{ color: CAMPUS.ink }}>
-          {quote.text}
-        </p>
-        <footer className="text-[12.5px] mt-2.5" style={{ color: CAMPUS.teal }}>
-          &ndash; {quote.author}
-        </footer>
-      </motion.blockquote>
-    </div>
-  );
-}
-
-/* ----------------------------------------------------------- hero stat chips */
-
-// The inline achievement chips that sit under the hero greeting. Each is a
-// lucide icon in a tinted square + value + caption - deliberately a lighter
-// treatment than CampusStat, since these repeat information the KPI row also
-// shows and shouldn't compete with it visually.
-export function HeroStatChip({ icon: Icon, color, value, label, hint }) {
-  return (
-    <div className="flex items-center gap-2.5 min-w-0" title={hint || undefined}>
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: tint(color, 16), color }}>
-        <Icon size={16} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[13.5px] font-bold leading-tight truncate" style={{ color: CAMPUS.ink }}>
+    <CampusCard glass className="flex items-center gap-3 px-4 py-3">
+      <span className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{ background: tint(color, 18), color }}>
+        <Icon size={17} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[14.5px] font-bold leading-tight truncate" style={{ color: CAMPUS.ink }}>
           {typeof value === "number" ? <CountUp value={value} /> : value}
-        </p>
-        <p className="text-[11px] leading-tight truncate" style={{ color: CAMPUS.inkFaint }}>{label}</p>
-      </div>
-    </div>
-  );
-}
-
-export function HeroStatChips({ streak, bestStreak, xp, coins, rank, className = "" }) {
-  return (
-    <div className={`flex items-center gap-x-6 gap-y-3.5 flex-wrap ${className}`}>
-      <HeroStatChip icon={Flame} color={CAMPUS.warn} value={`${streak ?? 0} Day Streak`}
-        label={bestStreak ? `Best: ${bestStreak} days` : "Keep it going!"}
-        hint="Consecutive days with at least one completed learning activity." />
-      <HeroStatChip icon={Zap} color={CAMPUS.teal} value={`${(xp ?? 0).toLocaleString()} XP`}
-        label="Keep learning!"
-        hint="Spendable reward points earned from learning activities." />
-      <HeroStatChip icon={Coins} color={CAMPUS.gold} value={`${(coins ?? 0).toLocaleString()} Coins`}
-        label="Collect more!"
-        hint="Your real wallet balance - withdrawable as INR from the Wallet page." />
-      {rank ? (
-        <HeroStatChip icon={Medal} color={CAMPUS.good} value={`#${rank}`} label="Campus rank"
-          hint="Your rank within this campus, based on Score." />
-      ) : null}
-    </div>
+        </span>
+        <span className="block text-[11px] leading-tight truncate mt-0.5" style={{ color: CAMPUS.inkFaint }}>{label}</span>
+      </span>
+    </CampusCard>
   );
 }
 
@@ -367,7 +280,7 @@ export function WeeklyProgressCard({ series7 = [], series30 = [], totals, loadin
 
   if (loading) {
     return (
-      <CampusCard className="p-5 space-y-3">
+      <CampusCard glass className="p-5 space-y-3">
         <CampusSkeleton variant="rect" height={18} width="38%" />
         <CampusSkeleton variant="rect" height={210} />
       </CampusCard>
@@ -375,7 +288,7 @@ export function WeeklyProgressCard({ series7 = [], series30 = [], totals, loadin
   }
 
   return (
-    <CampusCard className="p-5">
+    <CampusCard glass className="p-5">
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
         <div>
           <h3 className="text-[15px] font-semibold" style={{ color: CAMPUS.ink }}>Weekly Progress</h3>
@@ -507,6 +420,112 @@ export function WeeklyProgressCard({ series7 = [], series30 = [], totals, loadin
   );
 }
 
+/* ------------------------------------------------------------- goal rings */
+
+// The redesigned dashboard's "My Progress" card - two real learning-module
+// completion rings (reusing ProgressRing above), not the generic "Travel
+// Abroad / Best Estate" goal placeholders the reference mockup was built
+// from. DeVert has no user-authored "goals" feature, so this shows real
+// progress on two modules instead of inventing one: DSA (solved/total
+// published problems - the same ratio DsaProgressSummary shows elsewhere)
+// and Aptitude accuracy (lib/studentAnalytics.js's own weak-topic detector,
+// already fetched by OverviewTab for WeakTopicsCard).
+export function GoalsRingsCard({ dsaPct, aptitudePct, loading = false }) {
+  if (loading) {
+    return (
+      <CampusCard glass className="p-5 flex items-center justify-around gap-4">
+        <CampusSkeleton variant="circle" width={92} />
+        <CampusSkeleton variant="circle" width={92} />
+      </CampusCard>
+    );
+  }
+  return (
+    <CampusCard glass className="p-5">
+      <h3 className="text-[15px] font-semibold mb-4" style={{ color: CAMPUS.ink }}>My Progress</h3>
+      <div className="flex items-center justify-around gap-4">
+        <div className="flex flex-col items-center gap-2.5">
+          <ProgressRing pct={dsaPct ?? 0} size={92} stroke={8} color={CAMPUS.teal}
+            ariaLabel={`DSA progress: ${Math.round(dsaPct ?? 0)} percent`} />
+          <span className="text-[12px] font-medium" style={{ color: CAMPUS.inkSoft }}>DSA Progress</span>
+        </div>
+        <div className="flex flex-col items-center gap-2.5">
+          <ProgressRing pct={aptitudePct ?? 0} size={92} stroke={8} color={CAMPUS.purple}
+            ariaLabel={`Aptitude accuracy: ${Math.round(aptitudePct ?? 0)} percent`} />
+          <span className="text-[12px] font-medium" style={{ color: CAMPUS.inkSoft }}>Aptitude Accuracy</span>
+        </div>
+      </div>
+    </CampusCard>
+  );
+}
+
+/* ------------------------------------------------------------ profile card */
+
+// Compact identity card for the redesigned dashboard's right column - avatar,
+// name, department/role. Read-only: account actions (share, sign out, etc.)
+// already live in CampusProfileMenu up in the top bar, so this doesn't
+// duplicate a second menu, just states who you're signed in as.
+export function DashboardProfileCard({ name, photoURL, roleLabel }) {
+  return (
+    <CampusCard glass className="p-4 flex items-center gap-3">
+      <div className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0 overflow-hidden"
+        style={{ background: CAMPUS.goldTint, color: CAMPUS.gold }}>
+        {photoURL ? <img src={photoURL} alt="" className="w-full h-full object-cover" /> : (name || "?").slice(0, 2).toUpperCase()}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{name || "Student"}</p>
+        {roleLabel && <p className="text-[11.5px] truncate" style={{ color: CAMPUS.inkFaint }}>{roleLabel}</p>}
+      </div>
+    </CampusCard>
+  );
+}
+
+/* ------------------------------------------------------- continue learning */
+
+// The redesigned dashboard's module tile row, replacing the old
+// QuickActionsRow's list-style buttons with icon-over-label tiles matching
+// the reference mockup. Same destinations, same handlers - purely a layout/
+// styling change, so nothing a student could already reach stops working.
+const CONTINUE_LEARNING_TILES = [
+  { key: "learning", label: "Daily Learning", icon: BookOpen, color: CAMPUS.teal },
+  { key: "programming", label: "Programming", icon: CodeXml, color: CAMPUS.blue },
+  { key: "csCore", label: "CS Core", icon: BrainCircuit, color: CAMPUS.cyan },
+  { key: "aptitude", label: "Aptitude", icon: Calculator, color: CAMPUS.warn },
+  { key: "dsa", label: "DSA", icon: Code2, color: CAMPUS.good },
+  { key: "companyVault", label: "Company Vault", icon: Briefcase, color: CAMPUS.bad },
+  { key: "assessments", label: "Assessments", icon: ClipboardCheck, color: CAMPUS.gold },
+  { key: "leaderboard", label: "Leaderboard", icon: BarChart3, color: CAMPUS.purple },
+];
+
+export function ContinueLearningTiles({ onLearning, onProgramming, onCsCore, onAptitude, onDsa, onCompanyVault, onAssessments, onLeaderboard }) {
+  const handlers = {
+    learning: onLearning, programming: onProgramming, csCore: onCsCore, aptitude: onAptitude,
+    dsa: onDsa, companyVault: onCompanyVault, assessments: onAssessments, leaderboard: onLeaderboard,
+  };
+  return (
+    <div>
+      <h3 className="text-[15px] font-semibold mb-3.5 flex items-center gap-2" style={{ color: CAMPUS.ink }}>
+        <Rocket size={16} style={{ color: CAMPUS.teal }} /> Continue Learning
+      </h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {CONTINUE_LEARNING_TILES.map(t => (
+          <CampusCard key={t.key} glass hover as="button" onClick={handlers[t.key]}
+            className="p-4 flex flex-col items-center gap-2.5 text-center">
+            <span className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: tint(t.color, 16), color: t.color }}>
+              <t.icon size={19} />
+            </span>
+            <span className="text-[12.5px] font-semibold" style={{ color: CAMPUS.ink }}>{t.label}</span>
+          </CampusCard>
+        ))}
+        <CampusCard glass hover as="button" onClick={onLearning}
+          className="p-4 flex flex-col items-center justify-center gap-2 text-center sm:col-span-1 col-span-2">
+          <LayoutGrid size={19} style={{ color: CAMPUS.teal }} />
+          <span className="text-[12.5px] font-semibold" style={{ color: CAMPUS.teal }}>View All Modules</span>
+        </CampusCard>
+      </div>
+    </div>
+  );
+}
+
 /* ----------------------------------------------------------- activity feed */
 
 const ACTIVITY_ICONS = {
@@ -529,7 +548,7 @@ const ACTIVITY_ICONS = {
 export function RecentActivityCard({ items = [], loading = false, onViewAll }) {
   if (loading) {
     return (
-      <CampusCard className="p-5 space-y-3">
+      <CampusCard glass className="p-5 space-y-3">
         <CampusSkeleton variant="rect" height={18} width="42%" />
         {[0, 1, 2, 3].map(i => (
           <div key={i} className="flex items-center gap-3">
@@ -543,13 +562,13 @@ export function RecentActivityCard({ items = [], loading = false, onViewAll }) {
 
   if (items.length === 0) {
     return (
-      <CampusEmptyState icon={Activity} color={CAMPUS.blue} title="No activity yet"
+      <CampusEmptyState glass icon={Activity} color={CAMPUS.blue} title="No activity yet"
         description="Complete a Daily Learning day, solve a problem, or enter a contest - everything you earn shows up here." />
     );
   }
 
   return (
-    <CampusCard className="p-5">
+    <CampusCard glass className="p-5">
       <div className="flex items-center justify-between gap-2 mb-3.5">
         <h3 className="text-[15px] font-semibold" style={{ color: CAMPUS.ink }}>Recent Activity</h3>
         {onViewAll && (
@@ -578,7 +597,15 @@ export function RecentActivityCard({ items = [], loading = false, onViewAll }) {
                 <Icon size={14} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium leading-tight" style={{ color: CAMPUS.ink }}>
+                {/* truncate, not a bare block: activityLabel() falls back to
+                    the raw activityType key (e.g. an unmapped
+                    "disallowed_module_reversal") for any type missing from
+                    ACTIVITY_LABELS, and that snake_case string has no space
+                    for the browser to wrap on - left untruncated it overflowed
+                    this flex-1 column's width, which in turn squeezed the xp/
+                    coins column over onto its own line instead of staying
+                    inline on the right. */}
+                <p className="text-[13px] font-medium leading-tight truncate" style={{ color: CAMPUS.ink }}>
                   {item.label}
                   {item.reversed && <span className="ml-1.5 text-[10px] font-bold" style={{ color: CAMPUS.bad }}>REVERSED</span>}
                 </p>
@@ -586,7 +613,7 @@ export function RecentActivityCard({ items = [], loading = false, onViewAll }) {
                   <Clock size={9} /> {relativeTime(item.grantedAt)}
                 </p>
               </div>
-              <div className="flex items-center gap-2.5 flex-shrink-0 pt-0.5">
+              <div className="flex items-center gap-2.5 flex-shrink-0 pt-0.5 whitespace-nowrap">
                 {!!item.xp && (
                   <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold tabular-nums"
                     style={{ color: item.xp < 0 ? CAMPUS.bad : CAMPUS.teal }}>
@@ -621,7 +648,7 @@ export function StreakRingCard({ streak = 0, bestStreak = 0, className = "" }) {
   const atBest = streak > 0 && streak >= (bestStreak || 0);
 
   return (
-    <CampusCard className={`p-5 ${className}`}>
+    <CampusCard glass className={`p-5 ${className}`}>
       <div className="flex items-center gap-4">
         <ProgressRing pct={pct} size={78} stroke={7} color={CAMPUS.warn}
           ariaLabel={`Current streak ${streak} days out of a personal best of ${target}`}>
@@ -652,14 +679,18 @@ export function StreakRingCard({ streak = 0, bestStreak = 0, className = "" }) {
 // The one full-bleed gradient CTA on the dashboard. Uses CAMPUS.gradientHero-
 // adjacent chrome tokens so the white text keeps its contrast in both themes
 // (CAMPUS.ink would invert and disappear against the gradient).
-export function ContestCtaBanner({ onExplore, contestCount = 0 }) {
+// `rank`/`xp` are the SAME numbers the KPI row above already shows (Campus
+// Rank, XP) - inline here too since a contest CTA sitting right next to a
+// student's actual standing is a stronger nudge than the copy alone, not a
+// new metric.
+export function ContestCtaBanner({ onExplore, contestCount = 0, rank, xp }) {
   const reduce = useReducedMotion();
   return (
     <motion.div
       whileHover={reduce ? undefined : { y: -2 }}
       transition={{ duration: 0.2 }}
       className="relative overflow-hidden rounded-2xl p-6"
-      style={{ background: CAMPUS.gradientPrimary, boxShadow: "0 14px 38px rgba(99,102,241,0.28)" }}
+      style={{ background: CAMPUS.gradientPrimary, boxShadow: `0 14px 38px ${tint(CAMPUS.teal, 28)}` }}
     >
       <div className="absolute -right-8 -top-10 w-48 h-48 rounded-full pointer-events-none"
         style={{ background: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
@@ -678,6 +709,22 @@ export function ContestCtaBanner({ onExplore, contestCount = 0 }) {
               : "Test your skills against your cohort and climb the leaderboard."}
           </p>
         </div>
+        {(rank || xp != null) && (
+          <div className="flex items-center gap-5 flex-shrink-0 pr-2" style={{ borderRight: "1px solid rgba(255,255,255,0.22)" }}>
+            {rank && (
+              <div className="text-center">
+                <p className="text-[17px] font-bold text-white leading-tight tabular-nums">#{rank}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.75)" }}>Your Rank</p>
+              </div>
+            )}
+            {xp != null && (
+              <div className="text-center">
+                <p className="text-[17px] font-bold text-white leading-tight tabular-nums">{xp.toLocaleString()}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.75)" }}>XP Earned</p>
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-4 flex-shrink-0">
           <CampusButton variant="glass" rounded="xl" icon={ArrowRight}
             onClick={onExplore}
@@ -700,7 +747,7 @@ export function ContestCtaBanner({ onExplore, contestCount = 0 }) {
 export function WeakTopicsCard({ topics = [], accuracyPct, onPractice, loading = false }) {
   if (loading) {
     return (
-      <CampusCard className="p-5 space-y-2.5">
+      <CampusCard glass className="p-5 space-y-2.5">
         <CampusSkeleton variant="rect" height={18} width="40%" />
         {[0, 1, 2].map(i => <CampusSkeleton key={i} variant="rect" height={34} />)}
       </CampusCard>
@@ -709,7 +756,7 @@ export function WeakTopicsCard({ topics = [], accuracyPct, onPractice, loading =
 
   if (topics.length === 0) {
     return (
-      <CampusEmptyState icon={Target} color={CAMPUS.good}
+      <CampusEmptyState glass icon={Target} color={CAMPUS.good}
         title={accuracyPct == null ? "No weak topics yet" : "Nothing flagged for revision"}
         description={accuracyPct == null
           ? "Attempt some Aptitude questions and this will highlight the topics worth revising."
@@ -719,7 +766,7 @@ export function WeakTopicsCard({ topics = [], accuracyPct, onPractice, loading =
   }
 
   return (
-    <CampusCard className="p-5">
+    <CampusCard glass className="p-5">
       <div className="flex items-center justify-between gap-2 mb-3.5">
         <div>
           <h3 className="text-[15px] font-semibold" style={{ color: CAMPUS.ink }}>Revision Due</h3>
@@ -776,7 +823,7 @@ function countdownLabel(startAt) {
 export function UpcomingCard({ contests = [], loading = false, onOpenContest, onBrowseContests }) {
   if (loading) {
     return (
-      <CampusCard className="p-5 space-y-2.5">
+      <CampusCard glass className="p-5 space-y-2.5">
         <CampusSkeleton variant="rect" height={18} width="34%" />
         {[0, 1].map(i => <CampusSkeleton key={i} variant="rect" height={52} />)}
       </CampusCard>
@@ -785,7 +832,7 @@ export function UpcomingCard({ contests = [], loading = false, onOpenContest, on
 
   if (contests.length === 0) {
     return (
-      <CampusEmptyState icon={Trophy} color={CAMPUS.gold} title="Nothing scheduled yet"
+      <CampusEmptyState glass icon={Trophy} color={CAMPUS.gold} title="Nothing scheduled yet"
         description="When your institution schedules a contest or assessment, it'll appear here with a countdown."
         action={onBrowseContests
           ? <CampusButton size="sm" variant="secondary" icon={Trophy} onClick={onBrowseContests}>Browse contests</CampusButton>
@@ -794,7 +841,7 @@ export function UpcomingCard({ contests = [], loading = false, onOpenContest, on
   }
 
   return (
-    <CampusCard className="p-5">
+    <CampusCard glass className="p-5">
       <h3 className="text-[15px] font-semibold mb-3.5" style={{ color: CAMPUS.ink }}>Upcoming</h3>
       <div className="space-y-2">
         {contests.map(c => {
@@ -874,7 +921,7 @@ export function StaffDashboardHero({ icon: Icon, title, subtitle, meta, actions,
         <div className="flex items-start gap-3.5 min-w-0">
           {Icon && (
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: CAMPUS.gradientPrimary, boxShadow: "0 10px 26px rgba(99,102,241,0.28)" }}>
+              style={{ background: CAMPUS.gradientPrimary, boxShadow: `0 10px 26px ${tint(CAMPUS.teal, 28)}` }}>
               <Icon size={22} color="#fff" strokeWidth={1.8} />
             </div>
           )}
@@ -893,15 +940,16 @@ export function StaffDashboardHero({ icon: Icon, title, subtitle, meta, actions,
 // The full hero band: greeting + stat chips on the left, illustration in the
 // middle, quote on the right. Collapses to a single column below lg: with the
 // illustration dropped first (it's decorative; the chips are not).
-export function DashboardHero({ name, subtitle, streak, bestStreak, xp, coins, rank, badge }) {
+// Glass, not a filled gradient panel - on the photo-background Dashboard this
+// floats directly over the hanging-bulb backdrop (see CampusWorkspace's shell
+// background) the same way every other card there does. Stats (streak/XP/
+// coins/level) live in their own DashboardStatPill row below this now, not
+// inline here - see OverviewTab.
+export function DashboardHero({ name, subtitle, badge }) {
   const firstName = (name || "there").trim().split(/\s+/)[0];
   return (
-    <div className="relative overflow-hidden rounded-2xl p-6 sm:p-7"
-      style={{ background: CAMPUS.gradientHero, border: `1px solid ${CAMPUS.line}` }}>
-      <div className="absolute -right-10 -top-16 w-56 h-56 rounded-full pointer-events-none"
-        style={{ background: CAMPUS.teal, opacity: 0.1 }} aria-hidden="true" />
-
-      <div className="relative grid lg:grid-cols-[1.15fr_auto_0.85fr] gap-6 items-center">
+    <CampusCard glass className="relative overflow-hidden p-6 sm:p-7">
+      <div className="relative grid lg:grid-cols-[1fr_auto] gap-6 items-center">
         <div className="min-w-0">
           <p className="text-[13.5px]" style={{ color: CAMPUS.inkSoft }}>Welcome back,</p>
           <h1 className="text-[26px] sm:text-[30px] font-bold tracking-tight mt-0.5 flex items-center gap-2.5 flex-wrap"
@@ -912,15 +960,10 @@ export function DashboardHero({ name, subtitle, streak, bestStreak, xp, coins, r
           <p className="text-[13.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>
             {subtitle || "Let's continue your learning journey."}
           </p>
-          <div className="mt-5 pt-5" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-            <HeroStatChips streak={streak} bestStreak={bestStreak} xp={xp} coins={coins} rank={rank} />
-          </div>
         </div>
 
-        <HeroIllustration className="hidden lg:block w-[260px] h-[190px] flex-shrink-0" />
-
-        <DailyQuoteCard className="lg:h-full" />
+        <HeroIllustration className="hidden lg:block w-[230px] h-[170px] flex-shrink-0" />
       </div>
-    </div>
+    </CampusCard>
   );
 }

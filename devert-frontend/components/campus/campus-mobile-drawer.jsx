@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X, ChevronRight, ChevronDown } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { NAV_ITEMS, GROUP_ORDER, NAV_GROUP_LABELS } from "@/lib/campusNavConfig";
 import { MANAGE_TABS } from "@/components/campus/campus-manage";
 import { TRACK_CATALOG } from "@/lib/dailyLearning";
@@ -162,7 +162,7 @@ export function CampusMobileDrawer({
   const rowStyle = (active) => ({
     background: active ? CAMPUS.gradientPrimary : "transparent",
     color: active ? "#fff" : CAMPUS.ink,
-    boxShadow: active ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+    boxShadow: active ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
   });
 
   return (
@@ -188,10 +188,10 @@ export function CampusMobileDrawer({
               <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
                 style={institution?.logoUrl ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` } : { background: CAMPUS.teal, color: "#fff" }}>
                 {institution?.logoUrl
-                  ? <img src={institution.logoUrl} alt="" className="w-full h-full object-contain" />
+                  ? <img src={institution.logoUrl} alt="" className="w-full h-full object-cover" />
                   : institution?.name?.slice(0, 2).toUpperCase()}
               </div>
-              <b className="flex-1 min-w-0 truncate text-[13.5px]" style={{ color: CAMPUS.ink }} title={institution?.name}>
+              <b className="flex-1 min-w-0 leading-snug text-[13.5px]" style={{ color: CAMPUS.ink }}>
                 {institution?.name}
               </b>
               <button onClick={handleClose} aria-label="Close navigation"

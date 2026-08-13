@@ -7,6 +7,7 @@ import {
   Check, X, Upload, Plus, Trophy, BookOpen, Search, Pencil, Download,
   UserX, UserCheck, History, Megaphone, Eye, Power, ChevronRight, ClipboardCheck, Copy, Trash2,
   MoreVertical, UserMinus, CalendarClock, Mail, Ban, Medal, ShieldCheck,
+  AlertTriangle, IndianRupee, CreditCard,
 } from "lucide-react";
 import {
   fetchPendingStudents, fetchApprovedStudents, fetchApprovedStudentCount, fetchApprovedStudentCountByDepartment,
@@ -28,7 +29,7 @@ import {
 } from "@/lib/dailyLearning";
 import { DailyLearningItemEditor } from "@/components/campus/campus-daily-learning-editor";
 import { useAuth } from "@/context/AuthContext";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { CampusCard, CampusChip, CampusButton, CampusSkeleton, CampusEmptyState, CampusBackButton, CampusBreadcrumb, ReportDownloadButton } from "@/components/campus/campus-ui";
 import { gatherPendingRequestsReport } from "@/lib/campusReports";
 import { CampusContestStudio } from "@/components/campus/campus-contest-studio";
@@ -69,6 +70,9 @@ export const MANAGE_TABS = [
   { key: "companyPrep", label: "Company Vault" },
   { key: "leaderboards", label: "Leaderboards" },
   { key: "branding", label: "Branding" },
+  // Site-wide (not institution-scoped) revenue data - deliberately last, and
+  // gated on the superAdmin claim below rather than any institution role.
+  { key: "payments", label: "Payments" },
 ];
 
 // URL segment for each manage tab (app/campus/[slug]/manage/<segment>/page.jsx),
@@ -79,7 +83,7 @@ export const MANAGE_TABS = [
 export const MANAGE_TAB_SEGMENT = {
   students: "students", departments: "departments", manageAdmins: "manage-admins", contests: "contests", dailyLearning: "daily-learning",
   fundamentals: "fundamentals", programming: "programming", csCore: "cs-core", aptitude: "aptitude", practice: "practice-dsa",
-  companyPrep: "company-vault", leaderboards: "leaderboards", branding: "branding",
+  companyPrep: "company-vault", leaderboards: "leaderboards", branding: "branding", payments: "payments",
 };
 export const SEGMENT_TO_MANAGE_TAB = Object.fromEntries(Object.entries(MANAGE_TAB_SEGMENT).map(([k, v]) => [v, k]));
 
@@ -115,6 +119,15 @@ const MANAGE_TAB_PERMISSION = {
 // was ungated the same way and now uses the companyPrep.manage key that
 // already existed in PERMISSIONS unused.
 const ADMIN_ONLY_MANAGE_TABS = new Set(["branding"]);
+
+// Gated on the superAdmin custom claim (scripts/set-super-admin-claim.mjs),
+// never on any institution role - isInstAdmin does NOT bypass this the way
+// it bypasses ADMIN_ONLY_MANAGE_TABS above, because "runs this institution"
+// and "may see platform-wide revenue" are unrelated authorities. The read
+// itself is bounded the same way in firestore.rules (payments/subscriptions
+// require isSuperAdmin(), not isAdmin()), so hiding the tab here is a UX
+// nicety, never the real boundary.
+const SUPER_ADMIN_ONLY_MANAGE_TABS = new Set(["payments"]);
 
 // A department- or classroom-scoped staff role sees ONLY these Manage tabs,
 // regardless of what its permissions otherwise grant. Two separate reasons,
@@ -179,7 +192,7 @@ function ManageSidebarList({ tabs, active, onSelect }) {
           style={{
             background: active === t.key ? CAMPUS.gradientPrimary : "transparent",
             color: active === t.key ? "#fff" : CAMPUS.inkSoft,
-            boxShadow: active === t.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+            boxShadow: active === t.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
           }}>
           {t.label}
         </button>
@@ -207,6 +220,7 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
   // hook call) and checks it with a plain function instead - calling a hook
   // once per tab inside .filter() would break the rules of hooks.
   const { isInstAdmin, permissions, role, department } = useContext(CampusPermissionsContext);
+  const { isSuperAdmin } = useAuth();
   const hasManagePermission = (key) => !key || isInstAdmin || permissions.has(key);
   // For a role with an allowlist, that list is a hard ceiling INTERSECTED
   // with the usual permission check - never a replacement for it. So a
@@ -218,12 +232,13 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
   const scopedTabs = isInstAdmin ? null : SCOPED_ROLE_MANAGE_TABS[role];
   const visibleManageTabs = useMemo(
     () => MANAGE_TABS.filter(t => {
+      if (SUPER_ADMIN_ONLY_MANAGE_TABS.has(t.key)) return isSuperAdmin;
       if (scopedTabs && !scopedTabs.has(t.key)) return false;
       if (ADMIN_ONLY_MANAGE_TABS.has(t.key)) return isInstAdmin;
       return hasManagePermission(MANAGE_TAB_PERMISSION[t.key]);
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isInstAdmin, permissions, scopedTabs]
+    [isInstAdmin, permissions, scopedTabs, isSuperAdmin]
   );
   // If the current tab is no longer one this role can see (e.g. a stale
   // deep link, or permissions changed mid-session), fall back to the first
@@ -362,6 +377,7 @@ export function CampusManage({ institutionId, institution, initialTab, initialSt
       {tab === "leaderboards" && <ManageLeaderboards institutionId={institutionId} institution={institution} />}
       {tab === "branding" && <ManageBranding ref={brandingFormRef} institutionId={institutionId} institution={institution}
         onDirtyChange={setBrandingDirty} onInstitutionUpdated={onInstitutionUpdated} />}
+      {tab === "payments" && isSuperAdmin && <ManagePayments />}
       </>
       )}
       <BrandingUnsavedDialog pendingTab={pendingTab} onResolve={resolvePendingTab} />
@@ -1467,7 +1483,7 @@ function StudentsViewToggle({ studentsView, setStudentsView }) {
           style={{
             background: studentsView === o.key ? CAMPUS.gradientPrimary : "transparent",
             color: studentsView === o.key ? "#fff" : CAMPUS.inkFaint,
-            boxShadow: studentsView === o.key ? "0 3px 10px rgba(99,102,241,0.28)" : "none",
+            boxShadow: studentsView === o.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
           }}>
           {o.label}
         </button>
@@ -2217,6 +2233,165 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
       )}
 
       <CampusEmailMigration institutionId={institutionId} />
+    </div>
+  );
+}
+
+// Site-wide (not institution-scoped) revenue view - the only Manage tab that
+// is not about the institution the URL is under at all. Gated on the
+// superAdmin claim both in visibleManageTabs above and, more importantly, in
+// firestore.rules itself (payments/subscriptions require isSuperAdmin(), not
+// isAdmin()) - this component only ever runs for someone the rules would
+// already let read this data directly, so hiding the tab is a UX nicety
+// layered on a real boundary, not the boundary itself.
+const PAYMENT_STATUS_COLOR = {
+  paid: "good", verified: "teal", created: "inkFaint", failed: "bad", signature_mismatch: "bad",
+};
+
+function ManagePayments() {
+  const [payments, setPayments] = useState(undefined);
+  const [subscriptions, setSubscriptions] = useState(undefined);
+  const [profilesByUid, setProfilesByUid] = useState({});
+  const [error, setError] = useState(false);
+
+  const load = () => {
+    setError(false);
+    setPayments(undefined);
+    setSubscriptions(undefined);
+    (async () => {
+      const [paymentsSnap, subsSnap] = await Promise.all([
+        getDocs(query(collection(db, "payments"), orderBy("createdAt", "desc"), limit(500))),
+        getDocs(collection(db, "subscriptions")),
+      ]);
+      const paymentsRows = paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const subsRows = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Batched documentId() "in" chunks (30/query) rather than one getDoc per
+      // row - same fix lib/contests.js's fetchLeaderboard/fetchContestRegistrations
+      // already apply for the identical reason.
+      const uids = [...new Set([...paymentsRows.map(p => p.uid), ...subsRows.map(s => s.id)].filter(Boolean))];
+      const profiles = {};
+      for (let i = 0; i < uids.length; i += 30) {
+        const chunk = uids.slice(i, i + 30);
+        if (!chunk.length) continue;
+        const chunkSnap = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
+        chunkSnap.forEach(d => { profiles[d.id] = d.data(); });
+      }
+
+      setPayments(paymentsRows);
+      setSubscriptions(subsRows);
+      setProfilesByUid(profiles);
+    })().catch((e) => { console.error(e); setError(true); });
+  };
+  useEffect(load, []);
+
+  if (error) {
+    return <CampusEmptyState icon={AlertTriangle} color={CAMPUS.bad} title="Couldn't load payments"
+      description="Check your connection and try again."
+      action={<CampusButton variant="secondary" size="sm" onClick={load}>Retry</CampusButton>} />;
+  }
+  if (payments === undefined || subscriptions === undefined) {
+    return <CampusCard className="p-5 space-y-3"><CampusSkeleton variant="rect" height={220} /></CampusCard>;
+  }
+
+  const nameFor = (uid) => {
+    const p = profilesByUid[uid];
+    return p?.campusFullName || p?.handle || p?.displayName || p?.email || uid || "—";
+  };
+  const inr = (paise) => `₹${Math.round((paise || 0) / 100).toLocaleString("en-IN")}`;
+
+  const paidPayments = payments.filter(p => p.status === "paid");
+  const failedPayments = payments.filter(p => p.status === "failed" || p.status === "signature_mismatch");
+  const totalRevenuePaise = paidPayments.reduce((sum, p) => sum + (p.amountPaid ?? p.amount ?? 0), 0);
+  const activeSubs = subscriptions
+    .filter(s => s.status === "active" && (s.expiresAtMs || 0) > Date.now())
+    .sort((a, b) => (b.expiresAtMs || 0) - (a.expiresAtMs || 0));
+  const successRate = payments.length ? Math.round((paidPayments.length / payments.length) * 100) : 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold mb-1" style={{ color: CAMPUS.ink }}>Payments</h2>
+        <p className="text-[11.5px]" style={{ color: CAMPUS.inkFaint }}>
+          Site-wide DeVert Pro revenue, not scoped to this institution. Only super admins can see this tab.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <CampusCard className="p-4">
+          <p className="text-[9px] font-mono tracking-widest mb-1.5 flex items-center gap-1" style={{ color: CAMPUS.inkFaint }}>
+            <IndianRupee size={10} /> TOTAL REVENUE
+          </p>
+          <p className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{inr(totalRevenuePaise)}</p>
+        </CampusCard>
+        <CampusCard className="p-4">
+          <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>ACTIVE SUBS</p>
+          <p className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{activeSubs.length}</p>
+        </CampusCard>
+        <CampusCard className="p-4">
+          <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>PAYMENT ATTEMPTS</p>
+          <p className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{payments.length}</p>
+        </CampusCard>
+        <CampusCard className="p-4">
+          <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>SUCCESS RATE</p>
+          <p className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{successRate}%</p>
+          {failedPayments.length > 0 && (
+            <p className="text-[10px] mt-0.5" style={{ color: CAMPUS.bad }}>{failedPayments.length} failed</p>
+          )}
+        </CampusCard>
+      </div>
+
+      <div>
+        <p className="text-[11px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>
+          ACTIVE SUBSCRIPTIONS ({activeSubs.length})
+        </p>
+        {activeSubs.length === 0 ? (
+          <CampusEmptyState icon={CreditCard} title="No active subscriptions yet" />
+        ) : (
+          <div className="space-y-1.5">
+            {activeSubs.map(s => (
+              <CampusCard key={s.id} className="p-3 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <b className="block text-[13px] truncate" style={{ color: CAMPUS.ink }}>{nameFor(s.id)}</b>
+                  <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>
+                    {s.plan || "—"} · expires {s.expiresAtMs ? new Date(s.expiresAtMs).toLocaleDateString() : "—"}
+                  </span>
+                </div>
+                <CampusChip color={CAMPUS.good}>ACTIVE</CampusChip>
+              </CampusCard>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <p className="text-[11px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>
+          RECENT PAYMENTS ({payments.length})
+        </p>
+        {payments.length === 0 ? (
+          <CampusEmptyState icon={CreditCard} title="No payment attempts yet" />
+        ) : (
+          <div className="space-y-1.5">
+            {payments.map(p => (
+              <CampusCard key={p.id} className="p-3 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <b className="block text-[13px] truncate" style={{ color: CAMPUS.ink }}>{nameFor(p.uid)}</b>
+                  <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>
+                    {p.planId || "—"} · {inr(p.amountPaid ?? p.amount)}
+                    {p.createdAt?.toDate ? ` · ${p.createdAt.toDate().toLocaleString()}` : ""}
+                  </span>
+                  {p.failureReason && (
+                    <span className="block text-[10px] mt-0.5" style={{ color: CAMPUS.bad }}>{p.failureReason}</span>
+                  )}
+                </div>
+                <CampusChip color={CAMPUS[PAYMENT_STATUS_COLOR[p.status]] || CAMPUS.inkFaint}>
+                  {(p.status || "unknown").replace("_", " ").toUpperCase()}
+                </CampusChip>
+              </CampusCard>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

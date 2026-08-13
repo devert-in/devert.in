@@ -11,7 +11,7 @@ import {
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
-  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network,
+  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network, Inbox,
 } from "lucide-react";
 import {
   db, auth
@@ -48,6 +48,7 @@ import {
 import { StringListField, McqListField } from "@/components/campus/campus-daily-learning-editor";
 import { SeModulesPanel } from "@/components/admin/se-panel";
 import { AmbassadorPanel } from "@/components/admin/ambassador-panel";
+import { DemoRequestsPanel } from "@/components/admin/demo-requests-panel";
 import {
   GatePapersPanel, GateSubjectsPanel, GatePyqPanel, GateTestsPanel,
   GateFormulaPanel, GateResourcesPanel, GateLessonImportPanel,
@@ -6890,6 +6891,13 @@ function AdminPageInner() {
               <>
                 <Section title="USERS" icon={Users} color="#C77DFF" defaultOpen={true}>
                   <UsersPanel />
+                </Section>
+                {/* Sits directly above Institutions on purpose: a demo request from
+                    the public "Bring DeVert to your campus" pitch is the step
+                    BEFORE an institution row exists below - this is that sales
+                    inbox. */}
+                <Section title="CAMPUS DEMO REQUESTS" icon={Inbox} color="#FF9500" defaultOpen={true}>
+                  <DemoRequestsPanel />
                 </Section>
                 <Section title="CAMPUS INSTITUTIONS" icon={Building2} color="#0E7C86">
                   <InstitutionsPanel />
