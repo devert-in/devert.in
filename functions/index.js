@@ -516,17 +516,75 @@ exports.createRazorpayOrder = onCall(
 );
 
 /**
- * Verifies the Checkout callback signature.
+ * Grants (or extends) a subscription. The single place entitlement is written.
+ *
+ * Idempotent on paymentId: the same payment arriving twice - a webhook retry, or
+ * the webhook racing the client's verify call - extends the subscription once and
+ * then does nothing. Both callers below funnel through here for exactly that
+ * reason; two separate grant implementations would eventually disagree.
+ *
+ * Extends from max(now, existing expiry) so paying again before expiry ADDS time
+ * rather than discarding what is left.
+ */
+async function grantSubscription({ uid, planId, paymentId, orderId, source }) {
+  const plan = PLANS[planId];
+  if (!uid || !plan) {
+    logger.error("grant skipped - missing uid or unknown plan", { uid, planId, orderId, source });
+    return false;
+  }
+
+  const subRef = admin.firestore().doc(`subscriptions/${uid}`);
+  let granted = false;
+
+  await admin.firestore().runTransaction(async (tx) => {
+    const cur = await tx.get(subRef);
+    const seen = cur.exists ? (cur.get("appliedPaymentIds") || []) : [];
+    if (paymentId && seen.includes(paymentId)) return; // already applied
+
+    const now = Date.now();
+    const existing = cur.exists ? (cur.get("expiresAtMs") || 0) : 0;
+    const base = Math.max(now, existing);
+    const expiresAtMs = base + plan.days * 24 * 60 * 60 * 1000;
+
+    tx.set(subRef, {
+      uid,
+      plan: planId,
+      status: "active",
+      activatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAtMs,
+      expiresAt: admin.firestore.Timestamp.fromMillis(expiresAtMs),
+      lastOrderId: orderId || null,
+      lastPaymentId: paymentId || null,
+      grantedBy: source,
+      appliedPaymentIds: [...seen, paymentId].filter(Boolean).slice(-20),
+    }, { merge: true });
+    granted = true;
+  });
+
+  if (granted) logger.info("subscription granted", { uid, planId, source, paymentId });
+  return granted;
+}
+
+/**
+ * Verifies the Checkout callback signature AND grants on success.
  *
  * HMAC-SHA256(order_id + "|" + payment_id, key_secret) compared against
  * razorpay_signature, in constant time.
  *
- * This confirms the callback genuinely came from Razorpay and was not forged in
- * the browser. It is NOT the authority for granting access - the webhook is.
- * A client can simply never call this (close the tab at the right moment), so
- * treating it as the entitlement trigger would make entitlement depend on the
- * attacker's cooperation. It exists to give the user an immediate, trustworthy
- * "yes, that worked" while the webhook settles.
+ * CORRECTION TO THE EARLIER DESIGN: this used to verify and deliberately NOT
+ * grant, on the reasoning that a client can decline to call it, so the webhook
+ * had to be the sole authority. The first half is true; the conclusion was wrong.
+ * That a client MIGHT not call this is an argument for also having the webhook -
+ * it is not an argument against acting when the client does call it.
+ *
+ * Granting here is cryptographically sound. The signature is HMAC'd with the key
+ * secret, which never leaves the server, so a browser cannot forge a callback for
+ * a payment that did not happen. And the practical consequence of the old design
+ * was severe: with RAZORPAY_WEBHOOK_SECRET unset the webhook rejects everything,
+ * so every payment succeeded at Razorpay and granted the payer nothing at all.
+ *
+ * Both paths now funnel through grantSubscription(), which is idempotent on
+ * paymentId, so whichever arrives first wins and the second is a no-op.
  */
 exports.verifyRazorpayPayment = onCall(
   { region: "us-central1", maxInstances: 10 },
@@ -571,7 +629,15 @@ exports.verifyRazorpayPayment = onCall(
       verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    return { verified: true, orderId, paymentId };
+    // planId comes off the payment doc the server itself wrote at order time -
+    // never off request.data, which the browser controls. Otherwise a verified
+    // Rs 29 payment could ask to be granted the lifetime plan.
+    const planId = snap.exists ? snap.get("planId") : null;
+    const granted = await grantSubscription({
+      uid: request.auth.uid, planId, paymentId, orderId, source: "verify",
+    });
+
+    return { verified: true, granted, orderId, paymentId };
   }
 );
 
@@ -635,36 +701,29 @@ exports.razorpayWebhook = onRequest(
           paidAt: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
 
-        if (uid && plan) {
-          const subRef = admin.firestore().doc(`subscriptions/${uid}`);
-          await admin.firestore().runTransaction(async (tx) => {
-            const cur = await tx.get(subRef);
-            // Extend from the later of now and any existing expiry, so paying
-            // again before expiry adds time instead of discarding it.
-            const now = Date.now();
-            const existing = cur.exists ? cur.get("expiresAtMs") || 0 : 0;
-            const base = Math.max(now, existing);
-            const expiresAtMs = base + plan.days * 24 * 60 * 60 * 1000;
+        // Falls back to the payment doc when Razorpay's notes are absent. notes
+        // are ours (set at order creation) but a manually-captured or
+        // dashboard-created payment will not carry them, and the doc always has
+        // the authoritative uid/planId the server recorded up front.
+        let effectiveUid = uid;
+        let effectivePlan = planId;
+        if (!effectiveUid || !PLANS[effectivePlan]) {
+          const doc = await admin.firestore().doc(`payments/${orderId}`).get();
+          if (doc.exists) {
+            effectiveUid = effectiveUid || doc.get("uid");
+            if (!PLANS[effectivePlan]) effectivePlan = doc.get("planId");
+          }
+        }
 
-            // Same payment arriving twice must not extend twice.
-            const seen = cur.exists ? (cur.get("appliedPaymentIds") || []) : [];
-            if (seen.includes(payment.id)) return;
-
-            tx.set(subRef, {
-              uid,
-              plan: planId,
-              status: "active",
-              activatedAt: admin.firestore.FieldValue.serverTimestamp(),
-              expiresAtMs,
-              expiresAt: admin.firestore.Timestamp.fromMillis(expiresAtMs),
-              lastOrderId: orderId,
-              lastPaymentId: payment.id,
-              appliedPaymentIds: [...seen, payment.id].slice(-20),
-            }, { merge: true });
+        if (effectiveUid && PLANS[effectivePlan]) {
+          // Same shared, idempotent grant the verify path uses, so a webhook
+          // retry - or the webhook racing verify - cannot double-extend.
+          await grantSubscription({
+            uid: effectiveUid, planId: effectivePlan,
+            paymentId: payment.id, orderId, source: "webhook",
           });
-          logger.info("subscription granted", { uid, planId });
         } else {
-          logger.error("paid payment missing uid/plan notes - manual reconciliation needed",
+          logger.error("paid payment has no resolvable uid/plan - manual reconciliation needed",
             { orderId, uid, planId });
         }
       } else if (type === "payment.failed" && payment) {
@@ -681,5 +740,75 @@ exports.razorpayWebhook = onRequest(
     }
 
     res.status(200).send("ok");
+  }
+);
+
+// Days granted by the free trial. Matches the "Seven days free first" promise on
+// the pricing page - if that copy changes, change this.
+const TRIAL_DAYS = 7;
+
+/**
+ * Starts the seven-day free trial. Once per account, ever.
+ *
+ * Server-side because it is an entitlement: subscriptions/{uid} is
+ * write-denied to every client (firestore.rules), so a trial cannot be
+ * self-granted, and the once-ever check cannot be bypassed by clearing local
+ * storage or signing in on another device.
+ *
+ * trialStartedAt is the ledger. It is written on the FIRST grant and never
+ * cleared, including after the trial lapses or a paid plan supersedes it - so
+ * "have they had their free week" survives expiry, cancellation and re-purchase.
+ * Checking `status` instead would hand a second free week to anybody who simply
+ * waited for the first to run out.
+ */
+exports.startFreeTrial = onCall(
+  { region: "us-central1", maxInstances: 10 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to start your free trial.");
+    const uid = request.auth.uid;
+    const subRef = admin.firestore().doc(`subscriptions/${uid}`);
+
+    let outcome = "started";
+    let expiresAtMs = 0;
+
+    await admin.firestore().runTransaction(async (tx) => {
+      const cur = await tx.get(subRef);
+
+      if (cur.exists && cur.get("trialStartedAt")) {
+        outcome = "already_used";
+        expiresAtMs = cur.get("expiresAtMs") || 0;
+        return;
+      }
+      // Someone who already paid does not need a trial, and starting one must
+      // never shorten a paid entitlement.
+      if (cur.exists && (cur.get("expiresAtMs") || 0) > Date.now() && cur.get("plan") !== "trial") {
+        outcome = "already_subscribed";
+        expiresAtMs = cur.get("expiresAtMs") || 0;
+        return;
+      }
+
+      expiresAtMs = Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      tx.set(subRef, {
+        uid,
+        plan: "trial",
+        status: "active",
+        trialStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+        activatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAtMs,
+        expiresAt: admin.firestore.Timestamp.fromMillis(expiresAtMs),
+        grantedBy: "trial",
+      }, { merge: true });
+    });
+
+    logger.info("free trial", { uid, outcome });
+
+    if (outcome === "already_used") {
+      throw new HttpsError("failed-precondition",
+        "You have already used your free trial. Pick a plan to continue.");
+    }
+    if (outcome === "already_subscribed") {
+      throw new HttpsError("failed-precondition", "Your subscription is already active.");
+    }
+    return { started: true, trialDays: TRIAL_DAYS, expiresAtMs };
   }
 );

@@ -41,10 +41,14 @@ export function RazorpayCheckoutButton({ planId, label = "Subscribe", priceLabel
         setPhase("done");
         setNotice({
           tone: "good",
-          // Careful wording: the payment IS confirmed, but the entitlement is
-          // written by the webhook a moment later. Promising instant access and
-          // then rendering a locked screen for two seconds reads as a bug.
-          text: "Payment confirmed. Your access is being activated - this takes a few seconds.",
+          // The verify call now grants as well as verifies, so `granted` is
+          // usually true and access is immediate. It can still be false if the
+          // payment doc lost its planId, in which case the webhook is the
+          // backstop - so the wording stays honest in both cases rather than
+          // promising instant access and rendering a locked screen.
+          text: res.granted
+            ? "Payment confirmed. Your access is active now."
+            : "Payment confirmed. Your access is being activated - this takes a few seconds.",
         });
         onPaid?.(res);
         return;

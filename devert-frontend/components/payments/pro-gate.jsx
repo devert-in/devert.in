@@ -35,11 +35,11 @@ export function ProGate({ feature, title, children, freeAlternative, compact = f
 
   if (compact) {
     return (
-      <Link href="/pro" className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+      <Link href="/campus/pricing" className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         style={{ background: "rgba(0,255,255,0.05)", border: "1px solid rgba(0,255,255,0.22)" }}>
         <Lock size={12} style={{ color: "#00FFFF" }} />
         <span className="font-mono text-[11px]" style={{ color: "#00FFFF" }}>
-          {title || "Pro feature"} — ₹499/yr
+          {title || "Premium feature"} — from ₹29/mo
         </span>
         <ArrowRight size={11} className="ml-auto" style={{ color: "#00FFFF" }} />
       </Link>
@@ -64,14 +64,14 @@ export function ProGate({ feature, title, children, freeAlternative, compact = f
           </p>
         )}
 
-        <Link href="/pro"
+        <Link href="/campus/pricing"
           className="inline-flex items-center gap-2 font-mono text-xs px-5 py-2.5 rounded-lg transition-colors"
           style={{ color: "#00FFFF", border: "1px solid rgba(0,255,255,0.3)", background: "rgba(0,255,255,0.06)" }}>
           see what Pro includes <ArrowRight size={12} />
         </Link>
 
         <p className="font-mono text-[10px] text-white/25 mt-4">
-          ₹499 a year. Students of a partner college already have it.
+          From ₹29 a month, or ₹229 a year. Students of a partner college already have it.
         </p>
       </div>
     </div>

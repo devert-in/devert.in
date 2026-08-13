@@ -19,6 +19,9 @@ import { useCampusTheme } from "@/components/campus/campus-theme-provider";
 import { CampusPublicNav, SUPPORT_EMAIL } from "@/components/campus/campus-public-nav";
 import { DemoRequestDialog } from "@/components/campus/campus-demo-request";
 import { WaitlistDialog } from "@/components/campus/campus-waitlist";
+import { PAYMENTS_LIVE } from "@/lib/payments";
+import { RazorpayCheckoutButton } from "@/components/payments/razorpay-checkout-button";
+import { FreeTrialButton } from "@/components/payments/free-trial-button";
 import {
   CampusCard, CampusChip, CampusSkeleton, CampusEmptyState,
   CampusTable, CampusBadge,
@@ -1116,6 +1119,28 @@ function WaitlistButton({ plan, source, className = "", style }) {
   );
 }
 
+// One CTA for every pricing card, resolving to whichever thing is actually true
+// right now: a waitlist signup while Premium is unreleased, a real Razorpay
+// checkout once PAYMENTS_LIVE is switched on (see lib/payments.js for the two
+// out-of-codebase preconditions that switch depends on).
+//
+// planKey is the SERVER plan id, not the display label. It has to match
+// functions/index.js's PLANS exactly - the browser sends only this key and the
+// server owns the amount, which is what stops the published ladder being shopped
+// from devtools.
+function PlanCta({ planKey, plan, source, className = "", style }) {
+  if (!PAYMENTS_LIVE) {
+    return <WaitlistButton plan={plan} source={source} className={className} style={style} />;
+  }
+  return (
+    <RazorpayCheckoutButton
+      planId={planKey}
+      label={`Get Premium`}
+      className={className}
+    />
+  );
+}
+
 // Free vs Premium, side by side. A dash for "not included" rather than a red
 // cross: the free tier is a real product here and shouldn't be drawn as a
 // column of failures. Lucide only - no emoji ticks (CLAUDE.md's design system).
@@ -1172,6 +1197,17 @@ function PricingBand({ tone = "surface" }) {
         longer ones simply cost less per month, from ₹29 down to ₹19.1. Never a different product.
       </p>
 
+      {/* The "seven days free" above was a promise with nothing behind it until
+          startFreeTrial existed. Rendered only when payments are live, so the
+          page does not offer a trial of an unreleased product - and the button
+          hides itself for campus students, active subscribers and anyone who has
+          already had their week. */}
+      {PAYMENTS_LIVE && (
+        <div className="max-w-xs mb-6">
+          <FreeTrialButton />
+        </div>
+      )}
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-4">
         {PLANS.map(p => {
           const m = planMath(p);
@@ -1222,7 +1258,11 @@ function PricingBand({ tone = "surface" }) {
 
               <p className="text-[12px] leading-relaxed mb-5" style={{ color: CAMPUS.inkSoft }}>{p.blurb}</p>
 
-              <WaitlistButton plan={p.label} source="campus-pricing"
+              {/* p.key is the server plan id (monthly/quarterly/halfyear/
+                  ninemonth/yearly) - the same string functions/index.js's PLANS
+                  is keyed by, so the advertised price and the charged price
+                  cannot drift apart. */}
+              <PlanCta planKey={p.key} plan={p.label} source="campus-pricing"
                 className="mt-auto w-full text-center text-[12.5px] font-bold py-2.5 rounded-xl"
                 style={p.featured
                   ? { background: CAMPUS.gradientPrimary, color: "#fff" }
@@ -1259,7 +1299,7 @@ function PricingBand({ tone = "surface" }) {
               ))}
             </div>
           </div>
-          <WaitlistButton plan="Lifetime Founder Pass" source="campus-pricing"
+          <PlanCta planKey="lifetime" plan="Lifetime Founder Pass" source="campus-pricing"
             className="campus-btn-glow text-[13.5px] font-bold px-5 py-3 rounded-xl"
             style={{ background: CAMPUS.gradientPrimary, color: "#fff" }} />
         </div>

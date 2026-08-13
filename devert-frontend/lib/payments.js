@@ -17,6 +17,31 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 
+/**
+ * THE SWITCH THAT TURNS PAYMENTS ON. Default OFF.
+ *
+ * While false, every pricing CTA stays a waitlist signup - which is what
+ * /campus/pricing already promises ("Premium is still in build, so these are the
+ * published plans rather than a checkout"). Flip it and the same buttons become
+ * real Razorpay checkouts, with no other change needed.
+ *
+ * It is off by default deliberately, and only a human should turn it on, because
+ * two things outside this codebase must be true first:
+ *
+ *  1. LIVE Razorpay keys, with KYC approved. The keys wired in today are
+ *     rzp_test_ - real cards are declined and nothing is ever charged, so an
+ *     enthusiastic launch on test keys collects zero rupees while looking like it
+ *     works.
+ *  2. RAZORPAY_WEBHOOK_SECRET set on the deployed function. Without it the
+ *     webhook rejects every delivery. Payments still grant access now (verify
+ *     grants too - see verifyRazorpayPayment), but the safety net for a student
+ *     who closes the tab mid-redirect is missing until it is set.
+ *
+ * Set NEXT_PUBLIC_PAYMENTS_LIVE=1 to enable. A build-time value on purpose: going
+ * live should be a deliberate deploy, not a runtime flag somebody can trip.
+ */
+export const PAYMENTS_LIVE = process.env.NEXT_PUBLIC_PAYMENTS_LIVE === "1";
+
 // Plan ids must match the PLANS map in functions/index.js, which in turn mirrors
 // the published ladder in components/campus/campus-landing.jsx. Only the id
 // travels over the wire - the amount is the server's to decide, so a tampered
@@ -143,6 +168,36 @@ export async function startCheckout({ planId, user, onStatus }) {
  * single read at that moment would usually see nothing and the UI would tell a
  * paying user they had not paid.
  */
+/**
+ * Starts the seven-day free trial.
+ *
+ * All the logic is server-side (see startFreeTrial in functions/index.js) because
+ * a trial is an entitlement - once-per-account cannot be enforced anywhere the
+ * client can reach. This just surfaces the outcome.
+ */
+export async function startFreeTrial() {
+  try {
+    const res = await httpsCallable(functions, "startFreeTrial")({});
+    return { ok: true, ...res.data };
+  } catch (err) {
+    // failed-precondition is the expected "already used it" / "already paid"
+    // answer, not an error worth a stack trace - pass the server's own wording
+    // through, since it distinguishes the two.
+    return { ok: false, message: err?.message || "Could not start your free trial." };
+  }
+}
+
+// True once the account has ever had its trial, whether or not it is still
+// running. Used to hide the trial button rather than let someone click it and be
+// refused.
+export function hasUsedTrial(sub) {
+  return !!sub?.trialStartedAt;
+}
+
+export function isTrialActive(sub, now = Date.now()) {
+  return sub?.plan === "trial" && isSubscriptionActive(sub, now);
+}
+
 export function watchSubscription(uid, cb) {
   if (!uid) { cb(null); return () => {}; }
   return onSnapshot(
