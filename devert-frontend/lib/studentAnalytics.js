@@ -16,7 +16,7 @@ import {
   fetchCompanyRounds, fetchRoundCategories, fetchCategoryQuestions,
 } from "@/lib/companyPrep";
 import { fetchAllUserLogs } from "@/lib/dailyLearning";
-import { fetchAptitudeTopics, topicAccuracy, detectWeakTopics } from "@/lib/aptitude";
+import { fetchAptitudeTopics, topicAccuracy, detectWeakTopics, normalizeAttemptEntry } from "@/lib/aptitude";
 
 export async function fetchStudentProfile(uid) {
   const snap = await getDoc(doc(db, "users", uid));
@@ -106,6 +106,8 @@ export async function fetchDsaSummary(uid) {
   const solvedIds = Object.keys(progress.solvedProblems || {});
 
   const byDifficulty = { Easy: 0, Medium: 0, Hard: 0 };
+  const totalByDifficulty = { Easy: 0, Medium: 0, Hard: 0 };
+  problems.forEach(p => { if (totalByDifficulty[p.difficulty] !== undefined) totalByDifficulty[p.difficulty]++; });
   solvedIds.forEach(id => {
     const difficulty = problemsById.get(id)?.difficulty;
     if (byDifficulty[difficulty] !== undefined) byDifficulty[difficulty]++;
@@ -122,7 +124,9 @@ export async function fetchDsaSummary(uid) {
 
   return {
     problemsSolved: progress.problemsSolvedCount || solvedIds.length,
+    totalProblems: problems.length,
     byDifficulty,
+    totalByDifficulty,
     totalSubmissions: submissions.length || progress.totalSubmissions || 0,
     acceptanceRate: submissions.length ? Math.round((accepted / submissions.length) * 100) : null,
     languageUsage: progress.languageUsage || {},
@@ -263,6 +267,49 @@ export async function fetchAptitudeSummary(uid) {
       .map(([category, v]) => ({ category, ...v, pct: v.attempted ? Math.round((v.correct / v.attempted) * 100) : 0 }))
       .filter(c => c.attempted > 0),
   };
+}
+
+// Every attempted topic (not just the worst 5 detectWeakTopics() surfaces
+// above) - a LeetCode-"Skills"-style full breakdown, plus every attempt's
+// own timestamp flattened out of topicStats' per-question history. Reuses
+// the exact same user_aptitude_progress doc + topic catalog read as
+// fetchAptitudeSummary above rather than a second getDoc - callers that need
+// both should call fetchAptitudeSummary and this one is NOT meant to replace
+// it, they answer different questions (weakness vs. full activity history).
+export async function fetchAptitudeFullBreakdown(uid) {
+  const [progressSnap, topics] = await Promise.all([
+    getDoc(doc(db, "user_aptitude_progress", uid)),
+    fetchAptitudeTopics(),
+  ]);
+  const progress = progressSnap.exists() ? progressSnap.data() : null;
+  if (!progress) return { topics: [], attemptDates: [] };
+
+  const attempted = progress.attempted || {};
+  const topicStats = progress.topicStats || {};
+  const topicsById = new Map(topics.map(t => [t.id, t]));
+
+  const topicBreakdown = Object.entries(topicStats)
+    .filter(([, s]) => (s.attempted || 0) > 0)
+    .map(([id, s]) => {
+      const t = topicsById.get(id);
+      return {
+        id, name: t?.name || id, category: t?.category || "Other",
+        attempted: s.attempted || 0, correct: s.correct || 0,
+        accuracy: s.attempted ? Math.round((s.correct / s.attempted) * 100) : 0,
+      };
+    })
+    .sort((a, b) => b.attempted - a.attempted);
+
+  // history entries cap at MAX_ATTEMPT_HISTORY per question (see
+  // lib/aptitude.js's appendAttempt) - a very long-tenured student's
+  // earliest aptitude attempts may have aged out of this, so this is a
+  // reliable RECENT activity signal, not a complete lifetime log.
+  const attemptDates = Object.values(attempted)
+    .flatMap(entry => normalizeAttemptEntry(entry).history || [])
+    .map(h => h.attemptedAt?.toDate?.() || (h.attemptedAt ? new Date(h.attemptedAt) : null))
+    .filter(Boolean);
+
+  return { topics: topicBreakdown, attemptDates };
 }
 
 export async function fetchStudentAnalytics(uid) {

@@ -543,6 +543,32 @@ export async function fetchMySubmission(contestId, uid) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
+// A student's real score trend across every contest they've attempted -
+// DeVert has no ELO-style rating, so this (not a fabricated rating) is what
+// backs the Campus profile's "Contest Performance" chart. Per-contest
+// getDoc()s, same "N cheap reads" shape fetchProgrammingSummary/
+// fetchCsCoreSummary already use for the same reason (isAdminOfStudent()'s
+// nested get() checks only resolve against a single known document, so a
+// uid-scoped list() query across every contest's submissions subcollection
+// isn't viable) - contests per institution number in the dozens, not
+// thousands, so this stays cheap.
+export async function fetchMyContestHistory(institutionId, uid) {
+  const contests = await fetchPublishedInstitutionContests(institutionId);
+  const submissions = await Promise.all(contests.map(c => fetchMySubmission(c.id, uid)));
+
+  return contests
+    .map((c, i) => ({ contest: c, submission: submissions[i] }))
+    .filter(({ submission }) => submission?.graded)
+    .map(({ contest, submission }) => ({
+      contestId: contest.id,
+      title: contest.title || "Untitled contest",
+      date: toDate(contest.contestStart),
+      scorePct: submission.maxScore > 0 ? Math.round((Math.max(0, submission.score) / submission.maxScore) * 100) : 0,
+      accuracy: submission.accuracy ?? null,
+    }))
+    .sort((a, b) => (a.date?.getTime() || 0) - (b.date?.getTime() || 0));
+}
+
 // Student Management's "reset a student's contest attempt" - deletes their
 // submission doc (registration stays intact) so they can attempt again; the
 // registration's own re-entry gating in CampusContestAttempt already blocks

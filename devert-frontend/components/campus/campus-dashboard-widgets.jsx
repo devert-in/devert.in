@@ -212,7 +212,7 @@ const VB_W = 640, VB_H = 200, PAD_L = 34, PAD_R = 12, PAD_T = 14, PAD_B = 26;
 // for while still passing exactly through every data point (a plain quadratic
 // smoothing would visually misreport values, which matters when the line is
 // someone's XP history).
-function smoothPath(points) {
+export function smoothPath(points) {
   if (points.length === 0) return "";
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
   let d = `M ${points[0].x} ${points[0].y}`;
@@ -228,7 +228,7 @@ function smoothPath(points) {
   return d;
 }
 
-function niceCeil(n) {
+export function niceCeil(n) {
   if (n <= 4) return 4;
   const mag = Math.pow(10, Math.floor(Math.log10(n)));
   return Math.ceil(n / (mag / 2)) * (mag / 2);

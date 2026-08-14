@@ -58,6 +58,7 @@ import { CampusFundamentalsTab } from "@/components/campus/campus-fundamentals";
 import { CampusProgrammingTab } from "@/components/campus/campus-programming";
 import { CampusCsCoreTab } from "@/components/campus/campus-cscore";
 import { CampusAptitudeTab } from "@/components/campus/campus-aptitude";
+import { ProfileTab } from "@/components/campus/campus-profile";
 import { CampusGateTab } from "@/components/campus/gate/gate-app";
 import { mondayOf, DOW_LABELS, todayISO, fetchWeekItems } from "@/lib/dailyLearning";
 import { pingActivity, PING_INTERVAL_MIN } from "@/lib/activity";
@@ -2462,21 +2463,6 @@ function BackgroundUploadCard({ userData }) {
   );
 }
 
-function ProfileRow({ icon: Icon, label, value }) {
-  if (!value) return null;
-  return (
-    <div className="flex items-center gap-3 py-3" style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
-        <Icon size={14} />
-      </div>
-      <div className="min-w-0">
-        <span className="block text-[10px] font-mono tracking-wide mb-0.5" style={{ color: CAMPUS.inkFaint }}>{label.toUpperCase()}</span>
-        <span className="block text-[13.5px] font-medium truncate" style={{ color: CAMPUS.ink }}>{value}</span>
-      </div>
-    </div>
-  );
-}
-
 // Downscales to maxDim and re-encodes as JPEG via canvas - this also strips
 // EXIF (orientation/GPS/etc) as a side effect, since canvas drawing never
 // copies source metadata. Same technique as app/profile/page.jsx's avatar
@@ -2498,84 +2484,6 @@ const resizeAvatarImage = (file, maxDim = 512) => new Promise((resolve, reject) 
   img.src = url;
 });
 
-function ProfileTab({ userData, totalCoins, membership, institution, isInstAdmin, staffScope }) {
-  const { user, updateProfile } = useAuth();
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [avatarError, setAvatarError] = useState("");
-
-  const handleAvatarFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !user) return;
-    if (!file.type.startsWith("image/")) { setAvatarError("Please choose an image file."); return; }
-    if (file.size > 2 * 1024 * 1024) { setAvatarError("Image must be under 2MB."); return; }
-    setAvatarError("");
-    setAvatarUploading(true);
-    try {
-      const resized = await resizeAvatarImage(file);
-      const sRef = storageRef(storage, `avatars/${user.uid}/avatar.jpg`);
-      await uploadBytes(sRef, resized);
-      const photoURL = await getDownloadURL(sRef);
-      await updateProfile({ photoURL });
-    } catch (err) {
-      console.error(err);
-      setAvatarError("Upload failed - try again.");
-    } finally {
-      setAvatarUploading(false);
-    }
-  };
-
-  return (
-    <motion.div variants={staggerContainer} initial="hidden" animate="visible">
-      <motion.div variants={slideUp} className="flex items-center gap-4 mb-6">
-        <div className="relative w-16 h-16 flex-shrink-0">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold overflow-hidden"
-            style={{ background: CAMPUS.goldTint, color: CAMPUS.gold }}>
-            {userData?.photoURL
-              ? <img src={userData.photoURL} alt="" className="w-full h-full object-cover" />
-              : (userData?.displayName || "?").slice(0, 2).toUpperCase()}
-          </div>
-          <label title="Change photo" className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
-            style={{ background: CAMPUS.teal, color: "#fff", border: `2px solid ${CAMPUS.paper}` }}>
-            {avatarUploading ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />}
-            <input type="file" accept="image/*" className="hidden" disabled={avatarUploading} onChange={handleAvatarFile} />
-          </label>
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold truncate" style={{ color: CAMPUS.ink }}>{userData?.displayName || "Your Profile"}</h2>
-          <p className="text-[13px]" style={{ color: CAMPUS.inkSoft }}>@{userData?.handle || "-"}</p>
-          <span className="inline-block mt-1.5">
-            <CampusChip color={CAMPUS.teal}>
-              {isInstAdmin ? "INSTITUTION ADMIN" : staffScope ? (ROLE_CATALOG[staffScope.role]?.label || "STAFF").toUpperCase() : "STUDENT"}
-            </CampusChip>
-          </span>
-          {avatarError && <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.bad }}>{avatarError}</p>}
-        </div>
-      </motion.div>
-
-      <motion.div variants={slideUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-        <CampusStat label="Score" value={userData?.score ?? 0} color={CAMPUS.purple}
-          hint="Your permanent academic performance score. Never decreases and is never spent - this is what leaderboards and rankings are based on." />
-        <CampusStat label="XP" value={userData?.xp ?? 0} color={CAMPUS.teal}
-          hint="Spendable reward points earned from learning activities. Convert XP to Coins in the Wallet - this can go down." />
-        <CampusStat label="Coins" value={totalCoins ?? 0} color={CAMPUS.gold}
-          hint="Your real wallet balance. Coins can be withdrawn as INR from the Wallet page." />
-        <CampusStat label="Year" value={membership?.year || "-"} />
-        <CampusStat label="Section" value={membership?.section || "-"} />
-      </motion.div>
-
-      <motion.div variants={slideUp}>
-        <CampusCard className="px-5">
-          <ProfileRow icon={Building2} label="Institution" value={institution?.name} />
-          <ProfileRow icon={Hash} label="Roll number" value={membership?.rollNumber} />
-          <ProfileRow icon={GraduationCap} label="Department" value={membership?.department} />
-          <ProfileRow icon={Mail} label="Contact email" value={userData?.contactEmail} />
-          <ProfileRow icon={Phone} label="Phone" value={membership?.phone} />
-        </CampusCard>
-      </motion.div>
-    </motion.div>
-  );
-}
 
 // Real, institution-scoped xp leaderboard - mirrors app/ranks/page.jsx's
 // query pattern with one added `where`, using the composite index already
