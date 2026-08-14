@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 // Surfaces that keep native clipboard/right-click even for locked-down readers.
@@ -68,17 +69,26 @@ function isEditable(event) {
 }
 
 /**
- * Blocks right-click, text selection, drag-out and clipboard operations site
- * wide. Mounted once from the root layout, inside AuthProvider so it can see
- * whether this account holds the admin claim.
+ * Blocks right-click, text selection, drag-out and clipboard operations
+ * inside DeVert Campus only (/campus and every /campus/{slug} institution
+ * route) - the rest of the site (devert.in's main pages) is never touched,
+ * clipboard/right-click stay native there for every visitor. Mounted once
+ * from the root layout, inside AuthProvider so it can see whether this
+ * account holds the admin claim, and route-checked via usePathname() so one
+ * instance covers every Campus route without a second copy in app/campus/
+ * layout.jsx.
  *
- * Admins are exempt. The exemption keys off the `admin` custom auth claim that
- * AuthContext reads off the ID token, not off a Firestore field, so a reader
- * cannot unlock themselves by editing client state.
+ * Admins are exempt everywhere, including inside Campus. The exemption keys
+ * off the `admin` custom auth claim that AuthContext reads off the ID token,
+ * not off a Firestore field, so a reader cannot unlock themselves by editing
+ * client state.
  *
- * Fails closed: the claim resolves asynchronously (a token fetch), so the
- * lockdown is active from first paint and only lifts once adminChecked confirms
- * an admin. A slow or failed token fetch leaves the site locked, never open.
+ * Fails closed WITHIN Campus: the claim resolves asynchronously (a token
+ * fetch), so the lockdown is active from first paint there and only lifts
+ * once adminChecked confirms an admin. A slow or failed token fetch leaves
+ * Campus locked, never open. The pathname check has no such async gap - it
+ * is available on first render - so the main site is never briefly locked
+ * while the admin check is still resolving.
  *
  * Note that the ~20 share/copy buttons across the app call
  * navigator.clipboard.writeText(), which is programmatic and unaffected by
@@ -86,7 +96,9 @@ function isEditable(event) {
  */
 export function ContentGuard() {
   const { isAdmin, adminChecked } = useAuth() ?? {};
-  const unlocked = adminChecked === true && isAdmin === true;
+  const pathname = usePathname();
+  const inCampus = pathname?.startsWith("/campus") ?? false;
+  const unlocked = !inCampus || (adminChecked === true && isAdmin === true);
 
   useEffect(() => {
     document.documentElement.classList.toggle(UNLOCKED_CLASS, unlocked);
