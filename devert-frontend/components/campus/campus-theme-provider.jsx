@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Moon, Sun } from "lucide-react";
 import { CAMPUS, campusPhotoBg } from "@/lib/campus-theme";
@@ -26,17 +26,35 @@ export function useCampusTheme() {
 }
 
 export function CampusThemeProvider({ children }) {
-  // Lazy initializer, not a mount effect - localStorage is already
-  // synchronously available the first time this ever renders (this
-  // component only lives inside the client-only Campus workspace tree).
-  // Light is the default identity again (Google Material redesign - clean
-  // white/light-gray surfaces, not the previous dark-glass premium-SaaS
-  // look) - dark stays fully supported, a first-time visitor just sees
-  // light first.
+  // Lazy initializer, not a mount effect - localStorage (and matchMedia) are
+  // already synchronously available the first time this ever renders (this
+  // component only lives inside the client-only Campus workspace tree). A
+  // first-time visitor with no saved preference gets whatever their OS is
+  // set to, light or dark, rather than a hardcoded default - explicitly
+  // toggling below is what opts them into a fixed choice of their own.
   const [theme, setTheme] = useState(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("campus-theme") : null;
-    return saved === "dark" || saved === "light" ? saved : "light";
+    if (typeof window === "undefined") return "light";
+    const saved = localStorage.getItem("campus-theme");
+    if (saved === "dark" || saved === "light") return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
+
+  // Keeps following the OS setting live for as long as the visitor hasn't
+  // made an explicit choice - toggleTheme persists to localStorage the
+  // moment they do, which permanently hands control to their own pick
+  // instead (this effect checks localStorage fresh each time rather than
+  // once, so it stops reacting the instant that happens).
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncToSystem = (e) => {
+      if (localStorage.getItem("campus-theme")) return;
+      setTheme(e.matches ? "dark" : "light");
+    };
+    mq.addEventListener("change", syncToSystem);
+    return () => mq.removeEventListener("change", syncToSystem);
+  }, []);
+
   const toggleTheme = () => setTheme(t => {
     const next = t === "light" ? "dark" : "light";
     localStorage.setItem("campus-theme", next);

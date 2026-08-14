@@ -985,14 +985,23 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
       let correct = 0;
       mcqs.forEach(q => { if (answers[q.id] === q.correctIndex) correct++; });
       const solvedNow = problems.filter(p => solvedIds.has(p.id)).map(p => p.id);
-      const { rewarded, alreadyCompleted, onTime } = await submitDayCompletion({ slug, uid: user.uid, profile: userData, item, mcqAnswers: answers, correctCount: correct, problemsSolved: solvedNow, trackId });
+      const { rewarded, alreadyCompleted, onTime, meetsRequirements } = await submitDayCompletion({ slug, uid: user.uid, profile: userData, item, mcqAnswers: answers, correctCount: correct, problemsSolved: solvedNow, trackId });
       setResult({ score: correct, total: mcqs.length });
       onLogged?.({ mcqAnswers: answers, mcqScore: correct, mcqTotal: mcqs.length, problemsSolved: solvedNow, problemsTotal: problems.length });
-      // Three genuinely different outcomes, three different messages. Saying
+      // Four genuinely different outcomes, four different messages. Saying
       // "already rewarded" to someone catching up on last Tuesday is wrong and
-      // reads as a bug.
+      // reads as a bug - same for saying nothing at all when the problems
+      // just aren't solved yet (canSave below should stop this case from
+      // being reachable in practice, but submitDayCompletion is the real
+      // trust boundary and can still say no on its own, e.g. stale local
+      // solvedIds state).
       if (alreadyCompleted) {
         setSaveNotice({ type: "info", message: "You have already completed this activity and received your rewards." });
+      } else if (!meetsRequirements) {
+        setSaveNotice({
+          type: "info",
+          message: "Saved your answers, but solve every problem below before submitting to earn XP and coins for this day.",
+        });
       } else if (!onTime) {
         setSaveNotice({
           type: "info",
@@ -1007,7 +1016,7 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
     } finally { setSaving(false); }
   };
 
-  const canSave = markedRead && allAnswered;
+  const canSave = markedRead && allAnswered && (problems.length === 0 || solvedCount === problems.length);
   // A day whose own date is not today earns nothing - see isSameDayAsToday in
   // lib/dailyLearning.js. readOnly is the admin preview, which never rewards
   // anyway, so it is excluded to avoid shouting "NO REWARDS" at an admin

@@ -2107,22 +2107,23 @@ function CampusTopBar({ institution, userData, setTab, slug, uid, membership, on
     // padding (36px) + 32px = 68px too. Bumped from 14px specifically to
     // land on that number, not a rounder Tailwind step like py-4 (which
     // would land on 64px, 4px short).
-    // On the Dashboard/Manage tabs, this header's PARENT (the wrapper div in
-    // CampusWorkspace's render) is itself `lg:sticky lg:h-[calc(100vh-2rem)]
-    // lg:overflow-hidden` - a bounded, internally-scrolling region (see that
+    // This header's PARENT (the wrapper div in CampusWorkspace's render) is
+    // now `lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]` for EVERY tab, not
+    // just Dashboard/Manage (that started tab-scoped, then widened - see the
     // wrapper's own comment). Nesting a SECOND `position: sticky` element
-    // with its own `top` inset directly inside a sticky+overflow-hidden
-    // ancestor makes browsers apply that inset as a permanent downward shift
-    // even at scroll position 0 - confirmed by reproducing the exact class
-    // combination in isolation, not a guess. The sidebar never hit this
-    // because it's a single, non-nested sticky element. `lg:static` drops
-    // the header back to plain flow at that breakpoint - correct, because
-    // the ALREADY-pinned, already-clipped wrapper is what keeps it in view;
-    // this header doesn't need to independently stick to anything itself.
-    // Every other tab's wrapper has no such class, so its header genuinely
-    // needs its own `lg:top-4` to stay pinned while the whole tab scrolls
-    // underneath it - unchanged there.
-    <header className={`flex items-center gap-3 px-5 sm:px-8 py-[18px] flex-shrink-0 sticky top-3 ${(tab === "manage" || tab === "dashboard") ? "lg:static" : "lg:top-4"} z-30 rounded-[22px] ${glass ? "campus-glass-nav" : ""}`}
+    // with its own `top` inset directly inside a sticky ancestor makes
+    // browsers apply that inset as a permanent downward shift even at scroll
+    // position 0 - confirmed by reproducing the exact class combination in
+    // isolation, not a guess. That was caught and fixed for Dashboard/Manage
+    // specifically before the wrapper went universal, which silently
+    // reintroduced the same bug for every OTHER tab (their header still had
+    // `lg:top-4` since the wrapper wasn't sticky for them yet at the time).
+    // `lg:static` is therefore now unconditional, for the same reason on
+    // every tab: the ALREADY-pinned, already-bounded wrapper is what keeps
+    // this header in view; it doesn't need to independently stick to
+    // anything itself. The sidebar never hit this because it's a single,
+    // non-nested sticky element with no sticky ancestor of its own.
+    <header className={`flex items-center gap-3 px-5 sm:px-8 py-[18px] flex-shrink-0 sticky top-3 lg:static z-30 rounded-[22px] ${glass ? "campus-glass-nav" : ""}`}
       style={{ ...(glass ? {} : { background: CAMPUS.surface }), border: `1px solid ${glass ? CAMPUS.glassBorder : CAMPUS.line}`, boxShadow: CAMPUS.shadow }}>
       <button onClick={onOpenDrawer} aria-label="Open navigation" aria-expanded={drawerOpen} aria-haspopup="dialog"
         className="lg:hidden flex items-center justify-center flex-shrink-0 rounded-lg -ml-1.5"
