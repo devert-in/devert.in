@@ -270,13 +270,11 @@ export function SeReadingBar({ pct }) {
   const { campusMode } = useSe();
   const p = usePalette();
   return (
-    // In Campus, this sticks inside the same window-scrolling flow as the
-    // workspace's own sticky top bar (CampusTopBar, campus-app.jsx - top-3/
-    // lg:top-4 plus its own padded height) - top-0 here would park this bar
-    // (and the lesson text scrolling past it) in the gap ABOVE that chrome
-    // instead of flush beneath it. Standalone (non-Campus) SE has no such
-    // chrome above it, so it keeps sticking at the literal viewport top.
-    <div className={`sticky z-20 -mx-1 px-1 py-2 ${campusMode ? "top-[88px] lg:top-[82px] campus-glass-nav" : "top-0 backdrop-blur"}`}
+    // Static, not sticky - it sits once at the top of the article and
+    // scrolls away with the rest of the lesson like any other element.
+    // A pinned/sticky version used to stay on screen the whole read and
+    // visibly overlap whatever text scrolled past underneath it.
+    <div className={`-mx-1 px-1 py-2 ${campusMode ? "campus-glass-nav" : "backdrop-blur"}`}
       style={campusMode ? undefined : { background: "rgba(5,5,5,0.88)" }}>
       <div className="flex items-center gap-2.5">
         <span className="font-mono text-[9px] tracking-[0.15em] flex-shrink-0" style={{ color: p.inkFainter }}>PROGRESS</span>

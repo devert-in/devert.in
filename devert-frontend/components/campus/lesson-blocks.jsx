@@ -658,13 +658,13 @@ export function useReadingProgress(ref) {
   return pct;
 }
 
-// Slim sticky bar showing lesson progress. Sits under the workspace's own
-// chrome (CampusTopBar - top-3/lg:top-4 plus its own padded height) rather
-// than at literal viewport top-0, so it never overlaps that bar (or the
-// content scrolling behind it) instead of just tucking in below it.
+// Slim bar showing lesson progress. Static, not sticky - it sits once at
+// the top of the article and scrolls away with the rest of the lesson like
+// any other element, rather than staying pinned and visibly overlapping
+// whatever text scrolls past underneath it.
 export function LessonProgressBar({ pct, label = "LESSON PROGRESS" }) {
   return (
-    <div className="sticky top-[88px] lg:top-[82px] z-20 -mx-1 px-1 py-2 backdrop-blur"
+    <div className="-mx-1 px-1 py-2 backdrop-blur"
       style={{ background: `color-mix(in srgb, ${CAMPUS.paper} 88%, transparent)` }}>
       <div className="flex items-center gap-2.5">
         <span className="text-[9.5px] font-mono tracking-widest flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{label}</span>
