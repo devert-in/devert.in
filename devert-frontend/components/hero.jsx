@@ -115,17 +115,12 @@ export function Hero() {
 
         <motion.h1
           variants={item}
-          className="font-sans font-bold tracking-tighter text-white leading-none mb-6"
+          className="font-sans font-bold tracking-tighter text-white leading-none mb-10"
           style={{ fontSize: "clamp(2.8rem, 8vw, 6.5rem)" }}
         >
           YOU ARE NOW<br />
           <span className="text-neon-cyan text-glow-cyan">INSIDE DEVERT.</span>
         </motion.h1>
-
-        <motion.p variants={item} className="font-mono text-sm text-white/38 mb-10 max-w-lg leading-relaxed">
-          <span style={{ color: "rgba(0,255,65,0.55)" }}>$</span> The 1% dev roadmap. Build. Ship. Repeat.<br />
-          <span style={{ color: "rgba(0,255,65,0.55)" }}>$</span> Not for learners. For builders.
-        </motion.p>
 
         <motion.div variants={item} className="flex flex-wrap gap-3 mb-16 md:mb-0">
           <GlitchButton href="/shipyard" primary>[ START_BUILDING ]</GlitchButton>
