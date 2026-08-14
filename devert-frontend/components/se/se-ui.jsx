@@ -263,29 +263,28 @@ export function SeEmpty({ icon: Icon, title, description, action, color }) {
   );
 }
 
-// One "reading progress" bar for a lesson, driven by scroll. Measured over the
-// whole article rather than the prose alone, so "80% through" means the lesson,
-// not the paragraph before the quiz.
+// One "reading progress" ring for a lesson, driven by scroll. Measured over
+// the whole article rather than the prose alone, so "80% through" means the
+// lesson, not the paragraph before the quiz. Static, not sticky - it sits
+// once at the top of the article and scrolls away with the rest of the
+// lesson like any other element, rather than staying pinned on screen the
+// whole read and visibly overlapping whatever text scrolls past underneath.
 export function SeReadingBar({ pct }) {
-  const { campusMode } = useSe();
   const p = usePalette();
+  const size = 34, stroke = 3, r = (size - stroke) / 2, c = 2 * Math.PI * r;
   return (
-    // Static, not sticky - it sits once at the top of the article and
-    // scrolls away with the rest of the lesson like any other element.
-    // A pinned/sticky version used to stay on screen the whole read and
-    // visibly overlap whatever text scrolled past underneath it.
-    <div className={`-mx-1 px-1 py-2 ${campusMode ? "campus-glass-nav" : "backdrop-blur"}`}
-      style={campusMode ? undefined : { background: "rgba(5,5,5,0.88)" }}>
-      <div className="flex items-center gap-2.5">
-        <span className="font-mono text-[9px] tracking-[0.15em] flex-shrink-0" style={{ color: p.inkFainter }}>PROGRESS</span>
-        <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: p.track }}>
-          <div className="h-full rounded-full"
-            style={{ width: `${pct}%`, background: p.primaryAccent, transition: "width 0.1s linear" }} />
-        </div>
-        <span className="font-mono text-[10px] font-bold flex-shrink-0 tabular-nums" style={{ color: p.primaryAccent }}>
-          {pct}%
-        </span>
+    <div className="flex items-center gap-2 -mx-1 px-1 py-2">
+      <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={p.track} strokeWidth={stroke} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={p.primaryAccent} strokeWidth={stroke}
+            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)}
+            style={{ transition: "stroke-dashoffset 0.1s linear" }} />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center font-mono text-[8px] font-bold tabular-nums"
+          style={{ color: p.primaryAccent }}>{pct}</span>
       </div>
+      <span className="font-mono text-[9px] tracking-[0.15em]" style={{ color: p.inkFainter }}>PROGRESS</span>
     </div>
   );
 }

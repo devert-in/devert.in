@@ -8,7 +8,7 @@ import {
   BookOpen, ClipboardCheck, BarChart3,
   ShieldCheck, Clock, XCircle, Ban, LogOut, IdCard, ArrowLeft,
   Mail, Phone, GraduationCap, Building2, Hash, Rocket, Target,
-  ChevronRight, ArrowUpRight, Medal, Code2, Briefcase,
+  ChevronRight, ChevronDown, ArrowUpRight, Medal, Code2, Briefcase,
   PanelLeftClose, PanelLeftOpen,
   Megaphone, Share2, Link2, Bookmark, BookmarkCheck, Check,
   AlertTriangle, DoorOpen, Lock, Star, Repeat, Menu, CodeXml, BrainCircuit, Calculator,
@@ -865,6 +865,21 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
     return next;
   });
 
+  // Same lift-state-up/localStorage pattern as sidebarCollapsed above, for
+  // the "Quick Access" group (Dashboard/Daily Learning/Contests/Leaderboard)
+  // inside CampusContextSidebar - collapsible so it doesn't eat vertical
+  // space above the active module's own contextual sub-nav once a student
+  // already knows where those four live.
+  const [quickAccessOpen, setQuickAccessOpen] = useState(true);
+  useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("campus-quick-access-collapsed") === "1") setQuickAccessOpen(false);
+  }, []);
+  const toggleQuickAccess = () => setQuickAccessOpen(o => {
+    const next = !o;
+    localStorage.setItem("campus-quick-access-collapsed", next ? "0" : "1");
+    return next;
+  });
+
   // Classroom-level module access (see NAV_ITEMS' moduleKey/lib/institutions.js's
   // MODULES) - fetched once here, not per-tab, so every gated tab (and the
   // nav rail/bottom nav deciding what to even show) reads the same value.
@@ -1316,6 +1331,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
       <CampusExitConfirmDialog open={exitGuard.exitDialogOpen} institutionName={institution.name}
         onStay={exitGuard.stay} onLeave={exitGuard.leave} />
       <CampusContextSidebar institution={institution} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapsed}
+        quickAccessOpen={quickAccessOpen} onToggleQuickAccess={toggleQuickAccess}
         slotRef={setSidebarEl} hasContent={hasSidebarContent}
         slug={slug} hiddenTabKeys={hiddenTabKeys} tab={tab} setTab={goTab}
         onSearchSelect={handleSearchSelect} userData={userData}
@@ -1327,35 +1343,44 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
         onJumpToAssessment={jumpToAssessment} onSearchSelect={handleSearchSelect} onRequestExit={exitGuard.requestExit}
         themeToggle={<CampusThemeToggle />}
         onSignOut={async () => { await logout(); router.push("/campus"); }} />
-      {/* Manage + Dashboard: CampusTopBar has the rest of the workspace's
+      {/* Every tab: CampusTopBar used to have the rest of the workspace's
           content scroll underneath it by design (see CampusTopBar's own
           comment - .campus-glass-nav is deliberately readable-through for
           that, at 88% opacity precisely so text doesn't stay legible through
-          it while scrolling). That's fine for a feed-like tab, but on the
-          tabs whose FIRST element is a large heading/hero sitting right at
-          the top (Manage's own pages, the admin Dashboard's StaffDashboardHero)
-          the heading starts close enough to the bar that it visibly collides
-          with it almost immediately - not just "soft colour" scrolling past,
-          actual heading/subtitle text behind the bar. So these tabs get their
-          own bounded, internally-scrolling region instead: same sticky/
-          height-calc formula the sidebar already uses (lg:top-4 +
+          it while scrolling). In practice every tab has SOMETHING sitting
+          close enough to the top (a hero, a sub-tab strip, a leaderboard
+          scope switcher) that it visibly collides with the bar almost
+          immediately, not just "soft colour" scrolling past - actual heading/
+          tab-label text behind the bar. So every tab now gets its own
+          bounded, internally-scrolling region instead: same sticky/height-
+          calc formula the sidebar already uses (lg:top-4 +
           lg:h-[calc(100vh-2rem)]), wrapped around CampusTopBar + content
           together so content can never be laid out behind the bar at all,
           regardless of scroll position - a bigger top margin only buys a few
           more pixels before the same slide-under happens, it doesn't stop it.
           CampusTopBar's own `sticky` becomes inert here (its containing block
           no longer scrolls), which is harmless - not worth a prop just to
-          suppress a no-op class. Other tabs (Fundamentals, Programming, DSA,
-          GATE, etc.) keep the original whole-page-scroll behavior unchanged -
-          several of them (campus-practice.jsx, gate-app.jsx, campus-dsa-
-          sheet.jsx, campus-landing.jsx, lesson-blocks.jsx) read window scroll
-          position directly, so switching their scroll container needs each
-          one checked first, not a blanket change. */}
-      <div className={`flex-1 min-w-0 flex flex-col gap-3 lg:gap-4 ${(tab === "manage" || tab === "dashboard") ? "lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:overflow-hidden" : ""}`}>
+          suppress a no-op class.
+          Known, accepted tradeoff: a few tabs (campus-practice.jsx,
+          gate-app.jsx, campus-dsa-sheet.jsx, campus-landing.jsx,
+          lesson-blocks.jsx) call `window.scrollTo`/read `window.scrollY` for
+          scroll-to-top-on-navigate and remember-my-scroll-position. Now that
+          this div - not the window - is what actually scrolls, those calls
+          quietly no-op instead of erroring (the window itself never moves),
+          so those two conveniences stop working but nothing breaks. Revisit
+          per-file if that's noticed and matters more than the overlap fix.
+          No `overflow-hidden` on THIS outer box - it isn't needed for the
+          vertical-bounding trick (the inner content div's own overflow-y-auto
+          already contains its own overflow once flex-1 has sized it to
+          "remaining height after CampusTopBar"), and overflow-hidden clips
+          BOTH axes, not just vertical - it was cutting off content that
+          overflowed sideways too (e.g. a wide promo banner card), not just
+          preventing vertical slide-under. */}
+      <div className="flex-1 min-w-0 flex flex-col gap-3 lg:gap-4 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]">
         <CampusTopBar institution={institution} userData={userData} setTab={goTab} slug={slug} uid={user?.uid} membership={membership}
           onOpenDrawer={() => setDrawerOpen(true)} drawerOpen={drawerOpen}
           tab={tab} hiddenTabKeys={hiddenTabKeys} onRequestExit={exitGuard.requestExit} glass />
-        <div className={`flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-0 min-w-0 ${(tab === "manage" || tab === "dashboard") ? "lg:overflow-y-auto" : ""}`}>
+        <div className="flex-1 px-5 sm:px-8 py-6 pb-24 lg:pb-0 min-w-0 lg:overflow-y-auto">
           {NAV_ITEMS.find(i => i.key === tab)?.moduleKey && !isTabAllowed(tab) ? (
             <ModuleAccessRestricted moduleLabel={NAV_ITEMS.find(i => i.key === tab)?.label || "This section"} onBack={() => goTab("dashboard")} />
           ) : tab === "dashboard" && isInstAdmin ? (
@@ -1441,12 +1466,15 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
               {practiceScreen.view === "list" && (
                 <>
                   <DsaProgressSummary user={user} />
-                  {/* Mobile-only: CategoryFilterList above is portaled into the
-                      desktop-only CampusContextSidebar (hidden below lg:), so
-                      without this inline row a phone has no way to filter by
-                      category at all - Difficulty/Company keep working
-                      inline on every screen size, Category needs the same. */}
-                  <div className="lg:hidden mb-4">
+                  {/* Shown inline on every screen size now, not just below lg:
+                      (it used to be lg:hidden because the desktop sidebar's own
+                      portaled copy of this same list was considered enough -
+                      but that one's easy to miss/scroll past, and the request
+                      was for topic counts to sit in the main content next to
+                      Difficulty, LeetCode-tag-cloud style, not tucked in the
+                      rail). The sidebar's own CategoryFilterList portal stays
+                      too - same value/onChange, so the two can never disagree. */}
+                  <div className="mb-4">
                     <CategoryFilterList horizontal sortAlpha value={practiceCategory} onChange={setPracticeCategory} />
                   </div>
                   <div className="flex gap-5 flex-wrap mb-6">
@@ -1780,6 +1808,7 @@ const SIDEBAR_GLOBAL_ITEMS = NAV_ITEMS.filter(i => i.sidebarGlobal);
 function CampusContextSidebar({
   institution, collapsed, onToggleCollapse, slotRef, hasContent,
   slug, hiddenTabKeys, tab, setTab, onSearchSelect, onExpandSidebar, userData, glass = false,
+  quickAccessOpen = true, onToggleQuickAccess,
 }) {
   return (
     // A floating rail, inset on every side by the workspace shell's own
@@ -1822,10 +1851,29 @@ function CampusContextSidebar({
       <div className={`${collapsed ? "px-2" : "px-3"} pt-3 flex flex-col gap-1`}>
         <CampusSidebarSearch slug={slug} hiddenTabKeys={hiddenTabKeys} collapsed={collapsed}
           onSelect={onSearchSelect} onExpandSidebar={onExpandSidebar} />
-        {SIDEBAR_GLOBAL_ITEMS.filter(i => !hiddenTabKeys?.has(i.key)).map(item => (
-          <SidebarNavButton key={item.key} item={item} active={tab === item.key} collapsed={collapsed}
-            onClick={() => setTab(item.key)} />
-        ))}
+        {/* "Quick Access" heading only makes sense at full width - a 60px
+            icon rail has no room for the label anyway, so collapsed mode
+            skips straight to the bare icon buttons, unaffected by
+            quickAccessOpen. */}
+        {collapsed ? (
+          SIDEBAR_GLOBAL_ITEMS.filter(i => !hiddenTabKeys?.has(i.key)).map(item => (
+            <SidebarNavButton key={item.key} item={item} active={tab === item.key} collapsed={collapsed}
+              onClick={() => setTab(item.key)} />
+          ))
+        ) : (
+          <>
+            <button onClick={onToggleQuickAccess} aria-expanded={quickAccessOpen}
+              className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-mono font-semibold tracking-widest transition-colors"
+              style={{ color: CAMPUS.inkFaint }}>
+              {quickAccessOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              QUICK ACCESS
+            </button>
+            {quickAccessOpen && SIDEBAR_GLOBAL_ITEMS.filter(i => !hiddenTabKeys?.has(i.key)).map(item => (
+              <SidebarNavButton key={item.key} item={item} active={tab === item.key} collapsed={collapsed}
+                onClick={() => setTab(item.key)} />
+            ))}
+          </>
+        )}
       </div>
 
       {/* Portal target - deliberately empty here; whichever module is active
@@ -1967,8 +2015,13 @@ function CampusProfileMenu({ institution, slug, userData, uid, membership, setTa
           : (userData?.displayName || "?").slice(0, 2).toUpperCase()}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-30 rounded-lg overflow-hidden campus-glass"
-          style={{ width: 250, border: `1px solid ${CAMPUS.glassBorder}`, boxShadow: CAMPUS.shadowLg }}>
+        // Opaque (CAMPUS.surface), not .campus-glass - this menu has no
+        // photo backdrop to let show through like the sidebar's `glass` prop
+        // does, so the shared glass class's ~50% fill just made whatever
+        // page content sits behind it (section headers, card text) bleed
+        // through and compete with the menu's own labels.
+        <div className="absolute right-0 top-full mt-2 z-30 rounded-lg overflow-hidden"
+          style={{ width: 250, background: CAMPUS.surface, border: `1px solid ${CAMPUS.line}`, boxShadow: CAMPUS.shadowLg }}>
           {/* Identity header - who's signed in, plus a one-tap way to the full
               ProfileTab (avatar upload, department/phone/contact email, and
               this same roll number). Not a duplicate of that page, just the
@@ -2046,7 +2099,29 @@ function CampusTopBar({ institution, userData, setTab, slug, uid, membership, on
     // nav.jsx's <nav>, and .campus-glass's weaker blur/saturation lets that
     // scrolling text stay readable through the bar instead of softening into
     // "colour and movement". See both classes' comments in globals.css.
-    <header className={`flex items-center gap-3 px-5 sm:px-8 py-3.5 flex-shrink-0 sticky top-3 lg:top-4 z-30 rounded-[22px] ${glass ? "campus-glass-nav" : ""}`}
+    // py-[18px] (not py-3.5) so this bar's total height matches the sidebar's
+    // own logo row exactly: that row is the aside's py-4 (16px) + its w-9 h-9
+    // logo (36px) + its own pb-4 (16px) = 68px; this bar's tallest child is
+    // the 32px avatar/theme-toggle buttons (w-8 h-8), so 18px top+bottom
+    // padding (36px) + 32px = 68px too. Bumped from 14px specifically to
+    // land on that number, not a rounder Tailwind step like py-4 (which
+    // would land on 64px, 4px short).
+    // On the Dashboard/Manage tabs, this header's PARENT (the wrapper div in
+    // CampusWorkspace's render) is itself `lg:sticky lg:h-[calc(100vh-2rem)]
+    // lg:overflow-hidden` - a bounded, internally-scrolling region (see that
+    // wrapper's own comment). Nesting a SECOND `position: sticky` element
+    // with its own `top` inset directly inside a sticky+overflow-hidden
+    // ancestor makes browsers apply that inset as a permanent downward shift
+    // even at scroll position 0 - confirmed by reproducing the exact class
+    // combination in isolation, not a guess. The sidebar never hit this
+    // because it's a single, non-nested sticky element. `lg:static` drops
+    // the header back to plain flow at that breakpoint - correct, because
+    // the ALREADY-pinned, already-clipped wrapper is what keeps it in view;
+    // this header doesn't need to independently stick to anything itself.
+    // Every other tab's wrapper has no such class, so its header genuinely
+    // needs its own `lg:top-4` to stay pinned while the whole tab scrolls
+    // underneath it - unchanged there.
+    <header className={`flex items-center gap-3 px-5 sm:px-8 py-[18px] flex-shrink-0 sticky top-3 ${(tab === "manage" || tab === "dashboard") ? "lg:static" : "lg:top-4"} z-30 rounded-[22px] ${glass ? "campus-glass-nav" : ""}`}
       style={{ ...(glass ? {} : { background: CAMPUS.surface }), border: `1px solid ${glass ? CAMPUS.glassBorder : CAMPUS.line}`, boxShadow: CAMPUS.shadow }}>
       <button onClick={onOpenDrawer} aria-label="Open navigation" aria-expanded={drawerOpen} aria-haspopup="dialog"
         className="lg:hidden flex items-center justify-center flex-shrink-0 rounded-lg -ml-1.5"
