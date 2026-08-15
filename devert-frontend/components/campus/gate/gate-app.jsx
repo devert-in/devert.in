@@ -356,7 +356,7 @@ function GateHeader({ paper, papers, onSwitchPaper, completion, loading }) {
   if (!paper) return <CampusCard className="p-4"><CampusSkeleton height={70} /></CampusCard>;
 
   return (
-    <div className="rounded-2xl p-5 sm:p-6" style={{ background: CAMPUS.chromeBg }}>
+    <CampusCard className="p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-2">
@@ -365,8 +365,8 @@ function GateHeader({ paper, papers, onSwitchPaper, completion, loading }) {
               GATE PREPARATION{paper.syllabusVersion ? ` · ${paper.syllabusVersion.toUpperCase()}` : ""}
             </span>
           </div>
-          <h1 className="text-lg sm:text-xl font-bold text-white mb-1">{paper.name} - {paper.fullName}</h1>
-          <p className="text-[12.5px] leading-relaxed max-w-2xl" style={{ color: "rgba(255,255,255,0.6)" }}>
+          <h1 className="text-lg sm:text-xl font-bold mb-1" style={{ color: CAMPUS.ink }}>{paper.name} - {paper.fullName}</h1>
+          <p className="text-[12.5px] leading-relaxed max-w-2xl" style={{ color: CAMPUS.inkSoft }}>
             {paper.description}
           </p>
         </div>
@@ -376,7 +376,7 @@ function GateHeader({ paper, papers, onSwitchPaper, completion, loading }) {
             <div className="relative">
               <button onClick={() => setPicking(p => !p)}
                 className="text-[11.5px] font-mono font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.18)" }}>
+                style={{ background: CAMPUS.paper, color: CAMPUS.ink, border: `1px solid ${CAMPUS.line}` }}>
                 Switch paper
               </button>
               {picking && (
@@ -401,13 +401,13 @@ function GateHeader({ paper, papers, onSwitchPaper, completion, loading }) {
             </div>
           )}
           {!loading && completion.total > 0 && (
-            <span className="text-[11px] font-mono" style={{ color: "rgba(255,255,255,0.55)" }}>
+            <span className="text-[11px] font-mono" style={{ color: CAMPUS.inkFaint }}>
               {completion.done} / {completion.total} topics done
             </span>
           )}
         </div>
       </div>
-    </div>
+    </CampusCard>
   );
 }
 

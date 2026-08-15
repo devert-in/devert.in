@@ -137,8 +137,22 @@ export function useProctorSession({
   const attachVideo = useCallback((el) => {
     videoElRef.current = el;
     if (el && streamRef.current && el.srcObject !== streamRef.current) {
+      // Belt-and-suspenders, same as captureVideoEl below: autoplay policies
+      // gate play() on the element's actual `.muted` IDL PROPERTY at call
+      // time, not on the JSX `muted` attribute alone - React does not always
+      // have that property synced yet on a raw DOM node a callback ref just
+      // received (this fires the instant the element mounts, in the same
+      // tick as the srcObject assignment). Relying on the JSX attribute alone
+      // was the exact shape of the "self-view goes black once the exam
+      // starts" report: cameraState stays "live" (getUserMedia genuinely
+      // succeeded), the element mounts and attaches correctly, but a rejected
+      // play() - silently swallowed below - never actually paints a frame, so
+      // nothing about the visible symptom (a blank box, no error, no
+      // "camera offline" state) points back to autoplay at all.
+      el.muted = true;
+      el.playsInline = true;
       el.srcObject = streamRef.current;
-      el.play().catch(() => {});
+      el.play().catch((err) => console.warn("[proctor] self-view play() failed", err));
     }
   }, []);
 

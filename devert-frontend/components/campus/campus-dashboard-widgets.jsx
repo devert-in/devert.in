@@ -905,16 +905,22 @@ export function ModuleProgressRings({ modules = [], className = "" }) {
 
 /* ---------------------------------------------------------------- hero shell */
 
-// The staff/admin counterpart to DashboardHero below - same gradient band and
-// rounding, but titled by ROLE rather than by streak/XP/coins, which a faculty
-// member or principal doesn't have. Kept generic (icon + title + subtitle +
-// optional right-hand slot) so the HOD, Principal, Faculty, Institution Admin
-// and generic-staff dashboards all open with the same treatment instead of five
-// hand-rolled headers.
+// The staff/admin counterpart to DashboardHero below - same glass treatment
+// and rounding, but titled by ROLE rather than by streak/XP/coins, which a
+// faculty member or principal doesn't have. Kept generic (icon + title +
+// subtitle + optional right-hand slot) so the HOD, Principal, Faculty,
+// Institution Admin and generic-staff dashboards all open with the same
+// treatment instead of five hand-rolled headers.
+//
+// Was a filled CAMPUS.gradientHero band (dark theme: black -> purple ->
+// magenta) - a bold, saturated fill that reads fine as a one-off hero but not
+// as five different admin screens' everyday header, and was reported as
+// looking bad rather than "on-theme". Glass, matching DashboardHero right
+// below, keeps every Campus surface (student and staff alike) on one visual
+// language instead of two.
 export function StaffDashboardHero({ icon: Icon, title, subtitle, meta, actions, color = CAMPUS.teal }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl p-6"
-      style={{ background: CAMPUS.gradientHero, border: `1px solid ${CAMPUS.line}` }}>
+    <CampusCard glass className="relative overflow-hidden p-6">
       <div className="absolute -right-10 -top-16 w-56 h-56 rounded-full pointer-events-none"
         style={{ background: color, opacity: 0.1 }} aria-hidden="true" />
       <div className="relative flex items-start justify-between gap-5 flex-wrap">
@@ -933,7 +939,7 @@ export function StaffDashboardHero({ icon: Icon, title, subtitle, meta, actions,
         </div>
         {actions && <div className="flex items-center gap-2 flex-wrap flex-shrink-0">{actions}</div>}
       </div>
-    </div>
+    </CampusCard>
   );
 }
 
