@@ -3,6 +3,7 @@ import "./globals.css";
 import { IntroProvider } from "@/context/IntroContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { Navbar } from "@/components/navbar";
+import { TopNavbar } from "@/components/top-navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
 import { ContentGuard } from "@/components/content-guard";
@@ -200,6 +201,7 @@ export default function RootLayout({ children }) {
                 just itself. Nothing in the default flow depends on it, which
                 is the property that makes that possible. */}
             <CommandPalette />
+            <TopNavbar />
             <Navbar />
             {children}
             <Footer />

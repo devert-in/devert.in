@@ -19,7 +19,7 @@ const NAV_COMMANDS = [
   { icon: Activity,   label: "Pulse",      desc: "Dev Social Feed",        href: "/pulse" },
   { icon: Tv2,        label: "Broadcast",  desc: "DevCast Live",           href: "/broadcast" },
   { icon: Trophy,     label: "Ranks",      desc: "Tier Leaderboard",       href: "/ranks" },
-  { icon: Flame,      label: "Events",     desc: "Hackathons, Workshops & More", href: "/hackathons" },
+  { icon: Flame,      label: "Events",     desc: "Hackathons, Workshops & More", href: "/events" },
   { icon: ScrollText, label: "Logs",       desc: "System Changelog",       href: "/logs" },
   { icon: User,       label: "Dev Card",   desc: "Your Profile & Stats",   href: "/profile" },
   { icon: LogIn,      label: "Login",      desc: "SSH into DeVert",        href: "/login" },

@@ -92,14 +92,14 @@ export function CommunityPreview() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <Link href="/pulse">
+              <Link href="/community">
                 <motion.span
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
                   className="inline-flex items-center gap-2 font-mono text-sm px-6 py-3 border transition-all duration-200 cursor-pointer"
                   style={{ borderColor: "#00FFFF", color: "#00FFFF" }}
                 >
-                  [ EXPLORE_PULSE ] <ArrowUpRight size={14} />
+                  [ EXPLORE_COMMUNITY ] <ArrowUpRight size={14} />
                 </motion.span>
               </Link>
             </motion.div>
@@ -115,7 +115,7 @@ export function CommunityPreview() {
           >
             <div className="terminal-header">
               <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
-              <span className="font-mono text-[10px] text-white/25 ml-2">devert.in/pulse</span>
+              <span className="font-mono text-[10px] text-white/25 ml-2">devert.in/community</span>
             </div>
             <div className="p-6">
               <div className="flex items-center gap-3 mb-6">

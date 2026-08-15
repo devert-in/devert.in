@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { TodayTaskCard } from "@/components/today-task-card";
-import { AptitudeSection } from "@/components/aptitude-section";
 import { useIsWindowed } from "@/components/window/is-windowed";
 
 export function GrindApp() {
@@ -51,9 +50,6 @@ export function GrindApp() {
 
         {/* Today's learning task */}
         <TodayTaskCard />
-
-        {/* Aptitude & Reasoning */}
-        <AptitudeSection />
       </div>
     </main>
   );

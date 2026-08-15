@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { Hero } from "@/components/hero";
+import { ExploreEcosystem } from "@/components/explore-ecosystem";
 import { CampusPreview } from "@/components/campus-preview";
 import { MissionVision } from "@/components/mission-vision";
 import { PlatformPromises } from "@/components/platform-promises";
@@ -29,6 +30,10 @@ export function LandingPage() {
     <div className="relative">
       {/* Section 1 - HUD Hero */}
       <Hero />
+      <Divider />
+
+      {/* Section 1b - Explore the DeVert Universe */}
+      <ExploreEcosystem />
       <Divider />
 
       {/* Section 2 - DeVert Campus */}

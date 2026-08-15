@@ -62,7 +62,7 @@ export function GradedQuiz({
         <p className="text-[10.5px] font-mono flex items-center gap-2 flex-wrap" style={{ color: CAMPUS.inkFaint }}>
           <span style={{ color: CAMPUS.good }}>+{perCorrect} XP correct</span>
           {perWrong > 0 && <span style={{ color: CAMPUS.bad }}>-{perWrong} XP wrong</span>}
-          <span>{Math.round(policy.passPct * 100)}% to pass</span>
+          {policy.completionRequiresPass && <span>{Math.round(policy.passPct * 100)}% to pass</span>}
         </p>
       </div>
 

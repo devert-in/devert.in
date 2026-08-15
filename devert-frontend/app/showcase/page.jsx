@@ -2,6 +2,6 @@
 
 import { ShipyardApp } from "@/components/shipyard/shipyard-app";
 
-export default function ShipyardPage() {
+export default function ShowcasePage() {
   return <ShipyardApp />;
 }

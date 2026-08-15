@@ -226,10 +226,15 @@ export async function submitQuizAttempt({
       lastSubmittedAt: serverTimestamp(),
     }, { merge: true });
 
-    // COMPLETION is gated on passing. A paper below passPct records its attempt
-    // and its per-question XP movement, but does not mark the topic complete and
-    // does not advance progress - so a wrong answer can no longer buy a tick.
-    if (result.passed && progressRef && progressPayload?.data) {
+    // COMPLETION is gated on passing UNLESS the module's policy says otherwise
+    // (policy.completionRequiresPass: false - currently only cscore). Where it
+    // does gate, a paper below passPct records its attempt and its per-question
+    // XP movement, but does not mark the topic complete and does not advance
+    // progress - so a wrong answer can no longer buy a tick. Where it doesn't,
+    // any attempted paper (right or wrong) advances progress; only the XP
+    // payment below still depends on correctness.
+    const completed = result.passed || !policy.completionRequiresPass;
+    if (completed && progressRef && progressPayload?.data) {
       tx.set(progressRef, progressPayload.data, { merge: true });
     }
 
@@ -252,6 +257,10 @@ export async function submitQuizAttempt({
     return {
       status: "graded",
       passed: result.passed,
+      // Distinct from `passed` only where policy.completionRequiresPass is
+      // false - everywhere else completed === passed, so existing callers that
+      // never learned about this field keep behaving exactly as before.
+      completed,
       rewarded: willReward,
       alreadyPaid,
       correct: result.correct,

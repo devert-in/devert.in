@@ -966,8 +966,10 @@ function TopicView({ subjectId, topicId, onBack }) {
       });
       setLastResult(res);
       if (res.status === "graded") {
-        setJustCompleted(res.passed);
-        if (res.passed) setAlreadyDone(true);
+        // completed, not passed - CS Core has no minimum score to advance (see
+        // rewardPolicy.js's completionRequiresPass), only to earn XP.
+        setJustCompleted(res.completed);
+        if (res.completed) setAlreadyDone(true);
       }
       const fresh = await fetchAttempt(user.uid, "cscore", quizScopeId).catch(() => null);
       setAttempt(fresh);
@@ -1180,7 +1182,7 @@ function TopicView({ subjectId, topicId, onBack }) {
               transition={{ duration: 0.28, ease: "easeOut" }}
               className="text-[12.5px] text-center px-3 py-2.5 rounded-lg flex items-center justify-center gap-2"
               style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>
-              <Sparkles size={13} /> Nice work! XP and coins added.
+              <Sparkles size={13} /> {lastResult?.xp > 0 ? "Nice work! XP and coins added." : "Topic completed - review the ones you missed and keep going."}
             </motion.p>
           )}
         </article>

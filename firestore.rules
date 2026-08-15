@@ -30,6 +30,22 @@ service cloud.firestore {
       return isAuth() && request.auth.token.get('superAdmin', false) == true;
     }
 
+    // Shared by pulse_posts and the communities/community_members block
+    // further down - defined here (not next to communities) because
+    // pulse_posts, which also needs them, comes first in this file.
+    function isCommunityMember(cid) {
+      return exists(/databases/$(database)/documents/community_members/$(cid + '_' + request.auth.uid));
+    }
+    function isCommunityOwner(cid) {
+      return get(/databases/$(database)/documents/communities/$(cid)).data.ownerUid == request.auth.uid;
+    }
+    function canSeeCommunity(cid) {
+      let c = get(/databases/$(database)/documents/communities/$(cid)).data;
+      return c.get('visibility', 'public') == 'public'
+        || c.ownerUid == request.auth.uid
+        || isCommunityMember(cid);
+    }
+
     // ---------- same-day reward window ----------
     // Daily Learning pays XP/coins only on the day a lesson is FOR. These build
     // today's date as an ISO string so it can be compared against the log's own
@@ -1016,7 +1032,26 @@ service cloud.firestore {
     // such write may move exactly ONE of these fields by exactly ±1 - not
     // an arbitrary jump - so a single write can't fake a pile of engagement.
     match /pulse_posts/{postId} {
-      allow read:   if true;
+      // Deliberately UNCONDITIONAL, including for community-scoped posts -
+      // see the header comment on canSeeCommunity above for why. The main
+      // Pulse feed's live query (pulse-app.jsx) is an unfiltered
+      // where('status','==','approved') list() with no communityId clause,
+      // and Firestore rejects a list() outright unless its rule is provably
+      // true from the QUERY'S OWN filters alone - it cannot special-case
+      // "communityId is absent" here because millions of pre-existing posts
+      // never set that field at all (Firestore's `== null` only matches an
+      // explicit null, not a missing field, so there is no rule shape here
+      // that both (a) stays provable for that unfiltered query and (b) is
+      // conditional on communityId, short of backfilling every historical
+      // post - not done). Practical privacy for a private community instead
+      // comes from the other two gates, which a get()/create() DOES evaluate
+      // against real data: its own communities doc is unreadable by a
+      // stranger, and only a member/owner may create a post carrying its id
+      // (see the create branch just below) - so a private community is
+      // undiscoverable and unwriteable-into by anyone outside it. The
+      // residual gap is real but narrow: someone who already has a specific
+      // private post's id some other way could still read that one document.
+      allow read: if true;
       // A new post must start with every engagement counter absent or zero -
       // otherwise a poster could forge a starting likeCount/commentCount/etc.
       // directly at creation, before the bounded ±1-per-write update rule
@@ -1027,7 +1062,8 @@ service cloud.firestore {
         && request.resource.data.get('saveCount', 0)    == 0
         && request.resource.data.get('shareCount', 0)   == 0
         && request.resource.data.get('viewCount', 0)    == 0
-        && request.resource.data.get('repostCount', 0)  == 0;
+        && request.resource.data.get('repostCount', 0)  == 0
+        && (request.resource.data.get('communityId', null) == null || canSeeCommunity(request.resource.data.communityId));
       allow update: if isAuth() && (
         resource.data.uid == request.auth.uid || isAdmin()
         || (
@@ -1072,27 +1108,63 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
-    // Communities (Pulse chapters) - admin-created content, same pattern as
-    // missions/hackathons. memberCount uses the exact same bounded-shared-
-    // counter shape as pulse_posts' engagement counters: a non-owner joining/
-    // leaving may move it by exactly +-1, never an arbitrary value.
+    // Communities (Pulse chapters) - any signed-in student may create their
+    // own now (previously admin-only); the creator becomes its owner and its
+    // first member. memberCount uses the same bounded-shared-counter shape as
+    // pulse_posts' engagement counters: a non-owner joining/leaving may move
+    // it by exactly +-1, never an arbitrary value.
+    //
+    // visibility ('public' default, or 'private') gates read HERE (this doc
+    // itself) and gates pulse_posts' create rule above (only a member/owner
+    // may post into a private one) - it deliberately does NOT gate
+    // pulse_posts' read rule; see that rule's own comment for why a list()-
+    // safety constraint rules that out. (Helper functions used here -
+    // isCommunityMember/isCommunityOwner/canSeeCommunity - live up top with
+    // isAuth/isAdmin since pulse_posts, above, needs them too and comes
+    // first in the file.)
     match /communities/{communityId} {
-      allow read: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isAuth()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount'])
-        && (request.resource.data.get('memberCount', 0) - resource.data.get('memberCount', 0)) in [-1, 1]);
+      allow read: if resource.data.get('visibility', 'public') == 'public'
+        || isAdmin()
+        || (isAuth() && (resource.data.ownerUid == request.auth.uid || isCommunityMember(communityId)));
+
+      allow create: if isAuth()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.get('visibility', 'public') in ['public', 'private']
+        && request.resource.data.get('memberCount', 1) == 1;
+
+      allow delete: if isAdmin() || (isAuth() && resource.data.ownerUid == request.auth.uid);
+
+      // Two independent shapes, never mixed in one write: the owner editing
+      // its editorial fields (name/description/topic/visibility - never
+      // memberCount or ownerUid through this branch), or any member moving
+      // memberCount by the bounded join/leave +-1.
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.ownerUid == request.auth.uid
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerUid', 'memberCount']))
+        || (isAuth()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount'])
+            && (request.resource.data.get('memberCount', 0) - resource.data.get('memberCount', 0)) in [-1, 1]);
     }
 
     // Community membership - join-doc collection keyed `${communityId}_${uid}`,
     // same composite-id convention as follows/{followerId}_{followedId} above.
-    // No membership gate on posting into a community (see pulse_posts below) -
-    // membership only drives the directory/join-button/"my communities" list
-    // and the memberCount tally, kept deliberately lightweight.
+    // Self-join only ever works for a PUBLIC community; a private one only
+    // gains members through its owner adding them (or an admin) - see
+    // "add friends" in the Community UI, which writes someone else's uid here
+    // on the owner's behalf.
     match /community_members/{membershipId} {
-      allow read:   if true;
-      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
-      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+      allow read: if true;
+      allow create: if isAuth() && (
+        (request.resource.data.uid == request.auth.uid && canSeeCommunity(request.resource.data.communityId))
+        || isCommunityOwner(request.resource.data.communityId)
+        || isAdmin()
+      );
+      allow delete: if isAuth() && (
+        resource.data.uid == request.auth.uid
+        || isCommunityOwner(resource.data.communityId)
+        || isAdmin()
+      );
     }
 
     // Reads either resource (an existing doc) or 0 - shared by user_earnings'

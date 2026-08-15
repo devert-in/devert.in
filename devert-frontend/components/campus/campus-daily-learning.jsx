@@ -898,7 +898,14 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
   }, [markedRead, answers]);
 
   useEffect(() => {
-    Promise.all((item.problemIds || []).map(id => fetchProblem(id))).then(rows => setProblems(rows.filter(Boolean))).catch(() => setProblems([]));
+    // allSettled, not all - a single dangling/unpublished problemId throwing
+    // (Firestore rules deny read of a non-published doc) must not blank out
+    // the other problems for the day; that used to collapse `problems` to
+    // [], which silently satisfied canSave's vacuous "0 problems" case below
+    // and wrote an empty problemsSolved to the log despite the student having
+    // actually solved the (fetchable) problems.
+    Promise.allSettled((item.problemIds || []).map(id => fetchProblem(id)))
+      .then(results => setProblems(results.filter(r => r.status === "fulfilled" && r.value).map(r => r.value)));
   }, [item.problemIds]);
 
   // Live, not a one-time fetch - solving a problem (or just saving a code

@@ -9,8 +9,15 @@ import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notification-bell";
 
+// Mobile-only now (lg:hidden on the root <nav> below) - components/top-navbar.jsx
+// is the desktop nav, a floating top pill with grouped dropdowns, mirroring
+// the exact split Campus already uses (CampusTopBar/CampusBottomNav). This
+// dock used to be the ONE nav at every breakpoint; that changed on explicit
+// request, not as a default pattern to reach for elsewhere. Keep both files'
+// route lists in sync by hand - there's no shared source of truth between them.
+//
 // Shipyard, Ranks, and Logs deliberately live only in the Home dashboard's quick
-// actions (components/quick-actions-grid.jsx), not here - keeps the persistent dock
+// actions (components/quick-actions-grid.jsx), not here - keeps this dock
 // to the modules used every session. CodeLab (app/codelab/), Fundamentals
 // (app/fundamentals/) and Grind (app/grind/) are all real, standalone routes -
 // Arena still hosts Solo Challenges + Contests - but none of the three are in
@@ -36,7 +43,7 @@ const NAV_ITEMS = [
   { icon: Radio,         label: "Intel",        href: "/intel"        },
   { icon: GraduationCap, label: "Campus",       href: "/campus"       },
   { icon: Tv2,           label: "Broadcast",    href: "/broadcast"    },
-  { icon: Flame,         label: "Events",       href: "/hackathons"   },
+  { icon: Flame,         label: "Events",       href: "/events"       },
   { icon: Target,        label: "Missions",     href: "/missions"     },
 ];
 
@@ -75,7 +82,7 @@ export function Navbar() {
   const hideTooltip = () => setTooltip(null);
 
   return (
-    <nav ref={navRef} className="fixed left-1/2 -translate-x-1/2 z-40 w-max max-w-[calc(100vw-2rem)]"
+    <nav ref={navRef} className="lg:hidden fixed left-1/2 -translate-x-1/2 z-40 w-max max-w-[calc(100vw-2rem)]"
       style={{ bottom: "max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem))" }}
     >
 

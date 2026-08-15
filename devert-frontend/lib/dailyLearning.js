@@ -274,10 +274,19 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
 
     const allMcqsAnswered = requiredMcqIds.every(id => mcqAnswers && Object.prototype.hasOwnProperty.call(mcqAnswers, id));
     let allProblemsSolved = true;
+    // Persisted for display (leaderboard/analysis drawer "X/3") from this same
+    // verified read, never from the caller's `problemsSolved` argument - that
+    // argument reflects whatever problem list the client had loaded locally,
+    // which can come back incomplete (e.g. a dangling/unpublished problemId
+    // collapsing the whole fetch) even when the student's real progress doc
+    // shows every problem solved. Falls back to the caller's value only when
+    // this day has no problems to solve at all.
+    let verifiedSolvedIds = problemsSolved || [];
     if (requiredProblemIds.length > 0) {
       const progressSnap = await tx.get(doc(db, "user_codelab_progress", uid));
       const solvedMap = progressSnap.exists() ? (progressSnap.data().solvedProblems || {}) : {};
       allProblemsSolved = requiredProblemIds.every(id => !!solvedMap[id]);
+      verifiedSolvedIds = requiredProblemIds.filter(id => !!solvedMap[id]);
     }
     meetsRequirements = allMcqsAnswered && allProblemsSolved;
 
@@ -296,7 +305,7 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
       mcqAnswers,
       mcqScore: correctCount,
       mcqTotal: (item.mcqs || []).length,
-      problemsSolved,
+      problemsSolved: verifiedSolvedIds,
       problemsTotal: (item.problemIds || []).length,
       xpEarned: alreadyRewarded ? (existing.xpEarned || 0) : (onTime && meetsRequirements ? (item.xpReward || 0) : 0),
       coinEarned: alreadyRewarded ? (existing.coinEarned || 0) : (onTime && meetsRequirements ? (item.coinReward || 0) : 0),

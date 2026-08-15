@@ -77,7 +77,15 @@ export async function writeNotification(targetUid, { type, title, body, ctaHref 
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export function NotificationBell({ showTooltip, hideTooltip }) {
+// `anchor` - "up" (default) opens the panel ABOVE the button, "down" opens it
+// BELOW. "up" matches the original, only caller: components/navbar.jsx's
+// bottom-floating dock, where the bell sits near the bottom of the viewport
+// and the panel has to grow upward to stay on screen. components/top-navbar.jsx's
+// bell sits near the TOP instead - reusing the "up" math there positioned the
+// panel's bottom edge almost at the very top of the viewport (bottom ≈
+// innerHeight - a small rect.top), pushing nearly the whole panel off-screen
+// above the fold, which is the "notifications went top" bug this prop fixes.
+export function NotificationBell({ showTooltip, hideTooltip, anchor = "up" }) {
   const { user } = useAuth();
   const [notifs,   setNotifs]   = useState([]);
   const [unread,   setUnread]   = useState(0);
@@ -141,7 +149,9 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
     const next = !open;
     if (next && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setCoords({ bottom: window.innerHeight - rect.top + 12, right: window.innerWidth - rect.right });
+      setCoords(anchor === "down"
+        ? { top: rect.bottom + 12, right: window.innerWidth - rect.right }
+        : { bottom: window.innerHeight - rect.top + 12, right: window.innerWidth - rect.right });
     }
     setOpen(next);
     if (next) {
@@ -205,7 +215,7 @@ export function NotificationBell({ showTooltip, hideTooltip }) {
               className="flex flex-col rounded-2xl overflow-hidden"
               style={{
                 position: "fixed",
-                bottom: coords.bottom,
+                ...(coords.top !== undefined ? { top: coords.top } : { bottom: coords.bottom }),
                 right: coords.right,
                 width: 310,
                 maxHeight: 440,

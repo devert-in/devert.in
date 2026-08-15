@@ -87,7 +87,7 @@ export function EventsPreview() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <Link href="/hackathons">
+              <Link href="/events">
                 <motion.span
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
@@ -110,7 +110,7 @@ export function EventsPreview() {
           >
             <div className="terminal-header">
               <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
-              <span className="font-mono text-[10px] text-white/25 ml-2">devert.in/hackathons</span>
+              <span className="font-mono text-[10px] text-white/25 ml-2">devert.in/events</span>
             </div>
             <div className="p-6">
               <div className="flex items-center gap-3 mb-6">

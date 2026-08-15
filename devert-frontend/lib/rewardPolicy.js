@@ -89,10 +89,21 @@ export const DEFAULT_REWARD_POLICY = {
     // gates it, and a permanent lockout on a single wrong answer turns every
     // failed quiz into a support ticket.
     lockOnFail: false,
+    // Whether scoring >= passPct is required to mark the topic/day complete and
+    // advance progress (see quizAttempts.js's submitQuizAttempt). True almost
+    // everywhere - completion IS the pass. cscore below overrides this: a CS
+    // Core topic is a content module, not a gatekept exam, so attempting it (any
+    // score) is what advances the student - only the XP itself still depends on
+    // correctness.
+    completionRequiresPass: true,
   },
 
   modules: {
-    cscore:              { activity: "cscore_topic",           xp: 25, coins: 10 },
+    // No pass gate: viewing the lesson and attempting its MCQs is what advances
+    // a student through CS Core, right or wrong. wrongPenaltyRatio: 0 means a
+    // wrong answer simply earns nothing - never a deduction (see this file's
+    // header on that ratio for the general mechanism).
+    cscore:              { activity: "cscore_topic",           xp: 25, coins: 10, wrongPenaltyRatio: 0, completionRequiresPass: false },
     gate:                { activity: "gate_topic",             xp: 25, coins: 10 },
     programming:         { activity: "programming_topic",      xp: 25, coins: 10 },
     softwareEngineering: { activity: "se_topic",               xp: 25, coins: 10 },
@@ -184,6 +195,7 @@ export function policyFor(moduleKey, item = null) {
     wrongPenaltyRatio: Math.max(0, numberOr(item?.wrongPenaltyRatio, base.wrongPenaltyRatio)),
     penaliseUnanswered: item?.penaliseUnanswered ?? base.penaliseUnanswered,
     lockOnFail: item?.lockOnFail ?? base.lockOnFail,
+    completionRequiresPass: item?.completionRequiresPass ?? base.completionRequiresPass,
   };
 }
 

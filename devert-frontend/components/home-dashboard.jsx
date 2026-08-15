@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import { WelcomeBanner } from "@/components/welcome-banner";
-import { TodayTaskCard } from "@/components/today-task-card";
+import { DevertJourneyCard } from "@/components/devert-journey-card";
+import { LiveOnDevert } from "@/components/live-on-devert";
 import { QuickStatsRow } from "@/components/quick-stats-row";
 import { QuickActionsGrid } from "@/components/quick-actions-grid";
 import { NotificationsSummary } from "@/components/notifications-summary";
@@ -25,7 +26,8 @@ export function HomeDashboard() {
         <div className="lg:grid lg:grid-cols-3 lg:gap-6 lg:items-start">
           <div className="lg:col-span-2">
             <WelcomeBanner />
-            <TodayTaskCard />
+            <DevertJourneyCard />
+            <LiveOnDevert />
             <QuickStatsRow />
             <QuickActionsGrid />
           </div>
