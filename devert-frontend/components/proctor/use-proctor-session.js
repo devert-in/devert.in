@@ -199,7 +199,41 @@ export function useProctorSession({
       // Attach to whatever is on screen now, and prime the offscreen capture
       // element so the very first snapshot does not race the stream warming up.
       attachVideo(videoElRef.current);
-      captureVideoEl();
+      const captureEl = captureVideoEl();
+
+      // getUserMedia() resolving is not proof of a real picture. A system-level
+      // camera privacy toggle (Windows Settings > Privacy & security > Camera,
+      // most often "let desktop apps access your camera") can grant a browser a
+      // technically-live MediaStream whose track never actually produces a
+      // frame - the permission prompt succeeds, cameraState would say "live",
+      // and the self-view would just be a blank/placeholder box for the entire
+      // attempt with nothing anywhere to say why. That is exactly the failure
+      // mode this file's own capture-loop comment warns about: "the worst
+      // possible failure for an invigilation system - it looks like it is
+      // working." So confirm the offscreen element's dimensions actually
+      // populate before this is allowed to call itself live, polling rather
+      // than trusting a single loadeddata event since a phantom stream can
+      // still fire one with a 0x0 frame.
+      const producesFrames = await new Promise((resolve) => {
+        const deadline = Date.now() + 4000;
+        const check = () => {
+          if (captureEl.videoWidth > 0 && captureEl.videoHeight > 0) return resolve(true);
+          if (Date.now() >= deadline) return resolve(false);
+          requestAnimationFrame(check);
+        };
+        check();
+      });
+
+      if (!producesFrames) {
+        stream.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+        setCameraState("lost");
+        setCameraError(
+          "Camera permission was granted, but no video is actually coming through. This is usually a Windows privacy setting blocking the browser (Settings > Privacy & security > Camera > allow desktop apps/browsers access), not something wrong on this page. Fix that, then retry."
+        );
+        record(PROCTOR_EVENT.CAMERA_LOST, { reason: "no_frames" });
+        return false;
+      }
 
       // Fires when the OS or another app seizes the camera, or the student
       // yanks a USB webcam - the deterrent is gone at that point, so it is a
