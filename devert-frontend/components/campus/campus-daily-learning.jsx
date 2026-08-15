@@ -1023,7 +1023,19 @@ function CampusDailyLearningItemView({ slug, item, log, onLogged, onOpenProblem,
     } finally { setSaving(false); }
   };
 
-  const canSave = markedRead && allAnswered && (problems.length === 0 || solvedCount === problems.length);
+  // NOT gated on solvedCount === problems.length. That requirement was a
+  // one-off addition bundled into an unrelated commit (5393105, "follow
+  // system light/dark theme"), never a deliberate design decision - this
+  // line was plain `markedRead && allAnswered` for this component's entire
+  // history before that. It blocked the Submit button outright for any
+  // student who hadn't yet solved every embedded problem, with no way to
+  // even record a partial attempt. The actual trust boundary already lives
+  // server-side in submitDayCompletion (lib/dailyLearning.js), which
+  // independently re-verifies every problem against the student's real
+  // user_codelab_progress before granting XP/coins and tells the student
+  // plainly ("solve every problem below to earn XP and coins") when it
+  // doesn't - the same split CS Core uses (see rewardPolicy.js).
+  const canSave = markedRead && allAnswered;
   // A day whose own date is not today earns nothing - see isSameDayAsToday in
   // lib/dailyLearning.js. readOnly is the admin preview, which never rewards
   // anyway, so it is excluded to avoid shouting "NO REWARDS" at an admin
