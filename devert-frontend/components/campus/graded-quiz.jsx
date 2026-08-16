@@ -164,12 +164,23 @@ function QuizResult({ state, result, policy }) {
   const correct = result?.correct ?? state.lastCorrect ?? 0;
   const total = result?.total ?? state.lastTotal ?? 0;
   const passed = result ? result.passed : state.passed;
+  // Distinct from `passed` only where policy.completionRequiresPass is false
+  // (currently only cscore) - a below-passPct paper still advances progress
+  // there, only the per-question XP differs by correctness. Every message
+  // below keys off this, not `passed` alone, which is what used to tell a CS
+  // Core student their topic "isn't marked complete" and to "ask your admin"
+  // when the server had already completed it on that same attempt.
+  const completed = result ? result.completed : state.completed;
 
   return (
-    <div className="mt-4 rounded-lg p-3" style={{ background: passed ? CAMPUS.goodTint : CAMPUS.badTint }}>
-      <p className="text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: passed ? CAMPUS.good : CAMPUS.bad }}>
-        {passed ? <Check size={13} /> : <AlertTriangle size={13} />}
-        Score: {correct}/{total} — {passed ? "Passed" : `Not passed (${Math.round(policy.passPct * 100)}% needed)`}
+    <div className="mt-4 rounded-lg p-3" style={{ background: passed ? CAMPUS.goodTint : completed ? CAMPUS.tealTint : CAMPUS.badTint }}>
+      <p className="text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: passed ? CAMPUS.good : completed ? CAMPUS.teal : CAMPUS.bad }}>
+        {passed ? <Check size={13} /> : completed ? <Check size={13} /> : <AlertTriangle size={13} />}
+        Score: {correct}/{total} — {
+          passed ? "Passed"
+          : completed ? "Attempted (no minimum score required here)"
+          : `Not passed (${Math.round(policy.passPct * 100)}% needed)`
+        }
       </p>
 
       {result?.status === "graded" && result.rewarded && (
@@ -199,13 +210,23 @@ function QuizResult({ state, result, policy }) {
 
       {!result && (
         <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>
-          Submitted {state.attemptsUsed} time{state.attemptsUsed === 1 ? "" : "s"}. This quiz is locked — ask your admin if you need it reopened.
+          Submitted {state.attemptsUsed} time{state.attemptsUsed === 1 ? "" : "s"}.{" "}
+          {completed
+            ? "This topic is complete - the quiz itself is locked since you've already attempted it."
+            : "This quiz is locked — ask your admin if you need it reopened."}
         </p>
       )}
 
-      {!passed && (
+      {!completed && (
         <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>
           The topic isn&apos;t marked complete. Re-read the lesson above — the correct answers are highlighted.
+        </p>
+      )}
+
+      {completed && !passed && (
+        <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>
+          This topic is marked complete either way — only the XP you earned depends on which answers were
+          right. Re-read the lesson above if you&apos;d like to see the correct answers.
         </p>
       )}
     </div>

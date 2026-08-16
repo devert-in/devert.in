@@ -86,6 +86,13 @@ export function attemptState(attempt, policy) {
     passed,
     rewarded,
     locked: passed || exhausted,
+    // Mirrors submitQuizAttempt's own `completed` formula exactly (see that
+    // function's identical line) - a cold-loaded/reopened attempt has to agree
+    // with what a fresh submission just returned, or the UI tells two
+    // different stories about the same document depending on how it got here.
+    // Only meaningful once `submitted` - an attempt not yet taken is neither
+    // complete nor incomplete.
+    completed: used > 0 && (passed || !policy.completionRequiresPass),
     lastCorrect: attempt?.lastCorrect ?? null,
     lastTotal: attempt?.lastTotal ?? null,
     lastPct: attempt?.lastPct ?? null,
