@@ -140,7 +140,8 @@ export function CampusCsCoreTab({ sidebarSlot }) {
       <>
         {sidebar}
         <TopicView subjectId={screen.subjectId} topicId={screen.topicId}
-          onBack={() => setScreen({ view: "roadmap", subjectId: screen.subjectId })} />
+          onBack={() => setScreen({ view: "roadmap", subjectId: screen.subjectId })}
+          onOpenTopic={(topicId) => setScreen({ view: "topic", subjectId: screen.subjectId, topicId })} />
       </>
     );
   }
@@ -864,10 +865,19 @@ const INTERVIEW_WEIGHT_LABEL = {
 
 // ---------------- Topic view ----------------
 
-function TopicView({ subjectId, topicId, onBack }) {
+function TopicView({ subjectId, topicId, onBack, onOpenTopic }) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [topic, setTopic] = useState(null);
+  // A third independent fetch of the subject's topic list - same call as
+  // SubjectRoadmap and CsCoreTopicSidebar each already make on their own (see
+  // CsCoreSidebarList's comment above on why this file threads no shared
+  // state between them). Only used to work out what comes after this topic;
+  // ordering is whatever fetchTopics already returns everywhere else.
+  const [subjectTopics, setSubjectTopics] = useState(null);
+  useEffect(() => {
+    fetchTopics(subjectId).then(setSubjectTopics).catch(() => setSubjectTopics([]));
+  }, [subjectId]);
   const [quizAnswers, setQuizAnswers] = useState({});
   // The server's record of this (student, topic) quiz - null until loaded.
   // Replaces the old localStorage `submitted` flag entirely; see
@@ -899,6 +909,19 @@ function TopicView({ subjectId, topicId, onBack }) {
   // nothing to persist.
   const quizSeedKey = buildQuizSeedKey({ uid: user?.uid, scope: `${subjectId}:${topicId}` });
   const quizScopeId = `${subjectId}_${topicId}`;
+
+  // What comes after this topic, so the page itself offers a way forward
+  // instead of leaving the student to find the sidebar (hidden behind a menu
+  // button on mobile) and pick the next one themselves.
+  const nextTopicInfo = useMemo(() => {
+    if (!subjectTopics || subjectTopics.length === 0) return null;
+    const idx = subjectTopics.findIndex(t => t.id === topicId);
+    if (idx === -1) return null;
+    if (idx === subjectTopics.length - 1) return { done: true };
+    const current = subjectTopics[idx];
+    const next = subjectTopics[idx + 1];
+    return { next, crossesModule: (next.module || "General") !== (current.module || "General") };
+  }, [subjectTopics, topicId]);
 
   // Everything keyed to this topic is reset SYNCHRONOUSLY as topicId changes,
   // and every async result is discarded if the topic changed while it was in
@@ -1184,6 +1207,43 @@ function TopicView({ subjectId, topicId, onBack }) {
               style={{ background: CAMPUS.goodTint, color: CAMPUS.good }}>
               <Sparkles size={13} /> {lastResult?.xp > 0 ? "Nice work! XP and coins added." : "Topic completed - review the ones you missed and keep going."}
             </motion.p>
+          )}
+
+          {/* A way forward that doesn't depend on finding the sidebar - hidden
+              behind a menu button on mobile, and the reason "how do I get to
+              the next topic" was a live student report. Shown regardless of
+              alreadyDone: CS Core's own model is attempt-based, not a strict
+              gate, so there is no reason to also gate navigation on passing. */}
+          {nextTopicInfo?.next && (
+            <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
+                  {nextTopicInfo.crossesModule ? "NEXT MODULE" : "NEXT TOPIC"}
+                </p>
+                <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{nextTopicInfo.next.title}</p>
+                {nextTopicInfo.crossesModule && (
+                  <p className="text-[11px] mt-0.5 truncate" style={{ color: CAMPUS.inkFaint }}>{nextTopicInfo.next.module}</p>
+                )}
+              </div>
+              <CampusButton icon={ArrowRight} onClick={() => onOpenTopic(nextTopicInfo.next.id)}>
+                {nextTopicInfo.crossesModule ? "Next Module" : "Next Topic"}
+              </CampusButton>
+            </CampusCard>
+          )}
+
+          {nextTopicInfo?.done && (
+            <CampusCard className="p-5 text-center">
+              <Sparkles size={18} className="mx-auto mb-2" style={{ color: CAMPUS.gold }} />
+              <p className="text-[13.5px] font-semibold" style={{ color: CAMPUS.ink }}>
+                You&apos;ve reached the end of this subject&apos;s roadmap
+              </p>
+              <p className="text-[11.5px] mt-1" style={{ color: CAMPUS.inkFaint }}>
+                Head back to the roadmap to review anything, or explore another CS Core subject.
+              </p>
+              <div className="mt-3.5">
+                <CampusButton onClick={onBack}>Back to Roadmap</CampusButton>
+              </div>
+            </CampusCard>
           )}
         </article>
       )}
