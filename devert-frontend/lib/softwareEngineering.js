@@ -30,7 +30,7 @@ import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
   serverTimestamp, writeBatch, arrayUnion, arrayRemove, runTransaction,
 } from "firebase/firestore";
-import { grantRewards } from "@/lib/rewards";
+import { grantRewards, bumpStreak } from "@/lib/rewards";
 
 export const SE_DIFFICULTIES = ["Beginner", "Intermediate", "Advanced"];
 
@@ -318,6 +318,9 @@ export async function completeLesson({ uid, moduleId, lessonId, xpReward = 0, co
     }
   });
 
+  // See bumpStreak's own header (lib/rewards.js) for why this runs out here,
+  // after the transaction has resolved, rather than inside it.
+  await bumpStreak(uid);
   return !alreadyCompleted;
 }
 

@@ -2,7 +2,7 @@ import { db } from "@/lib/firebase";
 import {
   collection, doc, getDocs, getDoc, query, where, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction, writeBatch,
 } from "firebase/firestore";
-import { grantRewards, isAlreadyGranted } from "@/lib/rewards";
+import { grantRewards, isAlreadyGranted, bumpStreak } from "@/lib/rewards";
 
 // Institution-scoped Monday-Saturday structured learning program (e.g. the
 // MRCET cohort). Lives under institutions/{slug}/dailyLearning - a
@@ -350,6 +350,14 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
       }, tx);
     }
   });
+
+  // Any real submission - complete or not, on time or catching up late -
+  // is genuine engagement with the platform today; bumpStreak's own same-day
+  // check makes repeat calls (an incomplete day resubmitted later) a no-op,
+  // so there's no need to gate this on meetsRequirements/onTime here. See
+  // bumpStreak's header for why this runs out here rather than inside the
+  // transaction above.
+  await bumpStreak(uid);
 
   // { rewarded, onTime, meetsRequirements } rather than a bare boolean - the
   // caller needs to tell "you already did this" apart from "you did it late"

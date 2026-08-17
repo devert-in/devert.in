@@ -356,13 +356,13 @@ export async function fetchStudentAnalytics(uid) {
     xp: profile?.xp || 0,
     score: profile?.score || 0,
     coins: earningsSnap.exists() ? (earningsSnap.data().pulseCoins || 0) : 0,
-    // Only CodeLab (an accepted submission) and Aptitude (a correct answer)
-    // extend this - see GradingService.java's streak block and
-    // aptitude-section.jsx. Deliberately not "platform activity" more
-    // broadly: a student doing nothing but CS Core/Daily Learning/Programming
-    // every day correctly still shows 0 here today - that's this field's real,
-    // narrow definition, not a bug. Real overall activity is realLastActive
-    // below, which is what actually answers "were they here recently".
+    // Extended by CodeLab, Aptitude, CS Core, Programming, GATE, Daily
+    // Learning, DSA Concepts and Software Engineering alike - see
+    // lib/rewards.js's bumpStreak (was CodeLab/Aptitude only until a student
+    // active every day in CS Core but never in CodeLab/Aptitude was reported
+    // showing 0 despite being demonstrably active). realLastActive below is
+    // still the more precise "were they here recently" signal - streak is a
+    // consistency count, not a timestamp.
     streak: profile?.streak || 0,
     totalActivitiesCompleted: rewardTimeline.filter(r => r.status === "granted").length,
   };

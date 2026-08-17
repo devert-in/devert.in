@@ -41,7 +41,7 @@ import { db } from "@/lib/firebase";
 import {
   doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp, increment,
 } from "firebase/firestore";
-import { grantRewards, isAlreadyGranted } from "@/lib/rewards";
+import { grantRewards, isAlreadyGranted, bumpStreak } from "@/lib/rewards";
 import { policyFor, gradeQuiz, computeQuizReward } from "@/lib/rewardPolicy";
 
 // Bounded so a quiz a module later configures for many attempts can't grow a
@@ -136,7 +136,7 @@ export async function submitQuizAttempt({
   const ledgerActivity = policy.activity;
   const ledgerActivityId = activityId || scopeId;
 
-  return runTransaction(db, async (tx) => {
+  const result = await runTransaction(db, async (tx) => {
     // ---- reads, all of them, first ----
     const snap = await tx.get(ref);
     const existing = snap.exists() ? snap.data() : null;
@@ -290,6 +290,15 @@ export async function submitQuizAttempt({
       locked: result.passed || attemptNo >= policy.maxAttempts || policy.lockOnFail,
     };
   });
+
+  // Covers CS Core, GATE, Programming and Aptitude's topic-quiz interface -
+  // every module that submits through this one shared function. Only on a
+  // genuine new submission (never the early "locked" return above, which
+  // means nothing actually happened this call) - see bumpStreak's own header
+  // for why this runs out here, after the transaction has fully resolved,
+  // rather than inside it.
+  if (result.status === "graded") await bumpStreak(uid);
+  return result;
 }
 
 // Admin-only: re-open a quiz for one student. Deletes the attempt record so the

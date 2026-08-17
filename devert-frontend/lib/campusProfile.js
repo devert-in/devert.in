@@ -33,11 +33,16 @@ export async function fetchProfileAnalytics(uid, institutionId, myScore) {
     fetchRewardTimeline(uid),
   ]);
 
-  // Best streak = longest run of consecutive days with EITHER a CodeLab
-  // submission or an aptitude attempt - the same two activities that
-  // already write users/{uid}.streak server/client-side, so this is the
-  // real historical counterpart of that same real number, not a different
-  // definition of "activity".
+  // Best streak = longest run of consecutive days with a CodeLab submission
+  // or an aptitude attempt. users/{uid}.streak (the LIVE counter) now also
+  // extends from CS Core/Programming/GATE/Daily Learning/DSA Concepts/SE
+  // activity (see lib/rewards.js's bumpStreak), but this historical
+  // calculation still only sees the two date sources it has always had -
+  // those modules' progress docs don't keep a per-day activity history the
+  // way CodeLab submissions and aptitude attempts do. So this can now
+  // under-report a student's true best streak relative to the live number;
+  // fixing that needs each of those modules to expose its own activity
+  // dates the same way, which is real follow-up work, not done here.
   const bestStreak = computeLongestStreak([...submissionDates, ...aptitude.attemptDates]);
 
   const recentActivity = rewardTimeline.slice(0, 30).map(r => ({

@@ -39,7 +39,7 @@ import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
   serverTimestamp, writeBatch, arrayUnion, runTransaction,
 } from "firebase/firestore";
-import { grantRewards } from "@/lib/rewards";
+import { grantRewards, bumpStreak } from "@/lib/rewards";
 
 // ONE language-agnostic track, not one per language.
 //
@@ -284,6 +284,9 @@ export async function completeConcept({ uid, langId, conceptId, xpReward = 0, co
     }
   });
 
+  // See bumpStreak's own header (lib/rewards.js) for why this runs out here,
+  // after the transaction has resolved, rather than inside it.
+  await bumpStreak(uid);
   return { alreadyCompleted };
 }
 

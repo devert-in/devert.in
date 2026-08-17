@@ -1,6 +1,7 @@
 import { db } from "@/lib/firebase";
-import { doc, updateDoc, setDoc, increment, serverTimestamp } from "firebase/firestore";
+import { doc, updateDoc, setDoc, increment, serverTimestamp, runTransaction } from "firebase/firestore";
 import { logCoinTransaction } from "@/lib/economy";
+import { todayIST, dateToISTString } from "@/lib/activity";
 
 // Single, shared reward-granting entry point for every self-reported
 // learning-completion path (Daily Learning, Programming, CS Core, Contests,
@@ -127,5 +128,58 @@ export async function grantRewards(uid, {
       grantedAt: serverTimestamp(), grantedBy, status: "granted",
     };
     if (tx) tx.set(ledgerRef, ledgerData); else await setDoc(ledgerRef, ledgerData);
+  }
+}
+
+// users/{uid}.streak was, until now, only ever extended by an accepted
+// CodeLab submission (GradingService.java) or a correct Aptitude answer
+// (aptitude-section.jsx) - a student doing nothing but CS Core, Daily
+// Learning, Programming or GATE every day correctly showed streak: 0
+// forever, indistinguishable from someone who never opens the app, which is
+// exactly what got reported live against a student demonstrably active in
+// CS Core minutes earlier. This extends the same definition to every module
+// that grants a reward through this file.
+//
+// Deliberately its OWN separate transaction, called by each caller AFTER
+// their own runTransaction(...) has fully resolved - never from inside it.
+// grantRewards() itself cannot safely do this read-then-write in-place: a
+// Firestore transaction requires every read before every write, and several
+// callers (see quizAttempts.js's submitQuizAttempt) have already written
+// earlier in the SAME transaction by the time grantRewards runs, so a fresh
+// tx.get(userRef) here would throw. Even where that ordering did happen to
+// work out, Firestore silently retries a transaction on contention, and
+// nesting a streak bump inside a callback that might re-run would
+// over-increment it once per retry - a bug that would only ever show up
+// under real concurrent load, not in testing.
+//
+// The cost of splitting this out is that streak is not atomically consistent
+// with the reward it rides alongside - a dropped connection between the two
+// can grant XP without extending streak that one time. Acceptable: unlike
+// XP/coins/score (real, rules-enforced, never-silently-wrong balances),
+// streak is a pure consistency number with no floor/ceiling and nothing
+// downstream depending on it never drifting by a day - the next genuine
+// activity just extends or resets from whatever lastSolvedDate is on record.
+//
+// Same day/yesterday/reset rule as GradingService.java's CodeLab streak and
+// aptitude-section.jsx's Grind streak - one shared definition instead of a
+// fourth hand-copied version.
+export async function bumpStreak(uid) {
+  if (!uid) return;
+  const userRef = doc(db, "users", uid);
+  const today = todayIST();
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(userRef);
+      const data = snap.exists() ? snap.data() : {};
+      const lastActive = data.lastSolvedDate || "";
+      if (lastActive === today) return; // already extended today - nothing to do
+      const yesterday = dateToISTString(new Date(Date.now() - 86400000));
+      const newStreak = lastActive === yesterday ? (data.streak || 0) + 1 : 1;
+      tx.set(userRef, { streak: newStreak, lastSolvedDate: today }, { merge: true });
+    });
+  } catch (err) {
+    // Best-effort by design (see header) - never worth failing a reward grant
+    // that already succeeded over a missed streak tick.
+    console.error("[bumpStreak] failed", err);
   }
 }
