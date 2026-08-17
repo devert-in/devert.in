@@ -2,7 +2,7 @@ import { auth, db } from "@/lib/firebase";
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, query, where,
   serverTimestamp, writeBatch, arrayUnion, arrayRemove, addDoc, orderBy, runTransaction, Timestamp,
-  getCountFromServer, increment, limit,
+  getCountFromServer, increment, limit, onSnapshot,
 } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
 
@@ -180,6 +180,19 @@ export async function requestToJoin(institutionId, user, fields) {
 export async function fetchPendingStudents(institutionId) {
   const snap = await getDocs(query(collection(db, "institutions", institutionId, "students"), where("status", "==", "pending")));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Live counterpart to fetchPendingStudents - an admin sitting on the Requests
+// tab used to need a manual page reload to see a request that arrived after
+// the tab opened. Same query, just pushed on every change instead of read
+// once, so a new signup during a live enrollment window (the exact case
+// reported) appears on its own.
+export function subscribeToPendingStudents(institutionId, callback) {
+  return onSnapshot(
+    query(collection(db, "institutions", institutionId, "students"), where("status", "==", "pending")),
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => console.error("[onSnapshot:pendingStudents]", err)
+  );
 }
 
 export async function fetchApprovedStudents(institutionId) {

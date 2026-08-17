@@ -10,7 +10,7 @@ import {
   AlertTriangle, IndianRupee, CreditCard,
 } from "lucide-react";
 import {
-  fetchPendingStudents, fetchApprovedStudents, fetchApprovedStudentCount, fetchApprovedStudentCountByDepartment,
+  subscribeToPendingStudents, fetchApprovedStudents, fetchApprovedStudentCount, fetchApprovedStudentCountByDepartment,
   fetchRosterStudents, approveStudent, rejectStudent,
   bulkAssignByRollNumber, updateStudentIdentity, suspendStudent, sendAnnouncement,
   fetchAnnouncements, deleteAnnouncement, isAnnouncementActive, announcementStatus,
@@ -1508,7 +1508,11 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
   const [filters, setFilters] = useState(DEFAULT_ROSTER_FILTERS);
   const [sort, setSort] = useState("cohortAsc");
   const [pendingFilters, setPendingFilters] = useState(DEFAULT_ROSTER_FILTERS);
-  const [pendingSort, setPendingSort] = useState("joinedAsc");
+  // Newest first by default, not "Waiting longest" - paired with the live
+  // subscription below, a request that arrives while this tab is open should
+  // land where an admin is actually looking without them having to first
+  // notice it and then manually re-sort to find it.
+  const [pendingSort, setPendingSort] = useState("joinedDesc");
   // users/{uid} stats (xp / score / streak / problemsSolvedCount) live outside
   // the roster doc, so the performance sorts need one extra batched pass. Loaded
   // lazily the first time such a sort is picked and then kept - an admin who
@@ -1557,12 +1561,25 @@ function ManageStudents({ institutionId, institution, studentsView, setStudentsV
 
   const load = () => {
     setLoading(true);
-    Promise.all([fetchPendingStudents(institutionId), fetchRosterStudents(institutionId)])
-      .then(([p, a]) => { setPending(p); setApproved(a); })
+    // pending is no longer fetched here - the subscription below keeps it
+    // live on its own, including through every mutation that used to call
+    // load() just to see its own optimistic pending-side update confirmed.
+    fetchRosterStudents(institutionId)
+      .then(setApproved)
       .catch(console.error)
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [institutionId]);
+
+  // Live: a join request that arrives while this tab is open appears on its
+  // own, no reload needed - reported live as a real friction point during an
+  // active enrollment window. See subscribeToPendingStudents's own header for
+  // why this replaced the one-time fetch entirely rather than living
+  // alongside it.
+  useEffect(() => {
+    const unsubscribe = subscribeToPendingStudents(institutionId, setPending);
+    return unsubscribe;
+  }, [institutionId]);
 
   const loadAnnouncements = () => {
     setAnnouncementsLoading(true);
