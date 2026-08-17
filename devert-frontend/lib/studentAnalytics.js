@@ -17,10 +17,34 @@ import {
 } from "@/lib/companyPrep";
 import { fetchAllUserLogs } from "@/lib/dailyLearning";
 import { fetchAptitudeTopics, topicAccuracy, detectWeakTopics, normalizeAttemptEntry } from "@/lib/aptitude";
+import { fetchActivityDay, lastNDatesIST } from "@/lib/activity";
 
 export async function fetchStudentProfile(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   return snap.exists() ? { uid, ...snap.data() } : null;
+}
+
+// users/{uid}.lastActiveAt is NOT a real activity signal - see AuthContext.js,
+// where it's only ever set at account creation and inside updateProfile()
+// (i.e. editing your own profile fields). A student who logs every lesson in
+// CS Core/Daily Learning/Programming every day but never once touches their
+// profile settings shows a lastActiveAt frozen at whenever they signed up,
+// looking exactly like an abandoned account to an admin - reported live
+// against a student who was demonstrably active minutes earlier.
+//
+// lib/activity.js's user_activity_daily is the real, non-fabricated signal
+// (one doc per student per day, pinged while they actually use the app - see
+// that file's own header). Walked backward from today rather than fetched as
+// a batch, so the overwhelmingly common case (active today or yesterday)
+// costs 1-2 reads, not up to LOOKBACK_DAYS of them.
+const LAST_ACTIVE_LOOKBACK_DAYS = 60;
+export async function fetchRealLastActive(uid) {
+  const dates = lastNDatesIST(LAST_ACTIVE_LOOKBACK_DAYS).reverse(); // newest first
+  for (const date of dates) {
+    const day = await fetchActivityDay(uid, date);
+    if (day) return { date, lastSeenAt: day.lastSeenAt || null };
+  }
+  return null;
 }
 
 function millis(ts) { return ts?.toMillis?.() || 0; }
@@ -317,7 +341,7 @@ export async function fetchStudentAnalytics(uid) {
   // dailyLearningSummary needs its institutionId before it can even build
   // the right query - everything else has no such dependency.
   const profile = await fetchStudentProfile(uid);
-  const [programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, earningsSnap] = await Promise.all([
+  const [programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, earningsSnap, realLastActive] = await Promise.all([
     fetchProgrammingSummary(uid),
     fetchCsCoreSummary(uid),
     fetchDsaSummary(uid),
@@ -326,13 +350,21 @@ export async function fetchStudentAnalytics(uid) {
     fetchAptitudeSummary(uid),
     fetchRewardTimeline(uid),
     getDoc(doc(db, "user_earnings", uid)),
+    fetchRealLastActive(uid),
   ]);
   const rewards = {
     xp: profile?.xp || 0,
     score: profile?.score || 0,
     coins: earningsSnap.exists() ? (earningsSnap.data().pulseCoins || 0) : 0,
+    // Only CodeLab (an accepted submission) and Aptitude (a correct answer)
+    // extend this - see GradingService.java's streak block and
+    // aptitude-section.jsx. Deliberately not "platform activity" more
+    // broadly: a student doing nothing but CS Core/Daily Learning/Programming
+    // every day correctly still shows 0 here today - that's this field's real,
+    // narrow definition, not a bug. Real overall activity is realLastActive
+    // below, which is what actually answers "were they here recently".
     streak: profile?.streak || 0,
     totalActivitiesCompleted: rewardTimeline.filter(r => r.status === "granted").length,
   };
-  return { profile, programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, rewards };
+  return { profile, programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, rewards, realLastActive };
 }

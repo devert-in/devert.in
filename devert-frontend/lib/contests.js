@@ -4,6 +4,7 @@ import {
   limit, increment, serverTimestamp, getCountFromServer, writeBatch, documentId, runTransaction,
   Timestamp,
 } from "firebase/firestore";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 // Firestore rejects the serverTimestamp() sentinel ANYWHERE inside an array
 // ("FieldValue.serverTimestamp() cannot be used inside of an array") - the
@@ -1218,7 +1219,7 @@ export async function submitContestCodingAnswer(contestId, questionId, language,
   if (!base) throw new Error("Submissions aren't configured yet.");
   if (!auth.currentUser) throw new Error("Sign in to submit.");
   const idToken = await auth.currentUser.getIdToken();
-  const res = await fetch(`${base}/api/contests/${contestId}/questions/${questionId}/submit`, {
+  const res = await fetchWithRetry(`${base}/api/contests/${contestId}/questions/${questionId}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
     body: JSON.stringify({ language, code }),

@@ -32,11 +32,6 @@ function formatDate(ts) {
   return ts.toDate().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function formatDateTime(ts) {
-  if (!ts?.toDate) return "Never";
-  return ts.toDate().toLocaleString();
-}
-
 // Full-page replacement for the Students roster (same "screen router within
 // a Manage tab" pattern as ManagePracticePreview/CampusContestsTab elsewhere
 // in campus-manage.jsx), not a real Next.js route - a per-student static
@@ -75,7 +70,7 @@ export function StudentAnalyticsDashboard({ institutionId, institution, student,
   return (
     <div className="space-y-5">
       <CampusBackButton onClick={onBack} label="Back to Students" />
-      <OverviewCard student={student} institution={institution} profile={profile} />
+      <OverviewCard student={student} institution={institution} profile={profile} realLastActive={analytics.realLastActive} />
       <QuickActions institutionId={institutionId} student={student} profile={profile} adminUid={user?.uid}
         onChanged={() => { onChanged?.(); reload(); }} />
       <RewardsSection rewards={analytics.rewards} timeline={analytics.rewardTimeline} />
@@ -96,7 +91,19 @@ function InfoRow({ icon: Icon, label }) {
   );
 }
 
-function OverviewCard({ student, institution, profile }) {
+// realLastActive comes from lib/activity.js's real, per-day activity pings -
+// see fetchRealLastActive's own header for why profile.lastActiveAt (an
+// account-edit timestamp, not an activity one) isn't used here any more.
+function formatLastActive(realLastActive) {
+  if (!realLastActive) return "No activity in the last 60 days";
+  if (realLastActive.lastSeenAt?.toDate) return realLastActive.lastSeenAt.toDate().toLocaleString();
+  // A day doc exists but somehow has no lastSeenAt (shouldn't happen given
+  // pingActivity always sets it, but a date-only fallback beats "Never" for
+  // a student who plainly did something that day).
+  return realLastActive.date;
+}
+
+function OverviewCard({ student, institution, profile, realLastActive }) {
   return (
     <CampusCard className="p-5">
       <div className="flex items-start gap-4 flex-wrap">
@@ -124,7 +131,7 @@ function OverviewCard({ student, institution, profile }) {
             <InfoRow icon={GraduationCap}
               label={[student.department, student.year && `Year ${student.year}`, student.section && `Sec ${student.section}`].filter(Boolean).join(" · ") || "-"} />
             <InfoRow icon={Building2} label={institution?.name || "-"} />
-            <InfoRow icon={Clock} label={`Last active: ${formatDateTime(profile.lastActiveAt)}`} />
+            <InfoRow icon={Clock} label={`Last active: ${formatLastActive(realLastActive)}`} />
             <InfoRow icon={Calendar} label={`Joined DeVert: ${formatDate(profile.joinedAt)}`} />
           </div>
         </div>
