@@ -32,6 +32,7 @@ export const ACTIVITY_MODULE = {
   se_topic: "softwareEngineering",
   dsa_concept: "dsaConcepts",
   aptitude_topic: "aptitude",
+  roadmap_topic: "roadmaps",
 };
 
 // Human labels for every activityType the ledger can hold. ACTIVITY_LABELS in
@@ -46,6 +47,7 @@ export const ACTIVITY_TITLES = {
   se_lesson: "Fundamentals lesson",
   dsa_concept: "DSA concept",
   aptitude_topic: "Aptitude topic",
+  roadmap_topic: "Roadmap topic",
   daily_learning_day: "Daily Learning day",
   daily_learning_problem: "Daily Learning problem",
   codelab_problem: "DSA problem",
@@ -119,6 +121,25 @@ async function resolveGateTopic(activityId) {
   return null;
 }
 
+// Roadmap topics sit one level deeper than their activityId records:
+// roadmaps/{roadmapId}/modules/{moduleId}/topics/{topicId}, but the ledger
+// only stores `${roadmapId}_${topicId}`. The module is therefore unknown, so
+// this reads the roadmap's module list (small, cached-by-Firestore) and
+// probes each one in parallel - identical shape to resolveGateTopic above.
+async function resolveRoadmapTopic(activityId) {
+  for (const [roadmapId, topicId] of splitCandidates(activityId)) {
+    const modules = await getDocs(collection(db, "roadmaps", roadmapId, "modules")).catch(() => null);
+    if (!modules || modules.empty) continue;
+    const hits = await Promise.all(modules.docs.map(async (m) => {
+      const snap = await getDoc(doc(db, "roadmaps", roadmapId, "modules", m.id, "topics", topicId)).catch(() => null);
+      return snap?.exists() ? { name: pickName(snap.data()), context: pickName(m.data()) } : null;
+    }));
+    const found = hits.find(Boolean);
+    if (found) return found;
+  }
+  return null;
+}
+
 async function resolveContent(activityType, activityId) {
   if (!activityId) return null;
   switch (activityType) {
@@ -126,6 +147,7 @@ async function resolveContent(activityType, activityId) {
     case "cscore_topic":      return resolveTwoLevel("csCoreSubjects", "topics", activityId);
     case "dsa_concept":       return resolveTwoLevel("dsaConceptTracks", "concepts", activityId);
     case "gate_topic":        return resolveGateTopic(activityId);
+    case "roadmap_topic":     return resolveRoadmapTopic(activityId);
     case "aptitude_topic": {
       const snap = await getDoc(doc(db, "aptitude_topics", activityId)).catch(() => null);
       return snap?.exists() ? { name: pickName(snap.data()), context: null } : null;

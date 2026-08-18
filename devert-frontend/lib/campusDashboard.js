@@ -38,6 +38,7 @@ export const ACTIVITY_LABELS = {
   se_lesson: "Fundamentals Lesson",
   dsa_concept: "DSA Concept",
   aptitude_topic: "Aptitude Topic",
+  roadmap_topic: "Roadmap Topic",
   contest: "Contest",
   arena_match: "Arena Solo Challenge",
   codelab_problem: "DSA / CodeLab Problem",

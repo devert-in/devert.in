@@ -9,7 +9,14 @@ import {
   doc, getDoc,
 } from "firebase/firestore";
 import { useIsWindowed } from "@/components/window/is-windowed";
-import { ROADMAPS, getRoadmap } from "@/lib/roadmaps";
+// TEMPORARY: lib/roadmaps.js was rewritten into the new Firestore-backed
+// Campus Roadmaps catalog (role/career-based, admin-authored, progress-
+// tracked) - this old hardcoded array now lives at roadmaps.legacy-backup.js
+// purely so this Intel tab keeps working until the migration lands (the new
+// catalog is seeded from this same file via scripts/export-legacy-roadmaps.mjs)
+// and this whole tab is retired in favor of /campus/roadmaps. Do not add new
+// content here - see the project's Roadmaps build plan.
+import { ROADMAPS, getRoadmap } from "@/lib/roadmaps.legacy-backup";
 import { RoadmapGrid, RoadmapPath } from "@/components/intel/roadmap-path";
 import { OpportunitiesTab } from "@/components/intel/opportunities";
 

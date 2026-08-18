@@ -71,6 +71,14 @@ const NAV_MENUS = [
       href: "/campus/learning", cta: "Open Learn",
     },
   },
+  // A top-level link of its own, same precedent as Contests below: Roadmaps
+  // is the "where do I even start" orientation surface (role/career-based -
+  // ML Engineer, Cybersecurity, VLSI, not a bare subject), and burying the
+  // one thing a new visitor most needs inside a dropdown defeats its whole
+  // purpose. It is also a GLOBAL, non-institution-scoped catalog (see
+  // lib/roadmaps.js's header), so /campus/roadmaps is its real, permanent
+  // home - never a per-college URL.
+  { label: "Roadmaps", href: "/campus/roadmaps" },
   {
     label: "Practice",
     columns: [

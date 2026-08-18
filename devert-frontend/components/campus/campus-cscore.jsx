@@ -19,7 +19,7 @@ import { useAuth } from "@/context/AuthContext";
 import { CAMPUS, tint } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
-  CampusSkeleton, CampusProgressBar, CampusTabBar, RoadmapTimeline,
+  CampusSkeleton, CampusProgressBar, CampusTabBar, RoadmapTimeline, LessonNavFooter,
 } from "@/components/campus/campus-ui";
 import {
   fetchSubjects, fetchSubject, fetchTopics, fetchTopic,
@@ -1213,38 +1213,18 @@ function TopicView({ subjectId, topicId, onBack, onOpenTopic }) {
               behind a menu button on mobile, and the reason "how do I get to
               the next topic" was a live student report. Shown regardless of
               alreadyDone: CS Core's own model is attempt-based, not a strict
-              gate, so there is no reason to also gate navigation on passing. */}
-          {nextTopicInfo?.next && (
-            <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
-                  {nextTopicInfo.crossesModule ? "NEXT MODULE" : "NEXT TOPIC"}
-                </p>
-                <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{nextTopicInfo.next.title}</p>
-                {nextTopicInfo.crossesModule && (
-                  <p className="text-[11px] mt-0.5 truncate" style={{ color: CAMPUS.inkFaint }}>{nextTopicInfo.next.module}</p>
-                )}
-              </div>
-              <CampusButton icon={ArrowRight} onClick={() => onOpenTopic(nextTopicInfo.next.id)}>
-                {nextTopicInfo.crossesModule ? "Next Module" : "Next Topic"}
-              </CampusButton>
-            </CampusCard>
-          )}
-
-          {nextTopicInfo?.done && (
-            <CampusCard className="p-5 text-center">
-              <Sparkles size={18} className="mx-auto mb-2" style={{ color: CAMPUS.gold }} />
-              <p className="text-[13.5px] font-semibold" style={{ color: CAMPUS.ink }}>
-                You&apos;ve reached the end of this subject&apos;s roadmap
-              </p>
-              <p className="text-[11.5px] mt-1" style={{ color: CAMPUS.inkFaint }}>
-                Head back to the roadmap to review anything, or explore another CS Core subject.
-              </p>
-              <div className="mt-3.5">
-                <CampusButton onClick={onBack}>Back to Roadmap</CampusButton>
-              </div>
-            </CampusCard>
-          )}
+              gate, so there is no reason to also gate navigation on passing.
+              Extracted into campus-ui.jsx's LessonNavFooter at its second use
+              (Roadmaps) - see that component's own header. */}
+          <LessonNavFooter
+            next={nextTopicInfo?.next ? { ...nextTopicInfo.next, groupLabel: nextTopicInfo.next.module } : null}
+            crossesModule={nextTopicInfo?.crossesModule}
+            done={!!nextTopicInfo?.done}
+            onOpenTopic={onOpenTopic}
+            onBack={onBack}
+            endTitle="You've reached the end of this subject's roadmap"
+            endBody="Head back to the roadmap to review anything, or explore another CS Core subject."
+          />
         </article>
       )}
     </div>

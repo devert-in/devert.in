@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Download } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, Download, Sparkles } from "lucide-react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { CAMPUS, tint } from "@/lib/campus-theme";
@@ -477,10 +477,20 @@ export function CampusTable({ columns, rows, rowKey = "id", emptyState, rowStyle
 // and names its topics `.name` rather than `.title`, and shows a category
 // icon CS Core/Programming don't have; both read through these instead of
 // each caller reshaping its data to match one hardcoded field name.
+// startIndex/moduleLabel added for the Roadmaps module, which stacks three
+// of these (one per Beginner/Intermediate/Advanced level) as one continuous
+// path - without startIndex each level's numbering restarted at 1 (reading
+// as "1,2,3, 1,2,3,4, 1,2" down one spine), and without moduleLabel two
+// levels legitimately both containing a same-named module (e.g. two
+// "Fundamentals" modules) would collide on the `module` value doubling as
+// React key, openModules Set member AND visible label all at once. Both
+// default to the identity behavior every existing call site already gets,
+// so CS Core/Programming/Aptitude are unaffected.
 export function RoadmapTimeline({
   modules, completedIds, openModules, onToggleModule, onOpenTopic,
   topicHasContent = () => true, topicLabel = (t) => t.title,
   moduleIcon = () => null, accent = CAMPUS.teal,
+  startIndex = 0, moduleLabel = (m) => m,
 }) {
   return (
     <div className="relative">
@@ -512,14 +522,14 @@ export function RoadmapTimeline({
                   : started
                     ? { background: tint(accent, 16), color: accent, border: `2px solid ${accent}` }
                     : { background: CAMPUS.surface, color: CAMPUS.inkFaint, border: `2px solid ${CAMPUS.line}` }}>
-                {done ? <Check size={17} /> : <span className="text-[13px] font-bold">{i + 1}</span>}
+                {done ? <Check size={17} /> : <span className="text-[13px] font-bold">{startIndex + i + 1}</span>}
               </button>
               <CampusCard className="overflow-hidden">
                 <button onClick={() => onToggleModule(module)} aria-expanded={open}
                   className="w-full flex items-center justify-between gap-3 p-4 text-left">
                   <span className="flex items-center gap-2 min-w-0">
                     {icon && <icon.icon size={15} style={{ color: icon.color, flexShrink: 0 }} />}
-                    <b className="text-[13.5px] truncate" style={{ color: CAMPUS.ink }}>{module}</b>
+                    <b className="text-[13.5px] truncate" style={{ color: CAMPUS.ink }}>{moduleLabel(module)}</b>
                   </span>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>{completed}/{total}</span>
@@ -556,6 +566,55 @@ export function RoadmapTimeline({
         })}
       </div>
     </div>
+  );
+}
+
+// Extracted from campus-cscore.jsx's TopicView (the "how do I get to the
+// next topic" fix - a live student report that the only way forward from a
+// finished lesson was the sidebar, hidden behind a menu button on mobile),
+// at its second use for Roadmaps - the exact "extract on second use"
+// threshold RoadmapTimeline above was itself created at.
+//
+// Shown regardless of completion state by every caller so far (CS Core is
+// attempt-based, not gated; Roadmaps' levels are advisory-only) - there is
+// no reason to also gate forward navigation on having passed anything.
+// `next.groupLabel` is only rendered when `crossesModule` is true, so a
+// caller whose "next" object has no such field (nothing crossed) simply
+// omits it.
+export function LessonNavFooter({
+  next, crossesModule, done, onOpenTopic, onBack,
+  groupNoun = "Module", endTitle, endBody, endButtonLabel = "Back to Roadmap",
+}) {
+  return (
+    <>
+      {next && (
+        <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
+              {crossesModule ? `NEXT ${groupNoun.toUpperCase()}` : "NEXT TOPIC"}
+            </p>
+            <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{next.title}</p>
+            {crossesModule && next.groupLabel && (
+              <p className="text-[11px] mt-0.5 truncate" style={{ color: CAMPUS.inkFaint }}>{next.groupLabel}</p>
+            )}
+          </div>
+          <CampusButton icon={ArrowRight} onClick={() => onOpenTopic(next.id)}>
+            {crossesModule ? `Next ${groupNoun}` : "Next Topic"}
+          </CampusButton>
+        </CampusCard>
+      )}
+
+      {done && (
+        <CampusCard className="p-5 text-center">
+          <Sparkles size={18} className="mx-auto mb-2" style={{ color: CAMPUS.gold }} />
+          <p className="text-[13.5px] font-semibold" style={{ color: CAMPUS.ink }}>{endTitle}</p>
+          <p className="text-[11.5px] mt-1" style={{ color: CAMPUS.inkFaint }}>{endBody}</p>
+          <div className="mt-3.5">
+            <CampusButton onClick={onBack}>{endButtonLabel}</CampusButton>
+          </div>
+        </CampusCard>
+      )}
+    </>
   );
 }
 

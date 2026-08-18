@@ -115,6 +115,19 @@ export const DEFAULT_REWARD_POLICY = {
     daily_learning:      { activity: "daily_learning_day",     xp: 50, coins: 20 },
     daily_learning_problem: { activity: "daily_learning_problem", xp: 25, coins: 5 },
     gate_day:            { activity: "gate_day",               xp: 20, coins: 8  },
+    // Same no-pass-gate shape as cscore above, for the same reason: a
+    // roadmap topic is a curated orientation/reading node, not a gatekept
+    // exam, so completionRequiresPass MUST be false here - without it,
+    // policyFor() falls through to the platform default (true), which would
+    // make a roadmap topic's quiz silently refuse to mark completion below
+    // 70%, contradicting the confirmed "advisory levels, never gated"
+    // design. xp/coins deliberately the lowest per-item default on the
+    // platform: 10-15 roadmaps x ~60 topics each is the largest self-
+    // reported-completion surface in the app, and XP converts to real INR
+    // through the Wallet - an admin raises a genuinely substantial topic's
+    // reward via its own xpReward/coinReward, which policyFor() already
+    // honours per-item.
+    roadmaps:            { activity: "roadmap_topic",          xp: 10, coins: 4, wrongPenaltyRatio: 0, completionRequiresPass: false },
   },
 };
 

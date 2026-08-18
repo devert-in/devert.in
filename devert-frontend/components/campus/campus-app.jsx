@@ -57,6 +57,7 @@ import { CampusDailyLearningLanding, CampusDailyAssessmentsTab, CampusDayLeaderb
 import { CampusFundamentalsTab } from "@/components/campus/campus-fundamentals";
 import { CampusProgrammingTab } from "@/components/campus/campus-programming";
 import { CampusCsCoreTab } from "@/components/campus/campus-cscore";
+import { CampusRoadmapsTab } from "@/components/campus/campus-roadmaps";
 import { CampusAptitudeTab } from "@/components/campus/campus-aptitude";
 import { ProfileTab } from "@/components/campus/campus-profile";
 import { CampusGateTab } from "@/components/campus/gate/gate-app";
@@ -998,7 +999,7 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   // ModuleAccessRestricted, so a student whose classroom has e.g. Programming
   // disabled sees a fully collapsed sidebar (nothing to portal into) rather
   // than an empty frame with just the institution logo.
-  const SIDEBAR_TABS = new Set(["learning", "dsa", "programming", "csCore", "aptitude", "gate", "companyVault", "contests", "assessments"]);
+  const SIDEBAR_TABS = new Set(["learning", "dsa", "programming", "csCore", "aptitude", "gate", "companyVault", "contests", "assessments", "roadmaps"]);
   // "manage" reads isTabAllowed too, for the same reason the content switch
   // below does: an HOD may reach Manage (NAV_ITEMS' staffRoles), and Manage
   // portals its own sub-navigation into this sidebar slot - gating the slot on
@@ -1406,6 +1407,12 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
           {isTabAllowed("profile") && tab === "profile" && (
             <ProfileTab userData={userData} totalCoins={totalCoins} membership={membership} institution={institution} isInstAdmin={isInstAdmin} staffScope={staffScope} />
           )}
+          {/* No isTabAllowed() moduleKey gate - roadmaps has moduleKey: null in
+              campusNavConfig.js (a global, non-institution-scoped catalog with
+              no per-classroom toggle), so isTabAllowed("roadmaps") is
+              trivially true for every approved student; kept for consistency
+              with every other tab here rather than special-cased away. */}
+          {isTabAllowed("roadmaps") && tab === "roadmaps" && <CampusRoadmapsTab key={searchNonce} sidebarSlot={sidebarEl} />}
           {isTabAllowed("learning") && tab === "learning" && <CampusDailyLearningLanding slug={slug} sidebarSlot={sidebarEl} jumpToTrack={learningJump} onSearchSelect={handleSearchSelect} />}
           {isTabAllowed("fundamentals") && tab === "fundamentals" && <CampusFundamentalsTab sidebarSlot={sidebarEl} />}
           {isTabAllowed("programming") && tab === "programming" && <CampusProgrammingTab key={searchNonce} sidebarSlot={sidebarEl} />}

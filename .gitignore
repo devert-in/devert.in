@@ -125,8 +125,11 @@ scripts/score-migration-*.json
 # Scratch lint output
 devert-frontend/eslint_fresh.json
 
-# Third-party reference material - large binaries, not project source
-roadmaps/
+# Third-party reference material - large binaries, not project source.
+# Anchored to the repo root (leading slash) - an unanchored `roadmaps/`
+# also matched devert-frontend/app/campus/roadmaps/, silently excluding
+# that real Next.js route from every commit.
+/roadmaps/
 Cognizant-Placement-Preparation-Handbook.*
 
 # Unrelated projects that happen to live in this working directory

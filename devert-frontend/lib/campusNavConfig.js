@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, IdCard, BookOpen, CodeXml, BrainCircuit, Calculator,
-  Code2, Briefcase, ClipboardCheck, Trophy, BarChart3, ShieldCheck, GraduationCap, Layers,
+  Code2, Briefcase, ClipboardCheck, Trophy, BarChart3, ShieldCheck, GraduationCap, Layers, Route,
 } from "lucide-react";
 
 // The single source of truth for every Campus workspace destination -
@@ -30,8 +30,17 @@ import {
 //   hidden from ordinary students outright.
 // - urlSegment: the clean static URL segment this tab's base URL uses
 //   (e.g. "dsa" -> /campus/{slug}/dsa), or null if this tab has no
-//   dedicated segment and instead falls back to a plain ?tab= query param
-//   (currently just "profile" - it doesn't have its own static SEO route).
+//   dedicated institution-scoped segment and instead falls back to a plain
+//   ?tab= query param within the workspace (profile, fundamentals,
+//   programming, csCore, aptitude, gate, manage, roadmaps - this comment
+//   was stale claiming "just profile" long before roadmaps existed).
+//   roadmaps is null for a different reason than the others: it's a
+//   GLOBAL, non-institution-scoped catalog with its own real static SEO
+//   home at /campus/roadmaps (see app/campus/roadmaps/**) - giving it an
+//   urlSegment here would mean a second, per-institution-titled copy of
+//   identical content at /campus/{slug}/roadmaps, which is exactly the
+//   "not MRCET's roadmaps, not any college's" outcome this module must
+//   avoid.
 // - ownUrl: true if a CHILD component already owns a deeper URL-sync
 //   effect for this tab (its own history.replaceState with further
 //   sub-state, e.g. Programming's language/topic or Manage's own
@@ -62,6 +71,18 @@ import {
 export const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, parentGroup: "root", moduleKey: null, adminOnly: false, urlSegment: "", ownUrl: false, order: 10, mobileVisibility: "bottomNav", desktopVisibility: false, sidebarGlobal: true },
   { key: "profile", label: "Profile", icon: IdCard, parentGroup: "root", moduleKey: null, adminOnly: false, urlSegment: null, ownUrl: false, order: 20, mobileVisibility: "bottomNav", desktopVisibility: true },
+  // The "where do I even start" entry point for the whole Learn group, so it
+  // sits FIRST in it (order 25, in the gap the gapped scheme exists for - no
+  // sibling renumbered). moduleKey: null - every DeVert Campus user sees the
+  // identical, global set of roadmaps, so there is no per-classroom toggle to
+  // gate it on (same reasoning as "leaderboard" above). urlSegment: null, NOT
+  // "roadmaps" - the catalog's indexable home is the dedicated, GLOBAL
+  // /campus/roadmaps route (app/campus/roadmaps/**), not a per-institution
+  // URL; a /campus/{slug}/roadmaps segment here would just be N duplicate
+  // copies of identical content titled after each college. Inside a
+  // workspace it is therefore a ?tab= module like Programming/CS Core/GATE,
+  // and ownUrl: true because it owns ?roadmap=/?topic= itself.
+  { key: "roadmaps", label: "Roadmaps", icon: Route, parentGroup: "learn", moduleKey: null, adminOnly: false, urlSegment: null, ownUrl: true, order: 25, mobileVisibility: "drawerOnly", desktopVisibility: true },
   { key: "learning", label: "Daily Learning", icon: BookOpen, parentGroup: "learn", moduleKey: "dailyLearning", adminOnly: false, urlSegment: "daily-learning", ownUrl: true, order: 30, mobileVisibility: "bottomNav", desktopVisibility: false, sidebarGlobal: true },
   // Same course shell as the main site's /fundamentals route (components/se/
   // se-app.jsx) - see CampusFundamentalsTab. ownUrl: true because it owns its

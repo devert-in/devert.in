@@ -2273,6 +2273,70 @@ service cloud.firestore {
         && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
     }
 
+    // ── Roadmaps ──────────────────────────────────────────────────────────────
+    // A GLOBAL, admin-authored, role/career-based catalog three levels deep
+    // (roadmaps/{roadmapId}/modules/{moduleId}/topics/{topicId}) - same
+    // authority shape as gatePapers below, one level shallower. Deliberately
+    // ONE global catalog, not institution-scoped: every institution sees
+    // identical content and identical recommendations, so there is no
+    // per-institution override doc here (contrast institutions/{id}/
+    // dailyLearning, the one genuinely per-institution content system).
+    //
+    // The three levels (Beginner/Intermediate/Advanced) are a FIELD on the
+    // module doc, not a subcollection - see lib/roadmaps.js's header. They
+    // are a fixed enum used for grouping and are ADVISORY ONLY: nothing here
+    // or in the client ever locks a level, exactly as
+    // lib/softwareEngineering.js's lesson sequencing refuses to gate a lesson
+    // on the previous one.
+    //
+    // Published content is world-readable, drafts are admin-only, so
+    // in-progress authoring never leaks. IMPORTANT: every non-admin list()
+    // against any of these collections MUST carry BOTH
+    // where("status","==","published") AND
+    // where("audiences","array-contains-any",...) - see lib/programming.js's
+    // fetchLanguages comment. An unfiltered query plus client-side filtering
+    // is denied outright for every real student, it does not silently return
+    // less.
+    match /roadmaps/{roadmapId} {
+      allow read:  if contentReadable() || isAdmin();
+      allow write: if isAdmin();
+
+      match /modules/{moduleId} {
+        allow read:  if contentReadable() || isAdmin();
+        allow write: if isAdmin();
+
+        match /topics/{topicId} {
+          allow read:  if contentReadable() || isAdmin();
+          allow write: if isAdmin();
+        }
+      }
+    }
+
+    // Per-user roadmap progress - one doc per (uid, roadmapId), id
+    // `${uid}_${roadmapId}`. A Firebase Auth uid never contains '_' and a
+    // roadmapId is a Firestore auto-ID (also '_'-free), so split('_')[0]
+    // isolates the owner exactly as programming_progress/cscore_progress/
+    // gate_progress do.
+    //
+    // completedTopicIds.hasAll(...) makes that one array append-only for the
+    // owner: without it, arrayRemove-ing a completed id and re-calling
+    // completeRoadmapTopic() would re-earn that topic's XP/coins
+    // indefinitely - the identical reward-replay exploit closed on every
+    // other progress collection above. reward_grants' create-only ledger is
+    // the second, independent backstop. startedTopicIds is deliberately NOT
+    // guarded: it carries no reward, and the convention here is to guard
+    // exactly what is reward-bearing.
+    //
+    // isAdmin() (not isAdminOfStudent) on write because deleting a roadmap,
+    // module or topic must scrub that id from every student's progress doc
+    // across every institution (see lib/roadmaps.js's scrubTopicIds).
+    match /roadmap_progress/{progressId} {
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid
+        || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
+        && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
+    }
+
     // ── GATE preparation module ────────────────────────────────────────────────
     // A GLOBAL, admin-authored catalog three levels deep
     // (gatePapers/{paperId}/subjects/{subjectId}/topics/{topicId}) - same
