@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Flame, Trophy, Calendar, Users, Clock, Share2, Check,
   ExternalLink, ArrowLeft, ChevronRight, Terminal, Star,
-  Send, X, Github, Globe, Tag, Award,
+  Send, X, Github, Globe, Tag, Award, MapPin,
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import {
@@ -15,7 +15,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { useIsWindowed, useOverlayClass } from "@/components/window/is-windowed";
-import { isHackathon } from "@/lib/eventTypes";
+import { isHackathon, registrationPhase, teamSizeLabel } from "@/lib/eventTypes";
 
 /* ─── helpers ─── */
 
@@ -82,6 +82,56 @@ function fmtDate(ts) {
 
 const PLACE_COLORS = { "1st": "#FFD700", "2nd": "#C0C0C0", "3rd": "#CD7F32" };
 const MEDAL_PLACES = new Set(["1st", "2nd", "3rd"]);
+
+const MODE_META = {
+  in_person: { label: "In Person", Icon: MapPin },
+  virtual: { label: "Virtual", Icon: Globe },
+  hybrid: { label: "Hybrid", Icon: Users },
+};
+
+function registrationPhaseMeta(phase) {
+  switch (phase) {
+    case "open":     return { label: "REGISTRATION OPEN",      color: "#00FF41" };
+    case "upcoming": return { label: "REGISTRATION OPENS SOON", color: "#00FFFF" };
+    default:         return { label: "REGISTRATIONS CLOSED",    color: "#666666" };
+  }
+}
+
+function StatChip({ icon: Icon, label, color }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded border border-white/10 bg-white/[0.03]"
+      style={{ color: color || "rgba(255,255,255,0.7)" }}>
+      <Icon size={12} /> {label}
+    </span>
+  );
+}
+
+// Highlight cards are derived from the same generic stat fields as the hero
+// chips rather than a separate freeform admin field - any event that fills in
+// durationLabel/prizePool/team size/perks gets this section for free.
+const WHY_ICONS = [Star, Trophy, Users, Flame, Award, Terminal];
+function highlightItems(h) {
+  const items = [];
+  if (h.durationLabel) items.push({ title: h.durationLabel, desc: `Build under a focused ${h.durationLabel.toLowerCase()} challenge.`, icon: Clock });
+  if (h.prizePool) items.push({ title: `${h.prizePool} Prize Pool`, desc: "Compete for the prize pool.", icon: Trophy });
+  if (h.minTeamSize || h.maxTeamSize) items.push({ title: teamSizeLabel(h), desc: "Build with a small team.", icon: Users });
+  if (h.perks?.length > 0) items.push({ title: "Perks Included", desc: h.perks.join(", "), icon: Award });
+  return items;
+}
+
+function FaqRow({ q, a }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <button onClick={() => setOpen(o => !o)} className="w-full text-left px-5 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-mono text-xs text-white/70">{q}</p>
+        <ChevronRight size={12} className="flex-shrink-0 text-white/25 transition-transform"
+          style={{ transform: open ? "rotate(90deg)" : "none" }} />
+      </div>
+      {open && <p className="font-mono text-[11px] text-white/40 mt-2 leading-relaxed">{a}</p>}
+    </button>
+  );
+}
 
 /* ─── Submission Modal ─── */
 function SubmitModal({ slug, uid, handle, displayName, onClose, onSubmitted, existing }) {
@@ -349,6 +399,8 @@ export function HackathonDetailView({ slug, onBack }) {
   const isHack      = hackathon ? isHackathon(hackathon) : true;
   const canRegister = hackathon && ["upcoming", "active"].includes(hackathon.status);
   const canSubmit   = hackathon && isHack && hackathon.status === "active" && registered;
+  const phase       = hackathon ? registrationPhase(hackathon) : "closed";
+  const phaseMeta   = registrationPhaseMeta(phase);
 
   const rootClass = `${windowed ? "min-h-full" : "min-h-screen"}`;
 
@@ -405,6 +457,14 @@ export function HackathonDetailView({ slug, onBack }) {
 
         <div className="relative max-w-5xl mx-auto">
 
+          {/* Banner image (optional - most events keep the plain accent-bar hero below) */}
+          {hackathon.bannerImage && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full aspect-[21/9] rounded-lg overflow-hidden mb-6 border border-white/8">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={hackathon.bannerImage} alt="" className="w-full h-full object-cover" />
+            </motion.div>
+          )}
+
           {/* Breadcrumb */}
           <div className="flex items-center gap-3 mb-8">
             <button onClick={onBack}
@@ -457,6 +517,17 @@ export function HackathonDetailView({ slug, onBack }) {
               <span className="inline-flex items-center gap-1 font-mono text-[10px] text-white/30 border border-white/8 px-2.5 py-1 rounded">
                 <Tag size={9} /> {hackathon.theme}
               </span>
+            )}
+
+            {/* Stat chips - only shown for whichever of these fields the event configures */}
+            {(hackathon.durationLabel || hackathon.prizePool || hackathon.minTeamSize || hackathon.maxTeamSize || hackathon.registrationFee || hackathon.mode) && (
+              <div className="flex flex-wrap gap-2.5 mt-5">
+                {hackathon.durationLabel && <StatChip icon={Clock} label={hackathon.durationLabel} />}
+                {hackathon.prizePool && <StatChip icon={Trophy} label={`${hackathon.prizePool} Prize Pool`} color="#FFD700" />}
+                {(hackathon.minTeamSize || hackathon.maxTeamSize) && <StatChip icon={Users} label={teamSizeLabel(hackathon)} />}
+                {hackathon.registrationFee && <StatChip icon={Tag} label={hackathon.registrationFee} />}
+                {hackathon.mode && MODE_META[hackathon.mode] && <StatChip icon={MODE_META[hackathon.mode].Icon} label={MODE_META[hackathon.mode].label} />}
+              </div>
             )}
           </motion.div>
 
@@ -513,6 +584,56 @@ export function HackathonDetailView({ slug, onBack }) {
                     <p className="font-mono text-xs text-white/45 leading-relaxed whitespace-pre-line">
                       {hackathon.description}
                     </p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Highlights - auto-built from duration/prizePool/team size/perks, so this is inert unless the event sets at least one of them */}
+              {highlightItems(hackathon).length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Flame size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">highlights.json</span>
+                  </div>
+                  <div className="p-5 grid sm:grid-cols-2 gap-4">
+                    {highlightItems(hackathon).map(item => (
+                      <div key={item.title} className="border border-white/6 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <item.icon size={14} style={{ color: ac }} />
+                          <p className="font-mono text-sm font-bold text-white">{item.title}</p>
+                        </div>
+                        <p className="font-mono text-[11px] text-white/40 leading-relaxed">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Why participate */}
+              {hackathon.whyParticipate?.length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Star size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">why_participate.json</span>
+                  </div>
+                  <div className="p-5 grid sm:grid-cols-2 gap-3">
+                    {hackathon.whyParticipate.map((reason, i) => {
+                      const Icon = WHY_ICONS[i % WHY_ICONS.length];
+                      return (
+                        <div key={i} className="flex items-start gap-2.5">
+                          <Icon size={14} className="flex-shrink-0 mt-0.5" style={{ color: ac }} />
+                          <p className="font-mono text-xs text-white/50 leading-relaxed">{reason}</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </motion.div>
               )}
@@ -627,6 +748,37 @@ export function HackathonDetailView({ slug, onBack }) {
                   </div>
                 </motion.div>
               )}
+
+              {/* FAQ */}
+              {hackathon.faq?.length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.27 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Terminal size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">faq.json</span>
+                  </div>
+                  <div className="divide-y divide-white/4">
+                    {hackathon.faq.map((item, i) => <FaqRow key={i} q={item.q} a={item.a} />)}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Bottom CTA - only for events that register via an external form and are currently taking signups */}
+              {hackathon.registrationFormUrl && phase === "open" && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                  className="terminal-window text-center p-8" style={{ borderColor: `${ac}30` }}>
+                  <p className="font-mono text-[10px] text-white/25 tracking-widest mb-2">// ready to build?</p>
+                  <p className="font-sans text-xl font-bold text-white mb-5">{hackathon.tagline || hackathon.title}</p>
+                  <a href={hackathon.registrationFormUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 font-mono text-sm py-3 px-6"
+                    style={{ color: "#000", background: ac, border: `1px solid ${ac}` }}>
+                    <ChevronRight size={13} /> [ REGISTER_YOUR_TEAM ]
+                  </a>
+                </motion.div>
+              )}
             </div>
 
             {/* ── Right (1/3): prizes + dates + actions ── */}
@@ -667,16 +819,22 @@ export function HackathonDetailView({ slug, onBack }) {
                   <div className="terminal-dot bg-green-500/70" />
                   <Calendar size={10} className="ml-2 text-white/25" />
                   <span className="font-mono text-[10px] text-white/25 ml-1">timeline.json</span>
+                  <span className="ml-auto font-mono text-[9px] px-2 py-0.5 rounded"
+                    style={{ color: phaseMeta.color, background: `${phaseMeta.color}12`, border: `1px solid ${phaseMeta.color}30` }}>
+                    {phaseMeta.label}
+                  </span>
                 </div>
                 <div className="p-5 space-y-4">
                   {[
                     { label: "REGISTRATIONS OPEN", ts: hackathon.registrationOpen },
+                    ...(hackathon.registrationCloseAt ? [{ label: "REGISTRATIONS CLOSE", ts: hackathon.registrationCloseAt }] : []),
                     { label: isHack ? "SUBMISSION DEADLINE" : "EVENT DATE", ts: hackathon.submissionDeadline },
                     ...(isHack ? [{ label: "RESULTS", ts: hackathon.resultsDate }] : []),
-                  ].map(({ label, ts }) => (
+                    ...(hackathon.venue ? [{ label: "VENUE", text: hackathon.venue }] : []),
+                  ].map(({ label, ts, text }) => (
                     <div key={label} className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[9px] text-white/25 tracking-wider">{label}</span>
-                      <span className="font-mono text-[10px] text-white/55">{fmtDate(ts)}</span>
+                      <span className="font-mono text-[10px] text-white/55">{text ?? fmtDate(ts)}</span>
                     </div>
                   ))}
                 </div>
@@ -708,29 +866,48 @@ export function HackathonDetailView({ slug, onBack }) {
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
                 className="space-y-2.5">
 
-                {/* Register / Unregister */}
-                {user && canRegister && (
-                  <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                    onClick={toggleRegister} disabled={regLoading}
-                    className="w-full font-mono text-sm py-3.5 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                    style={registered
-                      ? { color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.12)" }
-                      : { color: "#000", background: ac, border: `1px solid ${ac}` }}
-                  >
-                    {regLoading
-                      ? <span className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin" />
-                      : registered
-                        ? <><Check size={13}/> registered - click to leave</>
-                        : <><ChevronRight size={13}/> [ REGISTER_NOW ]</>
-                    }
-                  </motion.button>
-                )}
+                {/* Events with an external registration form (e.g. a Google Form) link out instead of writing a hackathon_registrations doc - the registration data lives there, not in Firestore */}
+                {hackathon.registrationFormUrl ? (
+                  phase === "open" ? (
+                    <motion.a whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                      href={hackathon.registrationFormUrl} target="_blank" rel="noopener noreferrer"
+                      className="w-full font-mono text-sm py-3.5 flex items-center justify-center gap-2 transition-all"
+                      style={{ color: "#000", background: ac, border: `1px solid ${ac}` }}
+                    >
+                      <ChevronRight size={13}/> [ REGISTER_YOUR_TEAM ]
+                    </motion.a>
+                  ) : (
+                    <div className="w-full font-mono text-sm py-3.5 flex items-center justify-center gap-2 text-white/25 border border-white/10">
+                      {phaseMeta.label}
+                    </div>
+                  )
+                ) : (
+                  <>
+                    {/* Register / Unregister */}
+                    {user && canRegister && (
+                      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                        onClick={toggleRegister} disabled={regLoading}
+                        className="w-full font-mono text-sm py-3.5 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                        style={registered
+                          ? { color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.12)" }
+                          : { color: "#000", background: ac, border: `1px solid ${ac}` }}
+                      >
+                        {regLoading
+                          ? <span className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin" />
+                          : registered
+                            ? <><Check size={13}/> registered - click to leave</>
+                            : <><ChevronRight size={13}/> [ REGISTER_NOW ]</>
+                        }
+                      </motion.button>
+                    )}
 
-                {!user && canRegister && (
-                  <Link href="/login"
-                    className="w-full font-mono text-sm py-3.5 flex items-center justify-center gap-2 text-white/35 border border-white/12 hover:text-white/60 hover:border-white/20 transition-colors">
-                    <ChevronRight size={13}/> login to register
-                  </Link>
+                    {!user && canRegister && (
+                      <Link href="/login"
+                        className="w-full font-mono text-sm py-3.5 flex items-center justify-center gap-2 text-white/35 border border-white/12 hover:text-white/60 hover:border-white/20 transition-colors">
+                        <ChevronRight size={13}/> login to register
+                      </Link>
+                    )}
+                  </>
                 )}
 
                 {/* Submit Project */}

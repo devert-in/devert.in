@@ -54,7 +54,7 @@ import {
   GateFormulaPanel, GateResourcesPanel, GateLessonImportPanel,
 } from "@/components/admin/gate-panel";
 import { fetchAptitudeTopics, saveAptitudeTopic } from "@/lib/aptitude";
-import { EVENT_TYPES, isHackathon } from "@/lib/eventTypes";
+import { EVENT_TYPES, isHackathon, EVENT_MODES } from "@/lib/eventTypes";
 import { withVersionSnapshot } from "@/lib/contentVersioning";
 import { LanguageLogo } from "@/components/campus/language-logo";
 import { subjectIcon } from "@/components/campus/campus-cscore";
@@ -6039,9 +6039,26 @@ function blankHackathonForm() {
       { place: "2nd", label: "2nd Place", reward: "" },
       { place: "3rd", label: "3rd Place", reward: "" },
     ],
-    registrationOpen: "", submissionDeadline: "", resultsDate: "",
-    maxTeamSize: "4", tags: "", status: "upcoming",
+    registrationOpen: "", submissionDeadline: "", resultsDate: "", registrationCloseAt: "",
+    maxTeamSize: "4", minTeamSize: "", tags: "", status: "upcoming",
+    registrationFee: "", prizePool: "", venue: "", durationLabel: "",
+    registrationFormUrl: "", perks: "", whyParticipate: "", faq: "",
+    bannerImage: "", mode: "",
   };
+}
+
+// "Question :: Answer" per line - same low-fidelity convention as the
+// comma-separated tags/perks fields, kept simple since this is admin-only
+// data entry, not user-facing input.
+function parseFaqText(text) {
+  return text.split("\n").map(l => l.trim()).filter(Boolean).map(line => {
+    const [q, ...rest] = line.split("::");
+    return { q: q.trim(), a: rest.join("::").trim() };
+  }).filter(f => f.q && f.a);
+}
+
+function faqToText(faq) {
+  return (faq || []).map(f => `${f.q} :: ${f.a}`).join("\n");
 }
 
 // Firestore Timestamp -> <input type="datetime-local"/type="date"> value.
@@ -6089,9 +6106,21 @@ function HackathonsPanel() {
       registrationOpen:   tsToInputStr(h.registrationOpen, true),
       submissionDeadline: tsToInputStr(h.submissionDeadline, true),
       resultsDate:        tsToInputStr(h.resultsDate, false),
+      registrationCloseAt: tsToInputStr(h.registrationCloseAt, true),
       maxTeamSize: String(h.maxTeamSize ?? "4"),
+      minTeamSize: h.minTeamSize ? String(h.minTeamSize) : "",
       tags: (h.tags || []).join(", "),
       status: h.status || "upcoming",
+      registrationFee: h.registrationFee || "",
+      prizePool: h.prizePool || "",
+      venue: h.venue || "",
+      durationLabel: h.durationLabel || "",
+      registrationFormUrl: h.registrationFormUrl || "",
+      bannerImage: h.bannerImage || "",
+      mode: h.mode || "",
+      perks: (h.perks || []).join(", "),
+      whyParticipate: (h.whyParticipate || []).join("\n"),
+      faq: faqToText(h.faq),
     });
   };
 
@@ -6116,10 +6145,22 @@ function HackathonsPanel() {
         registrationOpen:   form.registrationOpen   ? new Date(form.registrationOpen)   : null,
         submissionDeadline: form.submissionDeadline ? new Date(form.submissionDeadline) : null,
         resultsDate:        form.resultsDate         ? new Date(form.resultsDate)        : null,
+        registrationCloseAt: form.registrationCloseAt ? new Date(form.registrationCloseAt) : null,
         maxTeamSize:   parseInt(form.maxTeamSize) || 4,
+        minTeamSize:   form.minTeamSize ? parseInt(form.minTeamSize) || null : null,
         tags:          form.tags.split(",").map(t => t.trim()).filter(Boolean),
         status:        form.status,
         statusColor:   statusObj.c,
+        registrationFee:     form.registrationFee.trim(),
+        prizePool:           form.prizePool.trim(),
+        venue:               form.venue.trim(),
+        durationLabel:       form.durationLabel.trim(),
+        registrationFormUrl: form.registrationFormUrl.trim(),
+        bannerImage: form.bannerImage.trim(),
+        mode: form.mode,
+        perks:               form.perks.split(",").map(t => t.trim()).filter(Boolean),
+        whyParticipate:      form.whyParticipate.split("\n").map(t => t.trim()).filter(Boolean),
+        faq:                 parseFaqText(form.faq),
       };
       if (editingId) {
         await updateDoc(doc(db, "hackathons", editingId), payload);
@@ -6231,12 +6272,30 @@ function HackathonsPanel() {
           </div>
         </div>
 
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">MODE (optional)</p>
+          <div className="flex gap-2 flex-wrap">
+            {EVENT_MODES.map(m => (
+              <button key={m.v} onClick={() => setForm(p => ({ ...p, mode: p.mode === m.v ? "" : m.v }))}
+                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
+                style={{
+                  color:      form.mode === m.v ? "#00FFFF" : "rgba(255,255,255,0.3)",
+                  background: form.mode === m.v ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                  border:     form.mode === m.v ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                }}
+              >{m.label.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid sm:grid-cols-2 gap-3">
           <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="devcon-2026" hint={editingId ? "locked once created" : undefined} />
           <Input label="TITLE" value={form.title} onChange={f("title")} placeholder="DevCon Hackathon 2026" />
         </div>
-        <Input label="TAGLINE" value={form.tagline} onChange={f("tagline")} placeholder="Build the future in 48 hours" />
+        <Input label="TAGLINE" value={form.tagline} onChange={f("tagline")} placeholder="Think. Build. Electrify." />
         <Textarea label="DESCRIPTION" value={form.description} onChange={f("description")} placeholder="What's this event about?" rows={3} />
+        <Input label="BANNER IMAGE URL (optional)" value={form.bannerImage} onChange={f("bannerImage")}
+          placeholder="https://..." hint="Shown at the top of the listing card and event page when set - card falls back to the plain accent bar otherwise" />
 
         {!isHack && (
           <Input label="HOST / SPEAKER" value={form.host} onChange={f("host")} placeholder="e.g. Jane Doe, Senior SWE @ Acme" />
@@ -6245,9 +6304,27 @@ function HackathonsPanel() {
         <div className="grid sm:grid-cols-3 gap-3">
           <Input label="THEME (optional)" value={form.theme} onChange={f("theme")} placeholder="AI, Web3, Open Innovation" />
           <Input label="ACCENT COLOR" type="color" value={form.accentColor} onChange={f("accentColor")} />
+          <Input label="VENUE (optional)" value={form.venue} onChange={f("venue")} placeholder="TBA" />
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Input label="MIN TEAM SIZE (optional)" value={form.minTeamSize} onChange={f("minTeamSize")} placeholder="2" />
           <Input label="MAX TEAM SIZE" value={form.maxTeamSize} onChange={f("maxTeamSize")} placeholder="4" />
+          <Input label="DURATION LABEL (optional)" value={form.durationLabel} onChange={f("durationLabel")} placeholder="12 Hours" />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="REGISTRATION FEE (optional)" value={form.registrationFee} onChange={f("registrationFee")} placeholder="₹950 / team" />
+          <Input label="PRIZE POOL HEADLINE (optional)" value={form.prizePool} onChange={f("prizePool")} placeholder="₹20,000" />
         </div>
         <Input label="TAGS (comma separated)" value={form.tags} onChange={f("tags")} placeholder="Web, AI, Mobile" />
+        <Input label="PERKS (comma separated, optional)" value={form.perks} onChange={f("perks")} placeholder="Breakfast, Lunch, Snacks, Certificates" />
+
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">
+            EXTERNAL REGISTRATION FORM (optional)
+          </p>
+          <Input label="FORM URL" value={form.registrationFormUrl} onChange={f("registrationFormUrl")}
+            placeholder="https://forms.gle/..." hint="When set, Register buttons link out here instead of registering in-app" />
+        </div>
 
         {isHack && (
           <div>
@@ -6260,14 +6337,20 @@ function HackathonsPanel() {
           </div>
         )}
 
+        <Textarea label="WHY PARTICIPATE (one reason per line, optional)" value={form.whyParticipate} onChange={f("whyParticipate")}
+          placeholder={"Build something real\nCompete with developers\nNetwork with builders"} rows={3} />
+        <Textarea label='FAQ ("Question :: Answer" per line, optional)' value={form.faq} onChange={f("faq")}
+          placeholder={"What is the registration fee? :: ₹950 per team"} rows={3} />
+
         <p className="font-mono text-[10px] text-white/40 tracking-widest pt-2">TIMELINE</p>
         <div className="grid sm:grid-cols-2 gap-3">
           <Input label="REGISTRATIONS OPEN" type="datetime-local" value={form.registrationOpen} onChange={f("registrationOpen")} />
-          <Input label={isHack ? "SUBMISSION DEADLINE" : "EVENT DATE/TIME"} type="datetime-local" value={form.submissionDeadline} onChange={f("submissionDeadline")} />
+          <Input label="REGISTRATIONS CLOSE (optional)" type="datetime-local" value={form.registrationCloseAt} onChange={f("registrationCloseAt")} />
         </div>
-        {isHack && (
-          <Input label="RESULTS DATE" type="date" value={form.resultsDate} onChange={f("resultsDate")} />
-        )}
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label={isHack ? "SUBMISSION DEADLINE" : "EVENT DATE/TIME"} type="datetime-local" value={form.submissionDeadline} onChange={f("submissionDeadline")} />
+          {isHack && <Input label="RESULTS DATE" type="date" value={form.resultsDate} onChange={f("resultsDate")} />}
+        </div>
 
         <div>
           <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
