@@ -10,13 +10,13 @@
 // (fixed a wrong breadcrumb/URL surfaced on the live event page) ->
 // devertathon26 (final, no-hyphen slug).
 //
+// hackathons/devert-launch-hack (the old "DeVert Launch Hackathon / 48
+// hours" placeholder this file used to retire via --retire-old-placeholder)
+// has since been deleted outright - it had zero registrations/submissions,
+// so there was nothing a "retire, don't delete" safety net was protecting.
+//
 // Usage:
 //   node scripts/upsert-devertathon26.mjs
-//   node scripts/upsert-devertathon26.mjs --retire-old-placeholder
-//     (also flips hackathons/devert-launch-hack's status to "ended" so the
-//     old "DeVert Launch Hackathon / 48 hours" copy stops being the
-//     featured/listed event - it is NOT deleted, since deletion also removes
-//     its registration/submission docs; retiring is the reversible choice)
 import admin from "firebase-admin";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
@@ -52,7 +52,8 @@ const doc = {
   registrationCloseAt: null,
   submissionDeadline: null,
   resultsDate: null,
-  venue: "TBA",
+  venue: "Malla Reddy College of Engineering and Technology",
+  mode: "in_person",
   minTeamSize: 2,
   maxTeamSize: 3,
   registrationFee: "₹950 / team",
@@ -87,14 +88,3 @@ await db.doc(`hackathons/${SLUG}`).set(
   { merge: true }
 );
 console.log(`Upserted hackathons/${SLUG}.`);
-
-if (process.argv.includes("--retire-old-placeholder")) {
-  const oldRef = db.doc("hackathons/devert-launch-hack");
-  const oldSnap = await oldRef.get();
-  if (oldSnap.exists) {
-    await oldRef.update({ status: "ended", statusColor: "#555555" });
-    console.log("Retired hackathons/devert-launch-hack (status -> ended).");
-  } else {
-    console.log("hackathons/devert-launch-hack does not exist - nothing to retire.");
-  }
-}
