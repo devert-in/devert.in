@@ -146,7 +146,21 @@ export function HackathonsApp() {
                   initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.05 * i }}
                 >
-                  <button onClick={() => setSelectedSlug(h.slug || h.id)} className="block w-full text-left group">
+                  <button
+                    onClick={() => {
+                      // Only the windowed (dock-launched) instance gets the
+                      // in-place swap - see this file's own comment above
+                      // selectedSlug. On the two standalone routes that
+                      // mount this component (/events, /hackathons),
+                      // windowed is always false, so this now does a real
+                      // navigation to the same /h/{slug} URL the card's own
+                      // "share" button already treats as canonical - fixes
+                      // the address bar never updating, and gets back/
+                      // forward/refresh for free as a side effect.
+                      if (windowed) { setSelectedSlug(h.slug || h.id); return; }
+                      window.location.href = `/h/${h.slug || h.id}`;
+                    }}
+                    className="block w-full text-left group">
                     <div className="terminal-window h-full flex flex-col transition-all duration-200 group-hover:border-white/15"
                       style={{ borderColor: "rgba(255,255,255,0.07)" }}>
                       {/* Banner image (optional - falls back to the plain accent bar every card has always had) */}

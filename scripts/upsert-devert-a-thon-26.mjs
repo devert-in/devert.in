@@ -1,13 +1,18 @@
-// One-off upsert for the DeVert-A-thon'26 hackathon doc (slug kept as
-// "devolt-26" from the original working name - see title below for the
-// renamed display value), following the same
+// One-off upsert for the DeVert-A-thon'26 hackathon doc, following the same
 // firebase-admin + service-account.json convention as set-admin-claim.mjs.
 // Safe to re-run - it's an idempotent setDoc(..., {merge:true}) keyed on the
 // slug below, not an append.
 //
+// The doc originally shipped at hackathons/devolt-26 ("DevOlt" was this
+// event's internal working name before it was renamed to DeVert-A-thon'26) -
+// moved to hackathons/devert-a-thon-26 once the mismatch surfaced as a wrong
+// breadcrumb/URL on the live event page. Firestore can't rename a doc ID in
+// place, so that was a one-off copy+delete (done directly, not via this
+// script) rather than something this file's re-run logic handles.
+//
 // Usage:
-//   node scripts/upsert-devolt26.mjs
-//   node scripts/upsert-devolt26.mjs --retire-old-placeholder
+//   node scripts/upsert-devert-a-thon-26.mjs
+//   node scripts/upsert-devert-a-thon-26.mjs --retire-old-placeholder
 //     (also flips hackathons/devert-launch-hack's status to "ended" so the
 //     old "DeVert Launch Hackathon / 48 hours" copy stops being the
 //     featured/listed event - it is NOT deleted, since deletion also removes
@@ -22,7 +27,7 @@ const serviceAccount = JSON.parse(readFileSync(join(__dirname, "service-account.
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-const SLUG = "devolt-26";
+const SLUG = "devert-a-thon-26";
 
 const doc = {
   title: "DeVert-A-thon'26",
