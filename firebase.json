@@ -3,17 +3,73 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
-  "hosting": {
-    "public": "devert-frontend/out",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "cleanUrls": true,
-    "trailingSlash": false
-  },
-  "storage": {
-    "rules": "storage.rules"
+  "functions": [
+    { "source": "functions", "codebase": "default" }
+  ],
+  "hosting": [
+    {
+      "target": "main",
+      "public": "devert-frontend/out",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "cleanUrls": true,
+      "trailingSlash": false,
+      "headers": [
+        {
+          "source": "/_next/static/**",
+          "headers": [
+            { "key": "Cache-Control", "value": "no-cache" }
+          ]
+        }
+      ],
+      "redirects": [
+        { "source": "/campus", "destination": "https://campus.devert.in/", "type": 301 },
+        { "source": "/campus/:splat*", "destination": "https://campus.devert.in/:splat*", "type": 301 }
+      ],
+      "rewrites": [
+        { "source": "/api/auth/**", "run": { "serviceId": "devert-backend", "region": "asia-south1" } },
+        { "source": "/u/**", "function": "uHandleRouter" },
+        { "source": "/h/**", "destination": "/h.html" },
+        { "source": "/campus/**", "function": "campusPreviewRouter" },
+        { "source": "/contest/**", "function": "contestPreviewRouter" },
+        { "source": "/pulse/**", "function": "pulsePreviewRouter" }
+      ]
+    },
+    {
+      "target": "campus",
+      "public": "devert-campus/out",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "cleanUrls": true,
+      "trailingSlash": false,
+      "headers": [
+        {
+          "source": "/_next/static/**",
+          "headers": [
+            { "key": "Cache-Control", "value": "no-cache" }
+          ]
+        }
+      ],
+      "rewrites": [
+        { "source": "/api/auth/**", "run": { "serviceId": "devert-backend", "region": "asia-south1" } }
+      ]
+    }
+  ],
+  "storage": [
+    {
+      "bucket": "devert-me.firebasestorage.app",
+      "rules": "storage.rules"
+    }
+  ],
+  "emulators": {
+    "firestore": {
+      "port": 8089
+    }
   }
 }

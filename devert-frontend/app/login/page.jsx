@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
-import { Terminal, Wifi, AlertCircle } from "lucide-react";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { useRouter, useSearchParams } from "next/navigation";
+import Script from "next/script";
+import {
+  Terminal, Wifi, AlertCircle, X, GraduationCap, Flame, Anchor, Activity, Radio,
+} from "lucide-react";
+import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { useAuth } from "@/context/AuthContext";
+import { HackathonSpotlight } from "@/components/hackathon-spotlight";
+import { CampusSpotlight } from "@/components/campus-spotlight";
 
 const BOOT_LINES = [
   "Connecting to devert.in...",
@@ -14,12 +20,74 @@ const BOOT_LINES = [
   "Ready. Awaiting credentials.",
 ];
 
-export default function LoginPage() {
+const ECOSYSTEM_PILLARS = [
+  { icon: GraduationCap, color: "#00FFFF", label: "Campus",  body: "Learn, practice, prepare for placements" },
+  { icon: Flame,         color: "#FF6430", label: "Events",  body: "Hackathons, workshops, meetups" },
+  { icon: Anchor,        color: "#00FF41", label: "Shipyard", body: "Ship real projects, get judged" },
+  { icon: Activity,      color: "#C77DFF", label: "Pulse",   body: "Dev feed & communities" },
+  { icon: Radio,         color: "#FFD700", label: "Intel",   body: "Opportunities, news, signal" },
+];
+
+// Desktop-only ecosystem panel, left of the (unchanged) auth card - the
+// "split experience" ask. Deliberately static, not rotating/animated on a
+// timer: a login page should never make the actual sign-in button compete
+// for attention with a moving carousel.
+function EcosystemPanel() {
+  return (
+    <div className="hidden lg:flex flex-col justify-center pr-16 flex-1">
+      <p className="font-mono text-xs mb-3 tracking-widest" style={{ color: "rgba(0,255,65,0.55)" }}>
+        // welcome_back.exe
+      </p>
+      <h1 className="font-sans font-bold tracking-tighter text-white leading-none mb-4"
+        style={{ fontSize: "clamp(2rem, 4vw, 3.2rem)" }}>
+        THE DEVELOPER<br /><span className="text-neon-cyan">UNIVERSE.</span>
+      </h1>
+      <p className="font-mono text-sm text-white/35 mb-10 max-w-sm leading-relaxed">
+        One identity. Learn, build, compete, connect, create - across all of it.
+      </p>
+      <div className="space-y-4 max-w-sm">
+        {ECOSYSTEM_PILLARS.map(p => (
+          <div key={p.label} className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${p.color}15` }}>
+              <p.icon size={16} style={{ color: p.color }} />
+            </div>
+            <div>
+              <p className="font-sans text-[13px] font-semibold text-white/85">{p.label}</p>
+              <p className="font-mono text-[10.5px] text-white/30">{p.body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Public OAuth Web Client ID for the devert-me Firebase project (not a secret —
+// same class of value as firebaseConfig.apiKey, safe to embed in client code).
+// Used to drive Google Identity Services directly so the sign-in popup never
+// has to visit Firebase's own /__/auth/handler relay page.
+const GOOGLE_CLIENT_ID = "550891323057-09tnhqhgpmtuoud983ug14f6rmoi4bgh.apps.googleusercontent.com";
+
+function LoginContent() {
   const [bootDone, setBootDone] = useState(false);
   const [visibleLines, setVisibleLines] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [gsiReady, setGsiReady] = useState(false);
+  const tokenClientRef = useRef(null);
+  const nextRef = useRef("/");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
+
+  const rawNext = searchParams.get("next");
+  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  nextRef.current = next;
+
+  // Already logged in → go straight to destination
+  useEffect(() => {
+    if (!authLoading && user) router.push(next);
+  }, [user, authLoading]);
 
   useEffect(() => {
     let i = 0;
@@ -34,13 +102,54 @@ export default function LoginPage() {
     return () => clearInterval(iv);
   }, []);
 
+  // Set up the Google Identity Services OAuth token client once its script has
+  // loaded. This drives Google's own account-chooser popup directly, so sign-in
+  // never has to bounce through Firebase's /__/auth/handler relay page.
+  useEffect(() => {
+    if (!gsiReady || typeof window === "undefined" || !window.google?.accounts?.oauth2) return;
+
+    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: "openid email profile",
+      callback: async (tokenResponse) => {
+        if (!tokenResponse || tokenResponse.error) {
+          setError("Authentication failed. Try again.");
+          setLoading(false);
+          return;
+        }
+        try {
+          const credential = GoogleAuthProvider.credential(null, tokenResponse.access_token);
+          await signInWithCredential(auth, credential);
+          router.push(nextRef.current);
+        } catch (e) {
+          setError("Authentication failed. Try again.");
+          setLoading(false);
+        }
+      },
+      error_callback: () => {
+        // User closed the Google popup or it was blocked — not a real failure,
+        // just stop the spinner and let them try again.
+        setLoading(false);
+      },
+    });
+  }, [gsiReady]);
+
   const handleGoogle = async () => {
     setLoading(true);
     setError("");
+
+    if (tokenClientRef.current) {
+      tokenClientRef.current.requestAccessToken({ prompt: "select_account" });
+      return;
+    }
+
+    // Fallback: if Google Identity Services hasn't loaded (slow network, an
+    // extension blocking accounts.google.com/gsi/client, etc.) fall back to
+    // Firebase's own popup flow rather than ever leaving sign-in broken.
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      router.push("/");
+      router.push(nextRef.current);
     } catch (e) {
       setError("Authentication failed. Try again.");
       setLoading(false);
@@ -49,13 +158,29 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 relative overflow-hidden">
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={() => setGsiReady(true)}
+        onError={() => setGsiReady(false)}
+      />
       <div className="absolute inset-0 grid-bg opacity-40 pointer-events-none" />
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,255,65,0.03) 0%, transparent 70%)" }}
       />
 
-      <div className="w-full max-w-md relative z-10">
-        <motion.div
+      <div className="w-full max-w-5xl relative z-10 flex items-center justify-center">
+        <EcosystemPanel />
+        <div className="w-full max-w-md flex-shrink-0">
+          {/* Hackathon card renders nothing without an active/upcoming
+              hackathon - same component as the Hero and the signed-in HQ
+              dashboard, so anyone landing straight on /login (a bookmark, a
+              shared link) sees it too instead of it being reachable only
+              post-login. Campus card stacks below it - column is too narrow
+              (max-w-md) for side-by-side. */}
+          <HackathonSpotlight />
+          <CampusSpotlight />
+          <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 240, damping: 24 }}
@@ -68,9 +193,14 @@ export default function LoginPage() {
             <div className="terminal-dot bg-green-500/70" />
             <Terminal size={11} className="ml-2 text-white/25" />
             <span className="font-mono text-[11px] text-white/25 ml-1">ssh devert.in</span>
-            <div className="ml-auto flex items-center gap-1.5">
-              <Wifi size={10} className="text-neon-green/60" />
-              <span className="font-mono text-[10px] text-neon-green/60">CONNECTED</span>
+            <div className="ml-auto flex items-center gap-3">
+              <span className="flex items-center gap-1.5">
+                <Wifi size={10} className="text-neon-green/60" />
+                <span className="font-mono text-[10px] text-neon-green/60">CONNECTED</span>
+              </span>
+              <button onClick={() => router.push("/")} className="text-white/25 hover:text-white/60 transition-colors">
+                <X size={12} />
+              </button>
             </div>
           </div>
 
@@ -159,12 +289,21 @@ export default function LoginPage() {
           </div>
         </motion.div>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
-          className="font-mono text-[10px] text-white/18 text-center mt-4"
-        >
-          devert.in · Builder&apos;s OS · v2.0
-        </motion.p>
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
+            className="font-mono text-[10px] text-white/18 text-center mt-4"
+          >
+            devert.in · Builder&apos;s OS · v2.0
+          </motion.p>
+        </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }

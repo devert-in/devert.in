@@ -3,6 +3,17 @@
     "default": "devert-me",
     "DeVert": "devert-me"
   },
-  "targets": {},
+  "targets": {
+    "devert-me": {
+      "hosting": {
+        "main": [
+          "devert-me"
+        ],
+        "campus": [
+          "devert-campus"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

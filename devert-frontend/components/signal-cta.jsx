@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -75,7 +75,7 @@ export function SignalCta() {
           transition={{ delay: 0.16 }}
           className="font-mono text-sm text-white/32 mb-10 max-w-md mx-auto"
         >
-          $ ssh devert.in —— your next level awaits inside.
+          $ ssh devert.in -- your next level awaits inside.
         </motion.p>
 
         <motion.div

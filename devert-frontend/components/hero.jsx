@@ -1,32 +1,11 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Wifi, Cpu, Users, Anchor, Target, Flame } from "lucide-react";
-
-const STATS = [
-  { icon: Users,  label: "ACTIVE_BUILDERS", value: 847 },
-  { icon: Anchor, label: "SHIPS_THIS_WEEK",  value: 23  },
-  { icon: Target, label: "MISSIONS_LIVE",    value: 3   },
-  { icon: Flame,  label: "TOP_STREAK",       value: 14, suffix: "d" },
-];
-
-function CountUp({ target, suffix = "" }) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    let current = 0;
-    const steps = 55;
-    const inc = target / steps;
-    const iv = setInterval(() => {
-      current += inc;
-      if (current >= target) { setCount(target); clearInterval(iv); }
-      else setCount(Math.floor(current));
-    }, 1400 / steps);
-    return () => clearInterval(iv);
-  }, [target]);
-  return <>{count}{suffix}</>;
-}
+import { Wifi, Cpu } from "lucide-react";
+import { HackathonSpotlight } from "@/components/hackathon-spotlight";
+import { CampusSpotlight } from "@/components/campus-spotlight";
 
 function GlitchButton({ children, href, primary }) {
   const [text, setText] = useState(children);
@@ -101,11 +80,18 @@ export function Hero() {
       initial="hidden"
       animate="show"
       variants={container}
-      className="relative min-h-screen flex flex-col justify-center pt-8 pb-36 px-6 overflow-hidden"
+      className="relative min-h-screen lg:min-h-[calc(100vh-5rem)] flex flex-col justify-center pt-8 pb-20 px-6 overflow-hidden"
     >
       {/* Grid bg */}
       <div className="absolute inset-0 grid-bg opacity-50 pointer-events-none" />
-      {/* Radial glow center */}
+      {/* Synthwave horizon - animated sun + scrolling perspective grid,
+          see .synth-scene in globals.css */}
+      <div className="synth-scene opacity-70">
+        <div className="synth-sun" />
+        <div className="synth-horizon-line" />
+        <div className="synth-grid-floor" />
+      </div>
+      {/* Radial glow, ties the scene into the rest of the section */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(ellipse 60% 50% at 50% 60%, rgba(0,255,255,0.04) 0%, transparent 70%)" }}
@@ -124,30 +110,11 @@ export function Hero() {
             DeVert OS v2.0
           </span>
           <span className="text-white/10">|</span>
-          <span>Mumbai, IN — asia-south1</span>
-          <span className="ml-auto font-mono text-[10px] text-white/15">devert.in</span>
-        </motion.div>
-
-        {/* Stat panels */}
-        <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-14">
-          {STATS.map((s) => {
-            const Icon = s.icon;
-            return (
-              <motion.div
-                key={s.label}
-                whileHover={{ borderColor: "rgba(0,255,255,0.25)" }}
-                className="terminal-window p-4 transition-colors"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon size={11} style={{ color: "rgba(0,255,255,0.5)" }} />
-                  <span className="font-mono text-[9px] text-white/25 tracking-wider">{s.label}</span>
-                </div>
-                <div className="font-mono text-3xl font-bold text-white">
-                  <CountUp target={s.value} suffix={s.suffix} />
-                </div>
-              </motion.div>
-            );
-          })}
+          <span>Mumbai, IN - asia-south1</span>
+          <Link href="/login" className="ml-auto font-mono text-xs font-bold text-black px-3 py-1 transition-all hover:opacity-85"
+            style={{ background: "#00FF41" }}>
+            [ ENTER_HQ ]
+          </Link>
         </motion.div>
 
         {/* Headline */}
@@ -157,28 +124,33 @@ export function Hero() {
 
         <motion.h1
           variants={item}
-          className="font-sans font-bold tracking-tighter text-white leading-none mb-6"
+          className="font-sans font-bold tracking-tighter text-white leading-none mb-10"
           style={{ fontSize: "clamp(2.8rem, 8vw, 6.5rem)" }}
         >
           YOU ARE NOW<br />
           <span className="text-neon-cyan text-glow-cyan">INSIDE DEVERT.</span>
         </motion.h1>
 
-        <motion.p variants={item} className="font-mono text-sm text-white/38 mb-10 max-w-lg leading-relaxed">
-          <span style={{ color: "rgba(0,255,65,0.55)" }}>$</span> The 1% dev roadmap. Build. Ship. Repeat.<br />
-          <span style={{ color: "rgba(0,255,65,0.55)" }}>$</span> Not for learners. For builders.
-        </motion.p>
+        <motion.div variants={item} className="flex flex-wrap gap-3 mb-10">
+          <GlitchButton href="/build" primary>[ START_BUILDING ]</GlitchButton>
+          <GlitchButton href="/intel" primary={false}>[ EXPLORE_INTEL ]</GlitchButton>
+        </motion.div>
 
-        <motion.div variants={item} className="flex flex-wrap gap-3">
-          <GlitchButton href="/grind"  primary>[ START_BUILDING ]</GlitchButton>
-          <GlitchButton href="/intel"  primary={false}>[ EXPLORE_INTEL ]</GlitchButton>
+        {/* Hackathon card renders nothing if there's no active/upcoming
+            hackathon - same component and "one loud spotlight" rule as the
+            signed-in HQ dashboard, so a signed-out visitor sees it too
+            instead of it being buried behind a login. Campus card sits
+            beside it so both first-impression cards land together. */}
+        <motion.div variants={item} className="max-w-4xl grid sm:grid-cols-2 gap-4 mb-6 md:mb-0">
+          <HackathonSpotlight />
+          <CampusSpotlight />
         </motion.div>
       </div>
 
-      {/* Scroll indicator */}
+      {/* Scroll indicator - hidden on mobile to avoid overlap with buttons */}
       <motion.div
         variants={item}
-        className="absolute bottom-32 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+        className="hidden md:flex absolute bottom-10 left-1/2 -translate-x-1/2 flex-col items-center gap-2"
       >
         <span className="font-mono text-[10px] text-white/18">scroll to explore</span>
         <motion.div
