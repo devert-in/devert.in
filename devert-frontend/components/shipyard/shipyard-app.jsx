@@ -5,10 +5,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Anchor, ExternalLink, Plus, Filter, Flame, Wrench, X, Check, Heart, MessageCircle, Send, Trash2 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import {
-  collection, query, orderBy, where, getDocs, addDoc, doc, setDoc, deleteDoc,
-  updateDoc, increment, serverTimestamp, writeBatch,
+  collection, query, orderBy, where, getDocs, doc,
+  increment, serverTimestamp, writeBatch,
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
+import { dockProject } from "@/lib/shipyard";
 
 const TAG_META = {
   Fire:         { Icon: Flame,  color: "#FF6430", bg: "rgba(255,100,48,0.1)"  },
@@ -19,7 +20,7 @@ const TAG_META = {
 const REACTIONS  = ["Fire", "Shipped", "Needs Work"];
 const FILTER_ALL = ["all", "fire", "shipped", "needs work"];
 
-function DockModal({ onClose, onSubmit, submitting }) {
+export function DockModal({ onClose, onSubmit, submitting }) {
   const [name,     setName]     = useState("");
   const [desc,     setDesc]     = useState("");
   const [stackRaw, setStackRaw] = useState("");
@@ -329,13 +330,7 @@ export function ShipyardApp() {
     if (!user) return;
     setSubmitting(true);
     try {
-      await addDoc(collection(db, "projects"), {
-        ...data,
-        ownerId:     user.uid,
-        ownerHandle: userData?.handle || user.email?.split("@")[0] || "dev",
-        createdAt:   serverTimestamp(),
-      });
-      await updateDoc(doc(db, "users", user.uid), { ships: increment(1) });
+      await dockProject({ user, userData, data });
       refreshProfile();
       setShowModal(false);
       fetchProjects();

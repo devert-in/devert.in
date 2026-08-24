@@ -14,9 +14,14 @@
 // genuinely new dependency (jspdf + jspdf-autotable), dynamically imported
 // the same way `xlsx` already is, so it stays out of the main bundle.
 
-import { fetchRosterStudents, fetchPendingStudents, fetchClassrooms } from "./institutions";
-import { fetchClassroomAnalytics } from "./classroomAnalytics";
-import { fetchContestRegistrations, fetchContestSubmissions } from "./contests";
+// Stays in devert-frontend/lib (not moved to devert-campus with the rest of
+// Campus's report-gathering call sites) because campus-ui.jsx's
+// ReportDownloadButton - itself shared with devert-frontend's admin/
+// reset-password surfaces - dynamically imports this module; devert-campus's
+// own campus-* components reach it through the jsconfig.json @/* fallback.
+import { fetchRosterStudents, fetchPendingStudents, fetchClassrooms } from "@/lib/institutions";
+import { fetchClassroomAnalytics } from "@/lib/classroomAnalytics";
+import { fetchContestRegistrations, fetchContestSubmissions } from "@/lib/contests";
 
 function slug(v) {
   return (v || "report").toString().trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");

@@ -1,10 +1,10 @@
 export const metadata = {
   title: "Missions",
-  description: "Complete dev missions, earn XP, and climb the ranks. Real tasks. Real rewards. No tutorials.",
+  description: "Team up on real dev tasks and community bounties. No tutorials.",
   alternates: { canonical: "https://devert.in/missions" },
   openGraph: {
     title: "Missions | DeVert",
-    description: "Complete dev missions, earn XP, climb the ranks. Real tasks. Real rewards.",
+    description: "Team up on real dev tasks and community bounties.",
     url: "https://devert.in/missions",
   },
 };

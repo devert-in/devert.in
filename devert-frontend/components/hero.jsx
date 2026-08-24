@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Wifi, Cpu } from "lucide-react";
+import { HackathonSpotlight } from "@/components/hackathon-spotlight";
 
 function GlitchButton({ children, href, primary }) {
   const [text, setText] = useState(children);
@@ -78,11 +79,18 @@ export function Hero() {
       initial="hidden"
       animate="show"
       variants={container}
-      className="relative min-h-screen flex flex-col justify-center pt-8 pb-20 px-6 overflow-hidden"
+      className="relative min-h-screen lg:min-h-[calc(100vh-5rem)] flex flex-col justify-center pt-8 pb-20 px-6 overflow-hidden"
     >
       {/* Grid bg */}
       <div className="absolute inset-0 grid-bg opacity-50 pointer-events-none" />
-      {/* Radial glow */}
+      {/* Synthwave horizon - animated sun + scrolling perspective grid,
+          see .synth-scene in globals.css */}
+      <div className="synth-scene opacity-70">
+        <div className="synth-sun" />
+        <div className="synth-horizon-line" />
+        <div className="synth-grid-floor" />
+      </div>
+      {/* Radial glow, ties the scene into the rest of the section */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(ellipse 60% 50% at 50% 60%, rgba(0,255,255,0.04) 0%, transparent 70%)" }}
@@ -122,9 +130,17 @@ export function Hero() {
           <span className="text-neon-cyan text-glow-cyan">INSIDE DEVERT.</span>
         </motion.h1>
 
-        <motion.div variants={item} className="flex flex-wrap gap-3 mb-16 md:mb-0">
-          <GlitchButton href="/shipyard" primary>[ START_BUILDING ]</GlitchButton>
+        <motion.div variants={item} className="flex flex-wrap gap-3 mb-10">
+          <GlitchButton href="/build" primary>[ START_BUILDING ]</GlitchButton>
           <GlitchButton href="/intel" primary={false}>[ EXPLORE_INTEL ]</GlitchButton>
+        </motion.div>
+
+        {/* Renders nothing if there's no active/upcoming hackathon - same
+            component and "one loud spotlight" rule as the signed-in HQ
+            dashboard, so a signed-out visitor sees it too instead of it
+            being buried behind a login. */}
+        <motion.div variants={item} className="max-w-2xl mb-6 md:mb-0">
+          <HackathonSpotlight />
         </motion.div>
       </div>
 

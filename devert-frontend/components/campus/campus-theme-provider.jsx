@@ -98,7 +98,7 @@ export function CampusShell({ children, nav = null }) {
           corner. With it, the header already carries the Campus logo home, and
           a second floating back-link beside it is just clutter. */}
       {!nav && (
-        <Link href="/campus"
+        <Link href="/"
           className="absolute top-5 left-5 flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors hover:opacity-80"
           style={{ color: CAMPUS.inkSoft }}>
           <ArrowLeft size={14} /> Back to Campus

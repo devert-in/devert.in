@@ -16,7 +16,7 @@ const CORE_MODULES = [
   { icon: Activity, label: "Pulse",    body: "Dev social feed & communities" },
   { icon: Radio,    label: "Intel",    body: "Dev news, resources, opportunities" },
   { icon: Flame,    label: "Events",   body: "Hackathons, workshops, meetups, open mics" },
-  { icon: Target,   label: "Missions", body: "Real, paid dev work" },
+  { icon: Target,   label: "Missions", body: "Community bounties & tasks" },
   { icon: Tv2,      label: "Broadcast", body: "Live dev streams" },
 ];
 
@@ -85,7 +85,7 @@ export default function AboutPage() {
           <div className="terminal-window">
             <div className="terminal-header">
               <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
-              <span className="font-mono text-[10px] text-white/25 ml-2">devert.in/campus</span>
+              <span className="font-mono text-[10px] text-white/25 ml-2">campus.devert.in</span>
             </div>
             <div className="p-6">
               <div className="flex items-center gap-3 mb-3">

@@ -1,6 +1,6 @@
 export const metadata = {
   title: "Build",
-  robots: { index: false, follow: true },
+  robots: { index: true, follow: true },
   alternates: { canonical: "https://devert.in/build" },
 };
 

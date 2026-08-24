@@ -15,9 +15,12 @@ const MODE_META = {
   hybrid: { label: "Hybrid", Icon: Users },
 };
 
-function Pill({ icon: Icon, children }) {
+function Pill({ icon: Icon, children, color }) {
   return (
-    <span className="font-mono text-[9px] text-white/30 border border-white/8 px-2 py-0.5 rounded flex items-center gap-1">
+    <span className="font-mono text-[9px] px-2 py-0.5 rounded flex items-center gap-1"
+      style={color
+        ? { color, background: `${color}12`, border: `1px solid ${color}40` }
+        : { color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.08)" }}>
       {Icon && <Icon size={9} />} {children}
     </span>
   );
@@ -101,7 +104,7 @@ export function HackathonsApp() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
           <p className="font-mono text-xs text-neon-green/55 mb-3 tracking-wider">// events.log</p>
           <h1 className="font-sans font-bold tracking-tighter text-white leading-none"
-            style={{ fontSize: "clamp(2rem,5vw,4rem)" }}>
+            style={{ fontSize: "clamp(1.75rem,4vw,2.75rem)" }}>
             EV<span className="text-neon-cyan">ENTS</span>
           </h1>
           <p className="font-mono text-xs text-white/30 mt-3 max-w-lg">
@@ -203,6 +206,7 @@ export function HackathonsApp() {
 
                         {/* Mode / pricing / team-size pills */}
                         <div className="flex flex-wrap gap-1.5 mb-3">
+                          {h.eventDateLabel && <Pill icon={Calendar} color={h.accentColor || "#00FF41"}>{h.eventDateLabel}</Pill>}
                           {h.mode && MODE_META[h.mode] && (
                             <Pill icon={MODE_META[h.mode].Icon}>{MODE_META[h.mode].label}</Pill>
                           )}

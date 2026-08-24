@@ -19,8 +19,13 @@ const MCQS = [
 ];
 
 // A 20-XP topic over 4 questions => 5 XP a question, 1.25 -> 1 XP deducted per
-// wrong at the default 0.25 ratio.
-const POLICY = policyFor("cscore", { xpReward: 20, coinReward: 8 });
+// wrong at the default 0.25 ratio. Uses "gate", not "cscore": cscore's module
+// entry in DEFAULT_REWARD_POLICY deliberately overrides wrongPenaltyRatio to 0
+// (a CS Core topic is a content module, not a gatekept exam - see that
+// module's own comment), so it no longer exercises the penalty arithmetic
+// this file is testing. "gate" carries no such override and inherits the
+// platform default straight from `defaults`.
+const POLICY = policyFor("gate", { xpReward: 20, coinReward: 8 });
 
 test("grading counts correct, wrong and unanswered separately", () => {
   const g = gradeQuiz(MCQS, { 0: 0, 1: 1, 2: 99 }, POLICY.passPct);

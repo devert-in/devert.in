@@ -686,7 +686,7 @@ exports.razorpayWebhook = onRequest(
 // sitting there, correctly computed, for the moment release time arrives -
 // exactly mirroring what an admin already did by hand via a one-off script
 // during the 2026-08-08/09 outage.
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 
 function isContestAnswerCorrect(question, key, given) {
   if (question.type === "multiselect") {
@@ -782,6 +782,105 @@ exports.gradeContestSubmissionOnCreate = onDocumentCreated(
       // here (e.g. a Firestore hiccup) doesn't leave the submission stuck;
       // it just grades a little later than "immediately".
       logger.error("contest auto-grading failed", { contestId, uid, err: String(err) });
+    }
+  }
+);
+
+// Generalizes the trusted-server-write pattern above (see
+// gradeContestSubmissionOnCreate's own comment) to achievements/badges -
+// the durable fix CLAUDE.md's coin-economy section describes as "not yet
+// done": granting a reward from a server-verified fact instead of a
+// client-reported one. streak is the simplest case available today - a
+// single scalar on users/{uid} that only ever moves via lib/rewards.js's
+// bumpStreak() - so crossing a milestone here is a fact this trigger can
+// observe directly, with nothing to re-grade or duplicate.
+const STREAK_MILESTONES = [
+  { days: 7,   tier: "bronze",   xp: 50,   coins: 20  },
+  { days: 30,  tier: "silver",   xp: 200,  coins: 75  },
+  { days: 100, tier: "gold",     xp: 600,  coins: 200 },
+  { days: 365, tier: "platinum", xp: 2000, coins: 600 },
+];
+
+// asia-south1 for the same reason gradeContestSubmissionOnCreate is: a
+// Firestore trigger must run in its database's own region.
+exports.grantStreakAchievementOnUpdate = onDocumentUpdated(
+  { region: "asia-south1", document: "users/{uid}" },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    const prevStreak = before.streak || 0;
+    const nextStreak = after.streak || 0;
+    if (nextStreak <= prevStreak) return; // not a streak extension - nothing to do
+
+    // Highest milestone newly crossed by this one update - a client that
+    // somehow jumps several milestones in a single write (e.g. an admin
+    // manually correcting a streak) gets only the top one, not every
+    // threshold stacked.
+    const milestone = STREAK_MILESTONES.filter(m => prevStreak < m.days && nextStreak >= m.days).pop();
+    if (!milestone) return;
+
+    const { uid } = event.params;
+    const db = admin.firestore();
+    // Same id shape both collections use: achievements/{uid}_{type}_{id} and
+    // lib/rewards.js's rewardLedgerId(uid, activityType, activityId) both
+    // resolve to this exact string, so the two records are trivially
+    // correlatable without a lookup.
+    const gid = `${uid}_streak_milestone_${milestone.days}`;
+
+    try {
+      // .create() is the idempotency primitive here, not a read-then-write:
+      // Cloud Functions deliver Firestore triggers at-least-once, so a
+      // redelivered event must be safe to run twice. create() throws
+      // ALREADY_EXISTS on a repeat instead of silently double-granting - the
+      // same guarantee firestore.rules gives reward_grants by restricting it
+      // to `create` only.
+      await db.doc(`achievements/${gid}`).create({
+        uid,
+        type: "streak_milestone",
+        refId: String(milestone.days),
+        title: `${milestone.days}-Day Streak`,
+        description: `Stayed active on DeVert for ${milestone.days} days in a row.`,
+        tier: milestone.tier,
+        xp: milestone.xp,
+        coins: milestone.coins,
+        awardedAt: admin.firestore.FieldValue.serverTimestamp(),
+        grantedBy: "system",
+      });
+
+      const userRef = db.doc(`users/${uid}`);
+      const earningsRef = db.doc(`user_earnings/${uid}`);
+      const ledgerRef = db.doc(`reward_grants/${gid}`);
+      await db.runTransaction(async (tx) => {
+        tx.update(userRef, {
+          xp: admin.firestore.FieldValue.increment(milestone.xp),
+          score: admin.firestore.FieldValue.increment(milestone.xp),
+        });
+        tx.set(earningsRef, {
+          pulseCoins: admin.firestore.FieldValue.increment(milestone.coins),
+          totalCoins: admin.firestore.FieldValue.increment(milestone.coins),
+        }, { merge: true });
+        // Mirrors lib/rewards.js's grantRewards() ledger shape field-for-field,
+        // so the admin's existing Reward Timeline (which reads reward_grants
+        // directly) shows this grant the same way it shows every client-side
+        // one, with no special case for "granted by a function."
+        tx.set(ledgerRef, {
+          uid, activityType: "streak_milestone", activityId: String(milestone.days),
+          xp: milestone.xp, coins: milestone.coins, score: milestone.xp,
+          sourceModule: "streak_milestone",
+          grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          grantedBy: "system", status: "granted",
+        });
+      });
+
+      logger.info("streak achievement granted", { uid, days: milestone.days, xp: milestone.xp, coins: milestone.coins });
+    } catch (err) {
+      if (err?.code === 6 /* ALREADY_EXISTS, see the .create() comment above */) return;
+      // Never throws past this point, matching gradeContestSubmissionOnCreate's
+      // convention - the streak count itself is already correct regardless of
+      // whether the achievement/reward side of this succeeds, so a transient
+      // failure here should log, not retry-storm the trigger.
+      logger.error("streak achievement grant failed", { uid, err: String(err) });
     }
   }
 );

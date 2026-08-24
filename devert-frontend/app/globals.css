@@ -409,6 +409,100 @@ body {
   background-size: 40px 40px;
 }
 
+/* Synthwave horizon - Hero-only accent scene, built from the same neon-grid
+   language as .grid-bg above rather than a separate visual system. Pure
+   CSS/SVG (no canvas/WebGL) - deliberately lightweight after the scroll-
+   world 3D experiment got reverted for exactly the opposite reason. */
+.synth-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.synth-sun {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 30vw;
+  height: 30vw;
+  max-width: 380px;
+  max-height: 380px;
+  min-width: 200px;
+  min-height: 200px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(0, 255, 65, 0.4), rgba(0, 255, 65, 0.12) 55%, transparent 75%);
+  animation: synth-sun-pulse 6s ease-in-out infinite;
+}
+
+.synth-sun::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 5px,
+    rgba(5, 7, 6, 0.92) 5px, rgba(5, 7, 6, 0.92) 9px
+  );
+  mask-image: linear-gradient(to bottom, transparent 0%, black 38%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 38%, black 100%);
+}
+
+.synth-horizon-line {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 46%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(0, 255, 255, 0.5), transparent);
+}
+
+.synth-grid-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 46%;
+  perspective: 240px;
+  overflow: hidden;
+  mask-image: linear-gradient(to top, black 45%, transparent 96%);
+  -webkit-mask-image: linear-gradient(to top, black 45%, transparent 96%);
+}
+
+.synth-grid-floor::before {
+  content: "";
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: 0;
+  height: 240%;
+  background-image:
+    linear-gradient(rgba(0, 255, 255, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: rotateX(78deg);
+  transform-origin: bottom;
+  animation: synth-grid-scroll 1.6s linear infinite;
+}
+
+@keyframes synth-sun-pulse {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+
+@keyframes synth-grid-scroll {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 64px, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .synth-sun, .synth-grid-floor::before {
+    animation: none;
+  }
+}
+
 /* Terminal window chrome */
 .terminal-window {
   background: rgba(255, 255, 255, 0.02);

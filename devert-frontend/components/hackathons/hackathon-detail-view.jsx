@@ -398,7 +398,13 @@ export function HackathonDetailView({ slug, onBack }) {
   const sm         = hackathon ? statusMeta(hackathon.status) : null;
   const isHack      = hackathon ? isHackathon(hackathon) : true;
   const canRegister = hackathon && ["upcoming", "active"].includes(hackathon.status);
-  const canSubmit   = hackathon && isHack && hackathon.status === "active" && registered;
+  // Externally-registered events (registrationFormUrl set) have no
+  // hackathon_registrations doc for anyone - the organizer's form is the
+  // real registration record, not Firestore - so `registered` can never be
+  // true for them. Gate on the internal flag only when DeVert's own
+  // registration flow is the one in use; otherwise the organizer already
+  // gatekept who's "in" and our job is just to host the submission.
+  const canSubmit   = hackathon && isHack && hackathon.status === "active" && (registered || !!hackathon.registrationFormUrl);
   const phase       = hackathon ? registrationPhase(hackathon) : "closed";
   const phaseMeta   = registrationPhaseMeta(phase);
 
@@ -449,7 +455,7 @@ export function HackathonDetailView({ slug, onBack }) {
         )}
       </AnimatePresence>
 
-      <main className={`${rootClass} pt-10 pb-32 px-6 relative`}>
+      <main className={`${rootClass} pt-4 pb-32 px-6 relative`}>
         {/* Ambient glow from accent color */}
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: `radial-gradient(ellipse 60% 40% at 50% 0%, ${ac}08 0%, transparent 70%)` }} />
@@ -466,7 +472,7 @@ export function HackathonDetailView({ slug, onBack }) {
           )}
 
           {/* Breadcrumb */}
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-5">
             <button onClick={onBack}
               className="flex items-center gap-1.5 font-mono text-[10px] text-white/20 hover:text-white/40 transition-colors">
               <ArrowLeft size={10} /> events
@@ -478,7 +484,7 @@ export function HackathonDetailView({ slug, onBack }) {
           {/* ── Hero ── */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
             {/* Accent bar */}
-            <div className="h-0.5 w-24 mb-6 rounded" style={{ background: `linear-gradient(90deg, ${ac}, transparent)` }} />
+            <div className="h-0.5 w-24 mb-4 rounded" style={{ background: `linear-gradient(90deg, ${ac}, transparent)` }} />
 
             <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
               {/* Status badge */}
@@ -490,25 +496,65 @@ export function HackathonDetailView({ slug, onBack }) {
                 </span>
               </div>
 
-              {/* Share */}
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={shareHackathon}
-                className="flex items-center gap-2 font-mono text-xs py-2 px-4 border transition-all"
-                style={shared
-                  ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.3)", background: "rgba(0,255,65,0.06)" }
-                  : { color: "rgba(255,255,255,0.35)", borderColor: "rgba(255,255,255,0.1)" }}
-              >
-                <AnimatePresence mode="wait">
-                  {shared
-                    ? <motion.span key="y" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex items-center gap-2"><Check size={11}/> link copied!</motion.span>
-                    : <motion.span key="n" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex items-center gap-2"><Share2 size={11}/> share</motion.span>
-                  }
-                </AnimatePresence>
-              </motion.button>
+              <div className="flex items-center gap-2.5">
+                {/* Register Now - top-of-page CTA, same rules as the sidebar's
+                    version below: an external form (e.g. Google Form) is a
+                    plain link open to anyone, no DeVert login required - the
+                    form itself is the real registration record. Only the
+                    internal (no external form) flow gates on being signed in. */}
+                {hackathon.registrationFormUrl ? (
+                  phase === "open" && (
+                    <motion.a whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                      href={hackathon.registrationFormUrl} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 font-mono text-xs py-2 px-4 transition-all"
+                      style={{ color: "#000", background: ac, border: `1px solid ${ac}` }}
+                    >
+                      <ChevronRight size={11} /> Register now
+                    </motion.a>
+                  )
+                ) : (
+                  <>
+                    {user && canRegister && !registered && (
+                      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                        onClick={toggleRegister} disabled={regLoading}
+                        className="flex items-center gap-2 font-mono text-xs py-2 px-4 transition-all disabled:opacity-50"
+                        style={{ color: "#000", background: ac, border: `1px solid ${ac}` }}
+                      >
+                        {regLoading
+                          ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                          : <><ChevronRight size={11} /> Register now</>}
+                      </motion.button>
+                    )}
+                    {!user && canRegister && (
+                      <Link href="/login"
+                        className="flex items-center gap-2 font-mono text-xs py-2 px-4 border transition-colors"
+                        style={{ color: ac, borderColor: `${ac}45` }}>
+                        <ChevronRight size={11} /> Register now
+                      </Link>
+                    )}
+                  </>
+                )}
+
+                {/* Share */}
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                  onClick={shareHackathon}
+                  className="flex items-center gap-2 font-mono text-xs py-2 px-4 border transition-all"
+                  style={shared
+                    ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.3)", background: "rgba(0,255,65,0.06)" }
+                    : { color: "rgba(255,255,255,0.35)", borderColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <AnimatePresence mode="wait">
+                    {shared
+                      ? <motion.span key="y" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex items-center gap-2"><Check size={11}/> link copied!</motion.span>
+                      : <motion.span key="n" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex items-center gap-2"><Share2 size={11}/> share</motion.span>
+                    }
+                  </AnimatePresence>
+                </motion.button>
+              </div>
             </div>
 
             <h1 className="font-sans font-bold tracking-tight text-white mb-2"
-              style={{ fontSize: "clamp(2rem,6vw,4rem)", lineHeight: 1.0 }}>
+              style={{ fontSize: "clamp(1.75rem,4vw,2.75rem)", lineHeight: 1.1 }}>
               {hackathon.title}
             </h1>
             <p className="font-mono text-sm text-white/35 mb-3">{hackathon.tagline}</p>
@@ -520,8 +566,9 @@ export function HackathonDetailView({ slug, onBack }) {
             )}
 
             {/* Stat chips - only shown for whichever of these fields the event configures */}
-            {(hackathon.durationLabel || hackathon.prizePool || hackathon.minTeamSize || hackathon.maxTeamSize || hackathon.registrationFee || hackathon.mode) && (
+            {(hackathon.eventDateLabel || hackathon.durationLabel || hackathon.prizePool || hackathon.minTeamSize || hackathon.maxTeamSize || hackathon.registrationFee || hackathon.mode) && (
               <div className="flex flex-wrap gap-2.5 mt-5">
+                {hackathon.eventDateLabel && <StatChip icon={Calendar} label={hackathon.eventDateLabel} color={ac} />}
                 {hackathon.durationLabel && <StatChip icon={Clock} label={hackathon.durationLabel} />}
                 {hackathon.prizePool && <StatChip icon={Trophy} label={`${hackathon.prizePool} Prize Pool`} color="#FFD700" />}
                 {(hackathon.minTeamSize || hackathon.maxTeamSize) && <StatChip icon={Users} label={teamSizeLabel(hackathon)} />}
@@ -607,6 +654,185 @@ export function HackathonDetailView({ slug, onBack }) {
                           <p className="font-mono text-sm font-bold text-white">{item.title}</p>
                         </div>
                         <p className="font-mono text-[11px] text-white/40 leading-relaxed">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Schedule - event flow, hour-by-hour game plan, what to bring.
+                  All optional/independent so a hackathon can set any subset. */}
+              {(hackathon.eventFlow?.length > 0 || hackathon.gamePlan?.length > 0 || hackathon.whatToBring?.length > 0) && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Clock size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">schedule.json</span>
+                  </div>
+                  <div className="p-5 space-y-5">
+                    {hackathon.eventFlow?.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {hackathon.eventFlow.map((step, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] px-2.5 py-1 rounded border border-white/10 text-white/55">{step}</span>
+                            {i < hackathon.eventFlow.length - 1 && <ChevronRight size={10} className="text-white/15" />}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {hackathon.gamePlan?.length > 0 && (
+                      <div className="space-y-2 pt-1 border-t border-white/5">
+                        {hackathon.gamePlan.map((g, i) => (
+                          <div key={i} className="flex items-center gap-3">
+                            <span className="font-mono text-[10px] flex-shrink-0 w-[76px]" style={{ color: ac }}>{g.time}</span>
+                            <span className="font-mono text-[11px] text-white/45">{g.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {hackathon.whatToBring?.length > 0 && (
+                      <div className="pt-1 border-t border-white/5">
+                        <p className="font-mono text-[9px] text-white/25 tracking-widest mb-2.5">// WHAT TO BRING</p>
+                        <div className="flex flex-wrap gap-2">
+                          {hackathon.whatToBring.map((item, i) => (
+                            <span key={i} className="inline-flex items-center gap-1.5 font-mono text-[11px] px-3 py-1.5 rounded border border-white/10 text-white/50">
+                              <Check size={10} className="text-neon-green/60" /> {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Project rules - DO / DON'T */}
+              {hackathon.rules && (hackathon.rules.do?.length > 0 || hackathon.rules.dont?.length > 0) && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Terminal size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">rules.json</span>
+                  </div>
+                  <div className="p-5 grid sm:grid-cols-2 gap-5">
+                    {hackathon.rules.do?.length > 0 && (
+                      <div>
+                        <p className="font-mono text-[10px] text-neon-green/70 tracking-widest mb-2.5">DO</p>
+                        <div className="space-y-2">
+                          {hackathon.rules.do.map((r, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <Check size={12} className="flex-shrink-0 mt-0.5 text-neon-green/70" />
+                              <p className="font-mono text-[11px] text-white/50 leading-relaxed">{r}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {hackathon.rules.dont?.length > 0 && (
+                      <div>
+                        <p className="font-mono text-[10px] text-red-400/70 tracking-widest mb-2.5">DON'T</p>
+                        <div className="space-y-2">
+                          {hackathon.rules.dont.map((r, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <X size={12} className="flex-shrink-0 mt-0.5 text-red-400/70" />
+                              <p className="font-mono text-[11px] text-white/50 leading-relaxed">{r}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* AI usage policy */}
+              {hackathon.aiPolicy && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
+                  className="terminal-window" style={{ borderColor: `${ac}25` }}>
+                  <div className="terminal-header" style={{ borderColor: `${ac}18` }}>
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Star size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">ai_policy.json</span>
+                  </div>
+                  <div className="p-5">
+                    {hackathon.aiPolicy.headline && (
+                      <p className="font-mono text-xs font-bold mb-2" style={{ color: ac }}>{hackathon.aiPolicy.headline}</p>
+                    )}
+                    {hackathon.aiPolicy.body && (
+                      <p className="font-mono text-[11px] text-white/45 leading-relaxed mb-3">{hackathon.aiPolicy.body}</p>
+                    )}
+                    {hackathon.aiPolicy.quote && (
+                      <p className="font-mono text-[11px] text-white/70 italic border-l-2 pl-3" style={{ borderColor: ac }}>
+                        "{hackathon.aiPolicy.quote}"
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Judging criteria + presentation format */}
+              {(hackathon.judgingCriteria?.length > 0 || hackathon.presentationFormat?.length > 0) && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Award size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">judging.json</span>
+                  </div>
+                  <div className="p-5 space-y-4">
+                    {hackathon.judgingCriteria?.length > 0 && (
+                      <div>
+                        <p className="font-mono text-[9px] text-white/25 tracking-widest mb-2">// JUDGED ON</p>
+                        <div className="flex flex-wrap gap-2">
+                          {hackathon.judgingCriteria.map((c, i) => (
+                            <span key={i} className="font-mono text-[11px] px-3 py-1.5 rounded border border-white/10 text-white/55">{c}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {hackathon.presentationFormat?.length > 0 && (
+                      <div>
+                        <p className="font-mono text-[9px] text-white/25 tracking-widest mb-2">// PITCH FORMAT</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {hackathon.presentationFormat.map((step, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="font-mono text-[11px] text-white/55">{step}</span>
+                              {i < hackathon.presentationFormat.length - 1 && <ChevronRight size={10} className="text-white/15" />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Code of conduct */}
+              {hackathon.codeOfConduct?.length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Users size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">conduct.json</span>
+                  </div>
+                  <div className="p-5 grid sm:grid-cols-2 gap-2.5">
+                    {hackathon.codeOfConduct.map((c, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <X size={11} className="flex-shrink-0 text-red-400/60" />
+                        <p className="font-mono text-[11px] text-white/45">{c}</p>
                       </div>
                     ))}
                   </div>
@@ -861,6 +1087,41 @@ export function HackathonDetailView({ slug, onBack }) {
                   ))}
                 </div>
               </motion.div>
+
+              {/* Organizers / contact */}
+              {(hackathon.organizers?.length > 0 || hackathon.contactEmail || hackathon.socialHandle) && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}
+                  className="terminal-window">
+                  <div className="terminal-header">
+                    <div className="terminal-dot bg-red-500/70" />
+                    <div className="terminal-dot bg-yellow-500/70" />
+                    <div className="terminal-dot bg-green-500/70" />
+                    <Users size={10} className="ml-2 text-white/25" />
+                    <span className="font-mono text-[10px] text-white/25 ml-1">contact.json</span>
+                  </div>
+                  <div className="p-5 space-y-2.5">
+                    {hackathon.organizers?.map((o, i) => (
+                      <div key={i} className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-[11px] text-white/55">{o.name}</span>
+                        {o.role && <span className="font-mono text-[10px] text-white/25">{o.role}</span>}
+                      </div>
+                    ))}
+                    {(hackathon.contactEmail || hackathon.socialHandle) && (
+                      <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
+                        {hackathon.contactEmail && (
+                          <a href={`mailto:${hackathon.contactEmail}`}
+                            className="font-mono text-[10px] text-white/30 hover:text-neon-cyan transition-colors">
+                            {hackathon.contactEmail}
+                          </a>
+                        )}
+                        {hackathon.socialHandle && (
+                          <span className="font-mono text-[10px] text-white/25">{hackathon.socialHandle}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
 
               {/* Actions */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}

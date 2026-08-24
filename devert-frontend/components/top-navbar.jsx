@@ -7,12 +7,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, GraduationCap, Flame, Radio, Anchor, Hammer, Zap, Swords,
   Users, Tv2, GitFork, FlaskConical, Newspaper, Building2, Target,
-  Command, LogIn, User, LogOut, Wallet,
+  Command, LogIn, User, LogOut, Wallet, Globe,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useIntro } from "@/context/IntroContext";
 import { NotificationBell } from "@/components/notification-bell";
 
+// This pill intentionally breaks from the site's neon-terminal design system
+// (white surface, Google Material shadow/menu conventions, gray-on-white
+// palette, brand-colored wordmark) - a deliberate one-off asked for
+// directly, not a new direction for the rest of the main site. Type stays
+// the site's existing font-sans/font-mono rather than switching to Roboto.
+//
 // Desktop-only top pill nav, mirroring the exact split Campus already proved
 // (CampusTopBar for lg:, CampusBottomNav below it) - components/navbar.jsx's
 // floating bottom dock stays exactly as-is but becomes lg:hidden, so mobile
@@ -43,7 +49,7 @@ const GROUPS = [
     items: [
       { icon: Users,    label: "Community", href: "/community", desc: "Join dev communities" },
       { icon: Tv2,      label: "Broadcast", href: "/broadcast", desc: "Live build sessions" },
-      { icon: Target,   label: "Missions",  href: "/missions",  desc: "Real, paid dev work" },
+      { icon: Target,   label: "Missions",  href: "/missions",  desc: "Community bounties & tasks" },
     ],
   },
   {
@@ -78,24 +84,24 @@ function NavGroup({ group, pathname }) {
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 font-mono text-xs px-3 py-2 rounded-lg transition-colors"
-        style={{ color: isActiveGroup || open ? "#00FFFF" : "rgba(255,255,255,0.5)" }}>
+        className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full transition-colors"
+        style={{ color: isActiveGroup || open ? "#202124" : "#5F6368", background: isActiveGroup || open ? "#F1F3F4" : "transparent" }}>
         {group.label}
-        <ChevronDown size={12} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+        <ChevronDown size={16} strokeWidth={2} style={{ color: "#5F6368", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
       </button>
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 top-full mt-2 rounded-xl overflow-hidden"
-            style={{ width: 240, background: "rgba(5,5,5,0.97)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 12px 32px rgba(0,0,0,0.6)" }}>
+            className="absolute left-0 top-full mt-2 rounded-xl overflow-hidden p-2"
+            style={{ width: 300, background: "#FFFFFF", boxShadow: "0 2px 6px 2px rgba(60,64,67,0.15), 0 1px 2px rgba(60,64,67,0.3)" }}>
             {group.items.map(item => (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
-                className="flex items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-white/5">
-                <item.icon size={14} className="mt-0.5 flex-shrink-0" style={{ color: pathname === item.href.split("?")[0] ? "#00FFFF" : "rgba(255,255,255,0.4)" }} />
+                className="flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-[#F1F3F4]">
+                <item.icon size={18} strokeWidth={1.7} className="mt-0.5 flex-shrink-0" style={{ color: "#00FF41" }} />
                 <div className="min-w-0">
-                  <p className="font-sans text-[12.5px] font-semibold text-white/85">{item.label}</p>
-                  <p className="font-mono text-[10px] text-white/30 leading-snug">{item.desc}</p>
+                  <p className="font-sans text-[13.5px] font-medium" style={{ color: "#202124" }}>{item.label}</p>
+                  <p className="font-mono text-[11px] leading-snug" style={{ color: "#5F6368" }}>{item.desc}</p>
                 </div>
               </Link>
             ))}
@@ -106,7 +112,7 @@ function NavGroup({ group, pathname }) {
   );
 }
 
-function ProfileMenu({ logout }) {
+function ProfileMenu({ logout, isSuperAdmin }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -119,28 +125,37 @@ function ProfileMenu({ logout }) {
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)}
-        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-        style={{ background: open ? "rgba(0,255,65,0.12)" : "rgba(0,255,65,0.05)" }}>
-        <User size={15} style={{ color: "rgba(0,255,65,0.75)" }} />
+        className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+        style={{ background: open ? "#E8EAED" : "#F1F3F4" }}>
+        <User size={16} style={{ color: "#5F6368" }} />
       </button>
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 top-full mt-2 rounded-xl overflow-hidden"
-            style={{ width: 170, background: "rgba(5,5,5,0.97)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 12px 32px rgba(0,0,0,0.6)" }}>
+            className="absolute right-0 top-full mt-2 rounded-xl overflow-hidden p-2"
+            style={{ width: 180, background: "#FFFFFF", boxShadow: "0 2px 6px 2px rgba(60,64,67,0.15), 0 1px 2px rgba(60,64,67,0.3)" }}>
             <Link href="/profile" onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-white/55 hover:text-neon-green hover:bg-white/3 transition-colors">
-              <User size={12} /> Dev Card
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-[#F1F3F4]" style={{ color: "#202124" }}>
+              <User size={13} style={{ color: "#00FF41" }} /> Dev Card
             </Link>
             <Link href="/wallet" onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-white/55 hover:text-neon-cyan hover:bg-white/3 transition-colors">
-              <Wallet size={12} /> Wallet
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-[#F1F3F4]" style={{ color: "#202124" }}>
+              <Wallet size={13} style={{ color: "#00FF41" }} /> Wallet
             </Link>
-            <div className="h-px bg-white/6 mx-3" />
+            {/* Global Super Admin only - the whole-ecosystem control center,
+                distinct from /admin (DeVert Core's own panel, unlinked from
+                any nav today, reached by URL only). */}
+            {isSuperAdmin && (
+              <Link href="/manage" onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-[#F1F3F4]" style={{ color: "#202124" }}>
+                <Globe size={13} style={{ color: "#00FF41" }} /> Manage
+              </Link>
+            )}
+            <div className="h-px my-1 mx-1" style={{ background: "rgba(60,64,67,0.12)" }} />
             <button onClick={() => { logout(); setOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-red-400 hover:bg-red-500/5 transition-colors">
-              <LogOut size={12} /> Logout
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-[rgba(255,80,80,0.08)]" style={{ color: "#FF5050" }}>
+              <LogOut size={13} /> Logout
             </button>
           </motion.div>
         )}
@@ -152,7 +167,7 @@ function ProfileMenu({ logout }) {
 export function TopNavbar() {
   const pathname = usePathname();
   const { hasShownIntro } = useIntro();
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
 
   // Same gating as the bottom dock: no chrome over the pre-auth intro splash,
   // never on /admin, /u/*, or anywhere inside Campus (which has its own
@@ -165,43 +180,44 @@ export function TopNavbar() {
 
   return (
     <>
-      <nav className="hidden lg:flex fixed top-4 left-1/2 -translate-x-1/2 z-40 items-center gap-1 px-3 py-2 rounded-2xl"
+      <nav className="hidden lg:flex fixed top-4 left-1/2 -translate-x-1/2 z-40 items-center gap-0.5 px-2 py-1.5 rounded-full"
         style={{
-          background: "rgba(5,5,5,0.85)",
-          backdropFilter: "blur(20px)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 8px 40px rgba(0,0,0,0.6), 0 0 60px rgba(0,255,255,0.04)",
+          background: "#FFFFFF",
+          boxShadow: "0 1px 6px 0 rgba(32,33,36,0.28), 0 16px 40px rgba(0,0,0,0.4)",
         }}>
-        <Link href="/" className="flex items-center gap-2 pl-2 pr-4 mr-1 border-r border-white/8">
-          <span className="font-sans font-bold text-sm tracking-tight text-white">De<span className="text-neon-green">Vert</span></span>
+        <Link href="/" className="flex items-center pl-4 pr-4">
+          <span className="font-sans font-bold text-base" style={{ color: "#202124" }}>De<span style={{ color: "#00FF41" }}>Vert</span></span>
         </Link>
 
         {/* A standalone link, not a dropdown group - Pulse is one destination,
             not a set of them, and asked to sit at the same level as
             Explore/Build/Connect/More rather than buried inside Connect. */}
         <Link href="/pulse"
-          className="flex items-center gap-1 font-mono text-xs px-3 py-2 rounded-lg transition-colors"
-          style={{ color: pathname === "/pulse" || pathname.startsWith("/pulse/") ? "#00FFFF" : "rgba(255,255,255,0.5)" }}>
+          className="flex items-center gap-1 text-sm font-medium px-4 py-2.5 rounded-full transition-colors"
+          style={{
+            color: pathname === "/pulse" || pathname.startsWith("/pulse/") ? "#202124" : "#5F6368",
+            background: pathname === "/pulse" || pathname.startsWith("/pulse/") ? "#F1F3F4" : "transparent",
+          }}>
           Pulse
         </Link>
 
         {GROUPS.map(group => <NavGroup key={group.key} group={group} pathname={pathname} />)}
 
-        <div className="flex items-center gap-1.5 pl-3 ml-2 border-l border-white/8">
+        <div className="flex items-center gap-1 pl-2 ml-1" style={{ borderLeft: "1px solid rgba(60,64,67,0.16)" }}>
           <button onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
-            className="flex items-center gap-1.5 font-mono text-xs px-2.5 py-2 rounded-lg text-white/35 hover:text-neon-green transition-colors">
-            <Command size={13} />
+            className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-[#F1F3F4]" style={{ color: "#5F6368" }}>
+            <Command size={17} strokeWidth={1.8} />
           </button>
           {user ? (
             <>
               <NotificationBell anchor="down" />
-              <ProfileMenu logout={logout} />
+              <ProfileMenu logout={logout} isSuperAdmin={isSuperAdmin} />
             </>
           ) : (
             <Link href="/login"
-              className="flex items-center gap-1.5 font-mono text-xs font-bold text-black px-4 py-2 rounded-lg transition-opacity hover:opacity-85"
-              style={{ background: "#00FF41" }}>
-              <LogIn size={13} /> Enter HQ
+              className="flex items-center gap-2 text-sm font-bold text-black px-5 py-2.5 rounded-full transition-opacity hover:opacity-90 whitespace-nowrap"
+              style={{ background: "#00FF41", boxShadow: "0 1px 2px rgba(0,255,65,0.35)" }}>
+              <LogIn size={15} /> Enter HQ
             </Link>
           )}
         </div>

@@ -36,17 +36,38 @@ jobs:
           # auth handler, so this is safe.
           NEXT_PUBLIC_AUTH_DOMAIN: devert.in
 
+      - name: Install campus dependencies
+        run: npm ci
+        working-directory: devert-campus
+
+      # devert-campus imports shared code straight from devert-frontend
+      # (context/AuthContext, lib/firebase, etc - see devert-campus's
+      # jsconfig.json @/* fallback path), so devert-frontend must already be
+      # checked out (it is, same job) but does NOT need to be built first -
+      # the import is source-level, not a build artifact dependency.
+      - name: Build campus
+        run: npm run build
+        working-directory: devert-campus
+
       # functions/index.js's crawler-preview routers (uHandleRouter,
-      # contestPreviewRouter, campusPreviewRouter, pulsePreviewRouter) each
-      # serve a copy of the real SPA shell to non-crawler traffic - this step
-      # is what keeps that copy in sync with every deploy instead of the
-      # stale, manually-committed version that shipped before.
+      # contestPreviewRouter, pulsePreviewRouter) each serve a copy of the
+      # real SPA shell to non-crawler traffic - this step is what keeps that
+      # copy in sync with every deploy instead of the stale, manually-
+      # committed version that shipped before. campusPreviewRouter/campus.html
+      # dropped: devert-frontend no longer builds a campus.html at all (Campus
+      # moved to devert-campus/campus.devert.in), and firebase.json's own
+      # "main" target redirects every /campus/** hit to campus.devert.in
+      # before Hosting even considers the campusPreviewRouter rewrite - a
+      # crawler hitting the old devert.in/campus/{slug} link now gets
+      # redirected straight to campus.devert.in/{slug}'s own real, statically
+      # generated Open Graph tags (see devert-campus/lib/campus-seo.js),
+      # which this Function's generic Campus fallback shell was only ever a
+      # stand-in for.
       - name: Sync static SPA shells into functions/static
         run: |
           mkdir -p functions/static
           cp devert-frontend/out/u.html functions/static/u.html
           cp devert-frontend/out/contest.html functions/static/contest.html
-          cp devert-frontend/out/campus.html functions/static/campus.html
           cp devert-frontend/out/pulse.html functions/static/pulse.html
 
       - name: Install functions dependencies

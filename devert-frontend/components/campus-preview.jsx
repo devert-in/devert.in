@@ -130,9 +130,23 @@ export function CampusPreview() {
           >
             <div className="terminal-header">
               <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
-              <span className="font-mono text-[10px] text-white/25 ml-2">devert.in/campus</span>
+              <span className="font-mono text-[10px] text-white/25 ml-2">campus.devert.in</span>
             </div>
-            <div className="p-6">
+            {/* Real product screenshot, not a mock - an approved student's
+                actual dashboard. Cropped to its top band (sidebar + welcome
+                header + stat pills) and faded into the dark card below since
+                Campus itself runs a light, orange-accented theme (see
+                lib/campus-theme.js) that would otherwise hard-cut against
+                this card's near-black chrome. */}
+            <div className="relative h-52 overflow-hidden">
+              <img
+                src="/campus-dashboard-preview.png"
+                alt="A student's DeVert Campus dashboard, showing Daily Learning, Contests and Leaderboard navigation with weekly XP and coins progress"
+                className="w-full h-full object-cover object-top"
+              />
+              <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, transparent 45%, rgba(5,5,5,0.95) 100%)" }} />
+            </div>
+            <div className="p-6 pt-4">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(0,255,255,0.1)" }}>
                   <GraduationCap size={19} className="text-neon-cyan" />

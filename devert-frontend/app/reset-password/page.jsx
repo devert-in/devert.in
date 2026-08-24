@@ -31,9 +31,24 @@ const CAMPUS_SLUG = /^[a-z0-9][a-z0-9-]*$/i;
 // text anyone can edit - keep them to the exact shapes a real login page has
 // (a slug, and one of the three known role segments) so a crafted link can't
 // steer the redirect below anywhere but a DeVert Campus login page.
+//
+// Absolute campus.devert.in URL, not a same-origin "/campus/..." path - this
+// page lives on devert.in, but the Campus staff login it sends people back to
+// now lives on a different origin entirely. router.replace() (next/navigation)
+// only ever does a client-side transition within THIS app's own route table,
+// so a same-origin-looking path here would 404 instead of reaching Campus -
+// see the window.location.href navigations below, used for exactly this href.
 function loginHrefFor(campus, role) {
   if (!campus || !CAMPUS_SLUG.test(campus) || !ROLE_LABELS[role]) return null;
-  return `/campus/${campus}/${role}`;
+  return `https://campus.devert.in/${campus}/${role}`;
+}
+
+// loginHref is cross-origin (campus.devert.in); "/login" isn't. router.replace
+// only handles the latter, so branch on shape rather than assuming one or the
+// other everywhere this fires.
+function navigateTo(router, href) {
+  if (href.startsWith("http")) window.location.href = href;
+  else router.replace(href);
 }
 
 // Two link shapes reach this page, and which one you get depends on a Firebase
@@ -104,7 +119,7 @@ function ResetPasswordContent() {
       // succeeded. Only a link with no routing hints at all is genuinely broken.
       if (loginHref) {
         setStatus("redirecting");
-        router.replace(loginHref);
+        navigateTo(router, loginHref);
         return;
       }
       setErrorMsg("This link is missing required information. Contact your administrator for a new one.");
@@ -155,7 +170,7 @@ function ResetPasswordContent() {
             <p className="text-[13px]" style={{ color: CAMPUS.inkSoft }}>
               Taking you to the {roleLabel} login page…
             </p>
-            <CampusButton onClick={() => router.replace(loginHref)} icon={ArrowRight} className="w-full mt-2">
+            <CampusButton onClick={() => navigateTo(router, loginHref)} icon={ArrowRight} className="w-full mt-2">
               Go to Login →
             </CampusButton>
           </div>
@@ -205,7 +220,7 @@ function ResetPasswordContent() {
                 {roleLabel.toUpperCase()}
               </span>
             )}
-            <CampusButton onClick={() => router.replace(continueHref)} icon={ArrowRight} className="w-full mt-3">
+            <CampusButton onClick={() => navigateTo(router, continueHref)} icon={ArrowRight} className="w-full mt-3">
               {continueLabel}
             </CampusButton>
             <p className="text-[11px] mt-1" style={{ color: CAMPUS.inkFaint }}>

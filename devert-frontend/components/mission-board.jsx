@@ -129,6 +129,10 @@ export function MissionBoard() {
                     </div>
                   </div>
 
+                  <p className="font-mono text-[9px] text-white/20 mt-3 leading-relaxed">
+                    // reward arranged directly with the poster - not processed by DeVert
+                  </p>
+
                   <div className="mt-5 pt-4 border-t border-white/5">
                     <span className="font-mono text-[9px] px-2 py-0.5 rounded" style={{
                       color: m.diffColor || (m.difficulty === "EXTREME" ? "#FF3B3B" : m.difficulty === "HARD" ? "#FF9500" : "#00FF41"),

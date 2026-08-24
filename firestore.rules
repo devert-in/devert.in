@@ -832,6 +832,27 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'finishedAt']));
     }
 
+    // Build attempts - starts the moment a challenge+timebox is picked. Server-
+    // stamped startedAt is the deadline authority, not anything the client
+    // reports. Resolution is a self-report dock-to-Shipyard (no grading exists
+    // for open-ended builds), so no coins/XP are ever involved here - a coin
+    // path off an unverifiable self-report is exactly what the coin economy's
+    // trust-boundary rules elsewhere in this file exist to prevent.
+    match /build_attempts/{attemptId} {
+      allow read:   if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'in_progress'
+        && request.resource.data.timeboxDays in [7, 14, 30];
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.uid == request.auth.uid && resource.data.status == 'in_progress'
+            && (
+              (request.resource.data.status == 'submitted'
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'projectId', 'submittedAt']))
+              || (request.resource.data.status == 'abandoned'
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'abandonedAt']))
+            ));
+    }
+
     // Grind log (daily problems per user)
     match /grind_log/{uid}/entries/{entryId} {
       allow read:  if isAuth();
@@ -1393,6 +1414,33 @@ service cloud.firestore {
         && request.resource.data.get('score', 0) is number && request.resource.data.get('score', 0) >= 0 && request.resource.data.get('score', 0) <= 2000
       );
       allow update, delete: if isAdmin();
+    }
+
+    // achievements/{uid}_{achievementType}_{achievementId} - discrete, awarded
+    // badges (streak milestones, hackathon wins, contest medals, ...),
+    // distinct from reward_grants above: that ledger is a private audit
+    // trail, this collection is the public-facing artifact meant to be shown
+    // on a user's own dashboard AND on their public /u/{handle} portfolio to
+    // any visitor - read is world-open here, unlike reward_grants' owner/
+    // admin-only read. Same doc-ID-establishes-ownership idiom as
+    // reward_grants (a Firebase Auth uid never contains '_', so
+    // split('_')[0] safely isolates it regardless of how many underscores
+    // follow in achievementType/achievementId) - kept even though read is
+    // public, so isAdmin()-scoped tooling and any future owner-specific
+    // query still has a cheap, list()-safe ownership check available.
+    //
+    // No owner-write path at all, unlike reward_grants (which the OWNER can
+    // create, bounded, for self-reported learning completions): an
+    // achievement is never self-granted. It is written only by a Cloud
+    // Function via the Admin SDK (which bypasses these rules entirely, same
+    // as GradingService.java/gradeContestSubmissionOnCreate), or by an admin
+    // through the console as a manual-fix escape hatch - matching this
+    // file's existing convention (payout_requests, reward_grants) of "admin
+    // can always fix". A client, including the achievement's own owner, can
+    // never create or update one directly.
+    match /achievements/{aid} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     // One doc per (student, quiz) - the server-side answer to "has this student

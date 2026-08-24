@@ -1,7 +1,8 @@
-import { fetchInstitutions } from "@/lib/institutions";
 import { fetchPublishedContests } from "@/lib/contests";
 import { fetchPublishedProblems } from "@/lib/codelab";
-import { CAMPUS_SECTIONS } from "@/lib/campus-seo";
+// Campus's own institution/section URLs moved to devert-campus/app/sitemap.ts
+// alongside the rest of Campus - it's now a different origin
+// (campus.devert.in), so it needs its own sitemap, not an entry in this one.
 
 // Required for output: 'export' - without this Next.js can't tell that this
 // route has no per-request dynamic behavior to statically pre-render.
@@ -24,19 +25,6 @@ export default async function sitemap() {
     { url: "https://devert.in/missions", changeFrequency: "weekly", priority: 0.8 },
     { url: "https://devert.in/grind", changeFrequency: "daily", priority: 0.9 },
     { url: "https://devert.in/pulse", changeFrequency: "hourly", priority: 0.9 },
-    { url: "https://devert.in/campus", changeFrequency: "weekly", priority: 0.8 },
-    // The three open Campus surfaces (lib/campus-seo.js's GLOBAL_SECTIONS) -
-    // real statically-generated pages with their own metadata, reachable with
-    // no account and no institution, and the whole point of /campus no longer
-    // being a login-gated college picker. They were missing here while every
-    // per-institution section page was listed, so the only Campus content a
-    // crawler could reach was content it could not read.
-    { url: "https://devert.in/campus/learning", changeFrequency: "weekly", priority: 0.8 },
-    { url: "https://devert.in/campus/practice", changeFrequency: "weekly", priority: 0.8 },
-    { url: "https://devert.in/campus/contests", changeFrequency: "daily", priority: 0.8 },
-    { url: "https://devert.in/campus/campuses", changeFrequency: "weekly", priority: 0.7 },
-    { url: "https://devert.in/campus/institutions", changeFrequency: "monthly", priority: 0.7 },
-    { url: "https://devert.in/campus/pricing", changeFrequency: "monthly", priority: 0.7 },
     { url: "https://devert.in/broadcast", changeFrequency: "weekly", priority: 0.7 },
     { url: "https://devert.in/ranks", changeFrequency: "daily", priority: 0.8 },
     { url: "https://devert.in/hackathons", changeFrequency: "weekly", priority: 0.8 },
@@ -46,36 +34,14 @@ export default async function sitemap() {
     { url: "https://devert.in/terms", changeFrequency: "monthly", priority: 0.3 },
   ].map(r => ({ ...r, lastModified: new Date() }));
 
-  const [institutions, contests, problems] = await Promise.allSettled([
-    fetchInstitutions(),
+  const [contests, problems] = await Promise.allSettled([
     fetchPublishedContests(),
     fetchPublishedProblems(),
   ]);
 
-  // lib/contests.js and lib/institutions.js are plain JS (no declared return
-  // shape) - `any` here is the pragmatic match for a codebase that isn't
-  // otherwise typed, not a real type-safety gap.
-  // One entry for the institution root plus one for each of its statically-
-  // generated section pages (app/campus/[slug]/**/page.jsx) - same section
-  // list and URL shape generateStaticParams/generateMetadata build from, so
-  // this can never drift out of sync with what actually got built.
-  const institutionList = institutions.status === "fulfilled" ? institutions.value : [];
-  const institutionUrls = institutionList.flatMap((inst: any) => [
-    {
-      url: `https://devert.in/campus/${inst.id}`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.6,
-    },
-    ...Object.values(CAMPUS_SECTIONS)
-      .filter((s: any) => s.urlSegment)
-      .map((s: any) => ({
-        url: `https://devert.in/campus/${inst.id}/${s.urlSegment}`,
-        lastModified: new Date(),
-        changeFrequency: "weekly",
-        priority: 0.5,
-      })),
-  ]);
+  // lib/contests.js is plain JS (no declared return shape) - `any` here is
+  // the pragmatic match for a codebase that isn't otherwise typed, not a
+  // real type-safety gap.
 
   // Global (non-institution-scoped) contests only - institution-scoped ones
   // are gated to that college's own members, never meant to be public/indexed.
@@ -95,5 +61,5 @@ export default async function sitemap() {
     priority: 0.5,
   }));
 
-  return [...staticRoutes, ...institutionUrls, ...contestUrls, ...problemUrls];
+  return [...staticRoutes, ...contestUrls, ...problemUrls];
 }

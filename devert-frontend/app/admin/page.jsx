@@ -12,6 +12,7 @@ import {
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
   Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network, Inbox, Heart,
+  Hammer, Globe, Server, Smartphone, Bot,
 } from "lucide-react";
 import {
   db, auth
@@ -22,6 +23,7 @@ import { LessonConceptField } from "@/components/admin/lesson-concept-field";
 import Dropdown from "@/components/dropdown";
 import { DEFAULT_TIERS } from "@/lib/ranks";
 import { DEFAULT_ECONOMY } from "@/lib/economy";
+import { DEFAULT_REWARD_POLICY, loadRewardPolicy, saveRewardPolicy } from "@/lib/rewardPolicy";
 import {
   CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES, contestPhase,
   CONTEST_STATUSES, blankContestForm, blankContestQuestionForm, CONTEST_CSV_HELP,
@@ -57,7 +59,10 @@ import { fetchAptitudeTopics, saveAptitudeTopic } from "@/lib/aptitude";
 import { EVENT_TYPES, isHackathon, EVENT_MODES } from "@/lib/eventTypes";
 import { withVersionSnapshot } from "@/lib/contentVersioning";
 import { LanguageLogo } from "@/components/campus/language-logo";
-import { subjectIcon } from "@/components/campus/campus-cscore";
+import { logAdminActivity } from "@/lib/adminActivityLog";
+import { ActivityLogPanel } from "@/components/admin/activity-log-panel";
+import { Input, Textarea, Section } from "@/components/admin/admin-ui";
+import { subjectIcon } from "@/lib/subjectIcon";
 import {
   collection, query, orderBy, where, getDocs, addDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch, runTransaction,
@@ -71,14 +76,6 @@ const ADMIN_EMAIL = "devert.contact@gmail.com";
 function todayIST() {
   const IST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
   return IST.toISOString().slice(0, 10);
-}
-
-// Fire-and-forget audit trail for admin actions - never blocks the action
-// itself if the write fails.
-function logAdminActivity(action, detail) {
-  addDoc(collection(db, "admin_activity_log"), {
-    action, detail, actor: auth.currentUser?.email || ADMIN_EMAIL, createdAt: serverTimestamp(),
-  }).catch(() => {});
 }
 
 // Best-effort payout confirmation email via devert-backend. The Firestore
@@ -103,68 +100,6 @@ function notifyPayoutStatus(req, status) {
       }),
     }).catch(() => {});
   }).catch(() => {});
-}
-
-function Input({ label, value, onChange, placeholder, maxLength, hint, type = "text" }) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">{label}</p>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} maxLength={maxLength}
-        className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none transition-colors"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-        onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
-        onBlur={e  => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-      />
-      {hint && <p className="font-mono text-[10px] text-white/20 mt-1">{hint}</p>}
-    </div>
-  );
-}
-
-function Textarea({ label, value, onChange, placeholder, rows = 3, maxLength }) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">{label}</p>
-      <textarea value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} rows={rows} maxLength={maxLength}
-        className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none resize-none transition-colors"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-        onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
-        onBlur={e  => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-      />
-    </div>
-  );
-}
-
-function Section({ title, icon: Icon, color, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="terminal-window mb-6">
-      <button onClick={() => setOpen(o => !o)}
-        className="terminal-header w-full flex items-center gap-2 hover:bg-white/2 transition-colors"
-      >
-        <div className="terminal-dot bg-red-500/70" />
-        <div className="terminal-dot bg-yellow-500/70" />
-        <div className="terminal-dot bg-green-500/70" />
-        <Icon size={11} className="ml-2" style={{ color }} />
-        <span className="font-mono text-xs ml-1" style={{ color }}>{title}</span>
-        <span className="ml-auto mr-1">{open ? <ChevronUp size={12} className="text-white/30" /> : <ChevronDown size={12} className="text-white/30" />}</span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="p-5">{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }
 
 // ── Missions panel ────────────────────────────────────────────────────────────
@@ -264,7 +199,8 @@ function MissionsPanel() {
         <p className="font-mono text-[10px] text-neon-cyan tracking-wider mb-2">// add mission</p>
         <div className="grid sm:grid-cols-2 gap-3">
           <Input label="CODENAME" value={form.codename} onChange={f("codename")} placeholder="OPERATION: ZERO LATENCY" />
-          <Input label="PRIZE" value={form.prize} onChange={f("prize")} placeholder="₹50,000" />
+          <Input label="PRIZE / REWARD" value={form.prize} onChange={f("prize")} placeholder="₹50,000"
+            hint="Informational only - arranged directly between poster and dev, not paid or escrowed by DeVert." />
         </div>
         <Textarea label="OBJECTIVE" value={form.objective} onChange={f("objective")} placeholder="What needs to be built..." rows={2} />
         <div className="grid sm:grid-cols-3 gap-3">
@@ -540,6 +476,141 @@ function ArenaPanel() {
         }
       >
         {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save arena challenges"}
+      </motion.button>
+    </div>
+  );
+}
+
+// ── Build challenges panel ────────────────────────────────────────────────────
+
+// Deliberately not reusing BLANK_CHALLENGE/ChallengeForm above - those are
+// shaped for CodeLab-linked challenges (EASY/MEDIUM/HARD, problemId, xp).
+// Build challenges are open-ended, ungraded project briefs: Beginner/
+// Intermediate/Advanced, a category, a stack, and no XP - see firestore.rules'
+// build_attempts comment for why no reward is ever attached to these.
+const BLANK_BUILD_CHALLENGE = {
+  id: "", title: "", category: "web",
+  difficulty: "BEGINNER", diffColor: "#00FF41",
+  brief: "", description: "", stack: "", locked: false,
+};
+
+const BUILD_DIFF_OPTS = [
+  { v: "BEGINNER",     c: "#00FF41" },
+  { v: "INTERMEDIATE", c: "#FF9500" },
+  { v: "ADVANCED",     c: "#FF3B3B" },
+];
+
+const BUILD_CATEGORY_OPTS = [
+  { v: "web",     label: "Web",      icon: Globe },
+  { v: "backend", label: "Backend",  icon: Server },
+  { v: "mobile",  label: "Mobile",   icon: Smartphone },
+  { v: "ai",      label: "AI",       icon: Bot },
+];
+
+function BuildChallengeForm({ ch, onChange, onRemove, index }) {
+  const f = (k) => (v) => onChange(index, k, v);
+  return (
+    <div className="border border-white/8 rounded-lg p-4 space-y-3 relative">
+      <button onClick={() => onRemove(index)} className="absolute top-3 right-3 text-white/20 hover:text-red-400 transition-colors">
+        <X size={13} />
+      </button>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">CATEGORY</p>
+          <div className="flex gap-1.5">
+            {BUILD_CATEGORY_OPTS.map(o => (
+              <button key={o.v} onClick={() => onChange(index, "category", o.v)}
+                title={o.label}
+                className="flex-1 flex items-center justify-center py-1.5 rounded transition-colors"
+                style={{
+                  color:      ch.category === o.v ? "#00FFFF" : "rgba(255,255,255,0.3)",
+                  background: ch.category === o.v ? "rgba(0,255,255,0.1)" : "rgba(255,255,255,0.03)",
+                  border:     ch.category === o.v ? "1px solid rgba(0,255,255,0.35)" : "1px solid rgba(255,255,255,0.06)",
+                }}
+              ><o.icon size={13} /></button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">DIFFICULTY</p>
+          <div className="flex gap-1.5">
+            {BUILD_DIFF_OPTS.map(o => (
+              <button key={o.v} onClick={() => { onChange(index, "difficulty", o.v); onChange(index, "diffColor", o.c); }}
+                className="flex-1 font-mono text-[9px] py-1.5 rounded transition-colors"
+                style={{
+                  color:      ch.difficulty === o.v ? o.c : "rgba(255,255,255,0.3)",
+                  background: ch.difficulty === o.v ? `${o.c}15` : "rgba(255,255,255,0.03)",
+                  border:     ch.difficulty === o.v ? `1px solid ${o.c}40` : "1px solid rgba(255,255,255,0.06)",
+                }}
+              >{o.v}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Input label="TITLE" value={ch.title} onChange={f("title")} placeholder="Build a URL Shortener" />
+        <Input label="ID SLUG" value={ch.id} onChange={f("id")} placeholder="url-shortener" hint="Stable - don't change once a build has started against it." />
+      </div>
+      <Textarea label="BRIEF (shown on the card)" value={ch.brief} onChange={f("brief")} placeholder="One-line hook." rows={2} />
+      <Textarea label="FULL DESCRIPTION (shown in the detail view)" value={ch.description} onChange={f("description")} placeholder="What to build, constraints, suggested approach..." rows={4} />
+      <Input label="SUGGESTED STACK (comma separated)" value={ch.stack} onChange={f("stack")} placeholder="Any backend language, A database, Redis (optional)" />
+    </div>
+  );
+}
+
+function BuildChallengesPanel() {
+  const [challenges, setChallenges] = useState([{ ...BLANK_BUILD_CHALLENGE }]);
+  const [saving,     setSaving]     = useState(false);
+  const [saved,      setSaved]      = useState(false);
+
+  useEffect(() => {
+    getDoc(doc(db, "system", "build"))
+      .then(snap => {
+        if (snap.exists()) {
+          setChallenges(snap.data().challenges.map(c => ({ ...c, stack: (c.stack || []).join(", ") })));
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const updateCh = (i, k, v) => setChallenges(prev => prev.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
+  const removeCh = (i) => setChallenges(prev => prev.filter((_, idx) => idx !== i));
+
+  const handleSave = async () => {
+    setSaving(true); setSaved(false);
+    try {
+      const cleaned = challenges.map(c => ({
+        ...c,
+        stack: typeof c.stack === "string" ? c.stack.split(",").map(t => t.trim()).filter(Boolean) : c.stack,
+      }));
+      await setDoc(doc(db, "system", "build"), { challenges: cleaned, updatedAt: serverTimestamp() });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) { console.error(err); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-3">
+        {challenges.map((ch, i) => (
+          <BuildChallengeForm key={i} ch={ch} onChange={updateCh} onRemove={removeCh} index={i} />
+        ))}
+      </div>
+      <button onClick={() => setChallenges(prev => [...prev, { ...BLANK_BUILD_CHALLENGE }])}
+        className="w-full font-mono text-xs text-white/30 border border-dashed border-white/10 py-2 hover:text-white/50 hover:border-white/20 transition-colors flex items-center justify-center gap-2"
+      >
+        <Plus size={11} /> add challenge
+      </button>
+      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+        onClick={handleSave} disabled={saving}
+        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        style={saved
+          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
+          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
+        }
+      >
+        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save build challenges"}
       </motion.button>
     </div>
   );
@@ -2601,44 +2672,6 @@ function StatsPanel() {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Activity log panel ────────────────────────────────────────────────────────
-
-function ActivityLogPanel() {
-  const [logs,    setLogs]    = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsub = onSnapshot(
-      query(collection(db, "admin_activity_log"), orderBy("createdAt", "desc"), limit(50)),
-      snap => { setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); },
-      () => setLoading(false),
-    );
-    return unsub;
-  }, []);
-
-  const timeLabel = (ts) => {
-    if (!ts?.toDate) return "";
-    return ts.toDate().toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
-  };
-
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
-
-  return (
-    <div className="space-y-2 max-h-[500px] overflow-y-auto">
-      {logs.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no admin activity logged yet</p>}
-      {logs.map(log => (
-        <div key={log.id} className="flex items-start gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-          <span className="font-mono text-[9px] text-white/25 flex-shrink-0 mt-0.5 w-28">{timeLabel(log.createdAt)}</span>
-          <div className="flex-1 min-w-0">
-            <span className="font-mono text-[9px] px-1.5 py-0.5 rounded mr-2" style={{ color: "#00FF41", background: "rgba(0,255,65,0.06)" }}>{log.action}</span>
-            <span className="font-mono text-xs text-white/60">{log.detail}</span>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -6976,6 +7009,122 @@ function EconomyPanel() {
   );
 }
 
+// The per-module XP/coins a topic pays on a perfect paper - system/rewardPolicy
+// itself has been live-configurable (see lib/rewardPolicy.js's loadRewardPolicy/
+// saveRewardPolicy) since before this panel existed, but saveRewardPolicy() had
+// zero callers anywhere in the frontend: changing a reward meant hand-writing
+// the Firestore doc directly. This is the admin surface that was missing, not
+// new config plumbing - mirrors EconomyPanel above field-for-field, just
+// keyed by module instead of a flat rate list. Deliberately scoped to xp/coins
+// only, not every tunable in DEFAULT_REWARD_POLICY (passPct, maxAttempts,
+// wrongPenaltyRatio, lockOnFail, completionRequiresPass) - those are rarer,
+// higher-blast-radius gating knobs (e.g. mis-setting maxAttempts could lock
+// every student out of a module), left as hand-edit-only until there's a
+// concrete need for a UI around them specifically.
+const REWARD_MODULE_FIELDS = [
+  { key: "defaults",               label: "DEFAULT (fallback for any module)" },
+  { key: "cscore",                 label: "CS CORE TOPIC" },
+  { key: "gate",                   label: "GATE TOPIC" },
+  { key: "programming",            label: "PROGRAMMING TOPIC" },
+  { key: "softwareEngineering",    label: "SOFTWARE ENGINEERING TOPIC" },
+  { key: "dsaConcepts",            label: "DSA CONCEPT" },
+  { key: "aptitude",               label: "APTITUDE TOPIC" },
+  { key: "daily_learning",         label: "DAILY LEARNING (DAY)" },
+  { key: "daily_learning_problem", label: "DAILY LEARNING (PROBLEM)" },
+  { key: "gate_day",               label: "GATE DAILY GOAL" },
+  { key: "roadmaps",               label: "ROADMAP TOPIC" },
+];
+
+function RewardPolicyPanel() {
+  // Flat by module key ({ defaults: {xp,coins}, cscore: {xp,coins}, ... }),
+  // reassembled into DEFAULT_REWARD_POLICY's real { defaults, modules } shape
+  // only at save time - simpler to read/update per-field than threading the
+  // real nested shape through every input's onChange.
+  const [form, setForm] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    loadRewardPolicy().then(policy => {
+      const flat = { defaults: { xp: policy.defaults.xp, coins: policy.defaults.coins } };
+      for (const f of REWARD_MODULE_FIELDS) {
+        if (f.key === "defaults") continue;
+        const mod = policy.modules[f.key] || {};
+        flat[f.key] = { xp: mod.xp ?? policy.defaults.xp, coins: mod.coins ?? policy.defaults.coins };
+      }
+      setForm(flat);
+    }).catch(console.error);
+  }, []);
+
+  const setFieldValue = (key, sub, v) => {
+    setForm(prev => ({ ...prev, [key]: { ...prev[key], [sub]: v } }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setSaved(false);
+    try {
+      const modules = {};
+      for (const f of REWARD_MODULE_FIELDS) {
+        if (f.key === "defaults") continue;
+        modules[f.key] = { xp: parseInt(form[f.key].xp) || 0, coins: parseInt(form[f.key].coins) || 0 };
+      }
+      await saveRewardPolicy({
+        defaults: { xp: parseInt(form.defaults.xp) || 0, coins: parseInt(form.defaults.coins) || 0 },
+        modules,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  if (!form) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  return (
+    <div className="space-y-4">
+      <p className="font-mono text-[10px] text-white/18">
+        What a topic pays on a perfect paper - spread across its questions, wrong answers cost a fraction (see lib/rewardPolicy.js). An admin-set xpReward/coinReward on a specific topic still overrides these.
+      </p>
+      <div className="space-y-1.5">
+        <div className="grid grid-cols-[1fr_84px_84px] gap-3 px-1">
+          <span />
+          <p className="font-mono text-[9px] text-white/25 text-center tracking-wider">XP</p>
+          <p className="font-mono text-[9px] text-white/25 text-center tracking-wider">COINS</p>
+        </div>
+        {REWARD_MODULE_FIELDS.map(f => (
+          <div key={f.key} className="grid grid-cols-[1fr_84px_84px] items-center gap-3">
+            <p className="font-mono text-[11px] text-white/50 tracking-wide truncate" title={f.label}>{f.label}</p>
+            <input type="number" value={form[f.key]?.xp ?? ""}
+              onChange={e => setFieldValue(f.key, "xp", e.target.value)}
+              className="w-full font-mono text-xs text-white/80 px-2.5 py-1.5 rounded outline-none transition-colors"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+              onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
+              onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+            />
+            <input type="number" value={form[f.key]?.coins ?? ""}
+              onChange={e => setFieldValue(f.key, "coins", e.target.value)}
+              className="w-full font-mono text-xs text-white/80 px-2.5 py-1.5 rounded outline-none transition-colors"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+              onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
+              onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+            />
+          </div>
+        ))}
+      </div>
+      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+        onClick={handleSave} disabled={saving}
+        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        style={saved
+          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
+          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
+        }
+      >
+        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save reward policy"}
+      </motion.button>
+    </div>
+  );
+}
+
 // ── Main admin page ───────────────────────────────────────────────────────────
 
 const ADMIN_TABS = [
@@ -7204,6 +7353,9 @@ function AdminPageInner() {
                 <Section title="ARENA CHALLENGES" icon={Swords} color="#FF9500">
                   <ArenaPanel />
                 </Section>
+                <Section title="BUILD CHALLENGES" icon={Hammer} color="#FF9500">
+                  <BuildChallengesPanel />
+                </Section>
                 <Section title="CONTESTS" icon={Trophy} color="#00FFFF">
                   <ContestsPanel />
                 </Section>
@@ -7337,6 +7489,9 @@ function AdminPageInner() {
                 </Section>
                 <Section title="WALLET ECONOMY" icon={Coins} color="#00FF41">
                   <EconomyPanel />
+                </Section>
+                <Section title="REWARD POLICY" icon={Trophy} color="#FF9500">
+                  <RewardPolicyPanel />
                 </Section>
               </>
             )}
