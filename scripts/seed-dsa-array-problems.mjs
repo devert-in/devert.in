@@ -1,0 +1,431 @@
+import admin from "firebase-admin";
+import { readFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const serviceAccount = JSON.parse(readFileSync(join(__dirname, "service-account.json"), "utf8"));
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+const db = admin.firestore();
+
+// Stage 1 of the "DSA 450 Sheet" ingestion (see DSA_Hyperlink_Master_Index.pdf) -
+// the ARRAY topic (36 sheet rows). Two rows are literal duplicates of the same
+// algorithm (Kadane's appears twice; "median of 2 equal-size arrays" and
+// "...different-size arrays" are the same general algorithm) - merged into one
+// real problem each rather than seeding two identical problems, so this batch
+// is 34 distinct problems. Every statement/constraint/test case here is
+// authored from scratch (not copied from GfG/LeetCode, matching the source
+// PDF's own "no destination websites were scraped" framing) - only the
+// underlying well-known algorithm is the same.
+//
+// Difficulty/reward scale: Easy 30xp/10coins, Medium 50xp/20coins, Hard 80xp/30coins.
+
+const REWARD = { Easy: [30, 10], Medium: [50, 20], Hard: [80, 30] };
+
+function p(title, category, difficulty, tags, statement, constraints, examplesText, hints, sampleTests, hiddenTests) {
+  const [xpReward, coinReward] = REWARD[difficulty];
+  return { title, category, difficulty, tags, statement, constraints, examplesText, hints, xpReward, coinReward, sampleTests, hiddenTests };
+}
+
+const PROBLEMS = [
+
+p("Reverse the Array", "Arrays", "Easy", ["Array"],
+  "Given an array of n integers, reverse it in place and print the reversed array.",
+  "1 <= n <= 10^5",
+  "Input:\n5\n1 2 3 4 5\nOutput:\n5 4 3 2 1",
+  ["Swap elements from both ends moving toward the center.", "You can do this in a single pass with two pointers.", "No extra array is needed."],
+  [{ input: "5\n1 2 3 4 5", expectedOutput: "5 4 3 2 1", explanation: "Reverse element order." },
+   { input: "3\n7 8 9", expectedOutput: "9 8 7", explanation: "" }],
+  [{ input: "1\n42", expectedOutput: "42", points: 1 },
+   { input: "4\n-1 -2 -3 -4", expectedOutput: "-4 -3 -2 -1", points: 1 },
+   { input: "6\n10 20 30 40 50 60", expectedOutput: "60 50 40 30 20 10", points: 1 }]),
+
+p("Find the Maximum and Minimum Element in an Array", "Arrays", "Easy", ["Array"],
+  "Given an array of n integers, print the maximum element followed by the minimum element, separated by a space.",
+  "1 <= n <= 10^5",
+  "Input:\n5\n3 1 4 1 5\nOutput:\n5 1",
+  ["A single linear scan is enough.", "Track running max and running min together.", "Initialize both to the first element."],
+  [{ input: "5\n3 1 4 1 5", expectedOutput: "5 1", explanation: "" },
+   { input: "3\n-2 -5 -1", expectedOutput: "-1 -5", explanation: "" }],
+  [{ input: "1\n7", expectedOutput: "7 7", points: 1 },
+   { input: "4\n100 99 100 1", expectedOutput: "100 1", points: 1 },
+   { input: "6\n0 0 0 0 0 0", expectedOutput: "0 0", points: 1 }]),
+
+p("Kth Max and Min Element of an Array", "Arrays", "Medium", ["Array", "Sorting"],
+  "Given an array of n integers and a value k, print the kth largest element followed by the kth smallest element (1-indexed), separated by a space.",
+  "1 <= k <= n <= 10^5",
+  "Input:\n6 2\n7 10 4 3 20 15\nOutput:\n15 4",
+  ["Sorting the array makes both values a single index lookup.", "kth largest is at index n-k (0-indexed, ascending sort).", "kth smallest is at index k-1."],
+  [{ input: "6 2\n7 10 4 3 20 15", expectedOutput: "15 4", explanation: "Sorted: 3 4 7 10 15 20. 2nd largest=15, 2nd smallest=4." },
+   { input: "5 1\n5 4 3 2 1", expectedOutput: "5 1", explanation: "" }],
+  [{ input: "4 3\n1 2 3 4", expectedOutput: "2 3", points: 1 },
+   { input: "7 4\n10 20 30 40 50 60 70", expectedOutput: "40 40", points: 1 },
+   { input: "3 1\n9 9 9", expectedOutput: "9 9", points: 1 }]),
+
+p("Sort an Array of 0s, 1s and 2s", "Arrays", "Easy", ["Array", "Sorting"],
+  "Given an array containing only the values 0, 1 and 2, sort it without using a general-purpose sorting algorithm (count occurrences or use the Dutch National Flag partition). Print the sorted array.",
+  "1 <= n <= 10^5",
+  "Input:\n6\n0 1 2 0 1 2\nOutput:\n0 0 1 1 2 2",
+  ["Count how many 0s, 1s and 2s there are, then rebuild the array.", "Or use three pointers: low, mid, high (Dutch flag).", "A single pass is enough for the counting approach."],
+  [{ input: "6\n0 1 2 0 1 2", expectedOutput: "0 0 1 1 2 2", explanation: "" },
+   { input: "5\n2 2 1 0 0", expectedOutput: "0 0 1 2 2", explanation: "" }],
+  [{ input: "1\n1", expectedOutput: "1", points: 1 },
+   { input: "4\n2 2 2 2", expectedOutput: "2 2 2 2", points: 1 },
+   { input: "7\n1 0 2 1 0 2 1", expectedOutput: "0 0 1 1 1 2 2", points: 1 }]),
+
+p("Move All Negative Elements to One Side", "Arrays", "Easy", ["Array", "Two Pointer"],
+  "Given an array, rearrange it so all negative numbers appear before all non-negative numbers, preserving the relative order of elements within each group (a stable partition). Print the result.",
+  "1 <= n <= 10^5",
+  "Input:\n6\n1 -2 3 -4 5 -6\nOutput:\n-2 -4 -6 1 3 5",
+  ["Collect negatives (in order seen) and non-negatives (in order seen) into two lists, then concatenate.", "This needs one auxiliary array to remain stable - that's fine here."],
+  [{ input: "6\n1 -2 3 -4 5 -6", expectedOutput: "-2 -4 -6 1 3 5", explanation: "" },
+   { input: "4\n-1 -2 -3 -4", expectedOutput: "-1 -2 -3 -4", explanation: "" }],
+  [{ input: "4\n1 2 3 4", expectedOutput: "1 2 3 4", points: 1 },
+   { input: "5\n0 -1 2 -3 4", expectedOutput: "-1 -3 0 2 4", points: 1 },
+   { input: "1\n-5", expectedOutput: "-5", points: 1 }]),
+
+p("Union and Intersection of Two Sorted Arrays", "Arrays", "Medium", ["Array"],
+  "Given two sorted arrays, print their union (sorted, distinct values present in either array) on the first line, then their intersection (sorted, distinct values present in both) on the second line. If the intersection is empty, print 'None' on the second line.",
+  "1 <= n1, n2 <= 10^5",
+  "Input:\n5\n1 2 3 4 5\n5\n2 3 4 5 6\nOutput:\n1 2 3 4 5 6\n2 3 4 5",
+  ["Merge-scan both sorted arrays with two pointers.", "Skip duplicate values as you build the union.", "An element belongs to the intersection only if it appears in both arrays."],
+  [{ input: "5\n1 2 3 4 5\n5\n2 3 4 5 6", expectedOutput: "1 2 3 4 5 6\n2 3 4 5", explanation: "" },
+   { input: "4\n1 1 2 3\n3\n2 3 4", expectedOutput: "1 2 3 4\n2 3", explanation: "" }],
+  [{ input: "3\n1 2 3\n3\n4 5 6", expectedOutput: "1 2 3 4 5 6\nNone", points: 1 },
+   { input: "1\n5\n1\n5", expectedOutput: "5\n5", points: 1 },
+   { input: "4\n1 3 5 7\n4\n2 4 6 8", expectedOutput: "1 2 3 4 5 6 7 8\nNone", points: 1 }]),
+
+p("Cyclically Rotate an Array by One", "Arrays", "Easy", ["Array"],
+  "Given an array, cyclically rotate it to the right by one position (the last element moves to the front). Print the result.",
+  "1 <= n <= 10^5",
+  "Input:\n5\n1 2 3 4 5\nOutput:\n5 1 2 3 4",
+  ["Save the last element first.", "Shift every other element one position to the right.", "Place the saved element at index 0."],
+  [{ input: "5\n1 2 3 4 5", expectedOutput: "5 1 2 3 4", explanation: "" },
+   { input: "3\n7 8 9", expectedOutput: "9 7 8", explanation: "" }],
+  [{ input: "1\n1", expectedOutput: "1", points: 1 },
+   { input: "4\n0 0 0 1", expectedOutput: "1 0 0 0", points: 1 },
+   { input: "6\n-1 -2 -3 -4 -5 -6", expectedOutput: "-6 -1 -2 -3 -4 -5", points: 1 }]),
+
+p("Largest Sum Contiguous Subarray (Kadane's Algorithm)", "Arrays", "Medium", ["Array", "Dynamic Programming", "Very Important"],
+  "Given an array of integers (which may include negatives), find the maximum possible sum of any contiguous subarray. Print that sum.",
+  "1 <= n <= 10^5, -10^4 <= arr[i] <= 10^4",
+  "Input:\n9\n-2 1 -3 4 -1 2 1 -5 4\nOutput:\n6",
+  ["Kadane's algorithm: keep a running 'current best ending here' and a global best.", "At each element, current = max(arr[i], current + arr[i]).", "If every element is negative, the answer is just the largest single element."],
+  [{ input: "9\n-2 1 -3 4 -1 2 1 -5 4", expectedOutput: "6", explanation: "Best subarray is [4,-1,2,1] = 6." },
+   { input: "1\n-5", expectedOutput: "-5", explanation: "" }],
+  [{ input: "5\n1 2 3 4 5", expectedOutput: "15", points: 1 },
+   { input: "4\n-1 -2 -3 -4", expectedOutput: "-1", points: 1 },
+   { input: "6\n5 -4 -2 6 -1 3", expectedOutput: "8", points: 1 }]),
+
+p("Minimise the Maximum Difference Between Heights", "Arrays", "Hard", ["Array", "Sorting", "Very Important"],
+  "You are given the heights of n towers and a value k. Each tower's height must be either increased or decreased by exactly k (once, your choice per tower). Minimize the difference between the tallest and shortest tower after these changes, and print that minimum difference.",
+  "1 <= n <= 10^5, 0 <= k <= 10^9",
+  "Input:\n4 2\n1 5 8 10\nOutput:\n5",
+  ["Sort the array first.", "For a sorted array there's an optimal split point: towers before it go up by k, towers from it onward go down by k.", "Try every split point and take the best (minimum) resulting spread."],
+  [{ input: "4 2\n1 5 8 10", expectedOutput: "5", explanation: "" },
+   { input: "1 3\n5", expectedOutput: "0", explanation: "A single tower always has zero spread." }],
+  [{ input: "2 5\n1 10", expectedOutput: "1", points: 1 },
+   { input: "3 100\n1 1 1", expectedOutput: "0", points: 1 },
+   { input: "2 0\n0 0", expectedOutput: "0", points: 1 }]),
+
+p("Minimum Number of Jumps to Reach End of Array", "Arrays", "Medium", ["Array", "Dynamic Programming", "Greedy"],
+  "Given an array where arr[i] is the maximum number of steps you can jump forward from index i, find the minimum number of jumps needed to reach the last index starting from index 0. If it's impossible, print -1.",
+  "1 <= n <= 10^5, 0 <= arr[i] <= 1000",
+  "Input:\n11\n1 3 5 8 9 2 6 7 6 8 9\nOutput:\n3",
+  ["A greedy approach works: track the farthest index reachable with the current number of jumps.", "When you exhaust the current jump's range, take another jump.", "If arr[0] is 0 and n > 1, the end can never be reached."],
+  [{ input: "11\n1 3 5 8 9 2 6 7 6 8 9", expectedOutput: "3", explanation: "" },
+   { input: "1\n0", expectedOutput: "0", explanation: "Already at the last index." }],
+  [{ input: "2\n1 0", expectedOutput: "1", points: 1 },
+   { input: "3\n0 1 2", expectedOutput: "-1", points: 1 },
+   { input: "5\n2 3 1 1 4", expectedOutput: "2", points: 1 }]),
+
+p("Find Duplicate in an Array of N+1 Integers", "Arrays", "Medium", ["Array"],
+  "An array of size n+1 contains values from 1 to n, with exactly one value repeated (possibly more than once). Find and print that repeated value.",
+  "1 <= n <= 10^5",
+  "Input:\n5\n1 3 4 2 2\nOutput:\n2",
+  ["A frequency count (or a visited-set) finds the repeat in one pass.", "The array's size is always n+1 for values ranging 1..n."],
+  [{ input: "5\n1 3 4 2 2", expectedOutput: "2", explanation: "" },
+   { input: "4\n1 1 2 3", expectedOutput: "1", explanation: "" }],
+  [{ input: "3\n2 2 2", expectedOutput: "2", points: 1 },
+   { input: "6\n5 4 3 2 1 5", expectedOutput: "5", points: 1 },
+   { input: "2\n1 1", expectedOutput: "1", points: 1 }]),
+
+p("Merge Two Sorted Arrays (Combined Sorted Output)", "Arrays", "Easy", ["Array", "Two Pointer"],
+  "Given two already-sorted arrays, print a single line containing every element from both arrays, in sorted order.",
+  "0 <= n1, n2 <= 10^5",
+  "Input:\n4\n1 3 5 7\n4\n2 4 6 8\nOutput:\n1 2 3 4 5 6 7 8",
+  ["A standard merge-sort style two-pointer walk over both arrays is all you need.", "No extra sorting step required if you merge correctly."],
+  [{ input: "4\n1 3 5 7\n4\n2 4 6 8", expectedOutput: "1 2 3 4 5 6 7 8", explanation: "" },
+   { input: "2\n1 1\n2\n1 1", expectedOutput: "1 1 1 1", explanation: "" }],
+  [{ input: "1\n10\n1\n1", expectedOutput: "1 10", points: 1 },
+   { input: "3\n5 5 5\n3\n0 0 0", expectedOutput: "0 0 0 5 5 5", points: 1 },
+   { input: "3\n-3 -1 1\n3\n-2 0 2", expectedOutput: "-3 -2 -1 0 1 2", points: 1 }]),
+
+p("Merge Intervals", "Arrays", "Medium", ["Array", "Sorting"],
+  "Given n intervals as (start, end) pairs, merge all overlapping intervals (two intervals that touch at an endpoint also count as overlapping). Print the merged intervals, one per line, each as 'start end', in ascending order of start.",
+  "1 <= n <= 10^5",
+  "Input:\n4\n1 3\n2 6\n8 10\n15 18\nOutput:\n1 6\n8 10\n15 18",
+  ["Sort intervals by start value first.", "Walk through and merge whenever the current interval's start is <= the previous merged interval's end."],
+  [{ input: "4\n1 3\n2 6\n8 10\n15 18", expectedOutput: "1 6\n8 10\n15 18", explanation: "" },
+   { input: "2\n1 4\n4 5", expectedOutput: "1 5", explanation: "Touching intervals merge too." }],
+  [{ input: "2\n1 4\n2 3", expectedOutput: "1 4", points: 1 },
+   { input: "1\n1 2", expectedOutput: "1 2", points: 1 },
+   { input: "3\n1 2\n3 4\n5 6", expectedOutput: "1 2\n3 4\n5 6", points: 1 }]),
+
+p("Next Permutation", "Arrays", "Medium", ["Array"],
+  "Given an array representing a permutation, rearrange it into the next lexicographically greater permutation. If no greater permutation exists, rearrange it into the lowest possible order (sorted ascending). Print the result.",
+  "1 <= n <= 10^5",
+  "Input:\n3\n1 2 3\nOutput:\n1 3 2",
+  ["Scan from the right to find the first index i where arr[i] < arr[i+1] (the pivot).", "Find the smallest element to the right of the pivot that's still greater than it, and swap.", "Reverse everything after the pivot's original position."],
+  [{ input: "3\n1 2 3", expectedOutput: "1 3 2", explanation: "" },
+   { input: "3\n3 2 1", expectedOutput: "1 2 3", explanation: "Already the largest permutation, wraps to the smallest." }],
+  [{ input: "3\n1 1 5", expectedOutput: "1 5 1", points: 1 },
+   { input: "1\n1", expectedOutput: "1", points: 1 },
+   { input: "3\n2 3 1", expectedOutput: "3 1 2", points: 1 }]),
+
+p("Count Inversions in an Array", "Arrays", "Medium", ["Array", "Sorting"],
+  "Given an array, count the number of pairs (i, j) with i < j and arr[i] > arr[j]. Print that count.",
+  "1 <= n <= 10^5",
+  "Input:\n5\n2 4 1 3 5\nOutput:\n3",
+  ["A modified merge sort counts inversions in O(n log n) while sorting.", "For small n, even a direct pair count works - just make sure it scales for large n with the merge-sort approach."],
+  [{ input: "5\n2 4 1 3 5", expectedOutput: "3", explanation: "" },
+   { input: "4\n1 2 3 4", expectedOutput: "0", explanation: "Already sorted - no inversions." }],
+  [{ input: "4\n4 3 2 1", expectedOutput: "6", points: 1 },
+   { input: "1\n1", expectedOutput: "0", points: 1 },
+   { input: "3\n5 5 5", expectedOutput: "0", points: 1 }]),
+
+p("Best Time to Buy and Sell Stock", "Arrays", "Easy", ["Array", "Greedy"],
+  "Given the price of a stock on each of n days, find the maximum profit achievable from exactly one buy followed by one later sell. If no profit is possible, print 0.",
+  "1 <= n <= 10^5",
+  "Input:\n6\n7 1 5 3 6 4\nOutput:\n5",
+  ["Track the minimum price seen so far while scanning left to right.", "At each day, check the profit if you sold today: price[i] - minSoFar."],
+  [{ input: "6\n7 1 5 3 6 4", expectedOutput: "5", explanation: "" },
+   { input: "5\n7 6 4 3 1", expectedOutput: "0", explanation: "Strictly decreasing - no profit possible." }],
+  [{ input: "2\n1 2", expectedOutput: "1", points: 1 },
+   { input: "3\n2 4 1", expectedOutput: "2", points: 1 },
+   { input: "3\n3 3 3", expectedOutput: "0", points: 1 }]),
+
+p("Find All Pairs With a Given Sum", "Arrays", "Easy", ["Array", "Hashing"],
+  "Given an array and a target value, count the number of index pairs (i, j) with i < j such that arr[i] + arr[j] equals the target. Print that count.",
+  "1 <= n <= 10^5",
+  "Input:\n5\n1 5 7 -1 5\n6\nOutput:\n3",
+  ["A hashmap of value-to-count lets you find each element's complement in O(1).", "Be careful to count each unordered pair exactly once."],
+  [{ input: "5\n1 5 7 -1 5\n6", expectedOutput: "3", explanation: "" },
+   { input: "4\n1 1 1 1\n2", expectedOutput: "6", explanation: "Every pair of the four 1s sums to 2." }],
+  [{ input: "3\n1 2 3\n100", expectedOutput: "0", points: 1 },
+   { input: "2\n0 0\n0", expectedOutput: "1", points: 1 },
+   { input: "5\n-1 -2 -3 -4 -5\n-8", expectedOutput: "1", points: 1 }]),
+
+p("Find Common Elements in 3 Sorted Arrays", "Arrays", "Medium", ["Array"],
+  "Given three sorted arrays, print the distinct elements common to all three, in ascending order, space-separated. If there are none, print 'None'.",
+  "1 <= n1, n2, n3 <= 10^5",
+  "Input:\n6\n1 5 10 20 40 80\n5\n6 7 20 80 100\n8\n3 4 15 20 30 70 80 120\nOutput:\n20 80",
+  ["Walk all three arrays simultaneously with three pointers.", "Advance whichever pointer is behind the others."],
+  [{ input: "6\n1 5 10 20 40 80\n5\n6 7 20 80 100\n8\n3 4 15 20 30 70 80 120", expectedOutput: "20 80", explanation: "" },
+   { input: "3\n1 2 3\n3\n1 2 3\n3\n1 2 3", expectedOutput: "1 2 3", explanation: "" }],
+  [{ input: "1\n1\n1\n2\n1\n3", expectedOutput: "None", points: 1 },
+   { input: "3\n5 5 5\n1\n5\n1\n5", expectedOutput: "5", points: 1 },
+   { input: "5\n1 2 3 4 5\n2\n2 4\n3\n2 4 6", expectedOutput: "2 4", points: 1 }]),
+
+p("Rearrange Array in Alternating Positive and Negative Items", "Arrays", "Medium", ["Array"],
+  "Given an array of positive and negative integers, rearrange it so positives and negatives alternate, starting with a positive number, while preserving each group's original relative order. If one group runs out, place the remaining elements of the other group (in their original relative order) at the end. Print the result.",
+  "1 <= n <= 10^5",
+  "Input:\n8\n1 2 -3 -1 4 -5 6 -9\nOutput:\n1 -3 2 -1 4 -5 6 -9",
+  ["Separate into a positives list and a negatives list, preserving order.", "Interleave them one at a time, starting with positive.", "Append whatever is left over from the longer list."],
+  [{ input: "8\n1 2 -3 -1 4 -5 6 -9", expectedOutput: "1 -3 2 -1 4 -5 6 -9", explanation: "" },
+   { input: "6\n1 2 3 -4 -1 4", expectedOutput: "1 -4 2 -1 3 4", explanation: "" }],
+  [{ input: "2\n1 -1", expectedOutput: "1 -1", points: 1 },
+   { input: "3\n-1 -2 -3", expectedOutput: "-1 -2 -3", points: 1 },
+   { input: "3\n1 2 3", expectedOutput: "1 2 3", points: 1 }]),
+
+p("Find if There Is a Subarray With Sum Equal to 0", "Arrays", "Medium", ["Array", "Hashing"],
+  "Given an array, determine whether any contiguous subarray sums to exactly 0. Print 'Yes' or 'No'.",
+  "1 <= n <= 10^5",
+  "Input:\n5\n4 2 -3 1 6\nOutput:\nYes",
+  ["Track prefix sums in a hash set as you scan.", "If the same prefix sum ever repeats (or a prefix sum of 0 occurs), a zero-sum subarray exists."],
+  [{ input: "5\n4 2 -3 1 6", expectedOutput: "Yes", explanation: "Subarray [2,-3,1] sums to 0." },
+   { input: "5\n4 2 0 1 6", expectedOutput: "Yes", explanation: "A single zero element counts." }],
+  [{ input: "3\n1 2 3", expectedOutput: "No", points: 1 },
+   { input: "2\n1 -1", expectedOutput: "Yes", points: 1 },
+   { input: "1\n5", expectedOutput: "No", points: 1 }]),
+
+p("Find Factorial of a Large Number", "Arrays", "Medium", ["Array", "Math"],
+  "Given n, compute n! exactly, even when it's too large to fit in a standard 64-bit integer. Print the exact value.",
+  "0 <= n <= 100",
+  "Input:\n10\nOutput:\n3628800",
+  ["Represent the growing number as an array/list of digits (or use a bignum type if your language has one).", "Multiply the big number by each successive integer from 2 up to n."],
+  [{ input: "5", expectedOutput: "120", explanation: "" },
+   { input: "10", expectedOutput: "3628800", explanation: "" }],
+  [{ input: "0", expectedOutput: "1", points: 1 },
+   { input: "1", expectedOutput: "1", points: 1 },
+   { input: "20", expectedOutput: "2432902008176640000", points: 1 }]),
+
+p("Find Maximum Product Subarray", "Arrays", "Medium", ["Array", "Dynamic Programming"],
+  "Given an array of integers (which may include negatives and zeros), find the maximum product achievable from any contiguous subarray. Print that product.",
+  "1 <= n <= 10^5",
+  "Input:\n5\n6 -3 -10 0 2\nOutput:\n180",
+  ["Track both a running maximum product and a running minimum product ending at each index - a negative number can flip a very negative running product into the new maximum.", "Reset both trackers to 1 whenever you cross a zero (or start fresh from that element)."],
+  [{ input: "5\n6 -3 -10 0 2", expectedOutput: "180", explanation: "" },
+   { input: "5\n-1 -3 -10 0 60", expectedOutput: "60", explanation: "" }],
+  [{ input: "3\n-2 0 -1", expectedOutput: "0", points: 1 },
+   { input: "4\n2 3 -2 4", expectedOutput: "6", points: 1 },
+   { input: "2\n0 0", expectedOutput: "0", points: 1 }]),
+
+p("Find Longest Consecutive Subsequence", "Arrays", "Medium", ["Array", "Hashing"],
+  "Given an unsorted array of integers, find the length of the longest run of consecutive integers (e.g. 4,5,6,7) that can be formed using elements from the array. Print that length.",
+  "1 <= n <= 10^5",
+  "Input:\n7\n1 9 3 10 4 20 2\nOutput:\n4",
+  ["Put every value into a hash set first.", "For each value that isn't preceded by (value-1) in the set, count forward as far as the run continues."],
+  [{ input: "7\n1 9 3 10 4 20 2", expectedOutput: "4", explanation: "The run 1,2,3,4 has length 4." },
+   { input: "11\n36 41 56 35 44 33 34 92 43 32 42", expectedOutput: "5", explanation: "The run 32..36 has length 5." }],
+  [{ input: "4\n1 2 2 3", expectedOutput: "3", points: 1 },
+   { input: "1\n10", expectedOutput: "1", points: 1 },
+   { input: "6\n5 6 1 2 3 4", expectedOutput: "6", points: 1 }]),
+
+p("Elements Appearing More Than N/K Times", "Arrays", "Hard", ["Array", "Hashing"],
+  "Given an array of size n and a value k, print (in ascending order, space-separated) every distinct value whose count in the array is strictly greater than n/k (real division, not integer division). If no value qualifies, print 'None'.",
+  "1 <= k <= n <= 10^5",
+  "Input:\n8 4\n3 1 2 2 1 2 3 3\nOutput:\n2 3",
+  ["Count the frequency of every value with a hashmap.", "Compare each frequency against the real-valued threshold n/k, not a truncated integer division."],
+  [{ input: "8 4\n3 1 2 2 1 2 3 3", expectedOutput: "2 3", explanation: "n/k = 2; both 2 and 3 occur 3 times." },
+   { input: "7 3\n1 1 2 2 3 3 1", expectedOutput: "1", explanation: "n/k = 2.33; only 1 occurs more than that (3 times)." }],
+  [{ input: "4 4\n1 2 3 4", expectedOutput: "None", points: 1 },
+   { input: "4 2\n5 5 5 5", expectedOutput: "5", points: 1 },
+   { input: "6 2\n1 1 1 2 2 2", expectedOutput: "None", points: 1 }]),
+
+p("Maximum Profit by Buying and Selling a Share at Most Twice", "Arrays", "Hard", ["Array", "Dynamic Programming"],
+  "Given the price of a stock on each of n days, find the maximum total profit achievable using at most two non-overlapping buy-sell transactions (a new buy must happen after the previous sell). Print that maximum profit.",
+  "1 <= n <= 10^5",
+  "Input:\n7\n2 30 15 10 8 25 80\nOutput:\n100",
+  ["Compute the best single-transaction profit achievable up to each day (scanning left to right).", "Compute the best single-transaction profit achievable from each day onward (scanning right to left).", "Combine the two arrays: the answer is the best split point sum."],
+  [{ input: "7\n2 30 15 10 8 25 80", expectedOutput: "100", explanation: "" },
+   { input: "5\n1 2 3 4 5", expectedOutput: "4", explanation: "A single rising trend - a second transaction doesn't help." }],
+  [{ input: "5\n5 4 3 2 1", expectedOutput: "0", points: 1 },
+   { input: "4\n1 5 2 6", expectedOutput: "8", points: 1 },
+   { input: "4\n3 3 3 3", expectedOutput: "0", points: 1 }]),
+
+p("Check if an Array Is a Subset of Another Array", "Arrays", "Easy", ["Array", "Hashing"],
+  "Given two arrays a1 and a2, determine whether every element of a2 (respecting how many times each value appears) can be matched to an element of a1. Print 'Yes' or 'No'.",
+  "1 <= n1, n2 <= 10^5",
+  "Input:\n6\n11 1 13 21 3 7\n4\n11 3 7 1\nOutput:\nYes",
+  ["Build a frequency map of a1.", "For every element of a2, it must exist in the map with a remaining count greater than zero - decrement as you use each one."],
+  [{ input: "6\n11 1 13 21 3 7\n4\n11 3 7 1", expectedOutput: "Yes", explanation: "" },
+   { input: "6\n1 2 3 4 5 6\n3\n1 2 4", expectedOutput: "Yes", explanation: "" }],
+  [{ input: "5\n10 5 2 23 19\n3\n19 5 3", expectedOutput: "No", points: 1 },
+   { input: "3\n1 1 2\n2\n1 1", expectedOutput: "Yes", points: 1 },
+   { input: "2\n1 2\n2\n1 1", expectedOutput: "No", points: 1 }]),
+
+p("Find the Triplet That Sums to a Given Value", "Arrays", "Medium", ["Array", "Two Pointer", "Sorting"],
+  "Given an array and a target sum, determine whether any three elements add up to exactly that target. Print 'Yes' or 'No'.",
+  "1 <= n <= 10^5",
+  "Input:\n6\n12 3 4 1 6 9\n24\nOutput:\nYes",
+  ["Sort the array first.", "Fix one element, then use the two-pointer technique on the rest to find a pair summing to (target - fixed element)."],
+  [{ input: "6\n12 3 4 1 6 9\n24", expectedOutput: "Yes", explanation: "" },
+   { input: "5\n1 2 3 4 5\n9", expectedOutput: "Yes", explanation: "" }],
+  [{ input: "3\n1 2 3\n100", expectedOutput: "No", points: 1 },
+   { input: "3\n0 0 0\n0", expectedOutput: "Yes", points: 1 },
+   { input: "4\n-1 0 1 2\n0", expectedOutput: "Yes", points: 1 }]),
+
+p("Trapping Rain Water", "Arrays", "Medium", ["Array", "Two Pointer", "Very Important"],
+  "Given the heights of bars in an elevation map (width 1 each), compute how much water would be trapped between them after rain. Print that total volume.",
+  "1 <= n <= 10^5",
+  "Input:\n12\n0 1 0 2 1 0 1 3 2 1 2 1\nOutput:\n6",
+  ["Water trapped above any bar is limited by the shorter of the tallest bar to its left and the tallest bar to its right.", "Precompute the running max-from-left and max-from-right arrays, then sum min(left,right) - height at each index."],
+  [{ input: "12\n0 1 0 2 1 0 1 3 2 1 2 1", expectedOutput: "6", explanation: "" },
+   { input: "6\n4 2 0 3 2 5", expectedOutput: "9", explanation: "" }],
+  [{ input: "3\n1 1 1", expectedOutput: "0", points: 1 },
+   { input: "1\n5", expectedOutput: "0", points: 1 },
+   { input: "3\n3 0 3", expectedOutput: "3", points: 1 }]),
+
+p("Chocolate Distribution Problem", "Arrays", "Medium", ["Array", "Sorting", "Greedy"],
+  "You must give m students exactly one chocolate packet each, taken from n available packets (each has a chocolate count). To keep it fair, minimize the difference between the maximum and minimum packet sizes among the m chosen packets. Print that minimum difference.",
+  "1 <= m <= n <= 10^5",
+  "Input:\n7 3\n7 3 2 4 9 12 56\nOutput:\n2",
+  ["Sort the packet sizes.", "The m chosen packets that minimize the spread are always a contiguous window in the sorted array.", "Slide a window of size m and track the smallest (max-min) seen."],
+  [{ input: "7 3\n7 3 2 4 9 12 56", expectedOutput: "2", explanation: "" },
+   { input: "8 5\n3 4 1 9 56 7 9 12", expectedOutput: "6", explanation: "" }],
+  [{ input: "4 2\n1 2 3 4", expectedOutput: "1", points: 1 },
+   { input: "3 3\n10 10 10", expectedOutput: "0", points: 1 },
+   { input: "2 1\n1 100", expectedOutput: "0", points: 1 }]),
+
+p("Smallest Subarray With Sum Greater Than a Given Value", "Arrays", "Medium", ["Array", "Sliding Window"],
+  "Given an array of positive integers and a value x, find the length of the smallest contiguous subarray whose sum is strictly greater than x. If no such subarray exists, print -1.",
+  "1 <= n <= 10^5, 1 <= arr[i] <= 10^4",
+  "Input:\n6 51\n1 4 45 6 0 19\nOutput:\n3",
+  ["A sliding window works well since all values are positive: grow the window until the sum exceeds x, then try shrinking from the left.", "Track the smallest window length that still satisfies the sum condition."],
+  [{ input: "6 51\n1 4 45 6 0 19", expectedOutput: "3", explanation: "" },
+   { input: "5 9\n1 10 5 2 7", expectedOutput: "1", explanation: "The single element 10 already exceeds 9." }],
+  [{ input: "3 100\n1 1 1", expectedOutput: "-1", points: 1 },
+   { input: "4 6\n1 2 3 4", expectedOutput: "2", points: 1 },
+   { input: "1 1\n5", expectedOutput: "1", points: 1 }]),
+
+p("Three-Way Partitioning of an Array Around a Given Value", "Arrays", "Medium", ["Array", "Two Pointer"],
+  "Given an array and a pivot value, rearrange the array into three groups in this order: elements less than the pivot, elements equal to the pivot, then elements greater than the pivot - preserving each group's original relative order. Print the result.",
+  "1 <= n <= 10^5",
+  "Input:\n8 4\n1 14 4 2 7 5 11 3\nOutput:\n1 2 3 4 14 7 5 11",
+  ["A single pass can classify each element into one of three buckets (less/equal/greater), preserving order within each.", "Concatenate the three buckets in order: less, equal, greater."],
+  [{ input: "8 4\n1 14 4 2 7 5 11 3", expectedOutput: "1 2 3 4 14 7 5 11", explanation: "" },
+   { input: "3 5\n5 5 5", expectedOutput: "5 5 5", explanation: "" }],
+  [{ input: "3 2\n3 1 2", expectedOutput: "1 2 3", points: 1 },
+   { input: "3 10\n9 8 7", expectedOutput: "9 8 7", points: 1 },
+   { input: "3 0\n1 2 3", expectedOutput: "1 2 3", points: 1 }]),
+
+p("Minimum Swaps to Bring Elements Less Than or Equal to K Together", "Arrays", "Hard", ["Array", "Sliding Window"],
+  "Given an array and a value k, find the minimum number of swaps needed so that all elements less than or equal to k end up adjacent to each other (in any order). Print that minimum.",
+  "1 <= n <= 10^5",
+  "Input:\n5 3\n2 1 5 6 3\nOutput:\n1",
+  ["Count how many elements overall are <= k - that fixes the required window size.", "Slide a window of that size across the array and find the window already containing the most qualifying elements.", "The answer is (window size) minus (the best count found)."],
+  [{ input: "5 3\n2 1 5 6 3", expectedOutput: "1", explanation: "" },
+   { input: "3 3\n1 2 3", expectedOutput: "0", explanation: "All 3 elements already qualify and are already together." }],
+  [{ input: "3 3\n9 8 7", expectedOutput: "0", points: 1 },
+   { input: "4 1\n1 1 1 1", expectedOutput: "0", points: 1 },
+   { input: "5 1\n1 5 1 5 1", expectedOutput: "1", points: 1 }]),
+
+p("Minimum Operations to Make an Array Palindrome", "Arrays", "Hard", ["Array", "Two Pointer"],
+  "You may repeatedly merge two adjacent elements into one (replacing them with their sum). Find the minimum number of such merges needed to make the array a palindrome. Print that minimum.",
+  "1 <= n <= 10^5",
+  "Input:\n3\n15 4 15\nOutput:\n0",
+  ["Use two pointers from both ends.", "If the front and back values match, move both pointers inward.", "Otherwise, merge the smaller side's two elements into one (counting a merge) and try again."],
+  [{ input: "3\n15 4 15", expectedOutput: "0", explanation: "Already a palindrome." },
+   { input: "4\n1 4 5 1", expectedOutput: "1", explanation: "Merging 4 and 5 into 9 gives [1,9,1]." }],
+  [{ input: "1\n1", expectedOutput: "0", points: 1 },
+   { input: "2\n1 2", expectedOutput: "1", points: 1 },
+   { input: "2\n1 1", expectedOutput: "0", points: 1 }]),
+
+p("Median of Two Sorted Arrays", "Arrays", "Hard", ["Array", "Binary Search", "Very Important"],
+  "Given two sorted arrays (of possibly different sizes), find the median of all elements combined. Print the median rounded to exactly one decimal place.",
+  "1 <= n1, n2 <= 10^5",
+  "Input:\n2\n1 3\n1\n2\nOutput:\n2.0",
+  ["Conceptually, merge both arrays (or simulate the merge without building a new array) and take the middle value(s).", "If the combined length is even, the median is the average of the two middle elements.", "An O(log(min(n1,n2))) binary-search partition exists for large inputs, but any correct merge approach is accepted."],
+  [{ input: "2\n1 3\n1\n2", expectedOutput: "2.0", explanation: "" },
+   { input: "2\n1 2\n2\n3 4", expectedOutput: "2.5", explanation: "" }],
+  [{ input: "1\n5\n1\n5", expectedOutput: "5.0", points: 1 },
+   { input: "3\n1 3 5\n3\n2 4 6", expectedOutput: "3.5", points: 1 },
+   { input: "3\n1 1 1\n2\n1 1", expectedOutput: "1.0", points: 1 }]),
+
+];
+
+let created = 0, skipped = 0;
+for (const prob of PROBLEMS) {
+  const existing = await db.collection("problems").where("title", "==", prob.title).get();
+  if (!existing.empty) { skipped++; continue; }
+
+  const { sampleTests, hiddenTests, ...problemFields } = prob;
+  const problemRef = await db.collection("problems").add({
+    ...problemFields,
+    estimatedTime: 20,
+    status: "published",
+    totalSubmissions: 0, acceptedSubmissions: 0,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdBy: "devert.contact@gmail.com",
+  });
+  for (const t of sampleTests) {
+    await problemRef.collection("sampleTests").add(t);
+  }
+  for (const t of hiddenTests) {
+    await problemRef.collection("hiddenTests").add(t);
+  }
+  created++;
+}
+
+console.log(`ARRAY topic: created ${created} problem(s), skipped ${skipped} already-existing (matched by title).`);

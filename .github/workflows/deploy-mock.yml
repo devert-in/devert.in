@@ -24,6 +24,20 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: devert-frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://devert-backend-550891323057.asia-south1.run.app
+
+      # Preview channels share the project's already-deployed Cloud Functions
+      # (channel deploys can't target functions), so this only matters once
+      # someone redeploys functions from elsewhere - kept here so the shell
+      # never silently drifts from what a mock build actually produced.
+      - name: Sync static SPA shells into functions/static
+        run: |
+          mkdir -p functions/static
+          cp devert-frontend/out/u.html functions/static/u.html
+          cp devert-frontend/out/contest.html functions/static/contest.html
+          cp devert-frontend/out/campus.html functions/static/campus.html
+          cp devert-frontend/out/pulse.html functions/static/pulse.html
 
       - name: Deploy to Firebase Hosting (mock preview)
         run: npx firebase-tools hosting:channel:deploy mock --project devert-me --expires 7d

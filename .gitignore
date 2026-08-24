@@ -51,6 +51,28 @@ out/
 # =====================
 .env
 .env.local
+# functions/.env holds only DEVERT_BACKEND_URL - a public Cloud Run URL, not a
+# secret (it's already plaintext in the CI workflow files) - Firebase's own
+# functions deploy tooling reads this file to set the live env var, so it has
+# to actually ship in the repo/CI checkout, unlike every other .env above.
+!functions/.env
+
+# Emulator-only secret values (Firebase reads these for defineSecret params when
+# running locally, since Secret Manager is not reachable from the emulator).
+# These ARE real secrets - unlike functions/.env above, this must never ship.
+# The negation for functions/.env is deliberately narrow, so it does not rescue
+# this file too, but it is listed explicitly rather than left to inference.
+functions/.secret.local
+.secret.local
+**/.secret.local
+
+# =====================
+# Secrets / service accounts
+# =====================
+scripts/service-account.json
+scripts/service-account.*.json
+*-service-account.json
+serviceAccountKey.json
 
 # =====================
 # Maven / Java
@@ -63,3 +85,70 @@ devert-backend/target/
 # =====================
 .DS_Store
 Thumbs.db
+
+# =====================
+# One-off script run artifacts
+# =====================
+# Recovery dumps written by the content rewrite/migration scripts before they
+# write to Firestore. Kept on disk as a local undo path, but not versioned:
+# they are large content dumps (megabytes), and the same prior state is also
+# stored in each document's own `previousVersions` field.
+scripts/*-backup-*.json
+scripts/*-dryrun-*.json
+scripts/*-applied-*.json
+scripts/reward-ledger-audit-*.json
+scripts/score-migration-applied-*.json
+scripts/clamp-negative-balances-*.json
+
+# =====================
+# Migration / authoring run artifacts
+# =====================
+# Every admin script under scripts/ that mutates Firestore writes a timestamped
+# dry-run or applied-changes record next to itself (see write-gate-lessons.mjs,
+# rewrite-cscore-lessons.mjs, the reward-migration scripts). Those files are local
+# recovery and audit artifacts for one run on one machine - useful to keep on disk,
+# never useful in history, and they accumulate fast.
+scripts/*-backup-*.json
+scripts/*-dryrun-*.json
+scripts/*-applied-*.json
+scripts/*-audit-*.json
+scripts/reward-ledger-audit-*.json
+scripts/clamp-negative-balances-*.json
+scripts/disallowed-module-rewards-*.json
+scripts/duplicate-rewards-*.json
+scripts/new-dsa-problems-migration-*.json
+scripts/problem-structure-migration-*.json
+scripts/retroactive-daily-learning-rewards-*.json
+scripts/reverse-premature-conversions-*.json
+scripts/score-migration-*.json
+
+# Scratch lint output
+devert-frontend/eslint_fresh.json
+
+# Third-party reference material - large binaries, not project source.
+# Anchored to the repo root (leading slash) - an unanchored `roadmaps/`
+# also matched devert-frontend/app/campus/roadmaps/, silently excluding
+# that real Next.js route from every commit.
+/roadmaps/
+Cognizant-Placement-Preparation-Handbook.*
+/GATE/
+/CS_GATE2027_Syllabus.pdf
+/DeVert-A-Thon Participant Guidelines*.pdf
+
+# Unrelated projects that happen to live in this working directory
+ByteMart Java/
+adarisamuelprasad-portfolio/
+nandhakishor-portfolio/
+
+# Ad-hoc scratch checks (scripts/_tmp-*.mjs) - one-off Firestore probes, kept
+# locally but never committed. The same convention applies under test/ for
+# throwaway emulator reproductions (test/_tmp-*.test.mjs), which would otherwise
+# be swept in by `git add -A` and then run as part of the real suite.
+scripts/_tmp-*
+test/_tmp-*
+
+# Generated contest reports. These contain real students' names, roll numbers
+# and individual scores - personal data that has no business in version
+# control. Regenerate them from Firestore when they're needed.
+scripts/contest-classwise-results-*.csv
+scripts/contest-classwise-report-*.html
