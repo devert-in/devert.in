@@ -6,6 +6,18 @@ import Link from "next/link";
 import { GraduationCap, BookOpen, ClipboardCheck, Trophy, Users, ArrowUpRight, Building2 } from "lucide-react";
 import { fetchPublishedContests, bucketContests } from "@/lib/contests";
 import { fetchInstitutions } from "@/lib/institutions";
+import { CAMPUS_URL } from "@/lib/campusUrl";
+import { db } from "@/lib/firebase";
+import { collection, getCountFromServer } from "firebase/firestore";
+
+// The whole-platform DeVert account count, not "students on Campus" - same
+// convention devert-campus/lib/campusCatalog.js's fetchLearnerCount() already
+// uses for its "Registered learners" stat. A per-institution students
+// fan-out would double-count (every approved Campus student is already a row
+// in `users`) at the extra cost of one read per institution.
+function fetchLearnerCount() {
+  return getCountFromServer(collection(db, "users")).then(s => s.data().count).catch(() => null);
+}
 
 // Real numbers only - same convention as platform-stats.jsx (institutions +
 // active contests, not a fabricated "10,000+ students" line). Two cheap
@@ -21,18 +33,24 @@ import { fetchInstitutions } from "@/lib/institutions";
 // where("accessMode","in",[...]) filter, which is safe under list mode
 // (verified elsewhere this session) - reuse it rather than re-deriving a
 // second, differently-shaped query for the same collection.
-function useCampusStats() {
+export function useCampusStats() {
   const [stats, setStats] = useState(null);
   useEffect(() => {
     Promise.allSettled([
       fetchInstitutions(),
       fetchPublishedContests(),
-    ]).then(([instRes, contestsRes]) => {
+      fetchLearnerCount(),
+    ]).then(([instRes, contestsRes, learnersRes]) => {
       const institutions = instRes.status === "fulfilled" ? instRes.value.length : 0;
       const contests = contestsRes.status === "fulfilled" ? contestsRes.value : [];
       const bucketed = bucketContests(contests);
-      setStats({ institutions, activeContests: bucketed.live.length + bucketed.upcoming.length });
-    }).catch(() => setStats({ institutions: 0, activeContests: 0 }));
+      setStats({
+        institutions,
+        activeContests: bucketed.live.length + bucketed.upcoming.length,
+        totalContests: contests.length,
+        learners: learnersRes.status === "fulfilled" ? learnersRes.value : null,
+      });
+    }).catch(() => setStats({ institutions: 0, activeContests: 0, totalContests: 0, learners: null }));
   }, []);
   return stats;
 }
@@ -107,7 +125,7 @@ export function CampusPreview() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <Link href="/campus">
+              <Link href={CAMPUS_URL}>
                 <motion.span
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}

@@ -7,6 +7,7 @@ import { ArrowRight, GraduationCap, Flame, Anchor, Activity } from "lucide-react
 import { db } from "@/lib/firebase";
 import { collection, query, where, orderBy, limit, getDocs, doc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
+import { CAMPUS_URL } from "@/lib/campusUrl";
 
 // One row per DeVert product, each either a real, specific "continue where
 // you left off" link or a plain "explore" CTA when there's nothing yet -
@@ -95,10 +96,10 @@ export function DevertJourneyCard() {
       <div className="px-5 py-1 divide-y divide-white/5">
         {userData.institutionId ? (
           <JourneyRow icon={GraduationCap} color="#00FFFF" label="CAMPUS"
-            value="Continue your Campus workspace" cta="open" href={`/campus/${userData.institutionId}`} />
+            value="Continue your Campus workspace" cta="open" href={`${CAMPUS_URL}/${userData.institutionId}`} />
         ) : (
           <JourneyRow icon={GraduationCap} color="#00FFFF" label="CAMPUS"
-            value="Structured learning & placement prep" cta="explore" href="/campus" />
+            value="Structured learning & placement prep" cta="explore" href={CAMPUS_URL} />
         )}
 
         {signals?.event ? (

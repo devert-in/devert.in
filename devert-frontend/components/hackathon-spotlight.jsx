@@ -50,15 +50,15 @@ export function HackathonSpotlight() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }}
-      className="mb-5">
-      <Link href={`/h/${hackathon.id}`} className="block group">
-        <div className="terminal-window overflow-hidden transition-colors duration-200"
+      className="mb-5 h-full">
+      <Link href={`/h/${hackathon.id}`} className="block group h-full">
+        <div className="terminal-window overflow-hidden transition-colors duration-200 h-full flex flex-col"
           style={{ borderColor: `${accent}30` }}>
           <div className="terminal-header">
             <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">spotlight.event</span>
           </div>
-          <div className="p-5 sm:p-6 relative overflow-hidden">
+          <div className="p-5 sm:p-6 relative overflow-hidden flex-1 flex flex-col">
             <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: accent }} />
             <div className="relative flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0">
