@@ -34,10 +34,7 @@ export function Footer() {
   // the exclusion - that IS a focused, continuously-scrolling feed.
   // Public portfolios carry their own minimal credit line instead (see app/u/page.jsx) -
   // the marketing footer's socials/manifest/CTA are DeVert chrome, not part of the portfolio.
-  // Campus is a deliberately separate institutional surface with its own chrome
-  // entirely (see components/campus/campus-app.jsx) - none of DeVert's own
-  // chrome belongs there, same reasoning as /u/.
-  if ((pathname === "/" && !hasShownIntro && !user) || pathname.startsWith("/admin") || pathname === "/pulse" || pathname.startsWith("/u/") || pathname.startsWith("/campus")) return null;
+  if ((pathname === "/" && !hasShownIntro && !user) || pathname.startsWith("/admin") || pathname === "/pulse" || pathname.startsWith("/u/")) return null;
 
   return (
     <footer className="relative border-t border-white/5 pb-28 mt-20 overflow-hidden">

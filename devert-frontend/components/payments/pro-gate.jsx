@@ -22,7 +22,6 @@ import Link from "next/link";
 import { Lock, ArrowRight } from "lucide-react";
 import { useTier } from "@/lib/useTier";
 import { FEATURES } from "@/lib/entitlements";
-import { CAMPUS_URL } from "@/lib/campusUrl";
 
 export function ProGate({ feature, title, children, freeAlternative, compact = false }) {
   const { can, ready } = useTier();
@@ -35,12 +34,8 @@ export function ProGate({ feature, title, children, freeAlternative, compact = f
   if (can(feature)) return children;
 
   if (compact) {
-    // Cross-origin to campus.devert.in's own landing page #pricing band
-    // (see devert-campus/components/campus/campus-landing.jsx's <Band
-    // id="pricing">) - there is no standalone /campus/pro route, same-origin
-    // or otherwise.
     return (
-      <Link href={`${CAMPUS_URL}#pricing`} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+      <Link href="/pro" className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         style={{ background: "rgba(0,255,255,0.05)", border: "1px solid rgba(0,255,255,0.22)" }}>
         <Lock size={12} style={{ color: "#00FFFF" }} />
         <span className="font-mono text-[11px]" style={{ color: "#00FFFF" }}>
@@ -69,7 +64,7 @@ export function ProGate({ feature, title, children, freeAlternative, compact = f
           </p>
         )}
 
-        <Link href={`${CAMPUS_URL}#pricing`}
+        <Link href="/pro"
           className="inline-flex items-center gap-2 font-mono text-xs px-5 py-2.5 rounded-lg transition-colors"
           style={{ color: "#00FFFF", border: "1px solid rgba(0,255,255,0.3)", background: "rgba(0,255,255,0.06)" }}>
           see what Pro includes <ArrowRight size={12} />

@@ -84,9 +84,9 @@ export function CommandPalette() {
   const debounceRef = useRef(null);
   const router = useRouter();
   const pathname = usePathname();
-  // Public portfolios and Campus are standalone surfaces with no DeVert chrome -
-  // Cmd+K has no place opening over either one.
-  const isIsolatedSurface = pathname.startsWith("/u/") || pathname.startsWith("/campus");
+  // Public portfolios are a standalone surface with no DeVert chrome - Cmd+K
+  // has no place opening over it.
+  const isIsolatedSurface = pathname.startsWith("/u/");
 
   const isUserSearch = query.trimStart().startsWith("@");
   const rawTerm = isUserSearch ? query.trimStart().slice(1).trim() : query.trim();

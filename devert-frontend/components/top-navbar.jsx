@@ -30,7 +30,7 @@ const GROUPS = [
   {
     key: "explore", label: "Explore",
     items: [
-      { icon: GraduationCap, label: "Campus",       href: "/campus",       desc: "Learn, practice, prepare" },
+      { icon: GraduationCap, label: "Campus",       href: "https://campus.devert.in", desc: "Learn, practice, prepare" },
       { icon: Flame,         label: "Events",       href: "/events",       desc: "Hackathons, workshops, meetups" },
       { icon: Radio,         label: "Opportunities", href: "/opportunities", desc: "Internships, jobs, programs" },
     ],
@@ -170,12 +170,10 @@ export function TopNavbar() {
   const { user, logout, isSuperAdmin } = useAuth();
 
   // Same gating as the bottom dock: no chrome over the pre-auth intro splash,
-  // never on /admin, /u/*, or anywhere inside Campus (which has its own
-  // CampusTopBar entirely).
+  // never on /admin or /u/*.
   const hidden = (pathname === "/" && !user && !hasShownIntro)
     || pathname.startsWith("/admin")
-    || pathname.startsWith("/u/")
-    || pathname.startsWith("/campus");
+    || pathname.startsWith("/u/");
   if (hidden) return null;
 
   return (

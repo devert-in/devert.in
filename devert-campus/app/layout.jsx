@@ -1,5 +1,6 @@
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { CampusContentGuard } from "@/components/campus/campus-content-guard";
 
 // Generic fallback - real per-institution title/description come from
 // CampusPreviewService via a preview router (see functions/index.js /
@@ -24,7 +25,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <CampusContentGuard />
+          {children}
+        </AuthProvider>
         {/* Prevents a flash-of-light-theme AND a React hydration mismatch on a
             hard load of any page here. output:'export' bakes each page's HTML
             at BUILD time, when localStorage/matchMedia don't exist -

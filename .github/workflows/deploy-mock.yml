@@ -27,16 +27,30 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: https://devert-backend-550891323057.asia-south1.run.app
 
+      - name: Install campus dependencies
+        run: npm ci
+        working-directory: devert-campus
+
+      # devert-campus imports shared code straight from devert-frontend (see
+      # deploy-prod.yml's own note on this) - same two vars that build needs.
+      - name: Build campus
+        run: npm run build
+        working-directory: devert-campus
+        env:
+          NEXT_PUBLIC_API_URL: https://devert-backend-550891323057.asia-south1.run.app
+
       # Preview channels share the project's already-deployed Cloud Functions
       # (channel deploys can't target functions), so this only matters once
       # someone redeploys functions from elsewhere - kept here so the shell
       # never silently drifts from what a mock build actually produced.
+      # campus.html dropped: devert-frontend no longer builds one (Campus
+      # moved to devert-campus/campus.devert.in) - see deploy-prod.yml's own
+      # note on this, same reasoning.
       - name: Sync static SPA shells into functions/static
         run: |
           mkdir -p functions/static
           cp devert-frontend/out/u.html functions/static/u.html
           cp devert-frontend/out/contest.html functions/static/contest.html
-          cp devert-frontend/out/campus.html functions/static/campus.html
           cp devert-frontend/out/pulse.html functions/static/pulse.html
 
       - name: Deploy to Firebase Hosting (mock preview)

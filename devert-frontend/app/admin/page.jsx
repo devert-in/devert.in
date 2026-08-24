@@ -750,7 +750,7 @@ function InstitutionsPanel() {
   return (
     <div className="space-y-5">
       <div className="grid sm:grid-cols-2 gap-3">
-        <Input label="SLUG (used as /campus/<slug>)" value={form.slug} onChange={v => setForm(p => ({ ...p, slug: v }))} placeholder="mrcet" />
+        <Input label="SLUG (used as campus.devert.in/<slug>)" value={form.slug} onChange={v => setForm(p => ({ ...p, slug: v }))} placeholder="mrcet" />
         <Input label="COLLEGE NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Malla Reddy College of Engineering & Technology" />
         <Input label="LOCATION" value={form.location} onChange={v => setForm(p => ({ ...p, location: v }))} placeholder="Hyderabad, Telangana" />
         <Input label="WEBSITE" value={form.website} onChange={v => setForm(p => ({ ...p, website: v }))} placeholder="https://mrcet.ac.in" />
@@ -778,7 +778,7 @@ function InstitutionsPanel() {
           <div key={inst.id} className="rounded-lg border border-white/6 p-3 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-xs text-white/80">{inst.name}</span>
-              <span className="font-mono text-[10px] text-white/25">/campus/{inst.id}</span>
+              <span className="font-mono text-[10px] text-white/25">campus.devert.in/{inst.id}</span>
               <span className="font-mono text-[9px] px-2 py-0.5 rounded"
                 style={{ color: inst.status === "active" ? "#00FF41" : "#FF5050", background: inst.status === "active" ? "rgba(0,255,65,0.08)" : "rgba(255,80,80,0.08)" }}>
                 {inst.status?.toUpperCase()}
