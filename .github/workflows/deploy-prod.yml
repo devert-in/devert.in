@@ -48,6 +48,16 @@ jobs:
       - name: Build campus
         run: npm run build
         working-directory: devert-campus
+        env:
+          # devert-campus reuses devert-frontend/lib/{codelab,staffAccounts}.js
+          # verbatim (see the jsconfig.json @/* fallback note above) - both
+          # read these same two NEXT_PUBLIC_* vars, and Next.js inlines them
+          # at build time per app, so campus's own build needs them set too
+          # or CodeLab run/submit and staff-account admin actions on
+          # campus.devert.in silently no-op. Same values as the Build step
+          # above for the same reasons noted there.
+          NEXT_PUBLIC_API_URL: https://devert-backend-550891323057.asia-south1.run.app
+          NEXT_PUBLIC_AUTH_DOMAIN: devert.in
 
       # functions/index.js's crawler-preview routers (uHandleRouter,
       # contestPreviewRouter, pulsePreviewRouter) each serve a copy of the

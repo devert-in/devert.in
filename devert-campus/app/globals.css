@@ -364,3 +364,52 @@ body {
   100% { background-position: 0% 50%; }
 }
 
+/* Content lockdown - pairs with <CampusContentGuard />. The JS blocks the
+   events; this removes the selection highlight and the long-press callout so
+   there is nothing to grab in the first place. CampusContentGuard adds
+   .clipboard-unlocked to <html> for admins, which lifts the whole CSS half in
+   one go. Ported from devert-frontend/app/globals.css's own copy - see
+   campus-content-guard.jsx's header for why this couldn't just stay there. */
+html:not(.clipboard-unlocked) {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Kept selectable for everyone: form fields need a caret, Monaco is a text
+   editor holding the user's own code, and data-allow-clipboard is the
+   per-element hatch. Mirrors EXEMPT_SURFACES in campus-content-guard.jsx -
+   change both together. */
+input,
+textarea,
+select,
+[contenteditable=""],
+[contenteditable="true"],
+.monaco-editor,
+.monaco-editor *,
+[data-allow-clipboard],
+[data-allow-clipboard] * {
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  user-select: text;
+}
+
+html:not(.clipboard-unlocked) :is(img, svg, canvas, video) {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+/* Inside an invigilated attempt the exemptions above are withdrawn from
+   everything except the caret itself - same pairing with
+   use-proctor-session.js's .proctor-active class as devert-frontend's copy.
+   Selection stays on inputs/textareas/Monaco: removing it takes the caret
+   with it and breaks typing, and it is harmless once the clipboard events
+   themselves are blocked in JS. */
+html.proctor-active :is(img, svg, canvas, video) {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-editor *) {
+  -webkit-touch-callout: none;
+}
+

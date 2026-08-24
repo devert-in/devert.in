@@ -41,7 +41,7 @@ const NAV_ITEMS = [
   { icon: Activity,      label: "Pulse",        href: "/pulse"        },
   { icon: Swords,        label: "Arena",        href: "/arena"        },
   { icon: Radio,         label: "Intel",        href: "/intel"        },
-  { icon: GraduationCap, label: "Campus",       href: "/campus"       },
+  { icon: GraduationCap, label: "Campus",       href: "https://campus.devert.in" },
   { icon: Tv2,           label: "Broadcast",    href: "/broadcast"    },
   { icon: Flame,         label: "Events",       href: "/events"       },
   { icon: Target,        label: "Missions",     href: "/missions"     },
@@ -67,10 +67,6 @@ export function Navbar() {
   if (pathname.startsWith("/admin")) return null;
   // Public portfolios are a standalone "give this to a recruiter" page - no DeVert chrome.
   if (pathname.startsWith("/u/")) return null;
-  // Campus is a deliberately separate, light "academic" surface (see
-  // components/campus/campus-app.jsx) with its own nav - the dark Builder's OS
-  // dock would clash with it and doesn't belong on an institutional workspace.
-  if (pathname.startsWith("/campus")) return null;
 
   const showTooltip = (e, label) => {
     if (profileOpen) return;

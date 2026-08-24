@@ -95,10 +95,10 @@ export function DevertJourneyCard() {
       <div className="px-5 py-1 divide-y divide-white/5">
         {userData.institutionId ? (
           <JourneyRow icon={GraduationCap} color="#00FFFF" label="CAMPUS"
-            value="Continue your Campus workspace" cta="open" href={`/campus/${userData.institutionId}`} />
+            value="Continue your Campus workspace" cta="open" href={`https://campus.devert.in/${userData.institutionId}`} />
         ) : (
           <JourneyRow icon={GraduationCap} color="#00FFFF" label="CAMPUS"
-            value="Structured learning & placement prep" cta="explore" href="/campus" />
+            value="Structured learning & placement prep" cta="explore" href="https://campus.devert.in" />
         )}
 
         {signals?.event ? (

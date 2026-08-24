@@ -30,7 +30,7 @@ const APPLY = process.argv.includes("--apply");
 
 const products = {
   core:          { label: "DeVert Core",  href: "/",              status: "PUBLISHED" },
-  campus:        { label: "Campus",       href: "/campus",        status: "PUBLISHED" },
+  campus:        { label: "Campus",       href: "https://campus.devert.in", status: "PUBLISHED" },
   events:        { label: "Events",       href: "/events",        status: "PUBLISHED" },
   community:     { label: "Community",    href: "/community",     status: "PUBLISHED" },
   opportunities: { label: "Opportunities", href: "/opportunities", status: "PUBLISHED" },

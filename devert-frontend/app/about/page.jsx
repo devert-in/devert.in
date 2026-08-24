@@ -114,7 +114,7 @@ export default function AboutPage() {
             style={{ borderColor: "#00FF41", color: "#00FF41" }}>
             [ START_BUILDING ] <ArrowUpRight size={14} />
           </Link>
-          <Link href="/campus" className="inline-flex items-center gap-2 font-mono text-sm px-6 py-3 border transition-all duration-200"
+          <Link href="https://campus.devert.in" className="inline-flex items-center gap-2 font-mono text-sm px-6 py-3 border transition-all duration-200"
             style={{ borderColor: "#00FFFF", color: "#00FFFF" }}>
             [ ENTER_CAMPUS ] <ArrowUpRight size={14} />
           </Link>
