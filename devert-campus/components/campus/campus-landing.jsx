@@ -730,6 +730,58 @@ function Hero({ stats }) {
   );
 }
 
+// The one full-bleed gradient CTA on the public landing page - the same
+// CAMPUS.gradientPrimary treatment ContestCtaBanner already uses on the
+// dashboard (campus-dashboard-widgets.jsx), not CAMPUS.gradientHero: that
+// one was tried as a REPEATING admin-header fill and got reported as too
+// bold for something seen every day (see StaffDashboardHero's own comment).
+// A homepage banner seen once per visit is exactly the case gradientHero
+// would still suit, but reusing gradientPrimary keeps every saturated-fill
+// element on this app meaning the same thing - "act now" - instead of
+// splitting that language into two different gradients that both claim it.
+//
+// Replaces the plain-text "Bring DeVert to your campus" link Hero used to
+// bury in its CTA row, same weight as a legal footer link and easy to never
+// notice next to two real buttons. InstitutionsBand further down still
+// carries the actual pitch (roles, what a campus adds) - this is the stop
+// sign that gets a T&P-cell visitor to open the same demo form rather than
+// keep scrolling past it.
+function BringToCampusBanner() {
+  return (
+    <div className="max-w-6xl mx-auto px-6 sm:px-10 pt-2 sm:pt-4 pb-14 sm:pb-16">
+      <div className="relative overflow-hidden rounded-2xl p-7 sm:p-9"
+        style={{ background: CAMPUS.gradientPrimary, boxShadow: `0 18px 44px ${tint(CAMPUS.teal, 30)}` }}>
+        <div className="absolute -right-10 -top-16 w-56 h-56 rounded-full pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
+        <div className="absolute right-24 -bottom-16 w-36 h-36 rounded-full pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.1)" }} aria-hidden="true" />
+
+        <div className="relative flex items-center justify-between gap-6 flex-wrap">
+          <div className="min-w-0 max-w-[52ch]">
+            <p className="text-[11px] font-mono tracking-[0.16em] uppercase mb-2" style={{ color: "rgba(255,255,255,0.82)" }}>
+              For training &amp; placement cells
+            </p>
+            <h3 className="text-[21px] sm:text-[24px] font-bold text-white leading-tight">
+              Bring DeVert to your campus
+            </h3>
+            <p className="text-[13.5px] mt-2 leading-relaxed" style={{ color: "rgba(255,255,255,0.88)" }}>
+              Schedule the same central curriculum for your own students, track who&apos;s
+              completed what, and see a department-wide leaderboard - gated to your college,
+              approved by your T&amp;P cell.
+            </p>
+          </div>
+          <div className="flex items-center gap-5 flex-shrink-0">
+            <DemoButton source="campus-home-banner"
+              style={{ background: "rgba(255,255,255,0.18)", color: "#fff", border: "1px solid rgba(255,255,255,0.32)" }} />
+            <Building2 size={48} className="hidden sm:block flex-shrink-0"
+              style={{ color: "rgba(255,255,255,0.9)" }} strokeWidth={1.4} aria-hidden="true" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------- learn explorer ----------------
 
 // Left rail of tracks, right panel of detail. The rail is a real tab list
