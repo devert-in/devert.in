@@ -13,9 +13,7 @@
 // subscriptions/{uid} - "am I trialling" must not be a field the visitor
 // sets about themselves.
 
-import { functions, db } from "@/lib/firebase";
-import { httpsCallable } from "firebase/functions";
-import { doc, onSnapshot } from "firebase/firestore";
+import { functions, db, httpsCallable, doc, onSnapshot } from "@/lib/firebase";
 
 export const CAMPUS_TRIAL_DAYS = 11;
 

@@ -5,7 +5,7 @@ import {
   onSnapshot, addDoc, setDoc, serverTimestamp, writeBatch, documentId, getCountFromServer,
 } from "firebase/firestore";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import { getFunctions, connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 
 // Re-exported so every caller - including devert-campus, a SEPARATE npm
 // install/node_modules from this app - gets the exact same physical copy of
@@ -33,6 +33,7 @@ export {
   addDoc, setDoc, serverTimestamp, writeBatch, documentId, getCountFromServer,
   storageRef, uploadBytes, getDownloadURL,
   signInWithEmailAndPassword, sendPasswordResetEmail, signOut,
+  httpsCallable,
 };
 
 const firebaseConfig = {

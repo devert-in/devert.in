@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+/* Tailwind v4's automatic content detection scans from this app's own
+   package.json boundary, so it never reaches devert-frontend even though
+   this app renders a lot of devert-frontend JSX by source (context/lib and
+   several components/campus/* primitives that never moved - see
+   jsconfig.json's @/* fallback and CLAUDE.md's devert-campus entry). Any
+   utility class that appears ONLY inside a devert-frontend file, and
+   nowhere in this app's own few hundred files, silently never makes it
+   into this build's CSS - confirmed case: campus-ui.jsx's CampusStat
+   renders a decorative opacity-[0.08] watermark circle that was shipping
+   fully OPAQUE on every Campus stat card (Total Students, Pending
+   Requests, ...), because that exact class string appears nowhere in
+   devert-campus for the scanner to find. @source pulls the whole sibling
+   app into this build's scan instead of hunting down every affected class
+   one at a time. */
+@source "../../devert-frontend";
+
 /* Phase 1: the real Campus theme block below is copied from
    devert-frontend/app/globals.css (kept there too, since
    components/campus-preview.jsx on the main site still renders with
