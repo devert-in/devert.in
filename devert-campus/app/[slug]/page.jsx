@@ -38,7 +38,7 @@ const GLOBAL_SECTION_METADATA = {
   // it can rank and be shared as itself rather than as a fragment of /campus.
   campuses: { title: "Campuses | DeVert Campus", description: "Every college running DeVert Campus. Find yours and request access - your Training & Placement Cell approves it." },
   institutions: { title: "For institutions | DeVert Campus", description: "Daily Learning scheduling, assessments, contests, leaderboards and role-based dashboards for principals, HODs, faculty and placement cells." },
-  pricing: { title: "Pricing | DeVert Campus", description: "Free to learn. Individual Premium is ₹29 a month per learner, down to ₹19.1 a month on the yearly plan, with a 7-day free trial; a campus licence is quoted per institution." },
+  pricing: { title: "Pricing | DeVert Campus", description: "Free to learn. Individual Premium is ₹29 a month per learner, down to ₹19.1 a month on the yearly plan, with an 11-day free trial; a campus licence is quoted per institution." },
 };
 
 export async function generateMetadata({ params }) {

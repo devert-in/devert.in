@@ -30,9 +30,8 @@ export const DEMO_EMAIL = "devert.contact@gmail.com";
 const ROLES = ["Principal", "HOD", "Training & Placement Officer", "Faculty", "Other"];
 const SIZES = ["Under 500", "500 - 2,000", "2,000 - 5,000", "5,000+"];
 
-// Exported for campus-waitlist.jsx, which is the same shape of thing - an
-// unauthenticated lead-capture dialog replacing a dead mailto: - and should not
-// carry a second, drifting copy of the same input chrome.
+// Shared input chrome for this dialog's own fields, kept exported in case
+// another unauthenticated lead-capture dialog needs the same shape later.
 export function Field({ label, value, onChange, placeholder, type = "text", required, maxLength }) {
   return (
     <label className="block">

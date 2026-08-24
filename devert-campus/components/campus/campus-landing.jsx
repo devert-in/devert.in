@@ -18,10 +18,11 @@ import { LanguageLogo } from "@/components/campus/language-logo";
 import { useCampusTheme } from "@/components/campus/campus-theme-provider";
 import { CampusPublicNav, SUPPORT_EMAIL } from "@/components/campus/campus-public-nav";
 import { DemoRequestDialog } from "@/components/campus/campus-demo-request";
-import { WaitlistDialog } from "@/components/campus/campus-waitlist";
+import { useAuth } from "@/context/AuthContext";
+import { CAMPUS_TRIAL_DAYS, watchCampusTrial, isCampusTrialActive, startCampusTrial } from "@/lib/campus-trial";
 import {
   CampusCard, CampusChip, CampusSkeleton, CampusEmptyState,
-  CampusTable, CampusBadge,
+  CampusTable, CampusBadge, CampusGoogleButton,
 } from "@/components/campus/campus-ui";
 
 // The public front door at campus.devert.in.
@@ -316,11 +317,11 @@ const FAQ = [
   },
   {
     q: "Is Premium available today?",
-    a: "Not yet. The plans are published intent so nobody is surprised by pricing later, and there is no checkout behind them. Nothing is behind a paywall right now - if you can reach it on this page, it is free while Premium is in build.",
+    a: `Not to buy, no. The plans are published intent so nobody is surprised by pricing later, and there is no checkout behind them yet. You can start a real ${CAMPUS_TRIAL_DAYS}-day free trial right now though - nothing else on this page is behind a paywall, so everything you can already reach stays free while Premium is in build.`,
   },
   {
     q: "Why is Premium only ₹29 a month?",
-    a: "Because a price a student has to think about is a price most students will not pay. The aim is that everyone on a campus can afford it, not that a few pay a lot - so the entry plan is ₹29, the yearly works out to ₹19.1 a month, and there is a seven-day free trial before any of it. The free tier is not a trap either: it stays genuinely usable forever.",
+    a: `Because a price a student has to think about is a price most students will not pay. The aim is that everyone on a campus can afford it, not that a few pay a lot - so the entry plan is ₹29, the yearly works out to ₹19.1 a month, and there is a ${CAMPUS_TRIAL_DAYS}-day free trial before any of it. The free tier is not a trap either: it stays genuinely usable forever.`,
   },
   {
     q: "Do coins and XP work outside a campus?",
@@ -1148,19 +1149,57 @@ function InstitutionsBand({ tone }) {
 
 // ---------------- pricing + faq ----------------
 
-// Same shape as DemoButton: owns its dialog so each of the six pricing CTAs
-// stays a one-liner, and replaces the mailto: link they all used to be.
-function WaitlistButton({ plan, source, className = "", style }) {
-  const [open, setOpen] = useState(false);
+// One trial per ACCOUNT, not per plan - Individual Premium is one product
+// (see the intro copy below), so every plan card and the Lifetime card all
+// trigger and reflect the SAME account-wide trial rather than each running
+// its own. Real entitlement (see lib/campus-trial.js's header for why this
+// isn't a client-writable field), not a lead-capture form - there is nothing
+// left to purchase this into yet, so "trial ended" has no upgrade path today.
+function CampusTrialButton({ className = "", style }) {
+  const { user } = useAuth();
+  const [trial, setTrial] = useState(null);
+  const [checked, setChecked] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!user) { setTrial(null); setChecked(true); return; }
+    setChecked(false);
+    return watchCampusTrial(user.uid, (t) => { setTrial(t); setChecked(true); });
+  }, [user]);
+
+  const start = async () => {
+    setStarting(true); setError("");
+    try {
+      const res = await startCampusTrial();
+      setTrial({ status: "active", ...res });
+    } catch (err) {
+      setError(err?.message || "Could not start your trial.");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const neutral = { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft };
+
+  if (!checked) return <div className={className} style={neutral}>Checking…</div>;
+
+  if (isCampusTrialActive(trial)) {
+    return (
+      <div className={className} style={{ ...neutral, color: CAMPUS.good }}>
+        Trial active till {new Date(trial.expiresAtMs).toLocaleDateString()}
+      </div>
+    );
+  }
+  if (trial) return <div className={className} style={neutral}>Trial ended</div>;
+  if (!user) return <CampusGoogleButton label="Sign in to start trial" style={style} />;
+
   return (
     <>
-      <button onClick={() => setOpen(true)} className={`campus-btn ${className}`} style={style}>
-        Join the waitlist
+      <button onClick={start} disabled={starting} className={`campus-btn ${className}`} style={style}>
+        {starting ? "Starting…" : `Start ${CAMPUS_TRIAL_DAYS}-day free trial`}
       </button>
-      {/* Mounted only while open, so each opening is a fresh mount - that is
-          what lets the dialog prefill from a lazy initializer instead of a
-          reset effect. */}
-      {open && <WaitlistDialog open onClose={() => setOpen(false)} plan={plan} source={source} />}
+      {error && <p className="text-[11px] mt-1.5 text-center" style={{ color: CAMPUS.warn }}>{error}</p>}
     </>
   );
 }
@@ -1217,8 +1256,8 @@ function PricingBand({ tone = "surface" }) {
         </span>
       </div>
       <p className="text-[13px] mb-6" style={{ color: CAMPUS.inkSoft }}>
-        Seven days free first, then whichever length suits you. Every plan is the same Premium -
-        longer ones simply cost less per month, from ₹29 down to ₹19.1. Never a different product.
+        {CAMPUS_TRIAL_DAYS} days free first, then whichever length suits you. Every plan is the same
+        Premium - longer ones simply cost less per month, from ₹29 down to ₹19.1. Never a different product.
       </p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-4">
@@ -1271,7 +1310,7 @@ function PricingBand({ tone = "surface" }) {
 
               <p className="text-[12px] leading-relaxed mb-5" style={{ color: CAMPUS.inkSoft }}>{p.blurb}</p>
 
-              <WaitlistButton plan={p.label} source="campus-pricing"
+              <CampusTrialButton
                 className="mt-auto w-full text-center text-[12.5px] font-bold py-2.5 rounded-xl"
                 style={p.featured
                   ? { background: CAMPUS.gradientPrimary, color: "#fff" }
@@ -1308,7 +1347,7 @@ function PricingBand({ tone = "surface" }) {
               ))}
             </div>
           </div>
-          <WaitlistButton plan="Lifetime Founder Pass" source="campus-pricing"
+          <CampusTrialButton
             className="campus-btn-glow text-[13.5px] font-bold px-5 py-3 rounded-xl"
             style={{ background: CAMPUS.gradientPrimary, color: "#fff" }} />
         </div>
@@ -1564,6 +1603,7 @@ export function CampusLanding() {
       <CampusPublicNav />
 
       <Hero stats={heroStats} />
+      <BringToCampusBanner />
 
       <Band id="learn">
         <BandHeader eyebrow="Learn" title="Every track, open from the first lesson"

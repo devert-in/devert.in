@@ -659,6 +659,53 @@ exports.razorpayWebhook = onRequest(
 );
 
 // ---------------------------------------------------------------------------
+// DeVert Campus Individual Premium - self-serve free trial
+// ---------------------------------------------------------------------------
+//
+// Campus's own paid tier (the ₹29-₹229 ladder on campus.devert.in/pricing) has
+// no payment integration at all - unlike DeVert Pro above, nothing here is
+// purchasable yet, so campus-waitlist.jsx only ever captures a lead. This
+// grants a REAL, time-boxed trial in the meantime: same "server is the only
+// party allowed to grant access" reasoning as the Razorpay webhook above,
+// just with no payment behind it. A client-writable trial flag would let
+// anyone grant themselves one, so firestore.rules denies every client write
+// to campus_premium_trials/{uid} and this function (Admin SDK) is the only
+// path that can ever create one.
+//
+// One per account, enforced by .create() itself failing (ALREADY_EXISTS)
+// rather than a read-then-write race - two rapid clicks cannot grant two
+// trials or extend one.
+const CAMPUS_TRIAL_DAYS = 11;
+
+exports.startCampusPremiumTrial = onCall(
+  { region: "us-central1", maxInstances: 10 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+    const uid = request.auth.uid;
+    const startedAtMs = Date.now();
+    const expiresAtMs = startedAtMs + CAMPUS_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+
+    try {
+      await admin.firestore().doc(`campus_premium_trials/${uid}`).create({
+        uid,
+        status: "active",
+        startedAt: admin.firestore.FieldValue.serverTimestamp(),
+        startedAtMs,
+        expiresAtMs,
+        expiresAt: admin.firestore.Timestamp.fromMillis(expiresAtMs),
+      });
+    } catch (err) {
+      if (err.code === 6) { // ALREADY_EXISTS
+        throw new HttpsError("already-exists", "You've already used your Campus Premium trial.");
+      }
+      throw err;
+    }
+
+    return { startedAtMs, expiresAtMs };
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Contest submission auto-grading
 // ---------------------------------------------------------------------------
 //
