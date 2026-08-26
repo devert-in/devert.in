@@ -1,12 +1,174 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if false;
+
+    // User avatars - public read, owner writes (max 2MB, images only)
+    match /avatars/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Dashboard background photo - public read (rendered via a plain CSS
+    // background-image, same reason avatars above is public read: the
+    // browser can't attach a Firebase auth token to that request), owner-uid
+    // writes (same proven pattern). See BackgroundUploadCard in
+    // campus-app.jsx and campusPhotoBg in lib/campus-theme.js.
+    match /campus-backgrounds/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Project screenshots - public read, owner writes (max 5MB, images only)
+    match /projects/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Portfolio cover banner - public read, owner writes (max 3MB, images only)
+    match /portfolio_covers/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Certification issuer logos - public read, owner writes (max 1MB, images only)
+    match /cert_logos/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Resume/CV - public read (shareable), owner writes (max 5MB, PDF only)
+    match /resumes/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Pulse post images - public read, any auth user writes (max 8MB, images only)
+    match /pulse_images/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Intel resources - public read, admin writes (custom claim, see
+    // scripts/set-admin-claim.mjs - matches the Firestore admin model)
+    match /intel-resources/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.token.get('admin', false) == true;
+    }
+
+    // GATE resources (past papers, notes) - public read, admin writes. Same
+    // shape as intel-resources above; a gate_resources Firestore doc's `url`
+    // field points here (see lib/gateLibrary.js). 25MB covers the largest
+    // official past paper PDF with headroom, unlike resumes' 5MB cap which is
+    // sized for a single candidate's own document, not a scanned exam paper.
+    match /gate-resources/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.token.get('admin', false) == true
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Campus branding (banner/logo) - public read, owner-uid writes (same
+    // proven pattern as avatars/projects/portfolio_covers above), max 5MB,
+    // images only. A cross-service firestore.exists() check against
+    // institutions/{institutionId}/admins/{uid} was tried here first (to
+    // verify institution-admin status directly in the Storage rule) but
+    // didn't evaluate reliably in practice, so real authorization is
+    // enforced where it already reliably works: updateCampusBranding()'s
+    // Firestore write to institutions/{id}.bannerUrl is isInstitutionAdmin()-
+    // gated (see firestore.rules) - an uploaded file that never gets pointed
+    // to by that field is just an orphaned unused object, never a displayed
+    // banner, so this path only needs to stop cross-user tampering, not
+    // prove admin-ness on its own.
+    match /institution_branding/{institutionId}/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Proctoring webcam frames for invigilated contests.
+    //
+    // READ IS NOT PUBLIC. Every other path in this file is `allow read: if
+    // true`, which is fine for avatars and project screenshots and is
+    // categorically not fine here: these are photographs of students' faces.
+    // A public rule would put them on URLs that need no credential, and
+    // because the reviewer-facing identifier is a roll number - sequential and
+    // guessable across a whole cohort - a leak would not even require a
+    // directory listing to enumerate.
+    //
+    // The path is UID-keyed for the same reason: `request.auth.uid == uid` is
+    // provable straight from the path, whereas "this caller owns roll number
+    // MRCET21CS001" is not provable here at all. A cross-service
+    // firestore.exists() is the only way to bridge that, and the
+    // institution_branding block above documents that it did not evaluate
+    // reliably in practice. The roll number therefore lives in the object's
+    // custom metadata, on the proctorSessions doc, and in the download
+    // filename - every human-facing surface - while authorization keys off the
+    // one identifier a Storage rule can actually verify.
+    //
+    // Read is granted to the platform admin claim only, because that is the
+    // only invigilator identity expressible in a Storage rule. Institution
+    // admins, HODs and faculty legitimately need these images too; that access
+    // has to go through a callable Cloud Function which verifies staff standing
+    // in Firestore (server-side, where it is reliable) and returns a
+    // short-lived signed URL. Until that function exists, institution staff
+    // review is NOT available - see the note in lib/proctoring.js.
+    //
+    // No delete for anyone: a student must not be able to remove their own
+    // frames, and evidence retention should be a deliberate lifecycle policy on
+    // the bucket, not a client call.
+    match /proctor/{contestId}/{uid}/{allPaths=**} {
+      allow read: if request.auth != null
+        && request.auth.token.get('admin', false) == true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow delete: if false;
+    }
+
+    // Dry-run counterpart of /proctor above - a Mock Reviewer's own sit-
+    // through, kept under its own path so it can never land in the same
+    // object a real invigilated attempt by that same uid would use (a
+    // reviewer is frequently also a genuinely registered student). Same
+    // ownership-only shape; real eligibility (isContestReviewer()) is
+    // enforced on the Firestore dryRunProctorSessions write, not here - same
+    // division of labor the /proctor path above already relies on. Delete IS
+    // allowed here, unlike /proctor, since this is disposable test data a
+    // reviewer may legitimately want to redo.
+    match /proctor-dryrun/{contestId}/{uid}/{allPaths=**} {
+      allow read: if request.auth != null
+        && request.auth.token.get('admin', false) == true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
   }
 }

@@ -12,3 +12,11 @@ services:
         sync: false
       - key: PORT
         value: 8080
+      - key: JUDGE0_API_KEY
+        sync: false
+      - key: JUDGE0_API_URL
+        value: https://judge0-ce.p.rapidapi.com
+      - key: JUDGE0_API_HOST
+        value: judge0-ce.p.rapidapi.com
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false

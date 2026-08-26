@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useIntro } from "@/context/IntroContext";
+import { useAuth } from "@/context/AuthContext";
 
 const SOCIAL_LINKS = [
   { label: "instagram", href: "https://www.instagram.com/devert.in" },
@@ -21,8 +22,19 @@ const MANIFEST = [
 export function Footer() {
   const pathname = usePathname();
   const { hasShownIntro } = useIntro();
+  const { user } = useAuth();
 
-  if ((pathname === "/" && !hasShownIntro) || pathname.startsWith("/admin")) return null;
+  // "/" suppresses the footer only during the pre-auth intro splash itself -
+  // it would otherwise render behind/during that animation. A logged-in
+  // visitor sees HomeDashboard on "/", a real (if short) dashboard, not a
+  // continuously-scrolling feed - it was previously excluded too on the
+  // assumption it redirected to /pulse, which is stale: it renders inline,
+  // and a finite-content dashboard with no footer at all just reads as an
+  // unfinished page once you scroll past the last card. /pulse itself keeps
+  // the exclusion - that IS a focused, continuously-scrolling feed.
+  // Public portfolios carry their own minimal credit line instead (see app/u/page.jsx) -
+  // the marketing footer's socials/manifest/CTA are DeVert chrome, not part of the portfolio.
+  if ((pathname === "/" && !hasShownIntro && !user) || pathname.startsWith("/admin") || pathname === "/pulse" || pathname.startsWith("/u/")) return null;
 
   return (
     <footer className="relative border-t border-white/5 pb-28 mt-20 overflow-hidden">
@@ -30,7 +42,7 @@ export function Footer() {
 
       <div className="relative max-w-6xl mx-auto px-6 pt-16">
         <div className="grid md:grid-cols-2 gap-12 mb-12">
-          {/* Left — manifest */}
+          {/* Left - manifest */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -55,7 +67,7 @@ export function Footer() {
             </div>
           </motion.div>
 
-          {/* Right — social + CTA */}
+          {/* Right - social + CTA */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -99,11 +111,14 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-white/5 pt-6 flex flex-wrap items-center justify-between gap-4">
           <p className="font-mono text-xs text-white/15">
-            © 2026 DeVert.in — All systems operational.
+            © 2026 DeVert.in - All systems operational.
           </p>
-          <p className="font-mono text-xs text-white/15">
-            Built by The Duo // v2.0
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <a href="/about"   className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">About</a>
+            <a href="/privacy" className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Privacy Policy</a>
+            <a href="/terms"   className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Terms of Service</a>
+            <p className="font-mono text-xs text-white/15">Built by The Duo // v2.0</p>
+          </div>
         </div>
       </div>
     </footer>

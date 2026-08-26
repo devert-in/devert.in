@@ -1,40 +1,79 @@
 package com.devert.backend.config;
 
-// Note: You will need to add firebase-admin dependency to pom.xml
-// <dependency>
-//     <groupId>com.google.firebase</groupId>
-//     <artifactId>firebase-admin</artifactId>
-//     <version>9.2.0</version>
-// </dependency>
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import jakarta.annotation.PostConstruct;
-// import com.google.auth.oauth2.GoogleCredentials;
-// import com.google.firebase.FirebaseApp;
-// import com.google.firebase.FirebaseOptions;
-// import java.io.FileInputStream;
 
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.firestore.Firestore;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.cloud.FirestoreClient;
+
+// Re-added deliberately for CodeLab: this is the only way to read hidden test cases
+// (which must never be exposed to the client) and to write graded submissions/award
+// XP-coins as a trusted server, bypassing Firestore security rules entirely. It was
+// removed earlier as unused scaffolding - this is the first real workload for it.
 @Configuration
 public class FirebaseConfig {
 
-    @PostConstruct
-    public void initialize() {
-        try {
-            // Placeholder for Firebase Admin Initialization
-            // This is where you would load your serviceAccountKey.json
+    // FIREBASE_SERVICE_ACCOUNT_JSON holds the service-account.json content, either as
+    // raw JSON or base64-encoded (to make pasting a multi-line secret into Cloud
+    // Run's console easier) - both are accepted.
+    @Value("${firebase.service-account-json:}")
+    private String serviceAccountJson;
 
-            // FileInputStream serviceAccount =
-            // new FileInputStream("path/to/serviceAccountKey.json");
-
-            // FirebaseOptions options = new FirebaseOptions.Builder()
-            // .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-            // .build();
-
-            // FirebaseApp.initializeApp(options);
-            System.out.println("Firebase Admin SDK placeholder initialized. Add credentials to activate.");
-
-        } catch (Exception e) {
-            e.printStackTrace();
+    // Must never throw: this bean is constructed at application startup, and this
+    // service also handles the pre-existing, currently-working email endpoints that
+    // have nothing to do with CodeLab. If FIREBASE_SERVICE_ACCOUNT_JSON isn't set yet
+    // (e.g. right after this deploy, before the secret is added), CodeLab's endpoints
+    // should report "not configured" - the rest of the backend must keep working.
+    @Bean
+    public Firestore firestore() {
+        if (serviceAccountJson == null || serviceAccountJson.isBlank()) {
+            System.err.println("FIREBASE_SERVICE_ACCOUNT_JSON not set - CodeLab endpoints will report unavailable.");
+            return null;
         }
+        try {
+            if (FirebaseApp.getApps().isEmpty()) {
+                String json = decodeIfBase64(serviceAccountJson);
+                GoogleCredentials credentials = GoogleCredentials.fromStream(
+                    new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8))
+                );
+                FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(credentials)
+                    .build();
+                FirebaseApp.initializeApp(options);
+            }
+            return FirestoreClient.getFirestore();
+        } catch (Exception e) {
+            System.err.println("Failed to initialize Firebase - CodeLab endpoints will report unavailable: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // Used to verify the caller's Firebase ID token on /api/coding/submit, so the
+    // grading endpoint credits XP/coins to whoever actually holds the session, not
+    // whatever uid the request body claims. Takes the Firestore bean as a parameter
+    // purely to force Spring to construct firestore() first - that's the bean that
+    // actually calls FirebaseApp.initializeApp(), and bean methods in the same
+    // @Configuration class have no guaranteed ordering otherwise. Same fail-soft
+    // rule as firestore(): null (never throws) whenever FIREBASE_SERVICE_ACCOUNT_JSON
+    // isn't configured, so a missing secret degrades CodeLab only.
+    @Bean
+    public FirebaseAuth firebaseAuth(Firestore firestore) {
+        if (FirebaseApp.getApps().isEmpty()) return null;
+        return FirebaseAuth.getInstance();
+    }
+
+    private String decodeIfBase64(String value) {
+        String trimmed = value.trim();
+        if (trimmed.startsWith("{")) return trimmed; // already raw JSON
+        return new String(Base64.getDecoder().decode(trimmed), StandardCharsets.UTF_8);
     }
 }

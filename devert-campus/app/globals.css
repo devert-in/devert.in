@@ -1,0 +1,575 @@
+@import "tailwindcss";
+
+/* Tailwind v4's automatic content detection scans from this app's own
+   package.json boundary, so it never reaches devert-frontend even though
+   this app renders a lot of devert-frontend JSX by source (context/lib and
+   several components/campus/* primitives that never moved - see
+   jsconfig.json's @/* fallback and CLAUDE.md's devert-campus entry). Any
+   utility class that appears ONLY inside a devert-frontend file, and
+   nowhere in this app's own few hundred files, silently never makes it
+   into this build's CSS - confirmed case: campus-ui.jsx's CampusStat
+   renders a decorative opacity-[0.08] watermark circle that was shipping
+   fully OPAQUE on every Campus stat card (Total Students, Pending
+   Requests, ...), because that exact class string appears nowhere in
+   devert-campus for the scanner to find. @source pulls the whole sibling
+   app into this build's scan instead of hunting down every affected class
+   one at a time. */
+@source "../../devert-frontend";
+
+/* Phase 1: the real Campus theme block below is copied from
+   devert-frontend/app/globals.css (kept there too, since
+   components/campus-preview.jsx on the main site still renders with
+   it) - a deliberate duplication across the two apps, not a shared
+   import, since CSS files cannot cross the devert-campus/devert-frontend
+   boundary the way @/* JS imports can. Keep both copies in sync by hand
+   if this block changes. */
+:root {
+  --background: #0b1020;
+  --foreground: #e8ecff;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* DeVert Campus - its own light/dark pair, independent of Builder's OS's
+   permanent dark theme above. Scoped under .campus-theme (see
+   components/campus/campus-app.jsx) so it never leaks into the rest of the
+   app; lib/campus-theme.js's CAMPUS object references these vars directly,
+   so every component using it repaints automatically on toggle - no
+   per-component theme prop needed.
+
+   Premium-SaaS palette (Indigo/Violet/Cyan on deep navy) - a deliberate full
+   pivot away from the earlier teal/gold academic palette, landed alongside
+   the enterprise-dashboard redesign. --campus-teal keeps its NAME (hundreds
+   of existing components already key their primary accent off CAMPUS.teal)
+   but is now the site's Indigo primary, not literal teal - repointing the
+   token instead of renaming it is what makes this a one-file palette swap
+   rather than a per-component migration. Dark is the default identity now
+   (see campus-theme-provider.jsx); light stays fully polished, just no
+   longer the fallback.
+
+   THIRD pivot, scoped to the student Dashboard's photo-background redesign:
+   --campus-teal now points to warm orange/amber rather than purple, to match
+   a real hanging-bulb photograph behind the dashboard shell (campus-bg-{dark,
+   light}-theme.jpg) - amber reads as "warm light" against that photo the way
+   the previous indigo/purple never would have. Still the same token, for the
+   same reason as above: every existing CampusButton/CampusChip/active-tab
+   etc. picks this up automatically. --campus-orange (decorative, unchanged)
+   stays a separate, lighter shade in the same family - used for streak/coin
+   accents - so the primary and the decorative tone don't collide. */
+.campus-theme {
+  font-family: var(--font-inter), var(--font-space-grotesk), sans-serif;
+  /* Neutral light gray (Google's own Material surface-container tones), not
+     the previous lavender-tinted #F6F7FC/#F0F1FA - a colored page background
+     reads as "branded SaaS," a neutral one reads as "Material." Purple/Pink/
+     Orange stay the accent, applied on top of this neutral canvas rather
+     than tinting the canvas itself. */
+  --campus-paper: #F8F9FA;
+  --campus-surface: #FFFFFF;
+  --campus-surface-2: #F1F3F4;
+  --campus-line: #E4E6E8;
+  --campus-ink: #14172B;
+  --campus-ink-soft: #5B6178;
+  --campus-ink-faint: #8D93A8;
+  /* Warm orange/amber - third pivot of this token (was Indigo, then Purple/
+     Pink/Orange). --campus-teal keeps its name for the same reason the
+     comment above the .campus-theme block already gives: hundreds of shipped
+     components key their primary accent off it. #C2410C (orange-700) rather
+     than --campus-orange's own #EA580C - a touch deeper, so the primary
+     reads as its own shade rather than a duplicate of the decorative token
+     it sits right next to on stat rows/chips. */
+  --campus-teal: #C2410C;
+  --campus-teal-tint: rgba(194,65,12,0.1);
+  --campus-pink: #DB2777;
+  --campus-pink-tint: rgba(219,39,119,0.1);
+  --campus-orange: #EA580C;
+  --campus-orange-tint: rgba(234,88,12,0.1);
+  --campus-cyan: #0891B2;
+  --campus-cyan-tint: #E1F6FA;
+  --campus-gold: #A16207;
+  --campus-gold-tint: #FEF3D6;
+  --campus-good: #059669;
+  --campus-good-tint: #E3F7EE;
+  --campus-warn: #B45309;
+  --campus-warn-tint: #FDF1DD;
+  --campus-bad: #DC2626;
+  --campus-bad-tint: #FDEAEA;
+  --campus-blue: #2563EB;
+  --campus-blue-tint: #E9EFFD;
+  --campus-purple: #9333EA;
+  --campus-purple-tint: #F3E8FE;
+  /* Dialed back down to 0.48 (was 0.88, then 0.62) for an explicit "more
+     liquid glass" look on cards/top bar/sidebar - needed a second drop past
+     0.62 because a white fill over a light photo reads as far less
+     transparent than the same relative drop does in dark theme (low
+     background/fill contrast hides it). Paired with .campus-glass's higher
+     blur/saturate and top-sheen layer below so the busy photo backdrop still
+     doesn't fight with card text the way a plain low-alpha fill would. */
+  --campus-glass-bg: rgba(255,255,255,0.48);
+  --campus-glass-border: rgba(20,23,43,0.22);
+  --campus-gradient-primary: linear-gradient(135deg, #F97316, #C2410C);
+  --campus-gradient-hero: linear-gradient(135deg, #F3E8FF 0%, #FCE7F3 55%, #FFEDD5 100%);
+  /* Fixed dark chrome for "always dark, always white text" surfaces (primary
+     buttons, hero banners, the sidebar logo badge) - deliberately NOT tied to
+     --campus-ink (a foreground token that inverts to near-white in dark
+     theme, which broke every one of these: white text on a background that
+     had itself become white). Same literal value in both themes on purpose. */
+  --campus-chrome-bg: #14172B;
+  --campus-chrome-fg: #FFFFFF;
+  --campus-shadow: 0 1px 2px rgba(30,27,75,0.05), 0 4px 14px rgba(30,27,75,0.06);
+  --campus-shadow-hover: 0 2px 4px rgba(30,27,75,0.07), 0 10px 24px rgba(30,27,75,0.09);
+  --campus-shadow-lg: 0 6px 16px rgba(30,27,75,0.08), 0 24px 56px rgba(30,27,75,0.14);
+
+  /* Makes components/dropdown.jsx (built for Builder's OS's dark palette,
+     with hardcoded fallbacks) repaint correctly inside Campus too - no
+     redefinition needed under [data-theme="dark"] below since these just
+     alias --campus-* vars, which already respond to that attribute themselves. */
+  --dropdown-surface: var(--campus-surface);
+  --dropdown-border: var(--campus-line);
+  --dropdown-text: var(--campus-ink-soft);
+  --dropdown-hover: var(--campus-paper);
+  --dropdown-hover-text: var(--campus-ink);
+  --dropdown-chevron: var(--campus-ink-faint);
+  --dropdown-accent: var(--campus-teal);
+  --dropdown-accent-tint: var(--campus-teal-tint);
+}
+.campus-theme[data-theme="dark"] {
+  --campus-paper: #0A0E17;
+  --campus-surface: #131826;
+  --campus-surface-2: #1B2233;
+  --campus-line: rgba(255,255,255,0.08);
+  --campus-ink: #F4F6FB;
+  --campus-ink-soft: #A3ABBD;
+  /* Was #6B7386 - measured ~3.5:1 against --campus-surface/--campus-paper,
+     below WCAG AA's 4.5:1 for the small (9-11px) label/metadata text this
+     token is used for everywhere (sidebar section headers, timestamps,
+     hint text). #94A3B8 (Tailwind's slate-400) measures ~6.9:1 against
+     surface and ~7.5:1 against paper - comfortably legible without reading
+     as full-emphasis text the way --campus-ink-soft does. */
+  --campus-ink-faint: #94A3B8;
+  /* #F97316 (orange-500) - distinct from --campus-orange's own #FB923C
+     (orange-400, lighter/yellower) below, same reasoning as the light block
+     above: primary and decorative must not read as the same swatch. */
+  --campus-teal: #F97316;
+  --campus-teal-tint: rgba(249,115,22,0.18);
+  --campus-pink: #F472B6;
+  --campus-pink-tint: rgba(244,114,182,0.18);
+  --campus-orange: #FB923C;
+  --campus-orange-tint: rgba(251,146,60,0.18);
+  --campus-cyan: #22D3EE;
+  --campus-cyan-tint: rgba(34,211,238,0.14);
+  --campus-gold: #FACC15;
+  --campus-gold-tint: rgba(250,204,21,0.14);
+  --campus-good: #34D399;
+  --campus-good-tint: rgba(52,211,153,0.14);
+  --campus-warn: #FBBF24;
+  --campus-warn-tint: rgba(251,191,36,0.14);
+  --campus-bad: #F87171;
+  --campus-bad-tint: rgba(248,113,113,0.14);
+  --campus-blue: #60A5FA;
+  --campus-blue-tint: rgba(96,165,250,0.14);
+  --campus-purple: #C084FC;
+  --campus-purple-tint: rgba(192,132,252,0.16);
+  /* Dialed back down to 0.52 (was 0.8) for the same "more liquid glass" ask
+     as the light theme above - the border goes up as the fill goes down, so
+     the card's edge stays legible against the photo once the fill itself is
+     this see-through. */
+  --campus-glass-bg: rgba(19,24,38,0.52);
+  --campus-glass-border: rgba(255,255,255,0.22);
+  --campus-gradient-primary: linear-gradient(135deg, #FDBA74, #F97316);
+  --campus-gradient-hero: linear-gradient(135deg, #0A0E17 0%, #3B0764 55%, #831843 100%);
+  --campus-chrome-bg: #0A0E17;
+  --campus-chrome-fg: #FFFFFF;
+  --campus-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.34);
+  --campus-shadow-hover: 0 2px 4px rgba(0,0,0,0.36), 0 12px 28px rgba(0,0,0,0.4);
+  --campus-shadow-lg: 0 8px 20px rgba(0,0,0,0.4), 0 28px 64px rgba(0,0,0,0.48);
+}
+.campus-theme select option {
+  background-color: var(--campus-surface);
+  color: var(--campus-ink);
+}
+
+/* Glass card surface - a soft-blur, translucent layer over --campus-paper.
+   Opt-in via .campus-glass (see CampusCard's `glass` prop) rather than the
+   default for every card - a fully-glass dashboard reads as noisy once
+   there are a dozen cards on screen, so it's reserved for the pieces meant
+   to visually float above the page (hero, top bar, sidebar).
+   Two background layers, not one: a top-left sheen over the base tint, so a
+   lower-opacity fill (see --campus-glass-bg's own comment) still reads as
+   curved "liquid" glass catching light rather than as a flat dim tint.
+   Deliberately NOT `position: relative` + an absolutely-positioned pseudo for
+   that sheen - this file loads after Tailwind's utilities, so a position
+   rule here would beat (and silently break) `.sticky` on the elements
+   (CampusTopBar, CampusContextSidebar) that apply this same class. A second
+   background layer needs no position at all. Blur/saturate raised alongside
+   the drop in base opacity so legibility over the photo backdrop doesn't
+   regress. */
+.campus-glass {
+  background: linear-gradient(165deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 45%), var(--campus-glass-bg);
+  border: 1px solid var(--campus-glass-border);
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
+}
+
+
+/* iOS-style bar material, for the sticky public nav only.
+   Deliberately NOT a change to .campus-glass above: that one backs CARDS, which
+   sit still over a known background and need enough fill to carry body text.
+   A sticky bar has the whole page travelling underneath it, so it can afford to
+   be nearly clear - and only reads as glass if it is.
+   The saturate() is what separates "frosted glass" from "grey veil": colour from
+   the content behind bleeds through and is boosted rather than washed out, which
+   is the whole trick in Apple's material. The blur radius carries the legibility
+   that the missing opacity used to.
+   Two fills rather than the --campus-glass-bg token because the token is tuned
+   for those cards; the bar wants its own, lower alpha in each theme. */
+
+/* Pairs with lib/campus-theme.js's campusPhotoBg() - every element that
+   spreads its returned style (which only sets --campus-bg-image) also needs
+   this class. The photo lives on ::before, not on this element's own
+   background, so `filter: blur()` on ::before only softens the photo -
+   isolation:isolate scopes ::before's negative z-index to THIS element's own
+   stacking context, so it paints behind this element's real children
+   without needing z-index tricks anywhere else on the page. inset:-40px
+   overscans past the viewport edge by more than the blur radius so the blur
+   never samples "nothing" at an edge and darkens it. */
+.campus-photo-bg { position: relative; isolation: isolate; }
+.campus-photo-bg::before {
+  content: "";
+  position: fixed;
+  inset: -40px;
+  background-image: var(--campus-bg-image);
+  background-size: cover;
+  background-position: center;
+  filter: blur(30px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.campus-glass-nav {
+  /* 0.88, arrived at by walking up from 0.45. Below ~0.7 the bar stopped being a
+     surface and became a window - hero text tracked through it and collided with
+     the nav labels on top, which is unreadable rather than stylish. The frosted
+     look comes from the blur and saturation below, NOT from low opacity, so the
+     fill can carry legibility while still reading as glass: content behind stays
+     visible as soft movement and colour rather than as text you can almost read,
+     which is the effect iOS bars actually have. */
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+}
+.campus-theme[data-theme="dark"] .campus-glass-nav {
+  /* --campus-surface (#131826) at the same alpha, so the frost keeps the dark
+     theme's blue cast instead of going flat grey. */
+  background: rgba(19, 24, 38, 0.88);
+}
+/* Safari/Chromium drop backdrop-filter entirely when the compositor cannot
+   afford it, which would leave the bar 45% transparent with text over raw
+   content. Fall back to an opaque-enough fill in that case only. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .campus-glass-nav { background: var(--campus-surface); }
+  .campus-theme[data-theme="dark"] .campus-glass-nav { background: var(--campus-surface); }
+}
+/* CampusCard's `hover` prop - a pure-CSS lift, GPU-friendly (transform +
+   box-shadow only) so it stays smooth on lower-end devices and is skipped
+   entirely under prefers-reduced-motion via the rule above. */
+.campus-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--campus-shadow-hover);
+}
+/* CampusButton - lift on hover, settle on press; :not(:disabled) so a
+   disabled button never visually reacts to a hover it can't act on. */
+.campus-btn:not(:disabled):hover { transform: translateY(-1px); }
+.campus-btn:not(:disabled):active { transform: translateY(0); }
+.campus-btn-glow:not(:disabled):hover {
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--campus-teal) 34%, transparent),
+    0 1px 3px color-mix(in srgb, var(--campus-teal) 20%, transparent);
+}
+/* Sidebar nav item - inactive items get a soft surface lift on hover;
+   the active item's gradient + glow is set inline (it's data-driven, not a
+   static class), this just nudges its icon on hover for a touch of life. */
+.campus-nav-item:not(.campus-nav-item-active):hover {
+  background: var(--campus-surface-2) !important;
+  color: var(--campus-ink) !important;
+}
+.campus-nav-item:hover svg { transform: scale(1.1); }
+/* CampusTopNavbar - horizontal scroll on narrower lg: widths without a
+   visible scrollbar cluttering the chrome; the row is still fully
+   scrollable via trackpad/drag/keyboard, just without the OS scrollbar
+   chin under it. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* CampusBadge (campus-ui.jsx) - the Campus mark ships as TWO raster variants
+   because the source art bakes its own background into the rounded square:
+   a dark-canvas icon and a light-canvas one. Both are in the DOM and CSS picks
+   one off the same data-theme attribute every CAMPUS.* token already keys off.
+   Deliberately not a useCampusTheme() read: CampusThemeProvider's initializer
+   falls back to "dark" wherever localStorage is unreadable (i.e. every server
+   render), so a JS-chosen src would paint the dark badge first and swap it on
+   hydration - a visible flash on the one element a visitor looks at first. The
+   pair is ~11KB total, so shipping both costs less than that flash.
+   Default-hidden is the LIGHT variant, matching the provider's own dark
+   default, so exactly one badge is visible even with no data-theme ancestor. */
+.campus-badge-light { display: none; }
+.campus-theme[data-theme="light"] .campus-badge-light { display: block; }
+.campus-theme[data-theme="light"] .campus-badge-dark { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .campus-theme * { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+}
+
+/* Opt-in flat/hairline variant of the same CampusCard/button vocabulary, used
+   by the WHOLE pre-auth surface: the /campus landing page, its Campuses/
+   For-institutions/Pricing pages (CampusInfoPage), and the Contests/Learning/
+   Practice sub-views (CampusGlobalSection) - the authenticated Workspace keeps
+   the rounded, shadowed CampusCard untouched. Scoped by ancestry, not by
+   touching the shared ported components themselves, so the exact same
+   CampusContestFlow/CampusLearningSection/CampusPracticeList render sharp here
+   and rounded inside a college's Workspace tabs.
+   rounded-full is deliberately excluded - it's also how CampusChip's pill
+   shape and quiz/attempt radio-select dots are drawn, and squaring those
+   would break their meaning, not just their theme. */
+.campus-sharp .rounded-2xl,
+.campus-sharp .rounded-xl,
+.campus-sharp .rounded-lg,
+.campus-sharp .rounded-md {
+  border-radius: 0 !important;
+}
+.campus-sharp [style*="box-shadow"] {
+  box-shadow: none !important;
+}
+
+/* CORNERS ONLY - campus-sharp's radius half without its shadow half.
+   The public surface wants square cards, but campus-sharp also strips every
+   inline box-shadow, and that is precisely why it was taken off these pages:
+   it flattened the hero's product shot and the nav's mega-menu panel, both of
+   which read as broken without elevation. This squares the corners and leaves
+   depth alone.
+   Safe against the hero illustration by construction: the laptop's silhouette
+   is drawn with rounded-t-xl / rounded-b-md / rounded-[5px] and the light ring
+   with rounded-[50%], none of which these selectors match - only the plain
+   rounded-{md,lg,xl,2xl} used by cards, buttons and inputs. rounded-full is
+   excluded for the same reason campus-sharp excludes it: it is how CampusChip's
+   pill and the radio-select dots are drawn, and squaring those breaks their
+   meaning rather than their theme. */
+.campus-square .rounded-2xl,
+.campus-square .rounded-xl,
+.campus-square .rounded-lg,
+.campus-square .rounded-md {
+  border-radius: 0 !important;
+}
+/* The one deliberate exception to the flattening above, and the reason it is a
+   CLASS: that rule matches on an inline `box-shadow` in the style attribute, so
+   any overlay setting its elevation inline gets stripped along with the cards.
+   Flat is right for a card sitting in the page; it is wrong for a nav mega-menu
+   or mobile menu, which has to read as floating ABOVE the content it covers -
+   without a shadow the panel looks welded to the bar and its bottom edge
+   disappears into whatever it overlaps. Applied as a class, it is invisible to
+   the [style*=...] selector and survives. */
+.campus-overlay-shadow {
+  box-shadow: var(--campus-shadow-lg);
+}
+
+/* CampusSkeleton's shimmer sweep - token-driven (line/surface), so it
+   repaints correctly across Campus's light/dark toggle with no JS. */
+@keyframes campus-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Content lockdown - pairs with <CampusContentGuard />. The JS blocks the
+   events; this removes the selection highlight and the long-press callout so
+   there is nothing to grab in the first place. CampusContentGuard adds
+   .clipboard-unlocked to <html> for admins, which lifts the whole CSS half in
+   one go. Ported from devert-frontend/app/globals.css's own copy - see
+   campus-content-guard.jsx's header for why this couldn't just stay there. */
+html:not(.clipboard-unlocked) {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Kept selectable for everyone: form fields need a caret, Monaco is a text
+   editor holding the user's own code, and data-allow-clipboard is the
+   per-element hatch. Mirrors EXEMPT_SURFACES in campus-content-guard.jsx -
+   change both together. */
+input,
+textarea,
+select,
+[contenteditable=""],
+[contenteditable="true"],
+.monaco-editor,
+.monaco-editor *,
+[data-allow-clipboard],
+[data-allow-clipboard] * {
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  user-select: text;
+}
+
+html:not(.clipboard-unlocked) :is(img, svg, canvas, video) {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+/* Inside an invigilated attempt the exemptions above are withdrawn from
+   everything except the caret itself - same pairing with
+   use-proctor-session.js's .proctor-active class as devert-frontend's copy.
+   Selection stays on inputs/textareas/Monaco: removing it takes the caret
+   with it and breaks typing, and it is harmless once the clipboard events
+   themselves are blocked in JS. */
+html.proctor-active :is(img, svg, canvas, video) {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-editor *) {
+  -webkit-touch-callout: none;
+}
+
+/* ---------------------------------------------------------------------
+   Vista-styled marketing pitch (campus-landing.jsx's VistaHero/
+   VistaPlanPanel/VistaFeaturesPanel/PricingBand/FaqBand) - scoped entirely
+   under .vs-scope, never touching a bare CAMPUS.* token or .campus-theme
+   class, so nothing here can leak into the authenticated workspace or any
+   page that doesn't opt in. Lives here rather than in a per-component
+   <style> tag so PricingBand/FaqBand still render correctly when visited
+   directly at /pricing (via CampusInfoPage), which never mounts
+   CampusLanding/VistaHero to inject the rules itself. Second visual
+   direction on this homepage (replaced an earlier "Cirrus"-styled pass
+   wholesale) - only one design lives here at a time.
+   ------------------------------------------------------------------- */
+.vs-scope {
+  --vs-bg: #dcc6a3; --vs-ink: #17140f; --vs-ink-soft: #5b5142; --vs-ink-faint: #8a7f6c;
+  --vs-panel: #12131b; --vs-panel-2: #1a1c27; --vs-line: rgba(23,20,15,0.14);
+  --vs-line-dark: rgba(255,255,255,0.1); --vs-cream: #f4efe3;
+  font-family: var(--vs-body), ui-sans-serif, system-ui, sans-serif;
+  color: var(--vs-ink); background: var(--vs-bg); -webkit-font-smoothing: antialiased;
+}
+.vs-scope * { box-sizing: border-box; }
+.vs-scope h1, .vs-scope h2, .vs-scope h3, .vs-scope h4 { font-family: var(--vs-display), ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; margin: 0; }
+.vs-scope a { text-decoration: none; }
+.vs-shell { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+.vs-canvas { padding: 64px 0 60px; }
+.vs-hero-copy { max-width: 760px; margin: 0 auto; text-align: center; }
+.vs-hero-copy h1 { font-size: clamp(2.1rem, 4.6vw, 3.1rem); font-weight: 800; line-height: 1.14; margin-bottom: 22px; text-wrap: balance; }
+.vs-pill { display: inline-block; background: var(--vs-ink); color: var(--vs-cream); padding: 2px 16px 6px; border-radius: 999px; }
+.vs-hero-copy p { font-size: 15.5px; color: var(--vs-ink-soft); max-width: 56ch; margin: 0 auto 30px; line-height: 1.6; }
+.vs-hero-actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 48px; }
+.vs-btn { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; padding: 11px 20px; border-radius: 999px; background: var(--vs-ink); color: var(--vs-cream); border: 1px solid var(--vs-ink); transition: opacity 120ms ease; }
+.vs-btn:hover { opacity: 0.85; }
+.vs-btn.outline { background: transparent; color: var(--vs-ink); border-color: var(--vs-line); }
+.vs-btn.outline.light { color: var(--vs-cream); border-color: var(--vs-line-dark); }
+.vs-btn.small { padding: 8px 16px; font-size: 12.5px; }
+
+.vs-dash-wrap { max-width: 420px; margin: 0 auto; }
+.vs-dash { background: var(--vs-panel); border-radius: 20px; padding: 22px 24px; box-shadow: 0 30px 60px -24px rgba(17,15,10,0.45); }
+.vs-dash-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.vs-dash-star { width: 26px; height: 26px; border-radius: 50%; background: var(--vs-cream); color: var(--vs-panel); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.vs-dash-title { color: var(--vs-cream); font-weight: 700; font-size: 15px; }
+.vs-stat-list { display: flex; flex-direction: column; }
+.vs-stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--vs-line-dark); font-size: 13.5px; }
+.vs-stat-row:first-child { border-top: none; }
+.vs-stat-row span { color: rgba(244,239,227,0.65); }
+.vs-stat-row b { color: var(--vs-cream); font-size: 17px; font-variant-numeric: tabular-nums; }
+
+.vs-section { padding: 20px 0 44px; }
+.vs-section.tight { padding-top: 0; }
+
+.vs-panel { background: var(--vs-panel); border-radius: 28px; padding: 40px 40px 44px; color: var(--vs-cream); }
+.vs-panel-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 28px; }
+.vs-panel-head h2 { color: #fff; font-size: clamp(1.5rem, 2.8vw, 1.9rem); font-weight: 700; line-height: 1.2; margin-bottom: 10px; max-width: 22ch; text-wrap: balance; }
+.vs-panel-head p { color: rgba(244,239,227,0.62); font-size: 13.5px; line-height: 1.6; max-width: 46ch; margin: 0; }
+.vs-live-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: rgba(244,239,227,0.72); white-space: nowrap; }
+.vs-live-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: #6fd18a; }
+
+.vs-plan-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+@media (max-width: 860px) { .vs-plan-grid { grid-template-columns: 1fr; } }
+.vs-plan-card, .vs-pick-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 24px; }
+.vs-plan-route { display: flex; align-items: center; gap: 14px; font-size: 14px; margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--vs-line-dark); }
+.vs-plan-route b { display: block; font-size: 15px; }
+.vs-plan-route small { display: block; color: rgba(244,239,227,0.5); font-size: 11px; margin-top: 2px; }
+.vs-plan-route .arrow { color: rgba(244,239,227,0.4); }
+.vs-plan-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-bottom: 18px; }
+.vs-plan-fields label { display: block; font-size: 10px; letter-spacing: 0.06em; color: rgba(244,239,227,0.45); }
+.vs-plan-fields label span { display: block; font-size: 13.5px; color: var(--vs-cream); font-weight: 500; margin-top: 5px; }
+.vs-plan-checks { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+.vs-plan-checks span { font-size: 11.5px; color: rgba(244,239,227,0.45); background: rgba(244,239,227,0.06); padding: 5px 11px; border-radius: 999px; }
+.vs-plan-checks span.on { color: var(--vs-panel); background: var(--vs-cream); }
+.vs-plan-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.vs-plan-foot span { font-size: 11.5px; color: rgba(244,239,227,0.45); }
+
+.vs-pick-tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; background: rgba(244,239,227,0.1); padding: 4px 10px; border-radius: 999px; margin-bottom: 14px; }
+.vs-pick-card h3 { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
+.vs-pick-card p { font-size: 12.5px; line-height: 1.6; color: rgba(244,239,227,0.6); margin-bottom: 16px; }
+.vs-pick-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.vs-pick-stats span { font-size: 11px; color: rgba(244,239,227,0.7); border: 1px solid var(--vs-line-dark); padding: 4px 10px; border-radius: 999px; }
+
+.vs-panel.dark { background: var(--vs-panel); }
+.vs-feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.vs-feature-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 22px; }
+.vs-feature-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: rgba(244,239,227,0.08); font-size: 15px; margin-bottom: 16px; }
+.vs-feature-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.vs-feature-card p { font-size: 12.5px; line-height: 1.6; color: rgba(244,239,227,0.6); }
+.vs-track-list { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.vs-track-list span { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(244,239,227,0.75); }
+.vs-track-list i { width: 5px; height: 5px; border-radius: 50%; background: #6fd18a; display: inline-block; font-style: normal; }
+
+/* Pricing/FAQ (PricingBand/FaqBand) - same dark-panel-on-tan language as the
+   rest of the marketing pitch above, so there's no seam between the
+   homepage's hero/plan/features bands and Pricing/FAQ directly below them,
+   and so /pricing looks identical whether it's reached by scrolling the
+   homepage or visited directly. */
+.vs-pricing-head { max-width: 640px; margin: 0 auto 36px; text-align: center; }
+.vs-pricing-head .eyebrow { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vs-ink-faint); margin-bottom: 10px; }
+.vs-pricing-head h2 { font-size: clamp(1.7rem, 3.2vw, 2.2rem); font-weight: 800; line-height: 1.18; margin-bottom: 14px; text-wrap: balance; }
+.vs-pricing-head p { font-size: 14px; color: var(--vs-ink-soft); line-height: 1.6; }
+.vs-pricing-sub { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 8px; }
+.vs-pricing-sub h3 { font-size: 15px; font-weight: 700; }
+.vs-pricing-sub span { font-size: 12px; color: var(--vs-ink-faint); }
+.vs-pricing-note { text-align: center; font-size: 13px; color: var(--vs-ink-soft); max-width: 60ch; margin: 0 auto 30px; }
+
+.vs-plan-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.vs-plan-tile { background: var(--vs-panel-2); border-radius: 16px; padding: 18px 18px; display: flex; flex-direction: column; border: 1px solid transparent; }
+.vs-plan-tile.featured { border-color: rgba(244,239,227,0.35); }
+.vs-plan-tile-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; min-height: 20px; }
+.vs-plan-tile-top span:first-child { font-size: 12.5px; font-weight: 700; color: var(--vs-cream); }
+.vs-plan-tile-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; background: rgba(244,239,227,0.12); color: var(--vs-cream); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.vs-plan-tile-price { display: flex; align-items: baseline; gap: 5px; margin-bottom: 4px; }
+.vs-plan-tile-price b { font-size: 24px; font-weight: 800; color: #fff; }
+.vs-plan-tile-price span { font-size: 11px; color: rgba(244,239,227,0.45); }
+.vs-plan-tile-save { font-size: 10.5px; color: #8fd9a3; min-height: 14px; margin-bottom: 8px; }
+.vs-plan-tile-blurb { font-size: 11.5px; color: rgba(244,239,227,0.5); line-height: 1.5; margin-bottom: 14px; flex: 1; }
+
+.vs-lifetime-card { background: var(--vs-panel-2); border-radius: 18px; padding: 24px 26px; display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; border: 1px solid rgba(255,215,0,0.2); }
+.vs-lifetime-icon { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,215,0,0.12); color: #ffd700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.vs-lifetime-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.vs-lifetime-meta { font-size: 11.5px; color: rgba(244,239,227,0.5); margin-bottom: 14px; }
+.vs-lifetime-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px; }
+.vs-lifetime-price b { font-size: 26px; font-weight: 800; color: #fff; }
+.vs-lifetime-perks { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 20px; }
+.vs-lifetime-perks span { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: rgba(244,239,227,0.7); }
+
+.vs-compare-wrap { overflow-x: auto; margin-bottom: 20px; border-radius: 18px; background: var(--vs-panel-2); }
+.vs-compare { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 480px; }
+.vs-compare th { text-align: left; font-weight: 600; padding: 14px 18px; color: rgba(244,239,227,0.45); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 1px solid var(--vs-line-dark); }
+.vs-compare td { padding: 11px 18px; border-bottom: 1px solid var(--vs-line-dark); color: rgba(244,239,227,0.8); }
+.vs-compare tr:last-child td { border-bottom: none; }
+.vs-compare td:first-child { color: var(--vs-cream); font-weight: 500; }
+.vs-compare td.dash { color: rgba(244,239,227,0.3); }
+
+.vs-licence-card { background: var(--vs-panel-2); border-radius: 18px; padding: 24px 26px; display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+.vs-licence-icon { width: 42px; height: 42px; border-radius: 12px; background: rgba(244,239,227,0.08); color: var(--vs-cream); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.vs-licence-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.vs-licence-meta { font-size: 11.5px; color: rgba(244,239,227,0.5); margin-bottom: 10px; }
+.vs-licence-card p { font-size: 13px; color: rgba(244,239,227,0.6); line-height: 1.6; max-width: 60ch; }
+
+.vs-faq-list { border-top: 1px solid var(--vs-line-dark); }
+.vs-faq-row { border-bottom: 1px solid var(--vs-line-dark); }
+.vs-faq-q { width: 100%; display: flex; align-items: center; gap: 16px; text-align: left; padding: 18px 4px; background: none; border: none; cursor: pointer; color: var(--vs-cream); font-size: 14.5px; font-weight: 500; }
+.vs-faq-q .ico { margin-left: auto; color: rgba(244,239,227,0.4); flex-shrink: 0; }
+.vs-faq-a { font-size: 13.5px; line-height: 1.65; color: rgba(244,239,227,0.6); padding: 0 4px 22px; max-width: 76ch; }
+

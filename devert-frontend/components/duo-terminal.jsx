@@ -1,131 +1,200 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
-import { GitCommit, Terminal } from "lucide-react";
+import { GitCommit, Terminal, ExternalLink } from "lucide-react";
+import Link from "next/link";
 
-const ARCHITECT_LOG = [
-  { hash: "a3f9b2c", msg: "feat: implement JWT auth middleware",       time: "2h ago",  type: "feat" },
-  { hash: "b8e1d4f", msg: "fix: resolve N+1 query in user service",   time: "5h ago",  type: "fix" },
-  { hash: "c2a7e9b", msg: "refactor: extract payment processor",       time: "1d ago",  type: "refactor" },
-  { hash: "d5f3a1c", msg: "perf: add Redis caching layer",            time: "2d ago",  type: "perf" },
-  { hash: "e1b9c3d", msg: "feat: rate limiting on all endpoints",     time: "3d ago",  type: "feat" },
+const BHANU_LOG = [
+  { hash: "b1f9a3c", msg: "feat: distributed auth service with zero-trust model",  time: "1h ago",   type: "feat"     },
+  { hash: "c4e7d2a", msg: "perf: cut API latency 60% with connection pooling",      time: "6h ago",   type: "perf"     },
+  { hash: "d2b8f1e", msg: "fix: race condition in concurrent job scheduler",        time: "1d ago",   type: "fix"      },
+  { hash: "e9a3c6b", msg: "refactor: event-driven microservices with Kafka",        time: "2d ago",   type: "refactor" },
+  { hash: "f3d1e7a", msg: "feat: real-time leaderboard with Redis sorted sets",     time: "3d ago",   type: "feat"     },
 ];
 
-const BUILDER_LOG = [
-  { hash: "f9b2d6e", msg: "deploy: ship v2.3.1 to prod",             time: "1h ago",  type: "deploy" },
-  { hash: "g4c8a3f", msg: "feat: responsive HUD dashboard layout",    time: "4h ago",  type: "feat" },
-  { hash: "h7d1b5c", msg: "fix: hydration mismatch in hero section", time: "8h ago",  type: "fix" },
-  { hash: "i2e9f4a", msg: "chore: update firebase config",           time: "1d ago",  type: "chore" },
-  { hash: "j6a3c7b", msg: "style: terminal chrome across all cards", time: "2d ago",  type: "style" },
+const SAMUEL_LOG = [
+  { hash: "a7c2f4e", msg: "deploy: DeVert v1.0 - live at devert.in",               time: "just now", type: "deploy"   },
+  { hash: "b5e9a1d", msg: "feat: command palette + user search across platform",    time: "3h ago",   type: "feat"     },
+  { hash: "c8f3b2a", msg: "feat: Pulse feed with coin economy + admin moderation",  time: "8h ago",   type: "feat"     },
+  { hash: "d1a7e5c", msg: "fix: follow system - uid from Firestore doc ID",         time: "1d ago",   type: "fix"      },
+  { hash: "e4b2c9f", msg: "style: neon terminal UI - zero CSS frameworks, full custom", time: "2d ago", type: "style" },
 ];
 
 const TYPE_COLORS = {
   feat:     "#00FFFF",
   fix:      "#FF5050",
   refactor: "#FF9500",
-  perf:     "#00FF41",
+  perf:     "#FFD700",
   deploy:   "#00FF41",
   chore:    "rgba(255,255,255,0.3)",
   style:    "#C77DFF",
 };
 
-function CommitLog({ title, role, commits, align }) {
+const TYPE_BG = {
+  feat:     "rgba(0,255,255,0.06)",
+  fix:      "rgba(255,59,59,0.06)",
+  refactor: "rgba(255,149,0,0.06)",
+  perf:     "rgba(255,215,0,0.06)",
+  deploy:   "rgba(0,255,65,0.08)",
+  chore:    "rgba(255,255,255,0.02)",
+  style:    "rgba(199,125,255,0.06)",
+};
+
+function CommitLog({ name, handle, role, tagline, commits, accent, align }) {
   return (
-    <div className="terminal-window flex-1 min-w-0">
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.5 }}
+      className="terminal-window flex-1 min-w-0"
+      style={{ boxShadow: `0 0 40px ${accent}08` }}
+    >
       <div className="terminal-header">
         <div className="terminal-dot bg-red-500/70" />
         <div className="terminal-dot bg-yellow-500/70" />
         <div className="terminal-dot bg-green-500/70" />
-        <Terminal size={10} className="ml-2 text-white/25" />
-        <span className="font-mono text-[11px] text-white/25 ml-1 truncate">
-          {role.toLowerCase().replace(" ", "_")}.log
+        <Terminal size={10} className="ml-2 text-white/20" />
+        <span className="font-mono text-[10px] text-white/22 ml-1 truncate">
+          {handle}.git
         </span>
       </div>
 
-      <div className="p-4">
-        {/* Identity */}
-        <div className={`flex items-start gap-3 mb-5 ${align === "right" ? "flex-row-reverse" : ""}`}>
+      <div className="p-5">
+        {/* Identity card */}
+        <div className={`flex items-start gap-4 mb-5 ${align === "right" ? "flex-row-reverse" : ""}`}>
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 font-mono font-bold text-base"
             style={{
-              background: align === "right" ? "rgba(0,255,65,0.1)" : "rgba(0,255,255,0.1)",
-              color: align === "right" ? "#00FF41" : "#00FFFF",
-              border: `1px solid ${align === "right" ? "rgba(0,255,65,0.2)" : "rgba(0,255,255,0.2)"}`,
+              background: `${accent}12`,
+              color:       accent,
+              border:     `1px solid ${accent}30`,
+              boxShadow:  `0 0 20px ${accent}14`,
             }}
           >
-            {title[0]}
+            {name.split(" ").map(w => w[0]).slice(0, 2).join("")}
           </div>
-          <div className={align === "right" ? "text-right" : ""}>
-            <p className="font-sans text-sm font-bold text-white">{title}</p>
-            <p className="font-mono text-[10px] text-white/35">{role}</p>
+
+          <div className={`flex-1 min-w-0 ${align === "right" ? "text-right" : ""}`}>
+            <p className="font-sans text-sm font-bold text-white leading-tight">{name}</p>
+            <p className="font-mono text-[10px] mb-1" style={{ color: accent }}>{role}</p>
+            <p className="font-mono text-[10px] text-white/28 leading-snug">{tagline}</p>
           </div>
         </div>
 
-        {/* Commit list */}
+        {/* Divider */}
+        <div className="h-px mb-4" style={{ background: `linear-gradient(to right, ${accent}20, transparent)` }} />
+
+        {/* Commit log */}
         <div className="space-y-0">
           {commits.map((c, i) => (
             <motion.div
               key={c.hash}
-              initial={{ opacity: 0, x: align === "right" ? 10 : -10 }}
+              initial={{ opacity: 0, x: align === "right" ? 12 : -12 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.07 }}
-              className="flex items-start gap-2.5 py-2 border-b border-white/4 last:border-0 group"
+              transition={{ delay: 0.08 + i * 0.07, duration: 0.35 }}
+              className="flex items-start gap-2.5 py-2.5 border-b border-white/4 last:border-0 group cursor-default"
             >
-              <GitCommit size={11} className="mt-0.5 flex-shrink-0 text-white/20 group-hover:text-white/40 transition-colors" />
+              <GitCommit size={11} className="mt-0.5 flex-shrink-0 transition-colors"
+                style={{ color: i === 0 ? accent : "rgba(255,255,255,0.18)" }} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                   <span
-                    className="font-mono text-[9px] font-bold"
-                    style={{ color: TYPE_COLORS[c.type] || "rgba(255,255,255,0.3)" }}
+                    className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded"
+                    style={{
+                      color:      TYPE_COLORS[c.type] || "rgba(255,255,255,0.3)",
+                      background: TYPE_BG[c.type]     || "rgba(255,255,255,0.02)",
+                    }}
                   >
-                    {c.type}:
+                    {c.type}
                   </span>
-                  <span className="font-mono text-[10px] text-white/55 truncate">{c.msg.split(": ")[1]}</span>
+                  <span className="font-mono text-[10px] text-white/55 leading-snug">{c.msg.split(": ")[1]}</span>
                 </div>
-                <span className="font-mono text-[9px] text-white/20">{c.hash} · {c.time}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[9px] text-white/20">{c.hash}</span>
+                  <span className="font-mono text-[9px]" style={{ color: i === 0 ? `${accent}80` : "rgba(255,255,255,0.18)" }}>
+                    {c.time}
+                  </span>
+                </div>
               </div>
             </motion.div>
           ))}
         </div>
+
+        {/* Profile link */}
+        <Link href={`/u/${handle}`}
+          className="mt-4 flex items-center gap-1.5 font-mono text-[10px] transition-colors group"
+          style={{ color: "rgba(255,255,255,0.2)" }}
+        >
+          <span className="group-hover:underline">view @{handle}</span>
+          <ExternalLink size={9} className="group-hover:opacity-70 opacity-40" />
+        </Link>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 export function DuoTerminal() {
   return (
-    <section className="px-6 py-20">
-      <div className="max-w-6xl mx-auto">
+    <section className="px-6 py-24 relative overflow-hidden">
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/4 w-96 h-96 -translate-y-1/2 rounded-full opacity-[0.04]"
+          style={{ background: "#00FFFF", filter: "blur(80px)" }} />
+        <div className="absolute top-1/2 right-1/4 w-96 h-96 -translate-y-1/2 rounded-full opacity-[0.04]"
+          style={{ background: "#00FF41", filter: "blur(80px)" }} />
+      </div>
+
+      <div className="max-w-6xl mx-auto relative">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-10"
+          className="mb-12"
         >
-          <p className="font-mono text-xs text-neon-green/55 mb-2 tracking-wider">
-            // /about — git log --all
-          </p>
-          <h2 className="font-sans font-bold text-white tracking-tighter" style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)" }}>
+          <p className="font-mono text-xs text-neon-green/55 mb-3 tracking-widest">// git log --authors</p>
+          <h2 className="font-sans font-bold text-white tracking-tighter mb-4"
+            style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)" }}>
             MEET <span className="text-neon-cyan">THE DUO</span>
           </h2>
-          <p className="font-mono text-sm text-white/35 mt-3 max-w-lg">
-            Two builders. One mission. Ship everything, document nothing, regret nothing.
+          <p className="font-mono text-sm text-white/35 max-w-xl leading-relaxed">
+            Two devs. One platform. Built from scratch, shipped to prod, and still iterating at 2 AM.
           </p>
+
+          {/* Stats bar */}
+          <div className="flex flex-wrap gap-6 mt-6">
+            {[
+              { label: "commits this sprint",  value: "47+",    color: "#00FFFF" },
+              { label: "features shipped",      value: "22",     color: "#00FF41" },
+              { label: "bugs crushed",          value: "∞",      color: "#FF9500" },
+              { label: "sleep hours lost",      value: "many",   color: "#C77DFF" },
+            ].map(s => (
+              <div key={s.label} className="flex flex-col">
+                <span className="font-mono text-lg font-bold leading-none" style={{ color: s.color }}>{s.value}</span>
+                <span className="font-mono text-[9px] text-white/25 tracking-wider mt-0.5">{s.label}</span>
+              </div>
+            ))}
+          </div>
         </motion.div>
 
-        {/* Split screen commit logs */}
         <div className="flex flex-col md:flex-row gap-4">
           <CommitLog
-            title="The Architect"
-            role="Backend · Logic · Systems"
-            commits={ARCHITECT_LOG}
+            name="Vengaladas Bhanu Prasad"
+            handle="bhanu"
+            role="Backend · Systems · Architecture"
+            tagline="Turns caffeine into distributed systems. If it doesn't scale, it doesn't ship."
+            commits={BHANU_LOG}
+            accent="#00FFFF"
             align="left"
           />
           <CommitLog
-            title="The Builder"
-            role="Frontend · Deploy · Ship"
-            commits={BUILDER_LOG}
+            name="Adari Samuel Prasad"
+            handle="sammyyy"
+            role="Frontend · Product · Deploy"
+            tagline="Pixel-perfect at 2 AM. Breaks prod, fixes prod, ships anyway."
+            commits={SAMUEL_LOG}
+            accent="#00FF41"
             align="right"
           />
         </div>

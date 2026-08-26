@@ -1,115 +1,307 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { setCurrentAudiences, readerAudiences } from "@/lib/audiences";
+import { onAuthStateChanged, signOut, signInWithCustomToken } from "firebase/auth";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, deleteField } from "firebase/firestore";
+import { mintSharedSession, exchangeSharedSession, clearSharedSession } from "@/lib/sharedSession";
 
 const AuthContext = createContext();
 
+// Placements Prep module's staff roles - a `role` field on users/{uid}
+// (default "student", see firestore.rules' myRole()). Not a real trust
+// boundary on its own: every prep* collection is actually gated by
+// isStaff()/isPrepAdmin() in firestore.rules, which also OR in the real
+// isAdmin claim below - this mirrors that exact logic for UI gating only.
 const STAFF_ROLES = ["faculty", "tpo", "admin"];
-const BOOTSTRAP_ADMIN_EMAIL = "admin@devert.in";
 
-/**
- * Ensures users/{uid} exists (merge-safe — never clobbers existing fields
- * like role, rollNumber, xp, credits set elsewhere). Called once per sign-in.
- */
-async function ensureUserDoc(user) {
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-        await setDoc(
-            ref,
-            {
-                displayName: user.displayName || "",
-                email: user.email || "",
-                photoURL: user.photoURL || "",
-                role: "student",
-                xp: 0,
-                credits: 0,
-                createdAt: serverTimestamp(),
-            },
-            { merge: true }
-        );
-        const created = await getDoc(ref);
-        return created.exists() ? created.data() : null;
-    }
-    return snap.data();
+function getTier(xp = 0) {
+  if (xp >= 10000) return { name: "LEGEND",    color: "#FFD700" };
+  if (xp >= 5000)  return { name: "ELITE",     color: "#FF6430" };
+  if (xp >= 2000)  return { name: "ARCHITECT", color: "#00FFFF" };
+  if (xp >= 500)   return { name: "BUILDER",   color: "#00FF41" };
+  return                  { name: "RECRUIT",   color: "#888888" };
+}
+
+function makeHandle(user) {
+  const base = user.displayName
+    ? user.displayName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "")
+    : user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_");
+  return base || "dev_" + user.uid.slice(0, 6);
 }
 
 export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null);
-    const [userData, setUserData] = useState(null); // Extended Firestore data
-    const [loading, setLoading] = useState(true);
+  const [user, setUser]         = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading]   = useState(true);
+  // Derived from the `admin` custom auth claim (see scripts/set-admin-claim.mjs)
+  // - the actual authority is the matching check in firestore.rules/storage.rules;
+  // this just drives what the client renders/redirects. Resolves asynchronously
+  // (a token fetch), independently of `loading` above - adminChecked lets
+  // callers (the admin route's gate) wait for it instead of racing it.
+  const [isAdmin, setIsAdmin]           = useState(false);
+  const [adminChecked, setAdminChecked] = useState(false);
+  // Derived from the `superAdmin` custom auth claim (see
+  // scripts/set-super-admin-claim.mjs) - a strictly smaller circle than
+  // `admin`, for surfaces (payments/revenue) that an ordinary institution or
+  // platform admin has no business seeing. Resolves alongside isAdmin, off
+  // the same token fetch, so it shares adminChecked as its own "ready" signal
+  // rather than adding a second one that would always flip at the same time.
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  // Cross-subdomain session bridge (see lib/sharedSession.js) only ever gets
+  // ONE attempt per app load - without this guard, every re-fire of
+  // onAuthStateChanged with a null user (including the one right after an
+  // intentional logout, before the cleared cookie has necessarily been
+  // re-read) would retry the exchange, risking a sign-out-then-silently-
+  // sign-back-in loop instead of a single best-effort check.
+  const triedExchangeRef = useRef(false);
 
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            setUser(currentUser);
-
-            if (currentUser) {
-                try {
-                    const data = await ensureUserDoc(currentUser);
-                    setUserData({
-                        xp: 0,
-                        credits: 0,
-                        role: "student",
-                        ...data,
-                    });
-                } catch (err) {
-                    console.error("Error fetching user data:", err);
-                }
-            } else {
-                setUserData(null);
-            }
-
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []);
-
-    const logout = async () => {
-        await signOut(auth);
-        setUser(null);
+  useEffect(() => {
+    console.log("[Auth Debug] AuthContext mounted, setting up onAuthStateChanged listener...");
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      console.log("[Auth Debug] onAuthStateChanged fired. User:", currentUser ? currentUser.uid : "null");
+      setUser(currentUser);
+      if (!currentUser) {
         setUserData(null);
-    };
-
-    const refreshProfile = useCallback(async () => {
-        if (!auth.currentUser) return;
-        const docRef = doc(db, "users", auth.currentUser.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            setUserData({ xp: 0, credits: 0, role: "student", ...docSnap.data() });
+        setIsAdmin(false);
+        setIsSuperAdmin(false);
+        setAdminChecked(true);
+        setLoading(false);
+        // Back to the least-privileged set on sign-out, so a signed-out tab
+        // cannot keep querying with the previous user's audiences.
+        setCurrentAudiences(null);
+        // One-shot, best-effort: this origin has no local Firebase session,
+        // but a sign-in on the OTHER devert.in subdomain may have left a
+        // shared cookie behind. Not awaited - loading/adminChecked above are
+        // already resolved for the (more common) genuinely-signed-out case,
+        // and a successful exchange re-fires this whole listener with a real
+        // user a moment later rather than blocking this pass on it.
+        if (!triedExchangeRef.current) {
+          triedExchangeRef.current = true;
+          exchangeSharedSession().then(customToken => {
+            if (customToken) signInWithCustomToken(auth, customToken).catch(() => {});
+          });
         }
-    }, []);
+        return;
+      }
+      try {
+        const token = await currentUser.getIdTokenResult();
+        console.log("[Auth Debug] Token fetched successfully for", currentUser.uid);
+        setIsAdmin(token.claims.admin === true);
+        setIsSuperAdmin(token.claims.superAdmin === true);
+        // Publish this reader's content audiences for every content query to
+        // use - see lib/audiences.js on why this is ambient rather than threaded
+        // through eight lib modules. No account carries the `auds` claim yet, so
+        // this resolves to public+legacy today, which is exactly what keeps
+        // existing content visible.
+        setCurrentAudiences(readerAudiences(token.claims));
+        // Fire-and-forget - keeps devert.in and campus.devert.in's shared
+        // cookie fresh on every real sign-in/token-refresh. Failures are
+        // swallowed inside mintSharedSession itself; this origin's own
+        // session is already established regardless of whether it succeeds.
+        mintSharedSession(token.token);
+      } catch (err) {
+        console.error("[Auth Debug] Token fetch failed:", err);
+        setIsAdmin(false);
+        setIsSuperAdmin(false);
+        // A failed token fetch must not leave stale audiences in place.
+        setCurrentAudiences(null);
+      } finally {
+        setAdminChecked(true);
+      }
+    });
+    // onAuthStateChanged can hang indefinitely in some private/incognito
+    // sessions where third-party storage for the authDomain iframe is
+    // restricted - without this, `loading` never resolves and every gated
+    // page (e.g. Campus) is stuck on "Loading..." forever. Treat a stuck
+    // check as logged-out; if auth does resolve later, `user` still updates.
+    const fallback = setTimeout(() => {
+      console.log("[Auth Debug] onAuthStateChanged fallback timeout (6s) triggered");
+      setAdminChecked(true);
+      setLoading(false);
+    }, 6000);
+    return () => { unsubscribeAuth(); clearTimeout(fallback); };
+  }, []);
 
-    const role = userData?.role || "student";
-    const isStaff = STAFF_ROLES.includes(role) || user?.email === BOOTSTRAP_ADMIN_EMAIL;
-    const isAdmin = role === "admin" || user?.email === BOOTSTRAP_ADMIN_EMAIL;
-    const isOnboarded = !!userData?.prepOnboarded;
+  // Live subscription to the user's own profile doc, so likes/comments/follows/
+  // etc. from OTHER users update this account's stats everywhere in the app
+  // (profile, navbar, dashboard) without a manual refresh.
+  useEffect(() => {
+    if (!user) return;
+    const docRef = doc(db, "users", user.uid);
+    let unsubscribeDoc = () => {};
+    // Standard cancelled-flag effect-cleanup pattern (see e.g.
+    // campus-app.jsx's CampusWorkspace phase-determination effect) - without
+    // it, a quick logout+login in the same tab could leave this async IIFE's
+    // getDoc/backfill for the PREVIOUS user still in flight when its own
+    // cleanup runs (unsubscribeDoc is still the no-op placeholder at that
+    // point - the real onSnapshot call hasn't happened yet), so the
+    // cancelled effect's onSnapshot would attach anyway once the awaits
+    // resolved, orphaned outside React's cleanup system, and keep calling
+    // setUserData with the OLD user's data - silently clobbering the
+    // NEW user's already-loaded profile for the rest of the session.
+    let cancelled = false;
 
-    return (
-        <AuthContext.Provider
-            value={{
-                user,
-                userData,
-                loading,
-                logout,
-                refreshProfile,
-                // Placements Prep additions — kept additive so existing pages
-                // consuming { user, userData, loading, logout } are unaffected.
-                role,
-                profile: userData,
-                isStaff,
-                isAdmin,
-                isOnboarded,
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
-    );
+    (async () => {
+      try {
+        const docSnap = await getDoc(docRef);
+        if (cancelled) return;
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // Backfill fields missing on older accounts
+          const patch = {};
+          if (!data.uid) patch.uid = user.uid;
+          if (!data.displayNameLower && data.displayName) patch.displayNameLower = data.displayName.toLowerCase();
+          if (data.pulsePostsCount        === undefined) patch.pulsePostsCount        = 0;
+          if (data.totalLikesReceived     === undefined) patch.totalLikesReceived     = 0;
+          if (data.totalCommentsReceived  === undefined) patch.totalCommentsReceived  = 0;
+          if (data.totalSavesReceived     === undefined) patch.totalSavesReceived     = 0;
+          if (data.totalSharesReceived    === undefined) patch.totalSharesReceived    = 0;
+          if (data.profileViews           === undefined) patch.profileViews           = 0;
+          // Migrate email off the publicly-readable profile doc onto a
+          // owner/admin-only doc - older accounts had it written here
+          // directly, exposing it to every visitor of a public Dev Card.
+          if (data.email) {
+            patch.email = deleteField();
+            setDoc(doc(db, "users_private", user.uid), { email: data.email }, { merge: true }).catch(() => {});
+          }
+          if (Object.keys(patch).length > 0) updateDoc(docRef, patch).catch(() => {});
+        } else {
+          // First login - create profile. `email` is intentionally NOT
+          // written here - users/{uid} is publicly readable ("profiles are
+          // sharable"), so email lives in users_private/{uid} instead
+          // (owner/admin read-only, see firestore.rules).
+          setDoc(doc(db, "users_private", user.uid), { email: user.email }, { merge: true }).catch(() => {});
+          const newProfile = {
+            uid:               user.uid,
+            displayName:       user.displayName || "",
+            displayNameLower:  (user.displayName || "").toLowerCase(),
+            photoURL:          user.photoURL    || "",
+            handle:            makeHandle(user),
+            bio:            "",
+            location:       "",
+            github:         "",
+            linkedin:       "",
+            twitter:        "",
+            website:        "",
+            xp:             0,
+            credits:        0,
+            score:          0,
+            ships:          0,
+            arenaWins:      0,
+            streak:         0,
+            skills:         [],
+            projects:       [],
+            followersCount: 0,
+            followingCount: 0,
+            pulsePostsCount:       0,
+            totalLikesReceived:    0,
+            totalCommentsReceived: 0,
+            totalSavesReceived:    0,
+            totalSharesReceived:   0,
+            // Portfolio - see lib/portfolio-sections.js for the section keys
+            // sectionOrder/hiddenSections reference.
+            headline:       "",
+            currentRole:    "",
+            availability:   "",
+            contactEmail:   "",
+            resumeUrl:      "",
+            coverImage:     "",
+            profileViews:   0,
+            experience:     [],
+            education:      [],
+            certifications: [],
+            achievements:   [],
+            theme:          { accent: "#00FF41" },
+            sectionOrder:   [],
+            hiddenSections: [],
+            joinedAt:       serverTimestamp(),
+            lastActiveAt:   serverTimestamp(),
+          };
+          await setDoc(docRef, newProfile);
+        }
+        if (cancelled) return;
+
+        unsubscribeDoc = onSnapshot(docRef, snap => {
+          if (cancelled) return;
+          if (snap.exists()) {
+            const data = snap.data();
+            setUserData({ ...data, uid: user.uid, tier: getTier(data.xp) });
+          }
+          setLoading(false);
+        }, err => {
+          if (cancelled) return;
+          console.error("AuthContext: profile listener error", err);
+          setLoading(false);
+        });
+      } catch (err) {
+        if (cancelled) return;
+        console.error("AuthContext: Firestore error", err);
+        setUserData(null);
+        setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; unsubscribeDoc(); };
+  }, [user]);
+
+  const logout = async () => {
+    // Clears the shared cookie BEFORE the local sign-out - otherwise the
+    // other devert.in subdomain's shared cookie would outlive this sign-out
+    // and silently sign the user back in there on next load.
+    await clearSharedSession();
+    await signOut(auth);
+    setUser(null);
+    setUserData(null);
+  };
+
+  // Kept for callers that want an immediate, guaranteed-fresh read right
+  // after their own write - the live listener above will also pick it up,
+  // this just skips waiting on listener latency.
+  const refreshProfile = async () => {
+    if (!user) return;
+    const docRef  = doc(db, "users", user.uid);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      setUserData({ ...data, tier: getTier(data.xp) });
+    }
+  };
+
+  const updateProfile = async (updates) => {
+    if (!user) return;
+    const docRef  = doc(db, "users", user.uid);
+    const payload = { ...updates, lastActiveAt: serverTimestamp() };
+    if (updates.displayName !== undefined) {
+      payload.displayNameLower = updates.displayName.toLowerCase();
+    }
+    await updateDoc(docRef, payload);
+    setUserData(prev => ({ ...prev, ...updates }));
+  };
+
+  // Placements Prep module's additions - kept additive so existing pages
+  // consuming { user, userData, loading, logout } are unaffected. isStaff
+  // mirrors firestore.rules' isStaff()/isPrepAdmin() exactly: a role field
+  // on the user doc (default "student"), OR'd with the real isAdmin claim
+  // above rather than a hardcoded email - same reasoning as everywhere else
+  // in this file. `profile` is a straight alias for userData, matching the
+  // name the Prep pages already destructure.
+  const role = userData?.role || "student";
+  const isStaff = STAFF_ROLES.includes(role) || isAdmin;
+  const isOnboarded = !!userData?.prepOnboarded;
+
+  return (
+    <AuthContext.Provider value={{
+      user, userData, loading, isAdmin, adminChecked, isSuperAdmin, logout, refreshProfile, updateProfile, getTier,
+      role, profile: userData, isStaff, isOnboarded,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
-    return useContext(AuthContext);
+  return useContext(AuthContext);
 }

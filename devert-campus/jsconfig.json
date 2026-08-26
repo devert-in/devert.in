@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*", "../devert-frontend/*"]
+    }
+  },
+  "exclude": ["node_modules", ".next"]
+}

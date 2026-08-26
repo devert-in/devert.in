@@ -26,11 +26,20 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
-		
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
+		<!-- CodeLab: reads hidden test cases and writes graded submissions
+		     server-side, bypassing Firestore security rules entirely - the
+		     client must never see hidden test cases, so this can't be done
+		     from the browser. -->
 		<dependency>
 			<groupId>com.google.firebase</groupId>
 			<artifactId>firebase-admin</artifactId>
-			<version>9.2.0</version>
+			<version>9.3.0</version>
 		</dependency>
 
 		<dependency>

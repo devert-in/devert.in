@@ -1,0 +1,1471 @@
+{
+  "generatedAt": "2026-08-07T09:23:59.944Z",
+  "totalUsers": 673,
+  "cleanCount": 632,
+  "scoreVerifiedSafeCount": 15,
+  "reviewFlaggedUnresolvedCount": 22,
+  "noRecordCount": 4,
+  "scoreVerifiedSafe": [
+    {
+      "uid": "S1LzqLHiiIaFMeZTc6HtP49Vuop2",
+      "handle": "karthik_mummadi",
+      "rollNumber": "24N31A66L3",
+      "liveXp": 0,
+      "liveScore": 240,
+      "expectedXp": -880,
+      "expectedScore": 0,
+      "xpDrift": 880,
+      "scoreDrift": 240,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 240,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 150,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 90
+        }
+      },
+      "dupRecord": {
+        "currentXp": 0,
+        "expectedXpFromKnownSources": 10,
+        "discrepancy": -10,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 410,
+          "coins": 140,
+          "submissionIds": [
+            "1rnTF0ovEilNkX5NL7Gl",
+            "5aZt4nsyLNV5q87c7DZe",
+            "E13u742OAXTT2hvGYTws",
+            "Hh3EQv4r7OLHHrIP4UA2",
+            "P064uzGhBW0WmkZO0cii",
+            "S0LFo5vPdo8GHcA4NeDn",
+            "akJqBVQAosNzTN1cdDZJ",
+            "fF56SgLqHiTXvhv1xQHA",
+            "oy4iiBIIQLfERFVwNTfQ",
+            "prZPTIA7Js8FEpvMGGWO",
+            "tY15UcBCbD9txOVjNyus",
+            "vFDcWl2Q42wuZ2WEZWwX",
+            "xRVRqzx1inaWu4xBUMi2"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "g3QCFDEICbUdD4ZooGy3Jp3CWTv2",
+      "handle": "sai_vinay_nagula",
+      "rollNumber": "24N31A66L8",
+      "liveXp": 2040,
+      "liveScore": 2040,
+      "expectedXp": 1190,
+      "expectedScore": 1840,
+      "xpDrift": 850,
+      "scoreDrift": 200,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 200,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 150,
+          "programming": 50,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 820,
+        "expectedXpFromKnownSources": 185,
+        "discrepancy": 635,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 200,
+          "coins": 70,
+          "submissionIds": [
+            "0X5R37SG2n7DBABJ67cI",
+            "MgbDpXWsIGh3uk2TXZ0R",
+            "NbrvmCBX7Uar39M03ne8",
+            "bxf13gzepUKFsfTPzkTV",
+            "mtKwIiD2F12wd2Rvvyqn",
+            "rsedl4weL5XoLSyKTk2Z"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "UjIlqsLFJtbQS0mNtif9AASmNae2",
+      "handle": "sai_deekshith",
+      "rollNumber": "24N31A66T2",
+      "liveXp": 6115,
+      "liveScore": 6415,
+      "expectedXp": 5395,
+      "expectedScore": 6165,
+      "xpDrift": 720,
+      "scoreDrift": 250,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 250,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 200,
+          "programming": 50,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 0,
+        "expectedXpFromKnownSources": -270,
+        "discrepancy": 270,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 260,
+          "coins": 90,
+          "submissionIds": [
+            "6Kt81q9021XqH8bGyOZs",
+            "7mGu8hCi7pt1xzikb4Vk",
+            "9UufREGkzbid8QTAlnaz",
+            "P73rQWEI9KkfnGacfwKh",
+            "U8VM20GESGtiqKn5TSxO",
+            "dDZlN4igb94DHywIxQse",
+            "fx7iBFrjCgpAPpA6AX0R",
+            "qduv2EEvisW7gbKXwBh1"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "GvmkeEpct0ep8oB2lcPCTjnKotA2",
+      "handle": "rithwik_padmanabhuni",
+      "rollNumber": "24N31A66N6",
+      "liveXp": 3580,
+      "liveScore": 3580,
+      "expectedXp": 3260,
+      "expectedScore": 3480,
+      "xpDrift": 320,
+      "scoreDrift": 100,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 250,
+        "expectedXpFromKnownSources": 190,
+        "discrepancy": 60,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 60,
+          "coins": 20,
+          "submissionIds": [
+            "XGvvuXFUuXad8FU0dUP4",
+            "vMqBHswQQaPFVhJmwnMq"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "RrDto1hQ25OdNBIaVG4OdxKy7rr1",
+      "handle": "lakshmikanth_reddy_k",
+      "rollNumber": "25N35A6613",
+      "liveXp": 700,
+      "liveScore": 700,
+      "expectedXp": 500,
+      "expectedScore": 500,
+      "xpDrift": 200,
+      "scoreDrift": 200,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 200,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 200,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "j2F4lkjqmpS1OD5Wz0zaL7Ly43A2",
+      "handle": "ganesh_mudhiraj",
+      "rollNumber": "24N31A66V7",
+      "liveXp": 600,
+      "liveScore": 600,
+      "expectedXp": 450,
+      "expectedScore": 450,
+      "xpDrift": 150,
+      "scoreDrift": 150,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 150,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 150,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "5QGV8LcKGxZMLMJwv8toO2C2k9C2",
+      "handle": "roshini",
+      "rollNumber": "24N31A6610",
+      "liveXp": 2930,
+      "liveScore": 2930,
+      "expectedXp": 2830,
+      "expectedScore": 2830,
+      "xpDrift": 100,
+      "scoreDrift": 100,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 875,
+        "expectedXpFromKnownSources": 800,
+        "discrepancy": 75,
+        "positivelyIdentifiedDoubleGrant": null,
+        "note": "Discrepancy vs recomputed baseline - NOT auto-revoked; may be a legitimate admin manual grant or another source this script doesn't model. Needs manual review."
+      },
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "MStiXisShvRZrTQmYZ7h1KHAbAn2",
+      "handle": "krishnapriya_gunda",
+      "rollNumber": "24N31A66A9",
+      "liveXp": 100,
+      "liveScore": 100,
+      "expectedXp": 0,
+      "expectedScore": 0,
+      "xpDrift": 100,
+      "scoreDrift": 100,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "RuhIWL5qv4ZNNgbr6GNI26PwfnO2",
+      "handle": "vaibhav_tiwari",
+      "rollNumber": "24N31A66X2",
+      "liveXp": 200,
+      "liveScore": 200,
+      "expectedXp": 150,
+      "expectedScore": 150,
+      "xpDrift": 50,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "XGZgcUXOkhRhkSh0NV2jC4sy0BD3",
+      "handle": "gaddam_spandhana",
+      "rollNumber": "24N31A6688",
+      "liveXp": 50,
+      "liveScore": 50,
+      "expectedXp": 0,
+      "expectedScore": 0,
+      "xpDrift": 50,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "plYpp6UItPdVCf445QAr0VOdWrO2",
+      "handle": "prasanna_valabajji",
+      "rollNumber": "24N31A66X6",
+      "liveXp": 590,
+      "liveScore": 590,
+      "expectedXp": 540,
+      "expectedScore": 540,
+      "xpDrift": 50,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 50,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 50,
+        "expectedXpFromKnownSources": 40,
+        "discrepancy": 10,
+        "positivelyIdentifiedDoubleGrant": null,
+        "note": "Discrepancy vs recomputed baseline - NOT auto-revoked; may be a legitimate admin manual grant or another source this script doesn't model. Needs manual review."
+      },
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "pxqLu0OQo7OGGfY3h4FOoxyixMV2",
+      "handle": "chinni_krishna",
+      "rollNumber": "24N31A66Q2",
+      "liveXp": 2215,
+      "liveScore": 2215,
+      "expectedXp": 2165,
+      "expectedScore": 2215,
+      "xpDrift": 50,
+      "scoreDrift": 0,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 550,
+        "expectedXpFromKnownSources": 450,
+        "discrepancy": 100,
+        "positivelyIdentifiedDoubleGrant": null,
+        "note": "Discrepancy vs recomputed baseline - NOT auto-revoked; may be a legitimate admin manual grant or another source this script doesn't model. Needs manual review."
+      },
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "sAs1YzjebWeJNDuP8wiTua9GRKm2",
+      "handle": "bhargavi",
+      "rollNumber": "24N31A66X8",
+      "liveXp": 250,
+      "liveScore": 250,
+      "expectedXp": 200,
+      "expectedScore": 200,
+      "xpDrift": 50,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "sjiSzAJruwh8WpjsIHUl6h4mw4B2",
+      "handle": "shaik_nasreen",
+      "rollNumber": "24N31A66U2",
+      "liveXp": 50,
+      "liveScore": 50,
+      "expectedXp": 0,
+      "expectedScore": 0,
+      "xpDrift": 50,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "score_verified_safe_xp_gap_separate"
+    },
+    {
+      "uid": "wt6bCzthMBMo7eCox3BIhX6Xxt63",
+      "handle": "akash_chiluka",
+      "rollNumber": "24N31A6655",
+      "liveXp": 25,
+      "liveScore": 25,
+      "expectedXp": 0,
+      "expectedScore": 0,
+      "xpDrift": 25,
+      "scoreDrift": 25,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 25,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 25,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "score_verified_safe_xp_gap_separate"
+    }
+  ],
+  "reviewFlaggedUnresolved": [
+    {
+      "uid": "TGTWu2M8s7QwsAeQjaVuH74ENHt1",
+      "handle": "saritha_tammineni",
+      "rollNumber": "24N31A66W2",
+      "liveXp": 1345,
+      "liveScore": 1645,
+      "expectedXp": 905,
+      "expectedScore": 1345,
+      "xpDrift": 440,
+      "scoreDrift": 300,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [
+          "Suspected duplicate XP (120) is over half of current XP (220) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 100,
+        "expectedXpFromKnownSources": 300,
+        "discrepancy": -200,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 120,
+          "coins": 40,
+          "submissionIds": [
+            "cTRCu07Ad1Srmqzmaucr",
+            "eLIdFsdedf4HfH250Q0u",
+            "p6AKAlmpHkhTb6QzqMVF",
+            "ulfZyTpnBLcarpd1C20p"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "WeipieIU6WRph6yntHw8dD3yEy82",
+      "handle": "rajkumar_birudu",
+      "rollNumber": "24N31A6634",
+      "liveXp": 340,
+      "liveScore": 400,
+      "expectedXp": 80,
+      "expectedScore": 200,
+      "xpDrift": 260,
+      "scoreDrift": 200,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [
+          "Has XP but zero recomputed Score - likely a manual admin XP grant (Admin > Users) with no matching learning-activity record, not a bug in this script.",
+          "Suspected duplicate XP (60) is over half of current XP (60) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 300,
+        "expectedXpFromKnownSources": 300,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 60,
+          "coins": 20,
+          "submissionIds": [
+            "05odBry5byXBJrgY047w",
+            "NKzFotmzq4pCbzj17Ptp"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "fifXD483etT7AbkNNhdKNIYGd3s1",
+      "handle": "gorentla_sreeja",
+      "rollNumber": "24N31A66A3",
+      "liveXp": 2090,
+      "liveScore": 2260,
+      "expectedXp": 1720,
+      "expectedScore": 2060,
+      "xpDrift": 370,
+      "scoreDrift": 200,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 150,
+        "anomalies": [
+          "Suspected duplicate XP (170) is over half of current XP (320) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 150,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 515,
+        "expectedXpFromKnownSources": 465,
+        "discrepancy": 50,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 170,
+          "coins": 60,
+          "submissionIds": [
+            "4IAGdBgbgIqZdOENMvtP",
+            "86y162WakLYWuoUtm5jG",
+            "XupKFtHp1zEr0sNKQVma",
+            "Zrap7Ae7uhLhySMjct3p",
+            "xRQvjxUP6y5lP7V77X1P"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "jAJTE5xhp3afjaSDomNKuzcNowH2",
+      "handle": "kirti",
+      "rollNumber": "24N31A6616",
+      "liveXp": 40,
+      "liveScore": 300,
+      "expectedXp": -250,
+      "expectedScore": 150,
+      "xpDrift": 290,
+      "scoreDrift": 150,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [
+          "Suspected duplicate XP (140) is over half of current XP (240) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 90,
+        "expectedXpFromKnownSources": 150,
+        "discrepancy": -60,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 200,
+          "coins": 70,
+          "submissionIds": [
+            "Uc0OS1FhBy4hBQwmJcAb",
+            "iwczDMShIwjnOTUElsen",
+            "kGQSeRUcUZwrdc5Fbbi1",
+            "kYBJh1H96rN5Hq02v8z2",
+            "tVVR7hjRBFzF8jNs9eC9",
+            "viGHXJhdm4Jz8LQTyEaz"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "zyyDB9A5XlenaErEkUHotjhQyrH2",
+      "handle": "mokshith_sai",
+      "rollNumber": "24N31A66F6",
+      "liveXp": 815,
+      "liveScore": 815,
+      "expectedXp": 650,
+      "expectedScore": 665,
+      "xpDrift": 165,
+      "scoreDrift": 150,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [
+          "Live score field is already non-zero (50) and disagrees with the recomputed total - the incremental reward system may already be running for this user."
+        ],
+        "breakdown": {
+          "dailyLearning": 150,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 530,
+        "expectedXpFromKnownSources": 480,
+        "discrepancy": 50,
+        "positivelyIdentifiedDoubleGrant": null,
+        "note": "Discrepancy vs recomputed baseline - NOT auto-revoked; may be a legitimate admin manual grant or another source this script doesn't model. Needs manual review."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "9VLuBxZijNTMwKrf1QuPMNsjUpF2",
+      "handle": "gollapelli_harika",
+      "rollNumber": "24N31A66A0",
+      "liveXp": 590,
+      "liveScore": 650,
+      "expectedXp": 430,
+      "expectedScore": 550,
+      "xpDrift": 160,
+      "scoreDrift": 100,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [
+          "Live score field is already non-zero (50) and disagrees with the recomputed total - the incremental reward system may already be running for this user."
+        ],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 400,
+        "expectedXpFromKnownSources": 300,
+        "discrepancy": 100,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 60,
+          "coins": 20,
+          "submissionIds": [
+            "01JmzRQJWt5NbG8Hly7q",
+            "gFzIW24t7ddmDfH7M280"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "DW6HK3A9LhTVdMaFMs1YIGA0DLe2",
+      "handle": "saihaneesh_2007",
+      "rollNumber": "24N31A6691",
+      "liveXp": 30,
+      "liveScore": 200,
+      "expectedXp": -240,
+      "expectedScore": 100,
+      "xpDrift": 270,
+      "scoreDrift": 100,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [
+          "Suspected duplicate XP (170) is over half of current XP (270) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 100,
+        "expectedXpFromKnownSources": 100,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 170,
+          "coins": 60,
+          "submissionIds": [
+            "7N3OXGL8LVVV4I75cfyZ",
+            "PJjy3E7khE0ICGf7R5fO",
+            "VgjnZt9EfILzpO1ShTaY",
+            "aGTeclxHdazqgvVFTeSb",
+            "tgP3SY7D5mhqOQvbVAkt"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "iZwcfFqbSyRUWrK48zay2a3lxBk1",
+      "handle": "ganesh",
+      "rollNumber": "24N31A66X0",
+      "liveXp": 575,
+      "liveScore": 575,
+      "expectedXp": 475,
+      "expectedScore": 475,
+      "xpDrift": 100,
+      "scoreDrift": 100,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [
+          "Live score field is already non-zero (50) and disagrees with the recomputed total - the incremental reward system may already be running for this user."
+        ],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 425,
+        "expectedXpFromKnownSources": 400,
+        "discrepancy": 25,
+        "positivelyIdentifiedDoubleGrant": null,
+        "note": "Discrepancy vs recomputed baseline - NOT auto-revoked; may be a legitimate admin manual grant or another source this script doesn't model. Needs manual review."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "l6e9GgUbPHVaz5cW9ggarhACJz93",
+      "handle": "bandaru_sanjay_sunny",
+      "rollNumber": "24N31A6624",
+      "liveXp": 655,
+      "liveScore": 795,
+      "expectedXp": 415,
+      "expectedScore": 695,
+      "xpDrift": 240,
+      "scoreDrift": 100,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [
+          "Suspected duplicate XP (140) is over half of current XP (240) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 100,
+        "expectedXpFromKnownSources": 100,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 140,
+          "coins": 50,
+          "submissionIds": [
+            "66K00idslkwsywT2FDgL",
+            "CHkURrlV6Fsda5XfnhHc",
+            "G0HxVR2n2KFGKsPIcyC8",
+            "ak52pB8x9MARworusQdn"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "nSGZwSIW4ENGxjBiabAD2wbLEO53",
+      "handle": "divya_jatothu",
+      "rollNumber": "24N31A66C2",
+      "liveXp": 1875,
+      "liveScore": 1995,
+      "expectedXp": 1655,
+      "expectedScore": 1895,
+      "xpDrift": 220,
+      "scoreDrift": 100,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 100,
+        "anomalies": [
+          "Suspected duplicate XP (120) is over half of current XP (220) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 100,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 400,
+        "expectedXpFromKnownSources": 350,
+        "discrepancy": 50,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 120,
+          "coins": 40,
+          "submissionIds": [
+            "8TigELk2Tt2870hSio0L",
+            "KMEwxNkbKo7vxZCQdvg1",
+            "NG28KJkrsYRE7luf8ftK",
+            "TC4PuhSxkqVelr7IhRba"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "4387bpkz1xaPPxXv86iLf8aCk3K2",
+      "handle": "bharadwaj_thumma",
+      "rollNumber": "24N31A66W7",
+      "liveXp": 50,
+      "liveScore": 100,
+      "expectedXp": -70,
+      "expectedScore": 50,
+      "xpDrift": 120,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [
+          "Suspected duplicate XP (60) is over half of current XP (110) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 50,
+        "expectedXpFromKnownSources": 50,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 60,
+          "coins": 20,
+          "submissionIds": [
+            "i9Bm6kv6lhQusd8abtJg",
+            "oXu6zxDBgbJJby2oLWvf"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "Eb4BiC7gVCh9sTQxrBnqDw4t2Ro1",
+      "handle": "rahul_dhowlagar",
+      "rollNumber": "24N31A6677",
+      "liveXp": 0,
+      "liveScore": 100,
+      "expectedXp": -230,
+      "expectedScore": 50,
+      "xpDrift": 230,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [
+          "Suspected duplicate XP (110) is over half of current XP (160) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 20,
+        "expectedXpFromKnownSources": 50,
+        "discrepancy": -30,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 140,
+          "coins": 50,
+          "submissionIds": [
+            "3vpv5f8GGQsyf2mz8oL6",
+            "lusjMDchXjjpmo7cwam1",
+            "vjEQsHmfIkhDRN6Bd8H3",
+            "vkElS7u6V5ss2LR5i7i3"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "HNXkemrjm2ZDp8FLJTF3qbs7KyU2",
+      "handle": "chenikala_rachana",
+      "rollNumber": "24N31A6652",
+      "liveXp": 1285,
+      "liveScore": 1345,
+      "expectedXp": 1175,
+      "expectedScore": 1295,
+      "xpDrift": 110,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [
+          "Suspected duplicate XP (60) is over half of current XP (110) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 350,
+        "expectedXpFromKnownSources": 350,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 60,
+          "coins": 20,
+          "submissionIds": [
+            "aTCs7ywre6kSI6Na5JpX",
+            "duhZsNe0a02eZ3jTS8V3"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "NwTiMIvPRNZsv1wWwh4lwc47J403",
+      "handle": "bhuvaneshwar_reddy_mandadapu",
+      "rollNumber": "23n31a66g5",
+      "liveXp": 0,
+      "liveScore": 75,
+      "expectedXp": -155,
+      "expectedScore": 25,
+      "xpDrift": 155,
+      "scoreDrift": 50,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 50,
+        "anomalies": [
+          "Suspected duplicate XP (60) is over half of current XP (110) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 20,
+        "expectedXpFromKnownSources": 50,
+        "discrepancy": -30,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 90,
+          "coins": 30,
+          "submissionIds": [
+            "3RRhnIZlDIyaaf5lFsAX",
+            "gVYZRA4yDr2upRhEUKRS",
+            "zsrSYOMv29QVuokPa8gW"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "G8YqJ7tHhaQ2YiaogpOfWT93bKu1",
+      "handle": "sammyyy",
+      "rollNumber": null,
+      "liveXp": 0,
+      "liveScore": 30,
+      "expectedXp": -93,
+      "expectedScore": 0,
+      "xpDrift": 93,
+      "scoreDrift": 30,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 30,
+        "anomalies": [
+          "No institutionId on this user - not ranked on any campus leaderboard."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 30,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 0,
+        "expectedXpFromKnownSources": -30,
+        "discrepancy": 30,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 30,
+          "coins": 10,
+          "submissionIds": [
+            "WoACaUS9b5nukvJXB4Ui"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "389xzejPpiMMh2YlxmcRxYUOjlX2",
+      "handle": "adari_samuel_prasad",
+      "rollNumber": "33N31A6602",
+      "liveXp": 0,
+      "liveScore": 0,
+      "expectedXp": -90,
+      "expectedScore": 0,
+      "xpDrift": 90,
+      "scoreDrift": 0,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [
+          "Has XP but zero recomputed Score - likely a manual admin XP grant (Admin > Users) with no matching learning-activity record, not a bug in this script.",
+          "Suspected duplicate XP (30) is over half of current XP (30) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 0,
+        "expectedXpFromKnownSources": 0,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 60,
+          "coins": 20,
+          "submissionIds": [
+            "s69V7WXGXjkWTnJNpdgM",
+            "z3eroM4zAF1ypz9SLRpo"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "DqCFJxv2Saf0dHttwQPFiVFaGiO2",
+      "handle": "bomma_geethanjali",
+      "rollNumber": "23N31A6652",
+      "liveXp": 50,
+      "liveScore": 50,
+      "expectedXp": 0,
+      "expectedScore": 50,
+      "xpDrift": 50,
+      "scoreDrift": 0,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [
+          "Has XP but zero recomputed Score - likely a manual admin XP grant (Admin > Users) with no matching learning-activity record, not a bug in this script.",
+          "Suspected duplicate XP (50) is over half of current XP (50) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "RuZo4mzn0IP0wRUuIRjRwzdFerm2",
+      "handle": "nagunakka",
+      "rollNumber": "24N31A66L9",
+      "liveXp": 0,
+      "liveScore": 0,
+      "expectedXp": -120,
+      "expectedScore": 0,
+      "xpDrift": 120,
+      "scoreDrift": 0,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [
+          "Has XP but zero recomputed Score - likely a manual admin XP grant (Admin > Users) with no matching learning-activity record, not a bug in this script.",
+          "Suspected duplicate XP (60) is over half of current XP (60) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 0,
+        "expectedXpFromKnownSources": 0,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 60,
+          "coins": 20,
+          "submissionIds": [
+            "pRjDpLNhYJIANur99nWb",
+            "toUvFMkdzwf79QTxwVUB"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "eIKudmlhRgQkyzjhwTcjIgw1NvU2",
+      "handle": "bhanu_prasad",
+      "rollNumber": null,
+      "liveXp": 0,
+      "liveScore": 0,
+      "expectedXp": -50,
+      "expectedScore": 0,
+      "xpDrift": 50,
+      "scoreDrift": 0,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [
+          "No institutionId on this user - not ranked on any campus leaderboard.",
+          "Has XP but zero recomputed Score - likely a manual admin XP grant (Admin > Users) with no matching learning-activity record, not a bug in this script.",
+          "Suspected duplicate XP (50) is over half of current XP (50) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "hh44On4cO7gw0ohvui4go3IQCcc2",
+      "handle": "shaik_dilshad",
+      "rollNumber": "25N31A6600",
+      "liveXp": 0,
+      "liveScore": 0,
+      "expectedXp": -50,
+      "expectedScore": 0,
+      "xpDrift": 50,
+      "scoreDrift": 0,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [
+          "No institutionId on this user - not ranked on any campus leaderboard.",
+          "Has XP but zero recomputed Score - likely a manual admin XP grant (Admin > Users) with no matching learning-activity record, not a bug in this script.",
+          "Suspected duplicate XP (50) is over half of current XP (50) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": null,
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "ipYjNbETrNVftL4IFkbplLxo9IS2",
+      "handle": "gona_sruthi",
+      "rollNumber": "24N31A66A1",
+      "liveXp": 690,
+      "liveScore": 690,
+      "expectedXp": 630,
+      "expectedScore": 690,
+      "xpDrift": 60,
+      "scoreDrift": 0,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [
+          "Has XP but zero recomputed Score - likely a manual admin XP grant (Admin > Users) with no matching learning-activity record, not a bug in this script.",
+          "Suspected duplicate XP (30) is over half of current XP (30) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 0,
+        "expectedXpFromKnownSources": 0,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 30,
+          "coins": 10,
+          "submissionIds": [
+            "ic9b2gkPDRqmO4mUYArA"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "migration_flagged_review_unresolved"
+    },
+    {
+      "uid": "wsn7nocBUOZuMyTRJP7sCijz7992",
+      "handle": "devert",
+      "rollNumber": "23N31A6600",
+      "liveXp": 150,
+      "liveScore": 0,
+      "expectedXp": -50,
+      "expectedScore": 0,
+      "xpDrift": 200,
+      "scoreDrift": 0,
+      "migrationRecord": {
+        "status": "REVIEW",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [
+          "Has XP but zero recomputed Score - likely a manual admin XP grant (Admin > Users) with no matching learning-activity record, not a bug in this script.",
+          "Suspected duplicate XP (200) is over half of current XP (200) - review manually before trusting either the old xp figure or this recompute."
+        ],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 150,
+        "expectedXpFromKnownSources": 0,
+        "discrepancy": 150,
+        "positivelyIdentifiedDoubleGrant": null,
+        "note": "Discrepancy vs recomputed baseline - NOT auto-revoked; may be a legitimate admin manual grant or another source this script doesn't model. Needs manual review."
+      },
+      "category": "migration_flagged_review_unresolved"
+    }
+  ],
+  "noRecord": [
+    {
+      "uid": "5ubklwt5nbQXWuCVC7T8eG549y73",
+      "handle": "ajay_kumar",
+      "rollNumber": "25N35A6610",
+      "liveXp": 1680,
+      "liveScore": 1740,
+      "expectedXp": 1275,
+      "expectedScore": 1395,
+      "xpDrift": 405,
+      "scoreDrift": 345,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 250,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 50,
+          "programming": 200,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 725,
+        "expectedXpFromKnownSources": 685,
+        "discrepancy": 40,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 60,
+          "coins": 20,
+          "submissionIds": [
+            "I5XmEUILH07eoLuqrKxD",
+            "Ie9JS8njxCepFKWyuW5c"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "no_record"
+    },
+    {
+      "uid": "Pmft2lNc15ZqYXQkXM9t2vU1Eps2",
+      "handle": "g_hasika",
+      "rollNumber": "24N31A6687",
+      "liveXp": 90,
+      "liveScore": 510,
+      "expectedXp": -270,
+      "expectedScore": 250,
+      "xpDrift": 360,
+      "scoreDrift": 260,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 200,
+        "expectedXpFromKnownSources": 200,
+        "discrepancy": 0,
+        "positivelyIdentifiedDoubleGrant": {
+          "xp": 260,
+          "coins": 90,
+          "submissionIds": [
+            "D14F0m6KkkAcU2h7RuF9",
+            "EqPZgXiTiBAP9Fqc3NRJ",
+            "JP7FLFKAYJQ7IJcEWONC",
+            "K5D3cgtSGDCrJK9dIMRp",
+            "LRZA0CrXh6BagruDS71E",
+            "SyFycKgIlgkbtBxbnvGG",
+            "dKs11Aun5T46qRuwsH0m",
+            "ewcL7tgLb7rGyOsIt309"
+          ]
+        },
+        "note": "Positively identified: this amount came from a Daily-Learning-embedded problem ALSO paying out its standalone CodeLab reward (pre-suppressReward-fix era)."
+      },
+      "category": "no_record"
+    },
+    {
+      "uid": "pBRXE3styrRkr4jmbIsQ0LpMNHV2",
+      "handle": "tanushka_kolla",
+      "rollNumber": "24N31A66F4",
+      "liveXp": 1125,
+      "liveScore": 1125,
+      "expectedXp": 900,
+      "expectedScore": 900,
+      "xpDrift": 225,
+      "scoreDrift": 225,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 655,
+        "expectedXpFromKnownSources": 555,
+        "discrepancy": 100,
+        "positivelyIdentifiedDoubleGrant": null,
+        "note": "Discrepancy vs recomputed baseline - NOT auto-revoked; may be a legitimate admin manual grant or another source this script doesn't model. Needs manual review."
+      },
+      "category": "no_record"
+    },
+    {
+      "uid": "2dQM80KgmxUNu74VVMQTFbl2A9z2",
+      "handle": "manchala_rakshitha",
+      "rollNumber": "24N31A66J0",
+      "liveXp": 1595,
+      "liveScore": 1685,
+      "expectedXp": 1505,
+      "expectedScore": 1595,
+      "xpDrift": 90,
+      "scoreDrift": 90,
+      "migrationRecord": {
+        "status": "SAFE",
+        "scoreVsCurrentDelta": 0,
+        "anomalies": [],
+        "breakdown": {
+          "dailyLearning": 0,
+          "programming": 0,
+          "csCore": 0,
+          "contests": 0,
+          "codelab": 0
+        }
+      },
+      "dupRecord": {
+        "currentXp": 470,
+        "expectedXpFromKnownSources": 560,
+        "discrepancy": -90,
+        "positivelyIdentifiedDoubleGrant": null,
+        "note": "Discrepancy vs recomputed baseline - NOT auto-revoked; may be a legitimate admin manual grant or another source this script doesn't model. Needs manual review."
+      },
+      "category": "no_record"
+    }
+  ]
+}

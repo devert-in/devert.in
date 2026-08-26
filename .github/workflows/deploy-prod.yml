@@ -24,9 +24,74 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: devert-frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://devert-backend-550891323057.asia-south1.run.app
+          # Custom domain, not the default *.firebaseapp.com - keeps the
+          # signInWithPopup OAuth relay (/__/auth/handler + iframe) same-origin
+          # with the app. Cross-origin here gets blocked by third-party
+          # storage partitioning (Chrome/Safari/Brave/Firefox) on real
+          # production traffic, which silently drops the sign-in result and
+          # bounces the user back to the Google prompt in a loop - devert.in
+          # is already a connected Hosting custom domain serving the real
+          # auth handler, so this is safe.
+          NEXT_PUBLIC_AUTH_DOMAIN: devert.in
 
-      - name: Deploy to Firebase Hosting (live)
-        run: npx firebase-tools deploy --only hosting --project devert-me
+      - name: Install campus dependencies
+        run: npm ci
+        working-directory: devert-campus
+
+      # devert-campus imports shared code straight from devert-frontend
+      # (context/AuthContext, lib/firebase, etc - see devert-campus's
+      # jsconfig.json @/* fallback path), so devert-frontend must already be
+      # checked out (it is, same job) but does NOT need to be built first -
+      # the import is source-level, not a build artifact dependency.
+      - name: Build campus
+        run: npm run build
+        working-directory: devert-campus
+        env:
+          # devert-campus reuses devert-frontend/lib/{codelab,staffAccounts}.js
+          # verbatim (see the jsconfig.json @/* fallback note above) - both
+          # read these same two NEXT_PUBLIC_* vars, and Next.js inlines them
+          # at build time per app, so campus's own build needs them set too
+          # or CodeLab run/submit and staff-account admin actions on
+          # campus.devert.in silently no-op. Same values as the Build step
+          # above for the same reasons noted there.
+          NEXT_PUBLIC_API_URL: https://devert-backend-550891323057.asia-south1.run.app
+          NEXT_PUBLIC_AUTH_DOMAIN: devert.in
+
+      # functions/index.js's crawler-preview routers (uHandleRouter,
+      # contestPreviewRouter, pulsePreviewRouter) each serve a copy of the
+      # real SPA shell to non-crawler traffic - this step is what keeps that
+      # copy in sync with every deploy instead of the stale, manually-
+      # committed version that shipped before. campusPreviewRouter/campus.html
+      # dropped: devert-frontend no longer builds a campus.html at all (Campus
+      # moved to devert-campus/campus.devert.in), and firebase.json's own
+      # "main" target redirects every /campus/** hit to campus.devert.in
+      # before Hosting even considers the campusPreviewRouter rewrite - a
+      # crawler hitting the old devert.in/campus/{slug} link now gets
+      # redirected straight to campus.devert.in/{slug}'s own real, statically
+      # generated Open Graph tags (see devert-campus/lib/campus-seo.js),
+      # which this Function's generic Campus fallback shell was only ever a
+      # stand-in for.
+      - name: Sync static SPA shells into functions/static
+        run: |
+          mkdir -p functions/static
+          cp devert-frontend/out/u.html functions/static/u.html
+          cp devert-frontend/out/contest.html functions/static/contest.html
+          cp devert-frontend/out/pulse.html functions/static/pulse.html
+
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      # --force: a function landing in a region with no Artifact Registry
+      # cleanup policy yet (e.g. gradeContestSubmissionOnCreate's asia-south1)
+      # makes the CLI exit 1 right after uploading Hosting files but before
+      # finalizing/releasing that version - the deploy looks like it ran but
+      # devert.in never actually updates. --force auto-configures the missing
+      # policy instead of erroring, same fix that unblocked this manually.
+      - name: Deploy to Firebase Hosting + Functions (live)
+        run: npx firebase-tools deploy --only hosting,functions --project devert-me --force
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
