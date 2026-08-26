@@ -1168,6 +1168,23 @@ function InstitutionsBand({ tone }) {
 
 // ---------------- pricing + faq ----------------
 
+// Same shape as DemoButton: owns its dialog so each of the six pricing CTAs
+// stays a one-liner, and replaces the mailto: link they all used to be.
+function WaitlistButton({ plan, source, className = "", style }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className={`campus-btn ${className}`} style={style}>
+        Join the waitlist
+      </button>
+      {/* Mounted only while open, so each opening is a fresh mount - that is
+          what lets the dialog prefill from a lazy initializer instead of a
+          reset effect. */}
+      {open && <WaitlistDialog open onClose={() => setOpen(false)} plan={plan} source={source} />}
+    </>
+  );
+}
+
 // One CTA for every pricing card, resolving to whichever thing is actually true
 // right now: a waitlist signup while Premium is unreleased, a real Razorpay
 // checkout once PAYMENTS_LIVE is switched on (see lib/payments.js for the two
