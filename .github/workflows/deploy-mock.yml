@@ -3,7 +3,7 @@ name: Deploy → Mock (Preview)
 on:
   push:
     branches:
-      - mock
+      - dev
 
 jobs:
   deploy:
