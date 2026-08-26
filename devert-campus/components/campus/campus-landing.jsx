@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
+import { Bricolage_Grotesque, Inter as InterFont } from "next/font/google";
 import {
   MapPin, Search, BookOpen, ClipboardCheck, Trophy, ShieldCheck,
   ArrowRight, ArrowUpRight, GraduationCap, Building2,
@@ -24,6 +26,15 @@ import {
   CampusCard, CampusChip, CampusSkeleton, CampusEmptyState,
   CampusTable, CampusBadge, CampusGoogleButton,
 } from "@/components/campus/campus-ui";
+
+// Scoped to the homepage hero/features/practice bands only (via the vs-*
+// classes below) - not a site-wide type swap. PricingBand/FaqBand/
+// LandingFooter/CampusPublicNav below keep the real CAMPUS.* Indigo/Violet
+// system untouched, same as every authenticated workspace screen - this is
+// a look transplant on the marketing pitch alone, not the brand pivot
+// CLAUDE.md's design-system section explicitly warns against.
+const vistaDisplay = Bricolage_Grotesque({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--vs-display" });
+const vistaBody = InterFont({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--vs-body" });
 
 // The public front door at campus.devert.in.
 //
@@ -1245,167 +1256,151 @@ function ComparisonTable() {
   );
 }
 
-function PricingBand({ tone = "surface" }) {
+function PricingBand() {
   return (
-    <Band id="pricing" tone={tone}>
-      <BandHeader eyebrow="Pricing" title="₹29 a month. That's the whole idea."
-        description="Priced so the decision is not a decision - the point is that every student on a campus can afford it, not that a few pay a lot. Everything reachable from this page is open today; Premium is still in build, so these are the published plans rather than a checkout." />
-
-      {/* Stated outright, because a ₹29/month figure next to a page that also
-          sells to colleges reads ambiguously: this ladder is ONE learner paying
-          for themselves. The institution licence below is quoted per institution
-          and deliberately carries no per-seat figure. */}
-      <div className="flex items-baseline gap-3 flex-wrap mb-1">
-        <h3 className="text-[15px] font-semibold" style={{ color: CAMPUS.ink }}>Individual Premium</h3>
-        <span className="text-[12.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>
-          per learner · one account · billed to you, not your college
-        </span>
-      </div>
-      <p className="text-[13px] mb-6" style={{ color: CAMPUS.inkSoft }}>
-        {CAMPUS_TRIAL_DAYS} days free first, then whichever length suits you. Every plan is the same
-        Premium - longer ones simply cost less per month, from ₹29 down to ₹19.1. Never a different product.
-      </p>
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-4">
-        {PLANS.map(p => {
-          const m = planMath(p);
-          return (
-            <CampusCard key={p.key} className="p-5 flex flex-col"
-              style={p.featured ? { borderColor: p.accent } : undefined}>
-              <div className="flex items-start justify-between gap-2 mb-4 min-h-[24px]">
-                <span className="text-[13px] font-semibold" style={{ color: CAMPUS.ink }}>{p.label}</span>
-                {p.badge && (
-                  <span className="text-[9.5px] font-bold px-2 py-1 rounded-full text-right leading-tight"
-                    style={{ background: tint(p.accent, 14), color: p.accent }}>
-                    {p.badge}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-baseline gap-1.5 flex-wrap">
-                <b className="font-bold" style={{ color: CAMPUS.ink, fontSize: 30 }}>₹{p.price}</b>
-                <span className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>/ {p.period}</span>
-              </div>
-
-              {/* Struck regular price sits BESIDE the discount, both derived - a
-                  crossed-out number is the one element on a pricing card most
-                  likely to become a lie once someone edits a price by hand. */}
-              <div className="flex items-baseline gap-2 mt-1 mb-3 min-h-[18px]">
-                {m.saved > 0 && (
-                  <>
-                    <s className="text-[12.5px]" style={{ color: CAMPUS.inkFaint }}>₹{m.regular}</s>
-                    <span className="text-[11px] font-bold" style={{ color: CAMPUS.good }}>{m.savePct}% off</span>
-                  </>
-                )}
-              </div>
-
-              <p className="text-[12px] font-mono mb-3" style={{ color: CAMPUS.ink }}>
-                ₹{m.effective} a month
-              </p>
-
-              {/* Rupees saved and the free-time equivalent: a concrete number
-                  lands harder than a percentage, which is why both are shown. */}
-              <div className="min-h-[36px] mb-3">
-                {m.saved > 0 && (
-                  <>
-                    <p className="text-[12px] font-semibold" style={{ color: CAMPUS.good }}>Save ₹{m.saved}</p>
-                    <p className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{m.freeLabel}</p>
-                  </>
-                )}
-              </div>
-
-              <p className="text-[12px] leading-relaxed mb-5" style={{ color: CAMPUS.inkSoft }}>{p.blurb}</p>
-
-              <CampusTrialButton
-                className="mt-auto w-full text-center text-[12.5px] font-bold py-2.5 rounded-xl"
-                style={p.featured
-                  ? { background: CAMPUS.gradientPrimary, color: "#fff" }
-                  : { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
-            </CampusCard>
-          );
-        })}
-      </div>
-
-      {/* Lifetime pass. The cap is a plain stated number with no live counter
-          beside it - there is no purchase record to count yet, so "only N left"
-          would be invented urgency rather than real scarcity. */}
-      <CampusCard className="p-7 mb-4" style={{ borderColor: tint(CAMPUS.gold, 40) }}>
-        <div className="flex items-start gap-5 flex-wrap">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: tint(CAMPUS.gold, 14), color: CAMPUS.gold }}>
-            <Crown size={20} />
-          </div>
-          <div className="flex-1 min-w-[280px]">
-            <div className="flex items-baseline gap-3 flex-wrap mb-1.5">
-              <h3 className="text-[16px] font-semibold" style={{ color: CAMPUS.ink }}>Lifetime Founder Pass</h3>
-              <span className="text-[12px] font-mono" style={{ color: CAMPUS.inkFaint }}>
-                one payment · first {LIFETIME.cap} accounts only
-              </span>
+    <div className={`vs-scope ${vistaDisplay.variable} ${vistaBody.variable}`}>
+      <section className="vs-section">
+        <div className="vs-shell">
+          <VistaReveal className="vs-panel">
+            <div className="vs-pricing-head">
+              <span className="eyebrow">Pricing</span>
+              <h2>₹29 a month. That&rsquo;s the whole idea.</h2>
+              <p>Priced so the decision is not a decision - the point is that every student on a campus can afford it, not that a few pay a lot. Everything reachable from this page is open today; Premium is still in build, so these are the published plans rather than a checkout.</p>
             </div>
-            <div className="flex items-baseline gap-1.5 mb-4">
-              <b className="font-bold" style={{ color: CAMPUS.ink, fontSize: 30 }}>₹{LIFETIME.price}</b>
-              <span className="text-[12.5px]" style={{ color: CAMPUS.inkFaint }}>once, no renewal</span>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
-              {LIFETIME.perks.map(perk => (
-                <span key={perk} className="flex items-start gap-2 text-[12.5px]" style={{ color: CAMPUS.inkSoft }}>
-                  <Check size={13} style={{ color: CAMPUS.gold, marginTop: 2, flexShrink: 0 }} /> {perk}
-                </span>
-              ))}
-            </div>
-          </div>
-          <CampusTrialButton
-            className="campus-btn-glow text-[13.5px] font-bold px-5 py-3 rounded-xl"
-            style={{ background: CAMPUS.gradientPrimary, color: "#fff" }} />
-        </div>
-      </CampusCard>
 
-      <ComparisonTable />
+            {/* Stated outright, because a ₹29/month figure next to a page that also
+                sells to colleges reads ambiguously: this ladder is ONE learner paying
+                for themselves. The institution licence below is quoted per institution
+                and deliberately carries no per-seat figure. */}
+            <div className="vs-pricing-sub">
+              <h3>Individual Premium</h3>
+              <span>per learner · one account · billed to you, not your college</span>
+            </div>
+            <p className="vs-pricing-note">
+              {CAMPUS_TRIAL_DAYS} days free first, then whichever length suits you. Every plan is the same
+              Premium - longer ones simply cost less per month, from ₹29 down to ₹19.1. Never a different product.
+            </p>
 
-      <CampusCard className="p-7 flex items-start gap-5 flex-wrap">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: tint(CAMPUS.purple, 14), color: CAMPUS.purple }}>
-          <Building2 size={20} />
+            <div className="vs-plan-tiles">
+              {PLANS.map(p => {
+                const m = planMath(p);
+                return (
+                  <div key={p.key} className={`vs-plan-tile${p.featured ? " featured" : ""}`}>
+                    <div className="vs-plan-tile-top">
+                      <span>{p.label}</span>
+                      {p.badge && <span className="vs-plan-tile-badge">{p.badge}</span>}
+                    </div>
+                    <div className="vs-plan-tile-price">
+                      <b>₹{p.price}</b>
+                      <span>/ {p.period}</span>
+                    </div>
+                    {/* Struck regular price sits BESIDE the discount, both derived - a
+                        crossed-out number is the one element on a pricing card most
+                        likely to become a lie once someone edits a price by hand. */}
+                    <div className="vs-plan-tile-save">
+                      {m.saved > 0 && <>Save ₹{m.saved} &middot; {m.savePct}% off &middot; ₹{m.effective}/mo</>}
+                    </div>
+                    <p className="vs-plan-tile-blurb">{p.blurb}</p>
+                    <CampusTrialButton
+                      className="vs-btn small"
+                      style={p.featured
+                        ? { background: "var(--vs-cream)", color: "var(--vs-panel)", border: "1px solid var(--vs-cream)" }
+                        : { background: "transparent", color: "var(--vs-cream)", border: "1px solid var(--vs-line-dark)" }} />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Lifetime pass. The cap is a plain stated number with no live counter
+                beside it - there is no purchase record to count yet, so "only N left"
+                would be invented urgency rather than real scarcity. */}
+            <div className="vs-lifetime-card">
+              <div className="vs-lifetime-icon"><Crown size={20} /></div>
+              <div className="flex-1 min-w-[280px]">
+                <h3>Lifetime Founder Pass</h3>
+                <p className="vs-lifetime-meta">one payment · first {LIFETIME.cap} accounts only</p>
+                <div className="vs-lifetime-price">
+                  <b>₹{LIFETIME.price}</b>
+                  <span style={{ color: "rgba(244,239,227,0.5)", fontSize: 12.5 }}>once, no renewal</span>
+                </div>
+                <div className="vs-lifetime-perks">
+                  {LIFETIME.perks.map(perk => (
+                    <span key={perk}><Check size={13} style={{ color: "#ffd700", flexShrink: 0, marginTop: 2 }} /> {perk}</span>
+                  ))}
+                </div>
+              </div>
+              <CampusTrialButton className="vs-btn"
+                style={{ background: "var(--vs-cream)", color: "var(--vs-panel)", border: "1px solid var(--vs-cream)" }} />
+            </div>
+
+            <div className="vs-compare-wrap">
+              <table className="vs-compare">
+                <thead>
+                  <tr><th>Feature</th><th>Free</th><th>Premium</th></tr>
+                </thead>
+                <tbody>
+                  {COMPARISON.map(row => (
+                    <tr key={row.feature}>
+                      <td>{row.feature}</td>
+                      <td className={row.free ? "" : "dash"}>{row.free || "—"}</td>
+                      <td>{row.premium}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="vs-licence-card">
+              <div className="vs-licence-icon"><Building2 size={20} /></div>
+              <div className="flex-1 min-w-[260px]">
+                <h3>Campus licence</h3>
+                <p className="vs-licence-meta">per institution · not per seat</p>
+                <p>
+                  Quoted on student count, departments, and which modules you turn on - so a single
+                  department pilot is not priced like a whole campus. Includes every dashboard,
+                  scheduling, assessments, contests, leaderboards and reports. Students at a licensed
+                  college pay nothing individually.
+                </p>
+              </div>
+              <DemoButton source="campus-pricing" className="vs-btn"
+                style={{ background: "var(--vs-cream)", color: "var(--vs-panel)", border: "1px solid var(--vs-cream)" }} />
+            </div>
+          </VistaReveal>
         </div>
-        <div className="flex-1 min-w-[260px]">
-          <div className="flex items-baseline gap-3 flex-wrap mb-1.5">
-            <h3 className="text-[16px] font-semibold" style={{ color: CAMPUS.ink }}>Campus licence</h3>
-            <span className="text-[12px] font-mono" style={{ color: CAMPUS.inkFaint }}>per institution · not per seat</span>
-          </div>
-          <p className="text-[13.5px] leading-relaxed max-w-[68ch]" style={{ color: CAMPUS.inkSoft }}>
-            Quoted on student count, departments, and which modules you turn on - so a single
-            department pilot is not priced like a whole campus. Includes every dashboard,
-            scheduling, assessments, contests, leaderboards and reports. Students at a licensed
-            college pay nothing individually.
-          </p>
-        </div>
-        <DemoButton source="campus-pricing" className="campus-btn-glow" />
-      </CampusCard>
-    </Band>
+      </section>
+    </div>
   );
 }
 
 function FaqBand() {
   const [open, setOpen] = useState(0);
   return (
-    <Band id="faq">
-      <BandHeader eyebrow="Questions" title="What's open, what's licensed, and why" />
-      <div style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-        {FAQ.map((item, i) => {
-          const on = open === i;
-          return (
-            <div key={item.q} style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
-              <button onClick={() => setOpen(on ? -1 : i)} aria-expanded={on}
-                className="w-full flex items-center gap-4 text-left py-5">
-                <span className="flex-1 text-[15.5px] font-medium" style={{ color: CAMPUS.ink }}>{item.q}</span>
-                {on ? <Minus size={16} style={{ color: CAMPUS.teal }} /> : <Plus size={16} style={{ color: CAMPUS.inkFaint }} />}
-              </button>
-              {on && (
-                <p className="text-[14px] leading-relaxed pb-6 max-w-[76ch]" style={{ color: CAMPUS.inkSoft }}>{item.a}</p>
-              )}
+    <div className={`vs-scope ${vistaDisplay.variable} ${vistaBody.variable}`}>
+      <section className="vs-section tight">
+        <div className="vs-shell">
+          <VistaReveal className="vs-panel">
+            <div className="vs-pricing-head">
+              <span className="eyebrow">Questions</span>
+              <h2>What&rsquo;s open, what&rsquo;s licensed, and why</h2>
             </div>
-          );
-        })}
-      </div>
-    </Band>
+            <div className="vs-faq-list">
+              {FAQ.map((item, i) => {
+                const on = open === i;
+                return (
+                  <div key={item.q} className="vs-faq-row">
+                    <button onClick={() => setOpen(on ? -1 : i)} aria-expanded={on} className="vs-faq-q">
+                      {item.q}
+                      <span className="ico">{on ? <Minus size={16} /> : <Plus size={16} />}</span>
+                    </button>
+                    {on && <p className="vs-faq-a">{item.a}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </VistaReveal>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1494,7 +1489,7 @@ const LANDING_PAGES = {
   // Pricing carries the FAQ because most of the FAQ is about what is free,
   // what is licensed and why - which is the question someone on a pricing page
   // is already asking.
-  pricing: { bands: () => <><PricingBand tone="paper" /><FaqBand /></> },
+  pricing: { bands: () => <><PricingBand /><FaqBand /></> },
 };
 
 export const CAMPUS_LANDING_PAGE_KEYS = Object.keys(LANDING_PAGES);
@@ -1515,6 +1510,184 @@ export function CampusInfoPage({ section }) {
   );
 }
 
+// ---------------- homepage hero/plan/features (Vista-styled) ----------------
+//
+// Scoped restyle of ONLY the pitch bands (hero, prep-plan panel, features
+// panel) via the vs-* classes below - PricingBand/FaqBand/
+// BringToCampusBanner/LandingFooter/CampusPublicNav right after this block
+// keep the real CAMPUS.* system untouched, same tradeoff as before: a look
+// transplant on the marketing pitch alone, not a site-wide brand pivot.
+// Second visual direction on this same homepage (replaced an earlier
+// "Cirrus"-styled pass wholesale, not layered on top of it) - only one
+// design lives here at a time.
+
+const VS_TRACKS = [
+  { label: "Programming", tag: "live" },
+  { label: "CS Core", tag: "live" },
+  { label: "DSA", tag: "live" },
+];
+
+// Framer Motion is already a devert-frontend dependency this app reuses (see
+// jsconfig.json's @/* fallback), so a native scroll-reveal costs nothing new
+// to ship - unlike the "Portfolio-white-theme-main" template evaluated
+// alongside this: that one leans on GSAP ScrollTrigger pinning, which only
+// renders correctly during live scroll interaction (a full-page capture of
+// it came back almost entirely blank) - a materially more fragile pattern
+// for a statically-exported site than a plain whileInView fade-up.
+// prefers-reduced-motion skips the animation outright, not just shortens
+// it - the content is never gated behind motion either way, since
+// `initial` only affects opacity/position, not whether it's in the DOM.
+function VistaReveal({ children, delay = 0, className }) {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) return <div className={className}>{children}</div>;
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 22 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function VistaHero({ stats }) {
+  return (
+    <div className={`vs-scope ${vistaDisplay.variable} ${vistaBody.variable}`}>
+      <div className="vs-canvas">
+        <div className="vs-shell">
+          <VistaReveal className="vs-hero-copy">
+            <h1>Don&rsquo;t just prepare for placements. Become <span className="vs-pill">ready</span> for them.</h1>
+            <p>Learn the skills companies look for &mdash; from programming and DSA to CS fundamentals, aptitude and interview preparation.</p>
+            <div className="vs-hero-actions">
+              <Link href="/learning" className="vs-btn">✦ Start learning</Link>
+              <Link href="/pricing" className="vs-btn outline">▷ See what&rsquo;s free forever</Link>
+            </div>
+          </VistaReveal>
+
+          <VistaReveal className="vs-dash-wrap" delay={0.15}>
+            <div className="vs-dash">
+              <div className="vs-dash-head">
+                <span className="vs-dash-star">✦</span>
+                <span className="vs-dash-title">The catalog, live</span>
+              </div>
+              <div className="vs-stat-list">
+                {stats.map(s => (
+                  <div className="vs-stat-row" key={s.label}>
+                    <span>{s.label}</span>
+                    <b><CountUp value={s.value} /></b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </VistaReveal>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VistaPlanPanel() {
+  return (
+    <div className={`vs-scope ${vistaDisplay.variable} ${vistaBody.variable}`}>
+      <section className="vs-section">
+        <div className="vs-shell">
+          <VistaReveal className="vs-panel">
+            <div className="vs-panel-head">
+              <div>
+                <h2>Build a focused route from where you are to placement season.</h2>
+                <p>Pick a starting point, set the pace, and DeVert threads lessons, practice and mock rounds into one plan.</p>
+              </div>
+              <span className="vs-live-tag"><span className="dot" />Free to build &middot; no card required</span>
+            </div>
+
+            <div className="vs-plan-grid">
+              <div className="vs-plan-card">
+                <div className="vs-plan-route">
+                  <span><b>Fundamentals</b><small>Where you start</small></span>
+                  <span className="arrow">→</span>
+                  <span><b>Placement Ready</b><small>DSA &middot; CS Core &middot; Aptitude</small></span>
+                </div>
+
+                <div className="vs-plan-fields">
+                  <label>START DATE<span>Today</span></label>
+                  <label>TARGET<span>Placement season</span></label>
+                  <label>TRACK<span>DSA + Programming</span></label>
+                  <label>PACE<span>Steady &mdash; 1hr/day</span></label>
+                </div>
+
+                <div className="vs-plan-checks">
+                  <span className="on">✓ Daily challenges</span>
+                  <span className="on">✓ Mock interviews</span>
+                  <span>Company-specific prep</span>
+                </div>
+
+                <div className="vs-plan-foot">
+                  <span>12 weeks &middot; 3 modules &middot; graded on real test cases</span>
+                  <Link href="/learning" className="vs-btn small">Start my plan ↗</Link>
+                </div>
+              </div>
+
+              <div className="vs-pick-card">
+                <span className="vs-pick-tag">✦ Most started</span>
+                <h3>Java + DSA</h3>
+                <p>The most commonly asked combination for service and product company interviews &mdash; one language, one problem set, graded end to end.</p>
+                <div className="vs-pick-stats">
+                  <span>Auto-graded</span>
+                  <span>Hidden test cases</span>
+                  <span>Free to start</span>
+                </div>
+              </div>
+            </div>
+          </VistaReveal>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function VistaFeaturesPanel() {
+  return (
+    <div className={`vs-scope ${vistaDisplay.variable} ${vistaBody.variable}`}>
+      <section className="vs-section tight">
+        <div className="vs-shell">
+          <VistaReveal className="vs-panel dark">
+            <div className="vs-panel-head">
+              <div>
+                <h2>Built for the parts placement prep skips.</h2>
+                <p>The bits that don&rsquo;t fit a syllabus: the track you almost skipped, the streak you kept anyway, the profile that remembers all of it.</p>
+              </div>
+              <Link href="/practice" className="vs-btn outline light">Open practice ↗</Link>
+            </div>
+            <div className="vs-feature-grid">
+              <div className="vs-feature-card">
+                <span className="vs-feature-icon">◇</span>
+                <h4>One curriculum, everywhere</h4>
+                <p>Authored once and shared by every learner and every college &mdash; a fix to a lesson reaches all of them at once.</p>
+                <div className="vs-track-list">
+                  {VS_TRACKS.map(t => <span key={t.label}>{t.label}<i /></span>)}
+                </div>
+              </div>
+              <div className="vs-feature-card">
+                <span className="vs-feature-icon">▤</span>
+                <h4>Progress that carries over</h4>
+                <p>Coins and XP follow your one DeVert account, not the module you happened to open today.</p>
+              </div>
+              <div className="vs-feature-card">
+                <span className="vs-feature-icon">◈</span>
+                <h4>Honest leaderboards</h4>
+                <p>Real ranks from real submissions &mdash; no vanity streaks, nothing purchasable.</p>
+              </div>
+            </div>
+          </VistaReveal>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 // ---------------- page ----------------
 
 export function CampusLanding() {
@@ -1522,8 +1695,6 @@ export function CampusLanding() {
   const [institutions, setInstitutions] = useState([]);
   const [instLoading, setInstLoading] = useState(true);
   const [catalog, setCatalog] = useState(null);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [contests, setContests] = useState([]);
   const [activeContestCount, setActiveContestCount] = useState(null);
 
   useEffect(() => {
@@ -1534,17 +1705,14 @@ export function CampusLanding() {
     // visitor by design, so it always read null despite looking like a feature.
     fetchInstitutions().then(setInstitutions).catch(() => setInstitutions([])).finally(() => setInstLoading(false));
 
-    fetchPublicCatalog().then(setCatalog).catch(() => setCatalog(null)).finally(() => setCatalogLoading(false));
+    fetchPublicCatalog().then(setCatalog).catch(() => setCatalog(null));
 
     fetchPublishedContests()
       .then(list => {
         const b = bucketContests(list);
-        // Live first - a contest a visitor can enter right now outranks one
-        // that starts next week.
-        setContests([...b.live, ...b.upcoming].slice(0, 4));
         setActiveContestCount(b.live.length + b.upcoming.length);
       })
-      .catch(() => { setContests([]); setActiveContestCount(null); });
+      .catch(() => setActiveContestCount(null));
   }, []);
 
   // DEPARTMENTS is a fixed enum every institution is seeded with identically
@@ -1568,134 +1736,19 @@ export function CampusLanding() {
     { label: "Partner colleges", value: instLoading ? null : institutions.length, icon: Building2, color: CAMPUS.good },
   ];
 
-  const platformStats = [
-    { label: "DSA problems, graded server-side", value: catalog?.problemCount ?? null, icon: Code2, color: CAMPUS.good },
-    { label: "Programming languages", value: catalog ? catalog.languages.length : null, icon: CodeXml, color: CAMPUS.teal },
-    { label: "CS Core subjects", value: catalog ? catalog.subjects.length : null, icon: BrainCircuit, color: CAMPUS.purple },
-    { label: "Companies in the Vault", value: catalog?.companyCount ?? null, icon: Briefcase, color: CAMPUS.warn },
-    { label: "Aptitude topics", value: catalog ? catalog.aptitudeTopics.length : null, icon: Calculator, color: CAMPUS.gold },
-    { label: "Curated DSA sheets", value: catalog ? catalog.sheets.length : null, icon: ListChecks, color: CAMPUS.cyan },
-    { label: "Concept roadmaps", value: catalog ? catalog.conceptTracks.length : null, icon: BookOpen, color: CAMPUS.blue },
-    { label: "Departments covered", value: instLoading ? null : institutions.length * DEPARTMENTS.length, icon: GraduationCap, color: CAMPUS.inkSoft },
-  ];
-
-  const directoryJsonLd = institutions.length > 0 ? {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    "itemListElement": institutions.map((inst, i) => ({
-      "@type": "ListItem",
-      "position": i + 1,
-      "item": {
-        "@type": "EducationalOrganization",
-        "name": inst.name,
-        "url": `https://campus.devert.in/${inst.id}`,
-        ...(inst.location ? { "address": inst.location } : {}),
-      },
-    })),
-  } : null;
-
   return (
-    // campus-square, NOT campus-sharp. Square corners are wanted here; the
-    // shadow-stripping that campus-sharp bundles with them is not - it flattened
-    // the hero's product shot and the nav's mega-menu panel, which is why that
-    // class came off these pages in the first place. campus-square is the radius
-    // half on its own (globals.css), so the cards go square and the elevation
-    // stays. Applied to all three public surfaces together (here, CampusInfoPage
-    // and CampusGlobalSection in campus-app.jsx) so they share one language.
-    <main data-theme={theme} style={{ ...campusPhotoBg(theme), minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square campus-photo-bg">
-      {directoryJsonLd && (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd) }} />
-      )}
+    // campus-square, NOT campus-sharp - see PricingBand/FaqBand/LandingFooter's
+    // own comments on why. The Vista-styled bands below (VistaHero/
+    // VistaPlanPanel/VistaFeaturesPanel) are scoped to their own .vs-scope
+    // wrapper and don't use campus-square/campus-photo-bg at all - everything
+    // from PricingBand down keeps the real CAMPUS system unchanged.
+    <main data-theme={theme} style={{ colorScheme: theme }} className="campus-theme">
       <CampusPublicNav />
 
-      <Hero stats={heroStats} />
+      <VistaHero stats={heroStats} />
+      <VistaPlanPanel />
+      <VistaFeaturesPanel />
       <BringToCampusBanner />
-
-      <Band id="learn">
-        <BandHeader eyebrow="Learn" title="Every track, open from the first lesson"
-          description="One central curriculum, authored once and shared by every learner and every college - so a fix to a lesson reaches all of them at once. Pick a track and start; sign in only when you want progress saved." />
-        <LearnExplorer catalog={catalog} loading={catalogLoading} />
-      </Band>
-
-      {/* Sheets are a data-only layer over the same problem set (a sheet owns
-          no problems and no progress - see lib/dsaSheets.js), so this band is
-          rendered from the real published sheet list rather than a curated
-          hardcoded one. */}
-      <Band id="sheets" tone="surface">
-        <BandHeader eyebrow="Practice" title="Structured sheets over one problem set"
-          description="Solving a problem counts everywhere at once - from a sheet, from DSA practice, or inside a contest. There is one copy of each problem and one progress record, so nothing needs to be re-solved to tick a second box."
-          action={
-            <Link href="/practice" className="text-[13px] font-semibold inline-flex items-center gap-1.5" style={{ color: CAMPUS.teal }}>
-              Open practice <ArrowUpRight size={14} />
-            </Link>
-          } />
-        {catalogLoading ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[0, 1, 2].map(i => <CampusCard key={i} className="p-6"><CampusSkeleton variant="rect" height={64} /></CampusCard>)}
-          </div>
-        ) : (catalog?.sheets.length || 0) === 0 ? (
-          <CampusEmptyState size="sm" icon={ListChecks} title="No sheets published yet"
-            description="The full problem set is still open under Practice." />
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {catalog.sheets.slice(0, 6).map(s => (
-              <Link key={s.id} href={`/practice?mode=sheets`} className="block">
-                <CampusCard hover className="p-6 h-full">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: tint(CAMPUS.teal, 14), color: CAMPUS.teal }}>
-                    <ListChecks size={19} />
-                  </div>
-                  <h4 className="text-[15px] font-semibold mb-1.5" style={{ color: CAMPUS.ink }}>{s.name || s.title || s.id}</h4>
-                  {s.description && <p className="text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{s.description}</p>}
-                </CampusCard>
-              </Link>
-            ))}
-          </div>
-        )}
-      </Band>
-
-      <ContestBand contests={contests} />
-
-      <Band id="numbers" tone="surface">
-        <BandHeader eyebrow="What's inside" title="The catalog, counted"
-          description="Every figure below is read live from the published content collections. Nothing here is an estimate, and an unavailable count shows as a dash rather than a zero." />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {platformStats.map(s => (
-            <CampusCard key={s.label} className="p-6">
-              <s.icon size={19} style={{ color: s.color }} className="mb-4" />
-              <b className="block font-bold tracking-tight" style={{ color: CAMPUS.ink, fontSize: 32 }}>
-                <CountUp value={s.value} />
-              </b>
-              <span className="text-[12.5px] leading-snug block mt-1" style={{ color: CAMPUS.inkSoft }}>{s.label}</span>
-            </CampusCard>
-          ))}
-        </div>
-      </Band>
-
-      <Band id="premium">
-        <BandHeader eyebrow="Roadmap" title="What Premium will add"
-          description="Stated as a roadmap on purpose: none of this is behind a paywall today, and nothing on this page is gated. When Premium ships, the free tier keeps every track you can already open." />
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {PREMIUM_ROADMAP.map(f => (
-            <CampusCard key={f.label} className="p-6 relative">
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: tint(CAMPUS.purple, 12), color: CAMPUS.purple }}>
-                  <f.icon size={19} />
-                </div>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full"
-                  style={{ background: tint(CAMPUS.inkFaint, 12), color: CAMPUS.inkFaint }}>
-                  <Lock size={9} /> IN BUILD
-                </span>
-              </div>
-              <h4 className="text-[15px] font-semibold mb-1.5" style={{ color: CAMPUS.ink }}>{f.label}</h4>
-              <p className="text-[12.5px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{f.body}</p>
-            </CampusCard>
-          ))}
-        </div>
-      </Band>
-
-      <InstitutionsBand tone="surface" />
-
-      <DirectoryBand institutions={institutions} loading={instLoading} />
 
       <PricingBand />
       <FaqBand />

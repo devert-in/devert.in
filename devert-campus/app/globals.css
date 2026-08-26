@@ -429,3 +429,147 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
   -webkit-touch-callout: none;
 }
 
+/* ---------------------------------------------------------------------
+   Vista-styled marketing pitch (campus-landing.jsx's VistaHero/
+   VistaPlanPanel/VistaFeaturesPanel/PricingBand/FaqBand) - scoped entirely
+   under .vs-scope, never touching a bare CAMPUS.* token or .campus-theme
+   class, so nothing here can leak into the authenticated workspace or any
+   page that doesn't opt in. Lives here rather than in a per-component
+   <style> tag so PricingBand/FaqBand still render correctly when visited
+   directly at /pricing (via CampusInfoPage), which never mounts
+   CampusLanding/VistaHero to inject the rules itself. Second visual
+   direction on this homepage (replaced an earlier "Cirrus"-styled pass
+   wholesale) - only one design lives here at a time.
+   ------------------------------------------------------------------- */
+.vs-scope {
+  --vs-bg: #dcc6a3; --vs-ink: #17140f; --vs-ink-soft: #5b5142; --vs-ink-faint: #8a7f6c;
+  --vs-panel: #12131b; --vs-panel-2: #1a1c27; --vs-line: rgba(23,20,15,0.14);
+  --vs-line-dark: rgba(255,255,255,0.1); --vs-cream: #f4efe3;
+  font-family: var(--vs-body), ui-sans-serif, system-ui, sans-serif;
+  color: var(--vs-ink); background: var(--vs-bg); -webkit-font-smoothing: antialiased;
+}
+.vs-scope * { box-sizing: border-box; }
+.vs-scope h1, .vs-scope h2, .vs-scope h3, .vs-scope h4 { font-family: var(--vs-display), ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; margin: 0; }
+.vs-scope a { text-decoration: none; }
+.vs-shell { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+.vs-canvas { padding: 64px 0 60px; }
+.vs-hero-copy { max-width: 760px; margin: 0 auto; text-align: center; }
+.vs-hero-copy h1 { font-size: clamp(2.1rem, 4.6vw, 3.1rem); font-weight: 800; line-height: 1.14; margin-bottom: 22px; text-wrap: balance; }
+.vs-pill { display: inline-block; background: var(--vs-ink); color: var(--vs-cream); padding: 2px 16px 6px; border-radius: 999px; }
+.vs-hero-copy p { font-size: 15.5px; color: var(--vs-ink-soft); max-width: 56ch; margin: 0 auto 30px; line-height: 1.6; }
+.vs-hero-actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 48px; }
+.vs-btn { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; padding: 11px 20px; border-radius: 999px; background: var(--vs-ink); color: var(--vs-cream); border: 1px solid var(--vs-ink); transition: opacity 120ms ease; }
+.vs-btn:hover { opacity: 0.85; }
+.vs-btn.outline { background: transparent; color: var(--vs-ink); border-color: var(--vs-line); }
+.vs-btn.outline.light { color: var(--vs-cream); border-color: var(--vs-line-dark); }
+.vs-btn.small { padding: 8px 16px; font-size: 12.5px; }
+
+.vs-dash-wrap { max-width: 420px; margin: 0 auto; }
+.vs-dash { background: var(--vs-panel); border-radius: 20px; padding: 22px 24px; box-shadow: 0 30px 60px -24px rgba(17,15,10,0.45); }
+.vs-dash-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.vs-dash-star { width: 26px; height: 26px; border-radius: 50%; background: var(--vs-cream); color: var(--vs-panel); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.vs-dash-title { color: var(--vs-cream); font-weight: 700; font-size: 15px; }
+.vs-stat-list { display: flex; flex-direction: column; }
+.vs-stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--vs-line-dark); font-size: 13.5px; }
+.vs-stat-row:first-child { border-top: none; }
+.vs-stat-row span { color: rgba(244,239,227,0.65); }
+.vs-stat-row b { color: var(--vs-cream); font-size: 17px; font-variant-numeric: tabular-nums; }
+
+.vs-section { padding: 20px 0 44px; }
+.vs-section.tight { padding-top: 0; }
+
+.vs-panel { background: var(--vs-panel); border-radius: 28px; padding: 40px 40px 44px; color: var(--vs-cream); }
+.vs-panel-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 28px; }
+.vs-panel-head h2 { color: #fff; font-size: clamp(1.5rem, 2.8vw, 1.9rem); font-weight: 700; line-height: 1.2; margin-bottom: 10px; max-width: 22ch; text-wrap: balance; }
+.vs-panel-head p { color: rgba(244,239,227,0.62); font-size: 13.5px; line-height: 1.6; max-width: 46ch; margin: 0; }
+.vs-live-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: rgba(244,239,227,0.72); white-space: nowrap; }
+.vs-live-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: #6fd18a; }
+
+.vs-plan-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+@media (max-width: 860px) { .vs-plan-grid { grid-template-columns: 1fr; } }
+.vs-plan-card, .vs-pick-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 24px; }
+.vs-plan-route { display: flex; align-items: center; gap: 14px; font-size: 14px; margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--vs-line-dark); }
+.vs-plan-route b { display: block; font-size: 15px; }
+.vs-plan-route small { display: block; color: rgba(244,239,227,0.5); font-size: 11px; margin-top: 2px; }
+.vs-plan-route .arrow { color: rgba(244,239,227,0.4); }
+.vs-plan-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-bottom: 18px; }
+.vs-plan-fields label { display: block; font-size: 10px; letter-spacing: 0.06em; color: rgba(244,239,227,0.45); }
+.vs-plan-fields label span { display: block; font-size: 13.5px; color: var(--vs-cream); font-weight: 500; margin-top: 5px; }
+.vs-plan-checks { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+.vs-plan-checks span { font-size: 11.5px; color: rgba(244,239,227,0.45); background: rgba(244,239,227,0.06); padding: 5px 11px; border-radius: 999px; }
+.vs-plan-checks span.on { color: var(--vs-panel); background: var(--vs-cream); }
+.vs-plan-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.vs-plan-foot span { font-size: 11.5px; color: rgba(244,239,227,0.45); }
+
+.vs-pick-tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; background: rgba(244,239,227,0.1); padding: 4px 10px; border-radius: 999px; margin-bottom: 14px; }
+.vs-pick-card h3 { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
+.vs-pick-card p { font-size: 12.5px; line-height: 1.6; color: rgba(244,239,227,0.6); margin-bottom: 16px; }
+.vs-pick-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.vs-pick-stats span { font-size: 11px; color: rgba(244,239,227,0.7); border: 1px solid var(--vs-line-dark); padding: 4px 10px; border-radius: 999px; }
+
+.vs-panel.dark { background: var(--vs-panel); }
+.vs-feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.vs-feature-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 22px; }
+.vs-feature-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: rgba(244,239,227,0.08); font-size: 15px; margin-bottom: 16px; }
+.vs-feature-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.vs-feature-card p { font-size: 12.5px; line-height: 1.6; color: rgba(244,239,227,0.6); }
+.vs-track-list { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.vs-track-list span { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(244,239,227,0.75); }
+.vs-track-list i { width: 5px; height: 5px; border-radius: 50%; background: #6fd18a; display: inline-block; font-style: normal; }
+
+/* Pricing/FAQ (PricingBand/FaqBand) - same dark-panel-on-tan language as the
+   rest of the marketing pitch above, so there's no seam between the
+   homepage's hero/plan/features bands and Pricing/FAQ directly below them,
+   and so /pricing looks identical whether it's reached by scrolling the
+   homepage or visited directly. */
+.vs-pricing-head { max-width: 640px; margin: 0 auto 36px; text-align: center; }
+.vs-pricing-head .eyebrow { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vs-ink-faint); margin-bottom: 10px; }
+.vs-pricing-head h2 { font-size: clamp(1.7rem, 3.2vw, 2.2rem); font-weight: 800; line-height: 1.18; margin-bottom: 14px; text-wrap: balance; }
+.vs-pricing-head p { font-size: 14px; color: var(--vs-ink-soft); line-height: 1.6; }
+.vs-pricing-sub { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 8px; }
+.vs-pricing-sub h3 { font-size: 15px; font-weight: 700; }
+.vs-pricing-sub span { font-size: 12px; color: var(--vs-ink-faint); }
+.vs-pricing-note { text-align: center; font-size: 13px; color: var(--vs-ink-soft); max-width: 60ch; margin: 0 auto 30px; }
+
+.vs-plan-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.vs-plan-tile { background: var(--vs-panel-2); border-radius: 16px; padding: 18px 18px; display: flex; flex-direction: column; border: 1px solid transparent; }
+.vs-plan-tile.featured { border-color: rgba(244,239,227,0.35); }
+.vs-plan-tile-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; min-height: 20px; }
+.vs-plan-tile-top span:first-child { font-size: 12.5px; font-weight: 700; color: var(--vs-cream); }
+.vs-plan-tile-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; background: rgba(244,239,227,0.12); color: var(--vs-cream); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.vs-plan-tile-price { display: flex; align-items: baseline; gap: 5px; margin-bottom: 4px; }
+.vs-plan-tile-price b { font-size: 24px; font-weight: 800; color: #fff; }
+.vs-plan-tile-price span { font-size: 11px; color: rgba(244,239,227,0.45); }
+.vs-plan-tile-save { font-size: 10.5px; color: #8fd9a3; min-height: 14px; margin-bottom: 8px; }
+.vs-plan-tile-blurb { font-size: 11.5px; color: rgba(244,239,227,0.5); line-height: 1.5; margin-bottom: 14px; flex: 1; }
+
+.vs-lifetime-card { background: var(--vs-panel-2); border-radius: 18px; padding: 24px 26px; display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; border: 1px solid rgba(255,215,0,0.2); }
+.vs-lifetime-icon { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,215,0,0.12); color: #ffd700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.vs-lifetime-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.vs-lifetime-meta { font-size: 11.5px; color: rgba(244,239,227,0.5); margin-bottom: 14px; }
+.vs-lifetime-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px; }
+.vs-lifetime-price b { font-size: 26px; font-weight: 800; color: #fff; }
+.vs-lifetime-perks { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 20px; }
+.vs-lifetime-perks span { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: rgba(244,239,227,0.7); }
+
+.vs-compare-wrap { overflow-x: auto; margin-bottom: 20px; border-radius: 18px; background: var(--vs-panel-2); }
+.vs-compare { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 480px; }
+.vs-compare th { text-align: left; font-weight: 600; padding: 14px 18px; color: rgba(244,239,227,0.45); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 1px solid var(--vs-line-dark); }
+.vs-compare td { padding: 11px 18px; border-bottom: 1px solid var(--vs-line-dark); color: rgba(244,239,227,0.8); }
+.vs-compare tr:last-child td { border-bottom: none; }
+.vs-compare td:first-child { color: var(--vs-cream); font-weight: 500; }
+.vs-compare td.dash { color: rgba(244,239,227,0.3); }
+
+.vs-licence-card { background: var(--vs-panel-2); border-radius: 18px; padding: 24px 26px; display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+.vs-licence-icon { width: 42px; height: 42px; border-radius: 12px; background: rgba(244,239,227,0.08); color: var(--vs-cream); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.vs-licence-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.vs-licence-meta { font-size: 11.5px; color: rgba(244,239,227,0.5); margin-bottom: 10px; }
+.vs-licence-card p { font-size: 13px; color: rgba(244,239,227,0.6); line-height: 1.6; max-width: 60ch; }
+
+.vs-faq-list { border-top: 1px solid var(--vs-line-dark); }
+.vs-faq-row { border-bottom: 1px solid var(--vs-line-dark); }
+.vs-faq-q { width: 100%; display: flex; align-items: center; gap: 16px; text-align: left; padding: 18px 4px; background: none; border: none; cursor: pointer; color: var(--vs-cream); font-size: 14.5px; font-weight: 500; }
+.vs-faq-q .ico { margin-left: auto; color: rgba(244,239,227,0.4); flex-shrink: 0; }
+.vs-faq-a { font-size: 13.5px; line-height: 1.65; color: rgba(244,239,227,0.6); padding: 0 4px 22px; max-width: 76ch; }
+
