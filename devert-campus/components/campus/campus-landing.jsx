@@ -1538,15 +1538,22 @@ const VS_TRACKS = [
 // it - the content is never gated behind motion either way, since
 // `initial` only affects opacity/position, not whether it's in the DOM.
 function VistaReveal({ children, delay = 0, className }) {
+  // prefers-reduced-motion asks to drop LARGE motion (the 22px slide, which
+  // reads as parallax) - it is not a request for zero feedback. Dropping the
+  // whole animation to a static div was the stricter, wrong reading: every
+  // panel would just be born at opacity 1 with nothing to see, which is
+  // indistinguishable from "the animation doesn't work" to whoever's testing
+  // it on a machine with Windows' "Show animations" switched off - as
+  // reported directly. A quick opacity-only fade keeps the vestibular-safe
+  // part (no movement) while still being visibly an animation.
   const reduceMotion = useReducedMotion();
-  if (reduceMotion) return <div className={className}>{children}</div>;
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y: 22 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 22 }}
+      whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: reduceMotion ? 0.3 : 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
     </motion.div>
