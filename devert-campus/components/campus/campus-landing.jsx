@@ -548,7 +548,13 @@ function HeroPreview() {
               <span className="w-[5px] h-[5px] rounded-full" style={{ background: SCREEN.inkFaint }} />
               <span className="w-[5px] h-[5px] rounded-full" style={{ background: SCREEN.inkFaint }} />
               <span className="w-[5px] h-[5px] rounded-full" style={{ background: SCREEN.inkFaint }} />
-              <span className="text-[8.5px] font-mono ml-1 tracking-wide" style={{ color: SCREEN.inkFaint }}>campus.devert.in</span>
+              {/* Favicon-style DeVert mark in the mock tab, same idea as a real
+                  browser tab icon - the illustration is already a faithful
+                  recreation of this exact page (down to the "campus.devert.in"
+                  label), so it should read as a genuine DeVert product at a
+                  glance, not a generic dashboard screenshot. */}
+              <CampusBadge size={10} rounded="rounded-[3px]" className="ml-1" />
+              <span className="text-[8.5px] font-mono tracking-wide" style={{ color: SCREEN.inkFaint }}>campus.devert.in</span>
             </div>
 
             <div className="p-3">
