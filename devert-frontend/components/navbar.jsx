@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notification-bell";
+import { CAMPUS_URL } from "@/lib/campusUrl";
 
 // Mobile-only now (lg:hidden on the root <nav> below) - components/top-navbar.jsx
 // is the desktop nav, a floating top pill with grouped dropdowns, mirroring
@@ -41,7 +42,7 @@ const NAV_ITEMS = [
   { icon: Activity,      label: "Pulse",        href: "/pulse"        },
   { icon: Swords,        label: "Arena",        href: "/arena"        },
   { icon: Radio,         label: "Intel",        href: "/intel"        },
-  { icon: GraduationCap, label: "Campus",       href: "https://campus.devert.in" },
+  { icon: GraduationCap, label: "Campus",       href: CAMPUS_URL             },
   { icon: Tv2,           label: "Broadcast",    href: "/broadcast"    },
   { icon: Flame,         label: "Events",       href: "/events"       },
   { icon: Target,        label: "Missions",     href: "/missions"     },

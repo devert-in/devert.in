@@ -10,6 +10,7 @@ import {
   Users, ShieldCheck, ClipboardCheck, LineChart, LayoutDashboard,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { DEVERT_URL } from "@/lib/campusUrl";
 import { CAMPUS } from "@/lib/campus-theme";
 import { useCampusTheme } from "@/components/campus/campus-theme-provider";
 import { CampusBadge, CampusCard, CampusGoogleButton } from "@/components/campus/campus-ui";
@@ -260,7 +261,7 @@ export function CampusPublicNav() {
                 origin (campus.devert.in) now, not devert.in's, so a relative
                 href here would just loop back to the Campus landing page
                 instead of actually returning to the main site. */}
-            <Link href="https://devert.in" title="Return to DeVert" className="hidden sm:block" style={{ color: CAMPUS.ink }}><ArrowLeft size={19} /></Link>
+            <Link href={DEVERT_URL} title="Return to DeVert" className="hidden sm:block" style={{ color: CAMPUS.ink }}><ArrowLeft size={19} /></Link>
 
             {/* Signed out, the account panel is the ONLY sign-in surface on the
                 public pages, and an icon-only circle never read as one. Both
@@ -370,7 +371,7 @@ export function CampusPublicNav() {
                 </div>
               );
             })}
-            <Link href="https://devert.in" onClick={closeAll}
+            <Link href={DEVERT_URL} onClick={closeAll}
               className="sm:hidden px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
               Return to DeVert
             </Link>

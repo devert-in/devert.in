@@ -6,6 +6,7 @@ import {
   GraduationCap, Flame, Hammer, Anchor, Activity, Radio,
   GitFork, FlaskConical, Newspaper, Building2, ArrowUpRight,
 } from "lucide-react";
+import { CAMPUS_URL } from "@/lib/campusUrl";
 
 // The DeVert ecosystem, one level up from core-features.jsx's individual
 // tools - these are the product-level children (some real today, some
@@ -13,7 +14,7 @@ import {
 // homepage SECTION, not new persistent-nav entries - CLAUDE.md's rule
 // against nav bloat still applies, and half of these have no backend yet.
 const ECOSYSTEM = [
-  { icon: GraduationCap, color: "#00FFFF", title: "CAMPUS",        href: "https://campus.devert.in", body: "Learn, practice and prepare for placements - per-institution workspaces.", live: true },
+  { icon: GraduationCap, color: "#00FFFF", title: "CAMPUS",        href: CAMPUS_URL, body: "Learn, practice and prepare for placements - per-institution workspaces.", live: true },
   { icon: Flame,         color: "#FF6430", title: "EVENTS",        href: "/events",        body: "Hackathons, workshops, meetups and open mics.", live: true },
   { icon: Anchor,        color: "#00FF41", title: "SHOWCASE",      href: "/showcase",      body: "Dock your projects, get liked and commented on by the community.", live: true },
   { icon: Activity,      color: "#C77DFF", title: "COMMUNITY",     href: "/community",     body: "Dev social feed, plus topic and campus communities.", live: true },

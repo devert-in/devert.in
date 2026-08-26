@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useIntro } from "@/context/IntroContext";
 import { NotificationBell } from "@/components/notification-bell";
+import { CAMPUS_URL } from "@/lib/campusUrl";
 
 // This pill intentionally breaks from the site's neon-terminal design system
 // (white surface, Google Material shadow/menu conventions, gray-on-white
@@ -30,7 +31,7 @@ const GROUPS = [
   {
     key: "explore", label: "Explore",
     items: [
-      { icon: GraduationCap, label: "Campus",       href: "https://campus.devert.in", desc: "Learn, practice, prepare" },
+      { icon: GraduationCap, label: "Campus",       href: CAMPUS_URL, desc: "Learn, practice, prepare" },
       { icon: Flame,         label: "Events",       href: "/events",       desc: "Hackathons, workshops, meetups" },
       { icon: Radio,         label: "Opportunities", href: "/opportunities", desc: "Internships, jobs, programs" },
     ],

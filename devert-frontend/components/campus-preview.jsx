@@ -6,6 +6,7 @@ import Link from "next/link";
 import { GraduationCap, BookOpen, ClipboardCheck, Trophy, Users, ArrowUpRight, Building2 } from "lucide-react";
 import { fetchPublishedContests, bucketContests } from "@/lib/contests";
 import { fetchInstitutions } from "@/lib/institutions";
+import { CAMPUS_URL } from "@/lib/campusUrl";
 
 // Real numbers only - same convention as platform-stats.jsx (institutions +
 // active contests, not a fabricated "10,000+ students" line). Two cheap
@@ -107,7 +108,7 @@ export function CampusPreview() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <Link href="https://campus.devert.in">
+              <Link href={CAMPUS_URL}>
                 <motion.span
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
