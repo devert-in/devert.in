@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Wifi, Cpu } from "lucide-react";
 import { HackathonSpotlight } from "@/components/hackathon-spotlight";
+import { CampusSpotlight } from "@/components/campus-spotlight";
 
 function GlitchButton({ children, href, primary }) {
   const [text, setText] = useState(children);
@@ -135,12 +136,14 @@ export function Hero() {
           <GlitchButton href="/intel" primary={false}>[ EXPLORE_INTEL ]</GlitchButton>
         </motion.div>
 
-        {/* Renders nothing if there's no active/upcoming hackathon - same
-            component and "one loud spotlight" rule as the signed-in HQ
-            dashboard, so a signed-out visitor sees it too instead of it
-            being buried behind a login. */}
-        <motion.div variants={item} className="max-w-2xl mb-6 md:mb-0">
+        {/* Hackathon card renders nothing if there's no active/upcoming
+            hackathon - same component and "one loud spotlight" rule as the
+            signed-in HQ dashboard, so a signed-out visitor sees it too
+            instead of it being buried behind a login. Campus card sits
+            beside it so both first-impression cards land together. */}
+        <motion.div variants={item} className="max-w-4xl grid sm:grid-cols-2 gap-4 mb-6 md:mb-0">
           <HackathonSpotlight />
+          <CampusSpotlight />
         </motion.div>
       </div>
 

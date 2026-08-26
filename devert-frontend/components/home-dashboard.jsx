@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { WelcomeBanner } from "@/components/welcome-banner";
 import { HackathonSpotlight } from "@/components/hackathon-spotlight";
+import { CampusSpotlight } from "@/components/campus-spotlight";
 import { DevertJourneyCard } from "@/components/devert-journey-card";
 import { LiveOnDevert } from "@/components/live-on-devert";
 import { QuickStatsRow } from "@/components/quick-stats-row";
@@ -27,7 +28,10 @@ export function HomeDashboard() {
         <div className="lg:grid lg:grid-cols-3 lg:gap-6 lg:items-start">
           <div className="lg:col-span-2">
             <WelcomeBanner />
-            <HackathonSpotlight />
+            <div className="grid sm:grid-cols-2 gap-4">
+              <HackathonSpotlight />
+              <CampusSpotlight />
+            </div>
             <DevertJourneyCard />
             <LiveOnDevert />
             <QuickStatsRow />

@@ -11,6 +11,7 @@ import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from "fireb
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { HackathonSpotlight } from "@/components/hackathon-spotlight";
+import { CampusSpotlight } from "@/components/campus-spotlight";
 
 const BOOT_LINES = [
   "Connecting to devert.in...",
@@ -171,11 +172,14 @@ function LoginContent() {
       <div className="w-full max-w-5xl relative z-10 flex items-center justify-center">
         <EcosystemPanel />
         <div className="w-full max-w-md flex-shrink-0">
-          {/* Renders nothing without an active/upcoming hackathon - same
-              component as the Hero and the signed-in HQ dashboard, so
-              anyone landing straight on /login (a bookmark, a shared link)
-              sees it too instead of it being reachable only post-login. */}
+          {/* Hackathon card renders nothing without an active/upcoming
+              hackathon - same component as the Hero and the signed-in HQ
+              dashboard, so anyone landing straight on /login (a bookmark, a
+              shared link) sees it too instead of it being reachable only
+              post-login. Campus card stacks below it - column is too narrow
+              (max-w-md) for side-by-side. */}
           <HackathonSpotlight />
+          <CampusSpotlight />
           <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
