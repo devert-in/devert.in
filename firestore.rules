@@ -654,16 +654,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // DeVert Campus Individual Premium's self-serve free trial - same shape
-    // and same reasoning as subscriptions/{uid} just above, minus any money
-    // behind it. Only startCampusPremiumTrial (functions/index.js, Admin SDK)
-    // may ever create this doc; a client-writable trial flag would let anyone
-    // grant themselves one.
-    match /campus_premium_trials/{uid} {
-      allow read: if isOwner(uid) || isSuperAdmin();
-      allow write: if false;
-    }
-
     // Daily CodeLab run ledger, one doc per user per IST date.
     //
     // Free accounts get FREE_DAILY_CODE_RUNS runs a day (see
