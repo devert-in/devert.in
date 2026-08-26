@@ -57,18 +57,44 @@ select option {
    token instead of renaming it is what makes this a one-file palette swap
    rather than a per-component migration. Dark is the default identity now
    (see campus-theme-provider.jsx); light stays fully polished, just no
-   longer the fallback. */
+   longer the fallback.
+
+   THIRD pivot, scoped to the student Dashboard's photo-background redesign:
+   --campus-teal now points to warm orange/amber rather than purple, to match
+   a real hanging-bulb photograph behind the dashboard shell (campus-bg-{dark,
+   light}-theme.jpg) - amber reads as "warm light" against that photo the way
+   the previous indigo/purple never would have. Still the same token, for the
+   same reason as above: every existing CampusButton/CampusChip/active-tab
+   etc. picks this up automatically. --campus-orange (decorative, unchanged)
+   stays a separate, lighter shade in the same family - used for streak/coin
+   accents - so the primary and the decorative tone don't collide. */
 .campus-theme {
   font-family: var(--font-inter), var(--font-space-grotesk), sans-serif;
-  --campus-paper: #F6F7FC;
+  /* Neutral light gray (Google's own Material surface-container tones), not
+     the previous lavender-tinted #F6F7FC/#F0F1FA - a colored page background
+     reads as "branded SaaS," a neutral one reads as "Material." Purple/Pink/
+     Orange stay the accent, applied on top of this neutral canvas rather
+     than tinting the canvas itself. */
+  --campus-paper: #F8F9FA;
   --campus-surface: #FFFFFF;
-  --campus-surface-2: #F0F1FA;
-  --campus-line: #E6E8F3;
+  --campus-surface-2: #F1F3F4;
+  --campus-line: #E4E6E8;
   --campus-ink: #14172B;
   --campus-ink-soft: #5B6178;
   --campus-ink-faint: #8D93A8;
-  --campus-teal: #4F46E5;
-  --campus-teal-tint: #EEEDFD;
+  /* Warm orange/amber - third pivot of this token (was Indigo, then Purple/
+     Pink/Orange). --campus-teal keeps its name for the same reason the
+     comment above the .campus-theme block already gives: hundreds of shipped
+     components key their primary accent off it. #C2410C (orange-700) rather
+     than --campus-orange's own #EA580C - a touch deeper, so the primary
+     reads as its own shade rather than a duplicate of the decorative token
+     it sits right next to on stat rows/chips. */
+  --campus-teal: #C2410C;
+  --campus-teal-tint: rgba(194,65,12,0.1);
+  --campus-pink: #DB2777;
+  --campus-pink-tint: rgba(219,39,119,0.1);
+  --campus-orange: #EA580C;
+  --campus-orange-tint: rgba(234,88,12,0.1);
   --campus-cyan: #0891B2;
   --campus-cyan-tint: #E1F6FA;
   --campus-gold: #A16207;
@@ -83,10 +109,17 @@ select option {
   --campus-blue-tint: #E9EFFD;
   --campus-purple: #9333EA;
   --campus-purple-tint: #F3E8FE;
-  --campus-glass-bg: rgba(255,255,255,0.6);
-  --campus-glass-border: rgba(20,23,43,0.08);
-  --campus-gradient-primary: linear-gradient(135deg, #4F46E5, #9333EA);
-  --campus-gradient-hero: linear-gradient(135deg, #EEF0FB 0%, #E8E5FC 55%, #EFE3FC 100%);
+  /* Dialed back down to 0.48 (was 0.88, then 0.62) for an explicit "more
+     liquid glass" look on cards/top bar/sidebar - needed a second drop past
+     0.62 because a white fill over a light photo reads as far less
+     transparent than the same relative drop does in dark theme (low
+     background/fill contrast hides it). Paired with .campus-glass's higher
+     blur/saturate and top-sheen layer below so the busy photo backdrop still
+     doesn't fight with card text the way a plain low-alpha fill would. */
+  --campus-glass-bg: rgba(255,255,255,0.48);
+  --campus-glass-border: rgba(20,23,43,0.22);
+  --campus-gradient-primary: linear-gradient(135deg, #F97316, #C2410C);
+  --campus-gradient-hero: linear-gradient(135deg, #F3E8FF 0%, #FCE7F3 55%, #FFEDD5 100%);
   /* Fixed dark chrome for "always dark, always white text" surfaces (primary
      buttons, hero banners, the sidebar logo badge) - deliberately NOT tied to
      --campus-ink (a foreground token that inverts to near-white in dark
@@ -125,8 +158,15 @@ select option {
      surface and ~7.5:1 against paper - comfortably legible without reading
      as full-emphasis text the way --campus-ink-soft does. */
   --campus-ink-faint: #94A3B8;
-  --campus-teal: #818CF8;
-  --campus-teal-tint: rgba(129,140,248,0.16);
+  /* #F97316 (orange-500) - distinct from --campus-orange's own #FB923C
+     (orange-400, lighter/yellower) below, same reasoning as the light block
+     above: primary and decorative must not read as the same swatch. */
+  --campus-teal: #F97316;
+  --campus-teal-tint: rgba(249,115,22,0.18);
+  --campus-pink: #F472B6;
+  --campus-pink-tint: rgba(244,114,182,0.18);
+  --campus-orange: #FB923C;
+  --campus-orange-tint: rgba(251,146,60,0.18);
   --campus-cyan: #22D3EE;
   --campus-cyan-tint: rgba(34,211,238,0.14);
   --campus-gold: #FACC15;
@@ -141,10 +181,14 @@ select option {
   --campus-blue-tint: rgba(96,165,250,0.14);
   --campus-purple: #C084FC;
   --campus-purple-tint: rgba(192,132,252,0.16);
-  --campus-glass-bg: rgba(255,255,255,0.045);
-  --campus-glass-border: rgba(255,255,255,0.09);
-  --campus-gradient-primary: linear-gradient(135deg, #6366F1, #A855F7);
-  --campus-gradient-hero: linear-gradient(135deg, #0A0E17 0%, #1E1B4B 55%, #4C1D95 100%);
+  /* Dialed back down to 0.52 (was 0.8) for the same "more liquid glass" ask
+     as the light theme above - the border goes up as the fill goes down, so
+     the card's edge stays legible against the photo once the fill itself is
+     this see-through. */
+  --campus-glass-bg: rgba(19,24,38,0.52);
+  --campus-glass-border: rgba(255,255,255,0.22);
+  --campus-gradient-primary: linear-gradient(135deg, #FDBA74, #F97316);
+  --campus-gradient-hero: linear-gradient(135deg, #0A0E17 0%, #3B0764 55%, #831843 100%);
   --campus-chrome-bg: #0A0E17;
   --campus-chrome-fg: #FFFFFF;
   --campus-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.34);
@@ -160,13 +204,24 @@ select option {
    Opt-in via .campus-glass (see CampusCard's `glass` prop) rather than the
    default for every card - a fully-glass dashboard reads as noisy once
    there are a dozen cards on screen, so it's reserved for the pieces meant
-   to visually float above the page (hero, top bar, sidebar). */
+   to visually float above the page (hero, top bar, sidebar).
+   Two background layers, not one: a top-left sheen over the base tint, so a
+   lower-opacity fill (see --campus-glass-bg's own comment) still reads as
+   curved "liquid" glass catching light rather than as a flat dim tint.
+   Deliberately NOT `position: relative` + an absolutely-positioned pseudo for
+   that sheen - this file loads after Tailwind's utilities, so a position
+   rule here would beat (and silently break) `.sticky` on the elements
+   (CampusTopBar, CampusContextSidebar) that apply this same class. A second
+   background layer needs no position at all. Blur/saturate raised alongside
+   the drop in base opacity so legibility over the photo backdrop doesn't
+   regress. */
 .campus-glass {
-  background: var(--campus-glass-bg);
+  background: linear-gradient(165deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 45%), var(--campus-glass-bg);
   border: 1px solid var(--campus-glass-border);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
 }
+
 
 /* iOS-style bar material, for the sticky public nav only.
    Deliberately NOT a change to .campus-glass above: that one backs CARDS, which
@@ -179,6 +234,29 @@ select option {
    that the missing opacity used to.
    Two fills rather than the --campus-glass-bg token because the token is tuned
    for those cards; the bar wants its own, lower alpha in each theme. */
+
+/* Pairs with lib/campus-theme.js's campusPhotoBg() - every element that
+   spreads its returned style (which only sets --campus-bg-image) also needs
+   this class. The photo lives on ::before, not on this element's own
+   background, so `filter: blur()` on ::before only softens the photo -
+   isolation:isolate scopes ::before's negative z-index to THIS element's own
+   stacking context, so it paints behind this element's real children
+   without needing z-index tricks anywhere else on the page. inset:-40px
+   overscans past the viewport edge by more than the blur radius so the blur
+   never samples "nothing" at an edge and darkens it. */
+.campus-photo-bg { position: relative; isolation: isolate; }
+.campus-photo-bg::before {
+  content: "";
+  position: fixed;
+  inset: -40px;
+  background-image: var(--campus-bg-image);
+  background-size: cover;
+  background-position: center;
+  filter: blur(30px);
+  z-index: -1;
+  pointer-events: none;
+}
+
 .campus-glass-nav {
   /* 0.88, arrived at by walking up from 0.45. Below ~0.7 the bar stopped being a
      surface and became a window - hero text tracked through it and collided with
@@ -215,7 +293,9 @@ select option {
 .campus-btn:not(:disabled):hover { transform: translateY(-1px); }
 .campus-btn:not(:disabled):active { transform: translateY(0); }
 .campus-btn-glow:not(:disabled):hover {
-  box-shadow: 0 4px 14px rgba(99,102,241,0.34), 0 1px 3px rgba(99,102,241,0.2);
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--campus-teal) 34%, transparent),
+    0 1px 3px color-mix(in srgb, var(--campus-teal) 20%, transparent);
 }
 /* Sidebar nav item - inactive items get a soft surface lift on hover;
    the active item's gradient + glow is set inline (it's data-driven, not a
@@ -327,6 +407,100 @@ body {
     linear-gradient(rgba(0, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 255, 255, 0.025) 1px, transparent 1px);
   background-size: 40px 40px;
+}
+
+/* Synthwave horizon - Hero-only accent scene, built from the same neon-grid
+   language as .grid-bg above rather than a separate visual system. Pure
+   CSS/SVG (no canvas/WebGL) - deliberately lightweight after the scroll-
+   world 3D experiment got reverted for exactly the opposite reason. */
+.synth-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.synth-sun {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 30vw;
+  height: 30vw;
+  max-width: 380px;
+  max-height: 380px;
+  min-width: 200px;
+  min-height: 200px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(0, 255, 65, 0.4), rgba(0, 255, 65, 0.12) 55%, transparent 75%);
+  animation: synth-sun-pulse 6s ease-in-out infinite;
+}
+
+.synth-sun::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 5px,
+    rgba(5, 7, 6, 0.92) 5px, rgba(5, 7, 6, 0.92) 9px
+  );
+  mask-image: linear-gradient(to bottom, transparent 0%, black 38%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 38%, black 100%);
+}
+
+.synth-horizon-line {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 46%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(0, 255, 255, 0.5), transparent);
+}
+
+.synth-grid-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 46%;
+  perspective: 240px;
+  overflow: hidden;
+  mask-image: linear-gradient(to top, black 45%, transparent 96%);
+  -webkit-mask-image: linear-gradient(to top, black 45%, transparent 96%);
+}
+
+.synth-grid-floor::before {
+  content: "";
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: 0;
+  height: 240%;
+  background-image:
+    linear-gradient(rgba(0, 255, 255, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: rotateX(78deg);
+  transform-origin: bottom;
+  animation: synth-grid-scroll 1.6s linear infinite;
+}
+
+@keyframes synth-sun-pulse {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+
+@keyframes synth-grid-scroll {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 64px, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .synth-sun, .synth-grid-floor::before {
+    animation: none;
+  }
 }
 
 /* Terminal window chrome */

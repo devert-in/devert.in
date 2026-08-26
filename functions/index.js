@@ -388,30 +388,20 @@ exports.listProctorFrames = onCall({ region: "us-central1", maxInstances: 10 }, 
 const crypto = require("crypto");
 const Razorpay = require("razorpay");
 
-// Secrets are read from process.env, NOT declared with defineSecret(), and that
-// is a deliberate deployment-safety choice rather than laziness.
+// Launched 2026-08-09: both secrets are now in Secret Manager and bound via
+// `secrets: [...]` on createRazorpayOrder/verifyRazorpayPayment (KEY_SECRET)
+// and razorpayWebhook (WEBHOOK_SECRET) - Firebase injects a bound secret as
+// process.env.<NAME>, so the read sites below needed no change at all.
 //
-// defineSecret() makes the secret's existence a DEPLOY-TIME requirement: the CLI
-// refuses to deploy a function whose secret is not already in Secret Manager.
-// Combined with .github/workflows/deploy-prod.yml running
-// `deploy --only hosting,functions` as a SINGLE command, that meant a missing
-// Razorpay credential failed the functions half and took HOSTING down with it -
-// so an unlaunched payment feature could block a frontend hotfix from ever
-// shipping. That is exactly backwards for something nothing calls yet.
-//
-// Reading process.env keeps deploys green whether or not the credential exists,
-// and razorpayClient() below still refuses to run without it, so the failure
-// lands at call time with a clear message instead of at deploy time on an
-// unrelated change.
-//
-// AT LAUNCH, when payments actually go live, bind them properly so the values
-// come from Secret Manager rather than the environment:
-//   npx firebase-tools functions:secrets:set RAZORPAY_KEY_SECRET --project devert-me
-//   npx firebase-tools functions:secrets:set RAZORPAY_WEBHOOK_SECRET --project devert-me
-// then add `secrets: ["RAZORPAY_KEY_SECRET"]` to createRazorpayOrder and
-// verifyRazorpayPayment, and `secrets: ["RAZORPAY_WEBHOOK_SECRET"]` to
-// razorpayWebhook. Firebase injects a bound secret as process.env.<NAME>, so the
-// read sites below need no change at all.
+// Before launch, this deliberately read process.env with NO `secrets: [...]`
+// binding and no defineSecret() at all: defineSecret() makes a secret's
+// existence a DEPLOY-TIME requirement, and with deploy-prod.yml running
+// `deploy --only hosting,functions` as one command, a missing Razorpay
+// credential would have failed the functions half and taken hosting down
+// with it - so an unlaunched payment feature could have blocked an unrelated
+// frontend hotfix from ever shipping. That risk is gone now that the secrets
+// genuinely exist and aren't going away, but it's why the two-step
+// (env-only, then bind once real) shape existed at all.
 const RAZORPAY_KEY_SECRET = { value: () => process.env.RAZORPAY_KEY_SECRET || "" };
 const RAZORPAY_WEBHOOK_SECRET = { value: () => process.env.RAZORPAY_WEBHOOK_SECRET || "" };
 
@@ -463,7 +453,7 @@ function razorpayClient() {
  * time (a build-time value would need a rebuild to rotate).
  */
 exports.createRazorpayOrder = onCall(
-  { region: "us-central1", maxInstances: 10 },
+  { region: "us-central1", maxInstances: 10, secrets: ["RAZORPAY_KEY_SECRET"] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Sign in before paying.");
 
@@ -587,7 +577,7 @@ async function grantSubscription({ uid, planId, paymentId, orderId, source }) {
  * paymentId, so whichever arrives first wins and the second is a no-op.
  */
 exports.verifyRazorpayPayment = onCall(
-  { region: "us-central1", maxInstances: 10 },
+  { region: "us-central1", maxInstances: 10, secrets: ["RAZORPAY_KEY_SECRET"] },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
 
@@ -658,7 +648,7 @@ exports.verifyRazorpayPayment = onCall(
  * turns one bug into a stampede. Failures are logged for reconciliation instead.
  */
 exports.razorpayWebhook = onRequest(
-  { region: "us-central1", maxInstances: 10 },
+  { region: "us-central1", maxInstances: 10, secrets: ["RAZORPAY_WEBHOOK_SECRET"] },
   async (req, res) => {
     if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
 
@@ -810,5 +800,232 @@ exports.startFreeTrial = onCall(
       throw new HttpsError("failed-precondition", "Your subscription is already active.");
     }
     return { started: true, trialDays: TRIAL_DAYS, expiresAtMs };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Contest submission auto-grading
+// ---------------------------------------------------------------------------
+//
+// Grading used to be lazy and client-only: lib/contests.js's persistGrading()
+// ran in the student's own browser, the first time they reopened their
+// result AFTER contestEnd - and firestore.rules blocked that write entirely
+// until then, specifically so a graded score could never sit in a document
+// the student can always read (their own submission) while the contest was
+// still open to everyone else. A student who never came back stayed
+// "pending" forever, needing an admin to run a manual grading sweep
+// (gradeUngradedSubmissions) - and that sweep is ALSO blocked by the same
+// contestEnd gate, so a contest whose window got extended (e.g. to give
+// students a retry after an outage) left every straggler ungraded and
+// unreachable from the UI until the new end time actually arrived.
+//
+// This trigger grades every submission the moment it's written, admin-SDK
+// side - which already bypasses firestore.rules entirely, so the contestEnd
+// gate stays exactly as strict as before for every client-side path (a
+// compromised or malicious browser still cannot grade early). It does NOT
+// expose anything to the student early: the results/leaderboard screen only
+// ever fetches leaderboard data once contestPhase(contest) === "past" (see
+// CampusContestResults in campus-contests.jsx), and isSettingReleased()'s
+// "after_end" mode resolves the same way - both keyed off contestEnd, not
+// off this `graded` flag. Grading early just means the number is already
+// sitting there, correctly computed, for the moment release time arrives -
+// exactly mirroring what an admin already did by hand via a one-off script
+// during the 2026-08-08/09 outage.
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+
+function isContestAnswerCorrect(question, key, given) {
+  if (question.type === "multiselect") {
+    const a = [...(given || [])].sort();
+    const b = [...(key.correctOptionIds || [])].sort();
+    return a.length === b.length && a.every((v, i) => v === b[i]);
+  }
+  if (question.type === "fillblank") {
+    const accepted = (key.correctText || "").split("|").map(s => s.trim().toLowerCase()).filter(Boolean);
+    return accepted.includes(String(given).trim().toLowerCase());
+  }
+  return given === (key.correctOptionIds || [])[0];
+}
+
+// Mirrors lib/contests.js's gradeSubmission() field-for-field - any change
+// there needs the same change here, or the two grading paths (this trigger,
+// and the client's own lazy self-grade / admin sweep, both of which check
+// `graded` first and no-op if this already ran) would silently disagree.
+function computeContestGrade(questions, answerKeys, answers, codingResults) {
+  let score = 0, maxScore = 0, correctCount = 0, attemptedCount = 0;
+  for (const q of questions) {
+    const marks = q.marks || 1;
+    maxScore += marks;
+    if (q.type === "coding") {
+      const result = codingResults[q.id];
+      if (!result) continue;
+      attemptedCount++;
+      score += Math.max(0, Math.min(marks, result.score || 0));
+      if (result.verdict === "Accepted") correctCount++;
+      continue;
+    }
+    const key = answerKeys[q.id];
+    const given = answers ? answers[q.id] : undefined;
+    const isBlank = given === undefined || given === null || given === ""
+      || (Array.isArray(given) && given.length === 0);
+    if (!key || isBlank) continue;
+    attemptedCount++;
+    if (isContestAnswerCorrect(q, key, given)) { score += marks; correctCount++; }
+    else if (q.negativeMarks) score -= q.negativeMarks;
+  }
+  const accuracy = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : 0;
+  return { score, maxScore, correctCount, attemptedCount, accuracy };
+}
+
+// asia-south1, not us-central1 like every other function in this file -
+// that's where this Firestore database actually lives, and a Firestore
+// trigger must run in its database's region or every event pays an
+// unnecessary cross-region hop (Firebase warns on deploy if this drifts).
+exports.gradeContestSubmissionOnCreate = onDocumentCreated(
+  { region: "asia-south1", document: "contests/{contestId}/submissions/{uid}" },
+  async (event) => {
+    const { contestId, uid } = event.params;
+    const snap = event.data;
+    if (!snap) return;
+    const sub = snap.data();
+    if (sub.graded) return; // already graded some other way - nothing to do
+
+    const db = admin.firestore();
+    const submissionRef = snap.ref;
+
+    try {
+      const [questionsSnap, answerKeysSnap, codingResultsSnap] = await Promise.all([
+        db.collection("contests").doc(contestId).collection("questions").get(),
+        db.collection("contests").doc(contestId).collection("answerKeys").get(),
+        submissionRef.collection("codingResults").get(),
+      ]);
+      const questions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const answerKeys = {};
+      answerKeysSnap.forEach(d => { answerKeys[d.id] = d.data(); });
+      const codingResults = {};
+      codingResultsSnap.forEach(d => { codingResults[d.id] = d.data(); });
+
+      const grading = computeContestGrade(questions, answerKeys, sub.answers || {}, codingResults);
+
+      // Transaction, re-reading `graded` live: the client's own lazy
+      // self-grade path could theoretically win a race against this trigger
+      // (Cloud Functions at-least-once delivery can also redeliver this same
+      // event) - whichever writes first wins, the other is a no-op.
+      await db.runTransaction(async (tx) => {
+        const current = await tx.get(submissionRef);
+        if (current.data()?.graded) return;
+        tx.update(submissionRef, {
+          graded: true,
+          score: grading.score,
+          accuracy: grading.accuracy,
+          correctCount: grading.correctCount,
+        });
+      });
+      logger.info("contest submission auto-graded", { contestId, uid, score: grading.score, maxScore: grading.maxScore });
+    } catch (err) {
+      // Never throws past this point - the client-side lazy grade and the
+      // admin's manual sweep both remain as fallbacks, so a transient failure
+      // here (e.g. a Firestore hiccup) doesn't leave the submission stuck;
+      // it just grades a little later than "immediately".
+      logger.error("contest auto-grading failed", { contestId, uid, err: String(err) });
+    }
+  }
+);
+
+// Generalizes the trusted-server-write pattern above (see
+// gradeContestSubmissionOnCreate's own comment) to achievements/badges -
+// the durable fix CLAUDE.md's coin-economy section describes as "not yet
+// done": granting a reward from a server-verified fact instead of a
+// client-reported one. streak is the simplest case available today - a
+// single scalar on users/{uid} that only ever moves via lib/rewards.js's
+// bumpStreak() - so crossing a milestone here is a fact this trigger can
+// observe directly, with nothing to re-grade or duplicate.
+const STREAK_MILESTONES = [
+  { days: 7,   tier: "bronze",   xp: 50,   coins: 20  },
+  { days: 30,  tier: "silver",   xp: 200,  coins: 75  },
+  { days: 100, tier: "gold",     xp: 600,  coins: 200 },
+  { days: 365, tier: "platinum", xp: 2000, coins: 600 },
+];
+
+// asia-south1 for the same reason gradeContestSubmissionOnCreate is: a
+// Firestore trigger must run in its database's own region.
+exports.grantStreakAchievementOnUpdate = onDocumentUpdated(
+  { region: "asia-south1", document: "users/{uid}" },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    const prevStreak = before.streak || 0;
+    const nextStreak = after.streak || 0;
+    if (nextStreak <= prevStreak) return; // not a streak extension - nothing to do
+
+    // Highest milestone newly crossed by this one update - a client that
+    // somehow jumps several milestones in a single write (e.g. an admin
+    // manually correcting a streak) gets only the top one, not every
+    // threshold stacked.
+    const milestone = STREAK_MILESTONES.filter(m => prevStreak < m.days && nextStreak >= m.days).pop();
+    if (!milestone) return;
+
+    const { uid } = event.params;
+    const db = admin.firestore();
+    // Same id shape both collections use: achievements/{uid}_{type}_{id} and
+    // lib/rewards.js's rewardLedgerId(uid, activityType, activityId) both
+    // resolve to this exact string, so the two records are trivially
+    // correlatable without a lookup.
+    const gid = `${uid}_streak_milestone_${milestone.days}`;
+
+    try {
+      // .create() is the idempotency primitive here, not a read-then-write:
+      // Cloud Functions deliver Firestore triggers at-least-once, so a
+      // redelivered event must be safe to run twice. create() throws
+      // ALREADY_EXISTS on a repeat instead of silently double-granting - the
+      // same guarantee firestore.rules gives reward_grants by restricting it
+      // to `create` only.
+      await db.doc(`achievements/${gid}`).create({
+        uid,
+        type: "streak_milestone",
+        refId: String(milestone.days),
+        title: `${milestone.days}-Day Streak`,
+        description: `Stayed active on DeVert for ${milestone.days} days in a row.`,
+        tier: milestone.tier,
+        xp: milestone.xp,
+        coins: milestone.coins,
+        awardedAt: admin.firestore.FieldValue.serverTimestamp(),
+        grantedBy: "system",
+      });
+
+      const userRef = db.doc(`users/${uid}`);
+      const earningsRef = db.doc(`user_earnings/${uid}`);
+      const ledgerRef = db.doc(`reward_grants/${gid}`);
+      await db.runTransaction(async (tx) => {
+        tx.update(userRef, {
+          xp: admin.firestore.FieldValue.increment(milestone.xp),
+          score: admin.firestore.FieldValue.increment(milestone.xp),
+        });
+        tx.set(earningsRef, {
+          pulseCoins: admin.firestore.FieldValue.increment(milestone.coins),
+          totalCoins: admin.firestore.FieldValue.increment(milestone.coins),
+        }, { merge: true });
+        // Mirrors lib/rewards.js's grantRewards() ledger shape field-for-field,
+        // so the admin's existing Reward Timeline (which reads reward_grants
+        // directly) shows this grant the same way it shows every client-side
+        // one, with no special case for "granted by a function."
+        tx.set(ledgerRef, {
+          uid, activityType: "streak_milestone", activityId: String(milestone.days),
+          xp: milestone.xp, coins: milestone.coins, score: milestone.xp,
+          sourceModule: "streak_milestone",
+          grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          grantedBy: "system", status: "granted",
+        });
+      });
+
+      logger.info("streak achievement granted", { uid, days: milestone.days, xp: milestone.xp, coins: milestone.coins });
+    } catch (err) {
+      if (err?.code === 6 /* ALREADY_EXISTS, see the .create() comment above */) return;
+      // Never throws past this point, matching gradeContestSubmissionOnCreate's
+      // convention - the streak count itself is already correct regardless of
+      // whether the achievement/reward side of this succeeds, so a transient
+      // failure here should log, not retry-storm the trigger.
+      logger.error("streak achievement grant failed", { uid, err: String(err) });
+    }
   }
 );

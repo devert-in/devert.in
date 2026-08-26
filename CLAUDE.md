@@ -8,6 +8,24 @@ no application server in the request path.
 
 - `devert-frontend/` — the actual product. Next.js 16 App Router, `output:
   'export'` (static export, no server-side rendering, no API routes).
+- `devert-campus/` — DeVert Campus's own standalone Next.js app (same
+  `output: 'export'`), deployed to a separate Firebase Hosting target/site
+  (`campus` → `devert-campus`, see `.firebaserc`) at campus.devert.in.
+  **Not** a route inside devert-frontend — `/campus/**` on devert.in is a
+  301 redirect straight to campus.devert.in (`firebase.json`'s `main`
+  target), so any link should point at `https://campus.devert.in` directly,
+  never at `/campus`. It imports a lot of shared code straight from
+  devert-frontend BY SOURCE — `context/AuthContext.js`, `lib/firebase.js`,
+  `lib/codelab.js`, `lib/staffAccounts.js`, and some `components/campus/*`
+  primitives that never moved (e.g. `campus-ui.jsx`) — via
+  `devert-campus/jsconfig.json`'s `@/*` path falling back to
+  `../devert-frontend/*`. Because of that fallback, `NEXT_PUBLIC_API_URL`/
+  `NEXT_PUBLIC_AUTH_DOMAIN` have to be set on devert-campus's own build too
+  (see the separate `env:` block on `deploy-prod.yml`'s "Build campus"
+  step) — omitting them there silently breaks CodeLab execution and
+  staff-account admin actions on campus.devert.in without touching
+  devert-frontend at all, since Next.js inlines `NEXT_PUBLIC_*` per app at
+  build time.
 - `devert-backend/` — a small Spring Boot service that does ONLY things a
   browser can't safely do. Deployed on Google Cloud Run (`asia-south1`/Mumbai
   — see `NEXT_PUBLIC_API_URL` in `.github/workflows/deploy-prod.yml` and
@@ -57,9 +75,12 @@ existing bounded-delta pattern (see `firestore.rules`) — a non-owner may only
 ever move a counter by a validated ±1 or a known reward amount read live from
 `system/economy`, never an arbitrary value. The durable fix — moving
 reward-granting server-side via Cloud Functions — is **no longer blocked**:
-billing is active and `functions/` is deployed (see `firebase.json`'s four
-hosting rewrites: `uHandleRouter`, `campusPreviewRouter`,
-`contestPreviewRouter`, `pulsePreviewRouter`, which require the Blaze plan).
+billing is active and `functions/` is deployed (see `firebase.json`'s `main`
+target hosting rewrites: `uHandleRouter`, `contestPreviewRouter`,
+`pulsePreviewRouter`, which require the Blaze plan — `campusPreviewRouter`
+still exists in `functions/index.js` but is dead code now, since that
+same target's `/campus/**` 301 redirect to campus.devert.in fires before
+Hosting ever considers the rewrite, for crawlers and browsers alike).
 It just hasn't been done yet, so until it is, the rules-level bounds remain
 the only thing standing between a user and forging their own balance. Anything
 that needs a trusted server path (reward granting, paid-API proxying, audio

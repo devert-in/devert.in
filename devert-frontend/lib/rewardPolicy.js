@@ -89,10 +89,21 @@ export const DEFAULT_REWARD_POLICY = {
     // gates it, and a permanent lockout on a single wrong answer turns every
     // failed quiz into a support ticket.
     lockOnFail: false,
+    // Whether scoring >= passPct is required to mark the topic/day complete and
+    // advance progress (see quizAttempts.js's submitQuizAttempt). True almost
+    // everywhere - completion IS the pass. cscore below overrides this: a CS
+    // Core topic is a content module, not a gatekept exam, so attempting it (any
+    // score) is what advances the student - only the XP itself still depends on
+    // correctness.
+    completionRequiresPass: true,
   },
 
   modules: {
-    cscore:              { activity: "cscore_topic",           xp: 25, coins: 10 },
+    // No pass gate: viewing the lesson and attempting its MCQs is what advances
+    // a student through CS Core, right or wrong. wrongPenaltyRatio: 0 means a
+    // wrong answer simply earns nothing - never a deduction (see this file's
+    // header on that ratio for the general mechanism).
+    cscore:              { activity: "cscore_topic",           xp: 25, coins: 10, wrongPenaltyRatio: 0, completionRequiresPass: false },
     gate:                { activity: "gate_topic",             xp: 25, coins: 10 },
     programming:         { activity: "programming_topic",      xp: 25, coins: 10 },
     softwareEngineering: { activity: "se_topic",               xp: 25, coins: 10 },
@@ -104,6 +115,19 @@ export const DEFAULT_REWARD_POLICY = {
     daily_learning:      { activity: "daily_learning_day",     xp: 50, coins: 20 },
     daily_learning_problem: { activity: "daily_learning_problem", xp: 25, coins: 5 },
     gate_day:            { activity: "gate_day",               xp: 20, coins: 8  },
+    // Same no-pass-gate shape as cscore above, for the same reason: a
+    // roadmap topic is a curated orientation/reading node, not a gatekept
+    // exam, so completionRequiresPass MUST be false here - without it,
+    // policyFor() falls through to the platform default (true), which would
+    // make a roadmap topic's quiz silently refuse to mark completion below
+    // 70%, contradicting the confirmed "advisory levels, never gated"
+    // design. xp/coins deliberately the lowest per-item default on the
+    // platform: 10-15 roadmaps x ~60 topics each is the largest self-
+    // reported-completion surface in the app, and XP converts to real INR
+    // through the Wallet - an admin raises a genuinely substantial topic's
+    // reward via its own xpReward/coinReward, which policyFor() already
+    // honours per-item.
+    roadmaps:            { activity: "roadmap_topic",          xp: 10, coins: 4, wrongPenaltyRatio: 0, completionRequiresPass: false },
   },
 };
 
@@ -184,6 +208,7 @@ export function policyFor(moduleKey, item = null) {
     wrongPenaltyRatio: Math.max(0, numberOr(item?.wrongPenaltyRatio, base.wrongPenaltyRatio)),
     penaliseUnanswered: item?.penaliseUnanswered ?? base.penaliseUnanswered,
     lockOnFail: item?.lockOnFail ?? base.lockOnFail,
+    completionRequiresPass: item?.completionRequiresPass ?? base.completionRequiresPass,
   };
 }
 

@@ -41,11 +41,11 @@ export function WindowLayer() {
   const { tabs, activeTabId, launchParamsById } = useWindowManager();
   const pathname = usePathname();
 
-  // Public portfolios, Campus, and Login are standalone surfaces with no
-  // DeVert chrome - a Builder's OS window left open in state (e.g. opened
-  // before navigating here, or via a "Login" click from inside a window)
-  // must never float over any of them.
-  if (pathname.startsWith("/u/") || pathname.startsWith("/campus") || pathname.startsWith("/login")) return null;
+  // Public portfolios and Login are standalone surfaces with no DeVert
+  // chrome - a Builder's OS window left open in state (e.g. opened before
+  // navigating here, or via a "Login" click from inside a window) must
+  // never float over either of them.
+  if (pathname.startsWith("/u/") || pathname.startsWith("/login")) return null;
   if (tabs.length === 0) return null;
 
   return (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Anchor, Swords, Coins, Trophy, Code2, Users, UserPlus, Radio, Heart, MessageCircle, Flame, Eye } from "lucide-react";
+import { Zap, Anchor, Swords, Coins, Trophy, Code2, Flame, Radio, ArrowRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -10,6 +10,43 @@ import { doc, onSnapshot } from "firebase/firestore";
 // The DevCard is now a public portfolio, not a stats dashboard - every
 // platform/engagement counter that used to live there lives here instead.
 // This is the user's operational control center.
+//
+// Previously a flat grid of 12 identically-weighted tiles, half of them thin
+// social vanity numbers (Following, Profile Views) sitting at the same
+// visual weight as Ships or Arena Wins - the metrics that actually say
+// something about what a builder has DONE here. Those two are dropped
+// outright (neither is an achievement, just a passive count). What's left is
+// grouped into labelled sections by what kind of progress each one
+// represents, rather than one undifferentiated grid - same "// section_name"
+// convention the Quick Actions block right below already uses.
+function StatCard({ s }) {
+  return (
+    <div className="terminal-window p-4 flex items-start gap-3">
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: `${s.color}15`, border: `1px solid ${s.color}30` }}>
+        <s.icon size={16} style={{ color: s.color }} />
+      </div>
+      <div className="min-w-0">
+        <p className="font-mono text-xl font-bold leading-none" style={{ color: s.color }}>{s.val}</p>
+        <p className="font-mono text-[9.5px] text-white/35 tracking-wider mt-1.5">{s.label.toUpperCase()}</p>
+        <p className="font-mono text-[9.5px] text-white/22 leading-relaxed mt-1">{s.desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function StatSection({ title, stats, delay }) {
+  if (stats.length === 0) return null;
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className="mb-5">
+      <p className="font-mono text-xs text-white/30 mb-2.5">// {title}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        {stats.map(s => <StatCard key={s.key} s={s} />)}
+      </div>
+    </motion.div>
+  );
+}
+
 export function QuickStatsRow() {
   const { user, userData } = useAuth();
 
@@ -32,38 +69,80 @@ export function QuickStatsRow() {
 
   if (!userData) return null;
 
-  const stats = [
-    { label: "XP",         val: (userData.xp || 0).toLocaleString(),     icon: Zap,    color: "#00FFFF" },
-    { label: "COINS",      val: (totalCoins || 0).toLocaleString(), icon: Coins,  color: "#FFD700" },
-    { label: "STREAK",     val: `${userData.streak || 0}d`,               icon: Flame,  color: "#FF6430" },
-    { label: "SHIPS",      val: userData.ships || 0,                     icon: Anchor, color: "#00FF41" },
-    { label: "ARENA WINS", val: userData.arenaWins || 0,                 icon: Swords, color: "#FF9500" },
-    { label: "FOLLOWERS",  val: userData.followersCount || 0,            icon: Users,     color: "#C77DFF" },
-    { label: "FOLLOWING",  val: userData.followingCount || 0,            icon: UserPlus,  color: "#C77DFF" },
-    { label: "PROFILE VIEWS", val: (userData.profileViews || 0).toLocaleString(), icon: Eye, color: "#00FFFF" },
-    { label: "PULSE POSTS",   val: userData.pulsePostsCount || 0,        icon: Radio,  color: "#00FF41" },
-    { label: "LIKES RECEIVED",    val: (userData.totalLikesReceived || 0).toLocaleString(),    icon: Heart,         color: "#FF5050" },
-    { label: "COMMENTS RECEIVED", val: (userData.totalCommentsReceived || 0).toLocaleString(), icon: MessageCircle, color: "#00FFFF" },
-    ...(userData.contestsParticipated ? [
-      { label: "CONTEST XP",    val: (userData.contestXp || 0).toLocaleString(),    icon: Trophy, color: "#C77DFF" },
-      { label: "CONTEST COINS", val: (userData.contestCoins || 0).toLocaleString(), icon: Trophy, color: "#FFD700" },
-    ] : []),
+  const streak = userData.streak || 0;
+
+  // progression: the always-on gamification currencies, earned everywhere.
+  const progressionStats = [
+    { key: "xp", label: "Experience", val: (userData.xp || 0).toLocaleString(), icon: Zap, color: "#00FFFF",
+      desc: "Earned across Campus, Grind, and Contests." },
+    { key: "coins", label: "Coins", val: (totalCoins || 0).toLocaleString(), icon: Coins, color: "#FFD700",
+      desc: "Convertible to real payouts from your Wallet." },
+    { key: "streak", label: "Grind Streak", val: `${streak}d`, icon: Flame, color: "#FF6430",
+      desc: streak > 0 ? "Keep going - don't break the chain." : "Start today - build the habit." },
+  ];
+
+  // build: what this builder has actually shipped or solved.
+  const buildStats = [
+    { key: "ships", label: "Ships Docked", val: userData.ships || 0, icon: Anchor, color: "#00FF41",
+      desc: "Projects docked to your Shipyard." },
     ...(userData.problemsSolvedCount ? [
-      { label: "PROBLEMS SOLVED", val: userData.problemsSolvedCount, icon: Code2, color: "#C77DFF" },
+      { key: "problems", label: "Problems Solved", val: userData.problemsSolvedCount, icon: Code2, color: "#C77DFF",
+        desc: "Across CodeLab and Daily Learning." },
     ] : []),
   ];
 
+  // compete: only shown once a student has actually entered something -
+  // an unearned "0 wins" section is noise, not a stat worth its own header.
+  const competeStats = [
+    ...(userData.arenaWins ? [
+      { key: "arenaWins", label: "Arena Wins", val: userData.arenaWins, icon: Swords, color: "#FF9500",
+        desc: "Timed coding battles won in the Arena." },
+    ] : []),
+    ...(userData.contestsParticipated ? [
+      { key: "contestXp", label: "Contest XP", val: (userData.contestXp || 0).toLocaleString(), icon: Trophy, color: "#C77DFF",
+        desc: "Earned from hackathon & contest results." },
+      { key: "contestCoins", label: "Contest Coins", val: (userData.contestCoins || 0).toLocaleString(), icon: Trophy, color: "#FFD700",
+        desc: "Coin payouts from contest placements." },
+    ] : []),
+  ];
+
+  const pulseStats = [
+    { label: "posts",    val: userData.pulsePostsCount || 0 },
+    { label: "followers", val: userData.followersCount || 0 },
+    { label: "likes",    val: userData.totalLikesReceived || 0 },
+    { label: "comments", val: userData.totalCommentsReceived || 0 },
+  ];
+
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5"
-    >
-      {stats.map(s => (
-        <div key={s.label} className="terminal-window p-4">
-          <s.icon size={14} style={{ color: s.color }} className="mb-2" />
-          <p className="font-mono text-lg font-bold leading-none" style={{ color: s.color }}>{s.val}</p>
-          <p className="font-mono text-[9px] text-white/25 tracking-wider mt-1.5">{s.label}</p>
-        </div>
-      ))}
-    </motion.div>
+    <div>
+      <StatSection title="progression" stats={progressionStats} delay={0.05} />
+      <StatSection title="build" stats={buildStats} delay={0.08} />
+      <StatSection title="compete" stats={competeStats} delay={0.11} />
+
+      {/* One compact strip for Pulse, not four big tiles - real numbers, but
+          Pulse is one pillar among several, not the headline of this page. */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }} className="mb-5">
+        <p className="font-mono text-xs text-white/30 mb-2.5">// community</p>
+        <a href="/pulse" className="terminal-window p-4 flex items-center gap-4 flex-wrap hover:border-white/15 transition-colors">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(0,255,65,0.1)", border: "1px solid rgba(0,255,65,0.3)" }}>
+            <Radio size={16} style={{ color: "#00FF41" }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-mono text-[9.5px] text-white/35 tracking-wider">YOUR ACTIVITY ON PULSE</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+              {pulseStats.map(p => (
+                <span key={p.label} className="font-mono text-[11px] text-white/50">
+                  <span className="text-white font-bold">{p.val.toLocaleString?.() ?? p.val}</span> {p.label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <span className="font-mono text-[10px] text-neon-green flex items-center gap-1 flex-shrink-0">
+            view pulse <ArrowRight size={11} />
+          </span>
+        </a>
+      </motion.div>
+    </div>
   );
 }

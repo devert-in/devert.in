@@ -16,11 +16,35 @@ import {
   fetchCompanyRounds, fetchRoundCategories, fetchCategoryQuestions,
 } from "@/lib/companyPrep";
 import { fetchAllUserLogs } from "@/lib/dailyLearning";
-import { fetchAptitudeTopics, topicAccuracy, detectWeakTopics } from "@/lib/aptitude";
+import { fetchAptitudeTopics, topicAccuracy, detectWeakTopics, normalizeAttemptEntry } from "@/lib/aptitude";
+import { fetchActivityDay, lastNDatesIST } from "@/lib/activity";
 
 export async function fetchStudentProfile(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   return snap.exists() ? { uid, ...snap.data() } : null;
+}
+
+// users/{uid}.lastActiveAt is NOT a real activity signal - see AuthContext.js,
+// where it's only ever set at account creation and inside updateProfile()
+// (i.e. editing your own profile fields). A student who logs every lesson in
+// CS Core/Daily Learning/Programming every day but never once touches their
+// profile settings shows a lastActiveAt frozen at whenever they signed up,
+// looking exactly like an abandoned account to an admin - reported live
+// against a student who was demonstrably active minutes earlier.
+//
+// lib/activity.js's user_activity_daily is the real, non-fabricated signal
+// (one doc per student per day, pinged while they actually use the app - see
+// that file's own header). Walked backward from today rather than fetched as
+// a batch, so the overwhelmingly common case (active today or yesterday)
+// costs 1-2 reads, not up to LOOKBACK_DAYS of them.
+const LAST_ACTIVE_LOOKBACK_DAYS = 60;
+export async function fetchRealLastActive(uid) {
+  const dates = lastNDatesIST(LAST_ACTIVE_LOOKBACK_DAYS).reverse(); // newest first
+  for (const date of dates) {
+    const day = await fetchActivityDay(uid, date);
+    if (day) return { date, lastSeenAt: day.lastSeenAt || null };
+  }
+  return null;
 }
 
 function millis(ts) { return ts?.toMillis?.() || 0; }
@@ -106,6 +130,8 @@ export async function fetchDsaSummary(uid) {
   const solvedIds = Object.keys(progress.solvedProblems || {});
 
   const byDifficulty = { Easy: 0, Medium: 0, Hard: 0 };
+  const totalByDifficulty = { Easy: 0, Medium: 0, Hard: 0 };
+  problems.forEach(p => { if (totalByDifficulty[p.difficulty] !== undefined) totalByDifficulty[p.difficulty]++; });
   solvedIds.forEach(id => {
     const difficulty = problemsById.get(id)?.difficulty;
     if (byDifficulty[difficulty] !== undefined) byDifficulty[difficulty]++;
@@ -122,7 +148,9 @@ export async function fetchDsaSummary(uid) {
 
   return {
     problemsSolved: progress.problemsSolvedCount || solvedIds.length,
+    totalProblems: problems.length,
     byDifficulty,
+    totalByDifficulty,
     totalSubmissions: submissions.length || progress.totalSubmissions || 0,
     acceptanceRate: submissions.length ? Math.round((accepted / submissions.length) * 100) : null,
     languageUsage: progress.languageUsage || {},
@@ -265,12 +293,55 @@ export async function fetchAptitudeSummary(uid) {
   };
 }
 
+// Every attempted topic (not just the worst 5 detectWeakTopics() surfaces
+// above) - a LeetCode-"Skills"-style full breakdown, plus every attempt's
+// own timestamp flattened out of topicStats' per-question history. Reuses
+// the exact same user_aptitude_progress doc + topic catalog read as
+// fetchAptitudeSummary above rather than a second getDoc - callers that need
+// both should call fetchAptitudeSummary and this one is NOT meant to replace
+// it, they answer different questions (weakness vs. full activity history).
+export async function fetchAptitudeFullBreakdown(uid) {
+  const [progressSnap, topics] = await Promise.all([
+    getDoc(doc(db, "user_aptitude_progress", uid)),
+    fetchAptitudeTopics(),
+  ]);
+  const progress = progressSnap.exists() ? progressSnap.data() : null;
+  if (!progress) return { topics: [], attemptDates: [] };
+
+  const attempted = progress.attempted || {};
+  const topicStats = progress.topicStats || {};
+  const topicsById = new Map(topics.map(t => [t.id, t]));
+
+  const topicBreakdown = Object.entries(topicStats)
+    .filter(([, s]) => (s.attempted || 0) > 0)
+    .map(([id, s]) => {
+      const t = topicsById.get(id);
+      return {
+        id, name: t?.name || id, category: t?.category || "Other",
+        attempted: s.attempted || 0, correct: s.correct || 0,
+        accuracy: s.attempted ? Math.round((s.correct / s.attempted) * 100) : 0,
+      };
+    })
+    .sort((a, b) => b.attempted - a.attempted);
+
+  // history entries cap at MAX_ATTEMPT_HISTORY per question (see
+  // lib/aptitude.js's appendAttempt) - a very long-tenured student's
+  // earliest aptitude attempts may have aged out of this, so this is a
+  // reliable RECENT activity signal, not a complete lifetime log.
+  const attemptDates = Object.values(attempted)
+    .flatMap(entry => normalizeAttemptEntry(entry).history || [])
+    .map(h => h.attemptedAt?.toDate?.() || (h.attemptedAt ? new Date(h.attemptedAt) : null))
+    .filter(Boolean);
+
+  return { topics: topicBreakdown, attemptDates };
+}
+
 export async function fetchStudentAnalytics(uid) {
   // profile is fetched first (not folded into the Promise.all below) since
   // dailyLearningSummary needs its institutionId before it can even build
   // the right query - everything else has no such dependency.
   const profile = await fetchStudentProfile(uid);
-  const [programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, earningsSnap] = await Promise.all([
+  const [programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, earningsSnap, realLastActive] = await Promise.all([
     fetchProgrammingSummary(uid),
     fetchCsCoreSummary(uid),
     fetchDsaSummary(uid),
@@ -279,13 +350,21 @@ export async function fetchStudentAnalytics(uid) {
     fetchAptitudeSummary(uid),
     fetchRewardTimeline(uid),
     getDoc(doc(db, "user_earnings", uid)),
+    fetchRealLastActive(uid),
   ]);
   const rewards = {
     xp: profile?.xp || 0,
     score: profile?.score || 0,
     coins: earningsSnap.exists() ? (earningsSnap.data().pulseCoins || 0) : 0,
+    // Extended by CodeLab, Aptitude, CS Core, Programming, GATE, Daily
+    // Learning, DSA Concepts and Software Engineering alike - see
+    // lib/rewards.js's bumpStreak (was CodeLab/Aptitude only until a student
+    // active every day in CS Core but never in CodeLab/Aptitude was reported
+    // showing 0 despite being demonstrably active). realLastActive below is
+    // still the more precise "were they here recently" signal - streak is a
+    // consistency count, not a timestamp.
     streak: profile?.streak || 0,
     totalActivitiesCompleted: rewardTimeline.filter(r => r.status === "granted").length,
   };
-  return { profile, programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, rewards };
+  return { profile, programming, csCore, dsa, companyVault, dailyLearning, aptitude, rewardTimeline, rewards, realLastActive };
 }

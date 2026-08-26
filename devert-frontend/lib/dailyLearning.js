@@ -2,7 +2,7 @@ import { db } from "@/lib/firebase";
 import {
   collection, doc, getDocs, getDoc, query, where, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction, writeBatch,
 } from "firebase/firestore";
-import { grantRewards, isAlreadyGranted } from "@/lib/rewards";
+import { grantRewards, isAlreadyGranted, bumpStreak } from "@/lib/rewards";
 
 // Institution-scoped Monday-Saturday structured learning program (e.g. the
 // MRCET cohort). Lives under institutions/{slug}/dailyLearning - a
@@ -237,10 +237,31 @@ export function isSameDayAsToday(date) {
 export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers, correctCount, problemsSolved, trackId = "dsa" }) {
   const logRef = doc(db, trackPaths(slug, trackId).logs, logId(uid, item.date));
   let alreadyRewarded;
+  let meetsRequirements;
 
   // Read once, outside the transaction body, so a retry cannot straddle
   // midnight and grant on one attempt but not the next.
   const onTime = isSameDayAsToday(item.date);
+
+  // Every MCQ and every embedded problem for the day must be done before the
+  // day's own completion reward is granted - previously this function
+  // trusted `onTime` alone and let a student collect the full xpReward/
+  // coinReward having answered zero MCQs and solved zero problems (the
+  // mcqScore/problemsSolved fields were only ever written for analytics,
+  // never actually checked). problemsSolved re-verifies against the
+  // student's REAL user_codelab_progress doc rather than trusting the
+  // caller's array - campus-daily-learning.jsx already only ever passes the
+  // ids it locally believes are solved, but this function is the shared
+  // trust boundary (see lib/rewards.js's own header comment on that), so it
+  // has to be the one that actually checks, not the UI. mcqAnswers has no
+  // equivalent "real" source to check against beyond what's being submitted
+  // right now, so presence-of-an-answer-per-question is the strongest
+  // signal available - this intentionally does NOT require every MCQ to be
+  // answered CORRECTLY, only attempted; mcqScore already tracks correctness
+  // separately and a wrong answer shouldn't retroactively block the reward
+  // a right one would have granted.
+  const requiredProblemIds = item.problemIds || [];
+  const requiredMcqIds = (item.mcqs || []).map(q => q.id);
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(logRef);
@@ -250,6 +271,24 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
     // submission, so a draft-only doc must never be mistaken for "already
     // rewarded" and silently zero out this student's XP/coins/score for the day.
     alreadyRewarded = !!existing?.completedAt;
+
+    const allMcqsAnswered = requiredMcqIds.every(id => mcqAnswers && Object.prototype.hasOwnProperty.call(mcqAnswers, id));
+    let allProblemsSolved = true;
+    // Persisted for display (leaderboard/analysis drawer "X/3") from this same
+    // verified read, never from the caller's `problemsSolved` argument - that
+    // argument reflects whatever problem list the client had loaded locally,
+    // which can come back incomplete (e.g. a dangling/unpublished problemId
+    // collapsing the whole fetch) even when the student's real progress doc
+    // shows every problem solved. Falls back to the caller's value only when
+    // this day has no problems to solve at all.
+    let verifiedSolvedIds = problemsSolved || [];
+    if (requiredProblemIds.length > 0) {
+      const progressSnap = await tx.get(doc(db, "user_codelab_progress", uid));
+      const solvedMap = progressSnap.exists() ? (progressSnap.data().solvedProblems || {}) : {};
+      allProblemsSolved = requiredProblemIds.every(id => !!solvedMap[id]);
+      verifiedSolvedIds = requiredProblemIds.filter(id => !!solvedMap[id]);
+    }
+    meetsRequirements = allMcqsAnswered && allProblemsSolved;
 
     tx.set(logRef, {
       uid,
@@ -266,15 +305,25 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
       mcqAnswers,
       mcqScore: correctCount,
       mcqTotal: (item.mcqs || []).length,
-      problemsSolved,
+      problemsSolved: verifiedSolvedIds,
       problemsTotal: (item.problemIds || []).length,
-      xpEarned: alreadyRewarded ? (existing.xpEarned || 0) : (onTime ? (item.xpReward || 0) : 0),
-      coinEarned: alreadyRewarded ? (existing.coinEarned || 0) : (onTime ? (item.coinReward || 0) : 0),
+      xpEarned: alreadyRewarded ? (existing.xpEarned || 0) : (onTime && meetsRequirements ? (item.xpReward || 0) : 0),
+      coinEarned: alreadyRewarded ? (existing.coinEarned || 0) : (onTime && meetsRequirements ? (item.coinReward || 0) : 0),
       // Why the day earned nothing, recorded on the log itself rather than
       // inferred later - "completed but 0 XP" is otherwise indistinguishable
       // from a bug, both to a student asking and to anyone reading analytics.
-      lateSubmission: alreadyRewarded ? (existing.lateSubmission ?? false) : !onTime,
-      completedAt: existing?.completedAt || serverTimestamp(),
+      lateSubmission: alreadyRewarded ? (existing.lateSubmission ?? false) : (meetsRequirements && !onTime),
+      // completedAt is deliberately NOT set just because this function was
+      // called - only once meetsRequirements is actually true (or it was
+      // already true on an earlier attempt). alreadyRewarded reads THIS
+      // field to decide "has this day already been rewarded", so setting it
+      // on an incomplete attempt would have permanently locked the student
+      // out of ever collecting the reward later, even after going back and
+      // finishing the missing MCQs/problems - completedAt staying unset
+      // instead lets a later, genuinely complete submission still succeed.
+      ...(existing?.completedAt
+        ? { completedAt: existing.completedAt }
+        : meetsRequirements ? { completedAt: serverTimestamp() } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
@@ -285,10 +334,11 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
     // stranded (no retry possible - the flag already says "rewarded"). Given
     // the tx argument, grantRewards uses tx.update/tx.set instead of the
     // standalone SDK calls, making the whole thing one atomic commit.
-    // `onTime` gates the grant entirely - a late day writes its log (so
-    // progress, streak history and analytics still see it) but never touches
-    // the reward ledger at all, rather than granting zero through it.
-    if (!alreadyRewarded && onTime) {
+    // `onTime` AND `meetsRequirements` both gate the grant - a late day, or
+    // one still missing an MCQ/problem, writes its log (so progress, streak
+    // history and analytics still see the attempt) but never touches the
+    // reward ledger at all, rather than granting zero through it.
+    if (!alreadyRewarded && onTime && meetsRequirements) {
       grantRewards(uid, {
         xpReward: item.xpReward || 0,
         coinReward: item.coinReward || 0,
@@ -301,10 +351,19 @@ export async function submitDayCompletion({ slug, uid, profile, item, mcqAnswers
     }
   });
 
-  // { rewarded, onTime } rather than a bare boolean - the caller needs to tell
-  // "you already did this" apart from "you did it late", because those are two
-  // different messages to show a student.
-  return { rewarded: !alreadyRewarded && onTime, alreadyCompleted: alreadyRewarded, onTime };
+  // Any real submission - complete or not, on time or catching up late -
+  // is genuine engagement with the platform today; bumpStreak's own same-day
+  // check makes repeat calls (an incomplete day resubmitted later) a no-op,
+  // so there's no need to gate this on meetsRequirements/onTime here. See
+  // bumpStreak's header for why this runs out here rather than inside the
+  // transaction above.
+  await bumpStreak(uid);
+
+  // { rewarded, onTime, meetsRequirements } rather than a bare boolean - the
+  // caller needs to tell "you already did this" apart from "you did it late"
+  // apart from "you haven't finished the MCQs/problems yet", three different
+  // messages to show a student.
+  return { rewarded: !alreadyRewarded && onTime && meetsRequirements, alreadyCompleted: alreadyRewarded, onTime, meetsRequirements };
 }
 
 // Flat per-problem reward for solving a practice/coding problem embedded in

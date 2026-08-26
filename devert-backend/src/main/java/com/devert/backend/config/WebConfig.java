@@ -26,6 +26,14 @@ public class WebConfig implements WebMvcConfigurer {
             // "Failed to fetch", not a proper HTTP error, since the request
             // never actually reaches the server).
             .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-            .allowedHeaders("*");
+            .allowedHeaders("*")
+            // Required for campus.devert.in's Bearer-token calls straight to
+            // this service to carry the browser's normal credentials mode.
+            // AuthSessionController's own cookie never rides a cross-origin
+            // request at all (it's only ever set/read via each Hosting
+            // site's same-origin "/api/auth/**" rewrite), so this flag isn't
+            // load-bearing for that flow - it's for everything else now that
+            // Campus is a second origin.
+            .allowCredentials(true);
     }
 }

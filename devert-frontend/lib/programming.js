@@ -11,7 +11,7 @@ import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
   serverTimestamp, writeBatch, arrayUnion, arrayRemove, runTransaction,
 } from "firebase/firestore";
-import { grantRewards } from "@/lib/rewards";
+import { grantRewards, bumpStreak } from "@/lib/rewards";
 
 // No orderBy in the Firestore query itself - combining it with the
 // where("status",...) filter needed for non-admin reads would require a
@@ -197,6 +197,9 @@ export async function completeTopic({ uid, langId, topicId, xpReward = 0, coinRe
     }
   });
 
+  // See bumpStreak's own header (lib/rewards.js) for why this runs out here,
+  // after the transaction has resolved, rather than inside it.
+  await bumpStreak(uid);
   return !alreadyCompleted;
 }
 

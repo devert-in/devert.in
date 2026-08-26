@@ -9,7 +9,7 @@ import {
   Info, Keyboard, Layers, Lightbulb, Lock, MemoryStick, Microscope, Network, Play,
   Quote, RotateCcw, ScrollText, Shield, Sparkles, Target, Timer, Users, X as XIcon,
 } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { parseLesson, parseLessonBlocks, tokenizeInline } from "@/lib/lessonBlocks";
 import { CODELAB_LANGUAGES, runCode } from "@/lib/codelab";
 import { CampusCard } from "@/components/campus/campus-ui";
@@ -363,7 +363,7 @@ function Checkpoint({ title, question, options, explanation }) {
 
   return (
     <motion.div {...motionProps}>
-      <CampusCard className="p-4" style={{ border: `1px solid ${CAMPUS.blue}40`, background: `${CAMPUS.blue}0D` }}>
+      <CampusCard className="p-4" style={{ border: `1px solid ${tint(CAMPUS.blue, 25)}`, background: tint(CAMPUS.blue, 5) }}>
         <div className="flex items-center gap-2 mb-2">
           <HelpCircle size={14} style={{ color: CAMPUS.blue, flexShrink: 0 }} />
           <span className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.blue }}>CHECKPOINT</span>
@@ -658,19 +658,25 @@ export function useReadingProgress(ref) {
   return pct;
 }
 
-// Slim sticky bar showing lesson progress. Sits under the workspace's own
-// chrome rather than at viewport top, so it never covers the back button.
+// Slim ring showing lesson progress. Static, not sticky - it sits once at
+// the top of the article and scrolls away with the rest of the lesson like
+// any other element, rather than staying pinned and visibly overlapping
+// whatever text scrolls past underneath it.
 export function LessonProgressBar({ pct, label = "LESSON PROGRESS" }) {
+  const size = 34, stroke = 3, r = (size - stroke) / 2, c = 2 * Math.PI * r;
   return (
-    <div className="sticky top-0 z-20 -mx-1 px-1 py-2 backdrop-blur"
-      style={{ background: `color-mix(in srgb, ${CAMPUS.paper} 88%, transparent)` }}>
-      <div className="flex items-center gap-2.5">
-        <span className="text-[9.5px] font-mono tracking-widest flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{label}</span>
-        <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: CAMPUS.line }}>
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: CAMPUS.teal, transition: "width 0.1s linear" }} />
-        </div>
-        <span className="text-[10px] font-mono font-bold flex-shrink-0 tabular-nums" style={{ color: CAMPUS.teal }}>{pct}%</span>
+    <div className="flex items-center gap-2 -mx-1 px-1 py-2">
+      <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={CAMPUS.line} strokeWidth={stroke} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={CAMPUS.teal} strokeWidth={stroke}
+            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)}
+            style={{ transition: "stroke-dashoffset 0.1s linear" }} />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center font-mono text-[8px] font-bold tabular-nums"
+          style={{ color: CAMPUS.teal }}>{pct}</span>
       </div>
+      <span className="text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>{label}</span>
     </div>
   );
 }

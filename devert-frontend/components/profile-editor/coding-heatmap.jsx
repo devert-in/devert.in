@@ -2,20 +2,20 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { fetchSubmissionDatesForUser } from "@/lib/codelab";
+import { buildActivityWeeks } from "@/lib/activityDates";
 
 // GitHub/LeetCode-style activity calendar - built entirely from real
 // codelab_submissions timestamps (fetchSubmissionDatesForUser already
 // existed for the Classroom Analytics "active" signal; this is the first
 // place it feeds a full year, not just the last 7 days). No fabricated
 // activity: a day with zero submissions is simply empty.
-
-function toDateKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+//
+// The actual day-grid/streak math lives in lib/activityDates.js - shared
+// with components/campus/campus-activity-heatmap.jsx (the Campus-styled
+// reskin of this same widget) so there's exactly one implementation of it.
 
 const CELL = 11;
 const GAP = 3;
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function levelColor(count) {
   if (count === 0) return "rgba(255,255,255,0.05)";
@@ -25,7 +25,7 @@ function levelColor(count) {
 }
 
 export default function CodingHeatmap({ uid }) {
-  const [countsByDate, setCountsByDate] = useState(null);
+  const [dates, setDates] = useState(null);
   const [error, setError] = useState(false);
   const [hover, setHover] = useState(null);
 
@@ -34,55 +34,19 @@ export default function CodingHeatmap({ uid }) {
     let cancelled = false;
     const since = new Date();
     since.setDate(since.getDate() - 371); // a few extra days so the grid's first partial week is fully populated
-    fetchSubmissionDatesForUser(uid, since).then(dates => {
-      if (cancelled) return;
-      const map = new Map();
-      dates.forEach(d => { const k = toDateKey(d); map.set(k, (map.get(k) || 0) + 1); });
-      setCountsByDate(map);
+    fetchSubmissionDatesForUser(uid, since).then(fetched => {
+      if (!cancelled) setDates(fetched);
     }).catch(() => { if (!cancelled) setError(true); });
     return () => { cancelled = true; };
   }, [uid]);
 
-  const { weeks, monthMarkers, totalSubmissions, activeDays, maxStreak } = useMemo(() => {
-    if (!countsByDate) return { weeks: [], monthMarkers: [], totalSubmissions: 0, activeDays: 0, maxStreak: 0 };
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const start = new Date(today);
-    start.setDate(start.getDate() - 364);
-    // Roll back to the most recent Sunday so week columns align to real weeks.
-    start.setDate(start.getDate() - start.getDay());
-
-    const days = [];
-    const cursor = new Date(start);
-    while (cursor <= today) {
-      const key = toDateKey(cursor);
-      days.push({ date: new Date(cursor), key, count: countsByDate.get(key) || 0 });
-      cursor.setDate(cursor.getDate() + 1);
-    }
-
-    const weeks = [];
-    for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
-
-    const monthMarkers = [];
-    let lastMonth = -1;
-    weeks.forEach((week, wi) => {
-      const firstOfWeek = week[0].date;
-      if (firstOfWeek.getMonth() !== lastMonth) { monthMarkers.push({ wi, label: MONTH_LABELS[firstOfWeek.getMonth()] }); lastMonth = firstOfWeek.getMonth(); }
-    });
-
-    let totalSubmissions = 0, activeDays = 0, streak = 0, maxStreak = 0;
-    days.forEach(d => {
-      totalSubmissions += d.count;
-      if (d.count > 0) { activeDays++; streak++; maxStreak = Math.max(maxStreak, streak); }
-      else streak = 0;
-    });
-
-    return { weeks, monthMarkers, totalSubmissions, activeDays, maxStreak };
-  }, [countsByDate]);
+  const { weeks, monthMarkers, total: totalSubmissions, activeDays, maxStreak } = useMemo(
+    () => (dates ? buildActivityWeeks(dates) : { weeks: [], monthMarkers: [], total: 0, activeDays: 0, maxStreak: 0 }),
+    [dates],
+  );
 
   if (error) return <p className="font-mono text-[11px] text-white/25">Couldn&apos;t load submission history.</p>;
-  if (!countsByDate) return <p className="font-mono text-[11px] text-white/25 animate-pulse">loading heatmap...</p>;
+  if (!dates) return <p className="font-mono text-[11px] text-white/25 animate-pulse">loading heatmap...</p>;
 
   return (
     <div>

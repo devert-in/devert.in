@@ -1,10 +1,10 @@
 ﻿export const metadata = {
-  title: "Hackathons",
-  description: "Join DeVert hackathons. Build fast, ship real, win big. Open to all levels - judged on execution.",
+  title: "Events",
+  description: "DeVert events - hackathons, workshops, meetups, open mics and tech talks. Build fast, ship real, learn from other developers, or just show up.",
   alternates: { canonical: "https://devert.in/hackathons" },
   openGraph: {
-    title: "Hackathons | DeVert",
-    description: "Build fast. Ship real. Win big. DeVert hackathons are open to all - judged on execution.",
+    title: "Events | DeVert",
+    description: "Hackathons, workshops, meetups, open mics and tech talks - all in one place on DeVert.",
     url: "https://devert.in/hackathons",
   },
 };

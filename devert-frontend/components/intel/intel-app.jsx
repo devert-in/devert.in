@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Radio, TrendingUp, Briefcase, Zap, ExternalLink, Star,
-  BookOpen, FileText, Play, Link2, Code2, Layers,
-  ChevronDown, ChevronUp, Lock, CheckCircle,
-} from "lucide-react";
+import { Radio, TrendingUp, Briefcase, Zap, Star } from "lucide-react";
 import { db } from "@/lib/firebase";
 import {
   collection, query, orderBy, limit, getDocs,
   doc, getDoc,
 } from "firebase/firestore";
 import { useIsWindowed } from "@/components/window/is-windowed";
-import { ROADMAPS, getRoadmap } from "@/lib/roadmaps";
+// TEMPORARY: lib/roadmaps.js was rewritten into the new Firestore-backed
+// Campus Roadmaps catalog (role/career-based, admin-authored, progress-
+// tracked) - this old hardcoded array now lives at roadmaps.legacy-backup.js
+// purely so this Intel tab keeps working until the migration lands (the new
+// catalog is seeded from this same file via scripts/export-legacy-roadmaps.mjs)
+// and this whole tab is retired in favor of /campus/roadmaps. Do not add new
+// content here - see the project's Roadmaps build plan.
+import { ROADMAPS, getRoadmap } from "@/lib/roadmaps.legacy-backup";
 import { RoadmapGrid, RoadmapPath } from "@/components/intel/roadmap-path";
 import { OpportunitiesTab } from "@/components/intel/opportunities";
 
@@ -21,57 +24,6 @@ const INTEL_TAB_META = {
   feed:          { breadcrumb: "dev_intelligence.feed", tagline: "Signal over noise. Curated by The Duo." },
   roadmaps:      { breadcrumb: "roadmaps.db",           tagline: "Original, DeVert-curated learning paths for the tracks builders actually ask about." },
   opportunities: { breadcrumb: "opportunities.db",      tagline: "Internships, certifications, hackathons and every other opportunity worth applying to." },
-};
-
-// ── Static resource bundle definitions ──────────────────────────────────────────
-// URLs/status are loaded from Firestore (intel_resources/{moduleId})
-// and merged at runtime. Modules without Firestore docs show as "coming soon".
-
-const RESOURCE_BUNDLES = [
-  {
-    id:          "java-ebook",
-    title:       "Java Ebook Course Bundle",
-    description: "Complete Java pack - handwritten notes, cheatsheets, interview Q&A, DSA problems.",
-    color:       "#FF9500",
-    tag:         "FREE BUNDLE",
-    modules: [
-      { id: "java-handwritten", title: "Java Handwritten Notes",     type: "pdf"   },
-      { id: "java-digital",     title: "Java Digital Notes",         type: "pdf"   },
-      { id: "java-cheatsheet",  title: "Java CheatSheet Notes",      type: "pdf"   },
-      { id: "java-interview",   title: "Java Interview Q&A",         type: "pdf"   },
-      { id: "java-projects",    title: "Java Projects",              type: "code"  },
-      { id: "java-paid-links",  title: "Java Course Paid Links",     type: "link"  },
-      { id: "java-dsa",         title: "Java With DSA",              type: "pdf"   },
-      { id: "company-leetcode", title: "Company Wise Leetcode",      type: "pdf"   },
-      { id: "ds-leetcode",      title: "Data Structures Leetcode",   type: "pdf"   },
-      { id: "java-backend",     title: "Java Backend Topic Guide",   type: "pdf"   },
-    ],
-  },
-  {
-    id:          "java-spring",
-    title:       "Java · Spring Boot · Microservices",
-    description: "Full enterprise Java course - from Core Java fundamentals to production microservices.",
-    color:       "#00FFFF",
-    tag:         "FULL COURSE",
-    modules: [
-      { id: "core-java",      title: "Core Java",            type: "video" },
-      { id: "advanced-java",  title: "Advanced Java",        type: "video" },
-      { id: "spring",         title: "Spring Framework",     type: "video" },
-      { id: "springboot",     title: "Spring Boot",          type: "video" },
-      { id: "hibernate",      title: "Hibernate & JPA",      type: "video" },
-      { id: "microservices",  title: "Microservices",        type: "video" },
-      { id: "spring-bonus",   title: "Bonus Content",        type: "mixed" },
-      { id: "spring-interview", title: "Interview Questions", type: "pdf"  },
-    ],
-  },
-];
-
-const TYPE_META = {
-  pdf:   { icon: FileText,    label: "PDF",      color: "#FF9500"  },
-  video: { icon: Play,        label: "VIDEO",    color: "#00FFFF"  },
-  link:  { icon: Link2,       label: "LINK",     color: "#A78BFA"  },
-  code:  { icon: Code2,       label: "CODE",     color: "#00FF41"  },
-  mixed: { icon: Layers,      label: "MIXED",    color: "#ffffff"  },
 };
 
 // ── Ticker ──────────────────────────────────────────────────────────────────────
@@ -100,170 +52,6 @@ function Ticker({ items }) {
   );
 }
 
-// ── Resource Bundle Card ─────────────────────────────────────────────────────────
-
-function BundleCard({ bundle, resources, index }) {
-  const [open,      setOpen]      = useState(index === 0);
-  const [openFiles, setOpenFiles] = useState(null); // moduleId whose file list is expanded
-
-  const availableCount = bundle.modules.filter(m => resources[m.id]?.status === "available").length;
-  const progress = Math.round((availableCount / bundle.modules.length) * 100);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4 + index * 0.12, type: "spring", stiffness: 200, damping: 24 }}
-      className="terminal-window overflow-hidden"
-    >
-      {/* Bundle header */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full terminal-header flex items-center gap-3 hover:bg-white/2 transition-colors"
-      >
-        <div className="terminal-dot bg-red-500/70 flex-shrink-0" />
-        <div className="terminal-dot bg-yellow-500/70 flex-shrink-0" />
-        <div className="terminal-dot bg-green-500/70 flex-shrink-0" />
-        <BookOpen size={10} className="ml-1 flex-shrink-0" style={{ color: bundle.color }} />
-        <span className="font-mono text-[10px] ml-1 truncate" style={{ color: bundle.color }}>
-          {bundle.title.toLowerCase().replace(/ /g, "_")}.bundle
-        </span>
-        <span className="ml-auto font-mono text-[9px] flex-shrink-0"
-          style={{ color: bundle.color, background: `${bundle.color}12`, padding: "2px 6px", borderRadius: 4, border: `1px solid ${bundle.color}25` }}>
-          {bundle.tag}
-        </span>
-        <span className="ml-2 flex-shrink-0">
-          {open ? <ChevronUp size={12} className="text-white/30" /> : <ChevronDown size={12} className="text-white/30" />}
-        </span>
-      </button>
-
-      {/* Summary */}
-      <div className="px-5 py-4 border-b border-white/5">
-        <p className="font-mono text-xs text-white/40 leading-relaxed mb-3">{bundle.description}</p>
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="font-mono text-[10px] text-white/35">{bundle.modules.length} modules</span>
-          <span className="font-mono text-[10px]" style={{ color: availableCount > 0 ? "#00FF41" : "rgba(255,255,255,0.2)" }}>
-            {availableCount} available
-          </span>
-          <div className="flex-1 min-w-[80px] h-1 rounded-full bg-white/6 overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: bundle.color }} />
-          </div>
-          <span className="font-mono text-[10px] text-white/25">{progress}%</span>
-        </div>
-      </div>
-
-      {/* Module list */}
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            className="overflow-hidden"
-          >
-            <div className="divide-y divide-white/4">
-              {bundle.modules.map((mod, i) => {
-                const res       = resources[mod.id];
-                const fileList  = res?.files || [];
-                const hasFiles  = fileList.length > 0;
-                const singleUrl = res?.url;
-                const isAvail   = res?.status === "available" && (singleUrl || hasFiles);
-                const typeMeta  = TYPE_META[mod.type] || TYPE_META.mixed;
-                const TypeIcon  = typeMeta.icon;
-                const filesOpen = openFiles === mod.id;
-
-                const handleClick = () => {
-                  if (!isAvail) return;
-                  if (singleUrl && !hasFiles) {
-                    window.open(singleUrl, "_blank", "noopener noreferrer");
-                  } else if (hasFiles) {
-                    setOpenFiles(filesOpen ? null : mod.id);
-                  }
-                };
-
-                return (
-                  <div key={mod.id}>
-                    <motion.div
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                      onClick={handleClick}
-                      className="flex items-center gap-3 px-5 py-3 transition-all group"
-                      style={{ cursor: isAvail ? "pointer" : "default" }}
-                      onMouseEnter={e => isAvail && (e.currentTarget.style.background = "rgba(255,255,255,0.015)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "")}
-                    >
-                      <span className="font-mono text-[10px] text-white/18 w-5 flex-shrink-0 text-right">{String(i + 1).padStart(2, "0")}</span>
-                      <div className="w-6 h-6 flex items-center justify-center rounded flex-shrink-0"
-                        style={{ background: `${typeMeta.color}10` }}>
-                        <TypeIcon size={11} style={{ color: isAvail ? typeMeta.color : "rgba(255,255,255,0.2)" }} />
-                      </div>
-                      <span className={`font-mono text-xs flex-1 min-w-0 truncate transition-colors ${isAvail ? "text-white/70 group-hover:text-white/95" : "text-white/28"}`}>
-                        {mod.title}
-                      </span>
-                      {isAvail ? (
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {hasFiles && (
-                            <span className="font-mono text-[9px] text-white/25">{fileList.length} files</span>
-                          )}
-                          <span className="flex items-center gap-1 font-mono text-[9px]" style={{ color: "#00FF41" }}>
-                            <CheckCircle size={10} />
-                            {hasFiles ? (filesOpen ? "▲" : "▼") : "OPEN"}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="flex items-center gap-1 font-mono text-[9px] text-white/18 flex-shrink-0">
-                          <Lock size={9} /> SOON
-                        </span>
-                      )}
-                    </motion.div>
-
-                    {/* File sub-list */}
-                    <AnimatePresence initial={false}>
-                      {filesOpen && hasFiles && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.18 }}
-                          className="overflow-hidden"
-                          style={{ background: "rgba(255,255,255,0.012)", borderTop: "1px solid rgba(255,255,255,0.04)" }}
-                        >
-                          <div className="px-5 py-2 space-y-1">
-                            {fileList.map((f, fi) => (
-                              <a
-                                key={fi}
-                                href={f.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 py-1.5 px-3 rounded-lg group/file transition-colors"
-                                style={{ border: "1px solid transparent" }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = `${typeMeta.color}20`; e.currentTarget.style.background = `${typeMeta.color}06`; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "transparent"; }}
-                              >
-                                <FileText size={10} className="flex-shrink-0" style={{ color: typeMeta.color, opacity: 0.7 }} />
-                                <span className="font-mono text-[10px] text-white/50 flex-1 truncate group-hover/file:text-white/80 transition-colors">
-                                  {f.name.replace(/\.pdf$/i, "")}
-                                </span>
-                                <ExternalLink size={8} style={{ color: typeMeta.color, opacity: 0.5 }} className="flex-shrink-0" />
-                              </a>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
 // ── app ──────────────────────────────────────────────────────────────────────────
 
 export function IntelApp({ initialTab, initialOppId }) {
@@ -274,7 +62,6 @@ export function IntelApp({ initialTab, initialOppId }) {
   const [repos,     setRepos]     = useState([]);
   const [news,      setNews]      = useState([]);
   const [jobs,      setJobs]      = useState([]);
-  const [resources, setResources] = useState({}); // moduleId → Firestore data
   const [loading,   setLoading]   = useState(true);
 
   useEffect(() => {
@@ -282,19 +69,14 @@ export function IntelApp({ initialTab, initialOppId }) {
       getDoc(doc(db, "system", "intel")),
       getDocs(query(collection(db, "intel_news"), orderBy("createdAt", "desc"), limit(8))),
       getDocs(query(collection(db, "intel_jobs"), orderBy("createdAt", "desc"), limit(8))),
-      getDocs(collection(db, "intel_resources")),
     ])
-      .then(([sysSnap, newsSnap, jobsSnap, resSnap]) => {
+      .then(([sysSnap, newsSnap, jobsSnap]) => {
         if (sysSnap.exists()) {
           setTicker(sysSnap.data().ticker || []);
           setRepos(sysSnap.data().repos   || []);
         }
         setNews(newsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setJobs(jobsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        // Key resources by moduleId
-        const resMap = {};
-        resSnap.docs.forEach(d => { resMap[d.id] = d.data(); });
-        setResources(resMap);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -484,26 +266,6 @@ export function IntelApp({ initialTab, initialOppId }) {
             </div>
           </motion.div>
         </div>
-
-        {/* ── Resource Library ── */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <div className="flex items-center gap-3 mb-6">
-            <BookOpen size={14} className="text-neon-green" />
-            <p className="font-mono text-xs text-neon-green tracking-widest">// resource_library.init</p>
-            <div className="flex-1 h-px bg-white/6" />
-            <span className="font-mono text-[10px] text-white/22">ByteMart Java · {RESOURCE_BUNDLES.reduce((a, b) => a + b.modules.length, 0)} modules</span>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {RESOURCE_BUNDLES.map((bundle, i) => (
-              <BundleCard key={bundle.id} bundle={bundle} resources={resources} index={i} />
-            ))}
-          </div>
-
-          <p className="font-mono text-[10px] text-white/18 text-center mt-6">
-            Modules unlock progressively - check back as content drops.
-          </p>
-        </motion.div>
         </>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { auth, db } from "@/lib/firebase";
 import { collection, doc, getDocs, getDoc, setDoc, onSnapshot, query, orderBy, where, limit, serverTimestamp, Timestamp } from "firebase/firestore";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 export const CODELAB_CATEGORIES = [
   "Arrays", "Strings", "Linked List", "Stack", "Queue", "Trees", "Graphs",
@@ -213,7 +214,7 @@ export async function fetchTopSolvers(topN = 20) {
 export async function runCode({ language, code, stdin }) {
   const base = apiUrl();
   if (!base) throw new Error("Code execution isn't configured yet (NEXT_PUBLIC_API_URL is unset).");
-  const res = await fetch(`${base}/api/coding/run`, {
+  const res = await fetchWithRetry(`${base}/api/coding/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ language, code, stdin }),
@@ -247,7 +248,7 @@ export async function submitCode({ problemId, language, code, suppressReward = f
   if (!base) throw new Error("Submissions aren't configured yet (NEXT_PUBLIC_API_URL is unset).");
   if (!auth.currentUser) throw new Error("Sign in to submit.");
   const idToken = await auth.currentUser.getIdToken();
-  const res = await fetch(`${base}/api/coding/submit`, {
+  const res = await fetchWithRetry(`${base}/api/coding/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
     body: JSON.stringify({ problemId, language, code, suppressReward }),
@@ -275,7 +276,7 @@ export async function submitArenaCode({ matchId, language, code }) {
   if (!base) throw new Error("Arena submissions aren't configured yet (NEXT_PUBLIC_API_URL is unset).");
   if (!auth.currentUser) throw new Error("Sign in to submit.");
   const idToken = await auth.currentUser.getIdToken();
-  const res = await fetch(`${base}/api/coding/arena/submit`, {
+  const res = await fetchWithRetry(`${base}/api/coding/arena/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
     body: JSON.stringify({ matchId, language, code }),

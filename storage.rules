@@ -12,6 +12,19 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Dashboard background photo - public read (rendered via a plain CSS
+    // background-image, same reason avatars above is public read: the
+    // browser can't attach a Firebase auth token to that request), owner-uid
+    // writes (same proven pattern). See BackgroundUploadCard in
+    // campus-app.jsx and campusPhotoBg in lib/campus-theme.js.
+    match /campus-backgrounds/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // Project screenshots - public read, owner writes (max 5MB, images only)
     match /projects/{uid}/{allPaths=**} {
       allow read: if true;
@@ -63,6 +76,19 @@ service firebase.storage {
       allow read: if true;
       allow write: if request.auth != null
         && request.auth.token.get('admin', false) == true;
+    }
+
+    // GATE resources (past papers, notes) - public read, admin writes. Same
+    // shape as intel-resources above; a gate_resources Firestore doc's `url`
+    // field points here (see lib/gateLibrary.js). 25MB covers the largest
+    // official past paper PDF with headroom, unlike resumes' 5MB cap which is
+    // sized for a single candidate's own document, not a scanned exam paper.
+    match /gate-resources/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.token.get('admin', false) == true
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
     }
 
     // Campus branding (banner/logo) - public read, owner-uid writes (same

@@ -4,6 +4,7 @@ import {
   limit, increment, serverTimestamp, getCountFromServer, writeBatch, documentId, runTransaction,
   Timestamp,
 } from "firebase/firestore";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 // Firestore rejects the serverTimestamp() sentinel ANYWHERE inside an array
 // ("FieldValue.serverTimestamp() cannot be used inside of an array") - the
@@ -541,6 +542,32 @@ export async function fetchMyRegistration(contestId, uid) {
 export async function fetchMySubmission(contestId, uid) {
   const snap = await getDoc(doc(db, "contests", contestId, "submissions", uid));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// A student's real score trend across every contest they've attempted -
+// DeVert has no ELO-style rating, so this (not a fabricated rating) is what
+// backs the Campus profile's "Contest Performance" chart. Per-contest
+// getDoc()s, same "N cheap reads" shape fetchProgrammingSummary/
+// fetchCsCoreSummary already use for the same reason (isAdminOfStudent()'s
+// nested get() checks only resolve against a single known document, so a
+// uid-scoped list() query across every contest's submissions subcollection
+// isn't viable) - contests per institution number in the dozens, not
+// thousands, so this stays cheap.
+export async function fetchMyContestHistory(institutionId, uid) {
+  const contests = await fetchPublishedInstitutionContests(institutionId);
+  const submissions = await Promise.all(contests.map(c => fetchMySubmission(c.id, uid)));
+
+  return contests
+    .map((c, i) => ({ contest: c, submission: submissions[i] }))
+    .filter(({ submission }) => submission?.graded)
+    .map(({ contest, submission }) => ({
+      contestId: contest.id,
+      title: contest.title || "Untitled contest",
+      date: toDate(contest.contestStart),
+      scorePct: submission.maxScore > 0 ? Math.round((Math.max(0, submission.score) / submission.maxScore) * 100) : 0,
+      accuracy: submission.accuracy ?? null,
+    }))
+    .sort((a, b) => (a.date?.getTime() || 0) - (b.date?.getTime() || 0));
 }
 
 // Student Management's "reset a student's contest attempt" - deletes their
@@ -1192,7 +1219,7 @@ export async function submitContestCodingAnswer(contestId, questionId, language,
   if (!base) throw new Error("Submissions aren't configured yet.");
   if (!auth.currentUser) throw new Error("Sign in to submit.");
   const idToken = await auth.currentUser.getIdToken();
-  const res = await fetch(`${base}/api/contests/${contestId}/questions/${questionId}/submit`, {
+  const res = await fetchWithRetry(`${base}/api/contests/${contestId}/questions/${questionId}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
     body: JSON.stringify({ language, code }),

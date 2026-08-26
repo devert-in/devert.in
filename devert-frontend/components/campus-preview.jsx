@@ -6,6 +6,18 @@ import Link from "next/link";
 import { GraduationCap, BookOpen, ClipboardCheck, Trophy, Users, ArrowUpRight, Building2 } from "lucide-react";
 import { fetchPublishedContests, bucketContests } from "@/lib/contests";
 import { fetchInstitutions } from "@/lib/institutions";
+import { CAMPUS_URL } from "@/lib/campusUrl";
+import { db } from "@/lib/firebase";
+import { collection, getCountFromServer } from "firebase/firestore";
+
+// The whole-platform DeVert account count, not "students on Campus" - same
+// convention devert-campus/lib/campusCatalog.js's fetchLearnerCount() already
+// uses for its "Registered learners" stat. A per-institution students
+// fan-out would double-count (every approved Campus student is already a row
+// in `users`) at the extra cost of one read per institution.
+function fetchLearnerCount() {
+  return getCountFromServer(collection(db, "users")).then(s => s.data().count).catch(() => null);
+}
 
 // Real numbers only - same convention as platform-stats.jsx (institutions +
 // active contests, not a fabricated "10,000+ students" line). Two cheap
@@ -21,18 +33,24 @@ import { fetchInstitutions } from "@/lib/institutions";
 // where("accessMode","in",[...]) filter, which is safe under list mode
 // (verified elsewhere this session) - reuse it rather than re-deriving a
 // second, differently-shaped query for the same collection.
-function useCampusStats() {
+export function useCampusStats() {
   const [stats, setStats] = useState(null);
   useEffect(() => {
     Promise.allSettled([
       fetchInstitutions(),
       fetchPublishedContests(),
-    ]).then(([instRes, contestsRes]) => {
+      fetchLearnerCount(),
+    ]).then(([instRes, contestsRes, learnersRes]) => {
       const institutions = instRes.status === "fulfilled" ? instRes.value.length : 0;
       const contests = contestsRes.status === "fulfilled" ? contestsRes.value : [];
       const bucketed = bucketContests(contests);
-      setStats({ institutions, activeContests: bucketed.live.length + bucketed.upcoming.length });
-    }).catch(() => setStats({ institutions: 0, activeContests: 0 }));
+      setStats({
+        institutions,
+        activeContests: bucketed.live.length + bucketed.upcoming.length,
+        totalContests: contests.length,
+        learners: learnersRes.status === "fulfilled" ? learnersRes.value : null,
+      });
+    }).catch(() => setStats({ institutions: 0, activeContests: 0, totalContests: 0, learners: null }));
   }, []);
   return stats;
 }
@@ -107,7 +125,7 @@ export function CampusPreview() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <Link href="/campus">
+              <Link href={CAMPUS_URL}>
                 <motion.span
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
@@ -130,9 +148,23 @@ export function CampusPreview() {
           >
             <div className="terminal-header">
               <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
-              <span className="font-mono text-[10px] text-white/25 ml-2">devert.in/campus</span>
+              <span className="font-mono text-[10px] text-white/25 ml-2">campus.devert.in</span>
             </div>
-            <div className="p-6">
+            {/* Real product screenshot, not a mock - an approved student's
+                actual dashboard. Cropped to its top band (sidebar + welcome
+                header + stat pills) and faded into the dark card below since
+                Campus itself runs a light, orange-accented theme (see
+                lib/campus-theme.js) that would otherwise hard-cut against
+                this card's near-black chrome. */}
+            <div className="relative h-52 overflow-hidden">
+              <img
+                src="/campus-dashboard-preview.png"
+                alt="A student's DeVert Campus dashboard, showing Daily Learning, Contests and Leaderboard navigation with weekly XP and coins progress"
+                className="w-full h-full object-cover object-top"
+              />
+              <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, transparent 45%, rgba(5,5,5,0.95) 100%)" }} />
+            </div>
+            <div className="p-6 pt-4">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(0,255,255,0.1)" }}>
                   <GraduationCap size={19} className="text-neon-cyan" />

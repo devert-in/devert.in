@@ -75,7 +75,7 @@ const CONTENT_FIELDS = [
   "codeExample", "workedExamples",
   "keyPoints", "analogies", "commonMistakes", "memoryTricks", "formulas", "shortcuts",
   "pyqRelevance", "interviewConnection", "revisionSummary", "shortNotes",
-  "mcqs", "numericals", "assignment",
+  "mcqs", "numericals", "assignment", "resources",
   "difficulty", "estimatedMinutes", "xpReward", "coinReward",
 ];
 
@@ -133,6 +133,7 @@ function describe(lesson) {
     lesson.mcqs?.length && "mcq",
     lesson.numericals?.length && "nat",
     (lesson.revisionSummary?.trim() || lesson.shortNotes?.oneMinute?.trim()) && "rev",
+    lesson.resources?.length && "vid",
   ].filter(Boolean);
   const total = words(lesson.concept) + words(lesson.deepDive) + words(lesson.dryRun)
     + (lesson.workedExamples || []).reduce((n, e) => n + words(e.problem) + words(e.solution), 0);

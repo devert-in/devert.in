@@ -39,7 +39,7 @@ import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
   serverTimestamp, writeBatch, arrayUnion, runTransaction,
 } from "firebase/firestore";
-import { grantRewards } from "@/lib/rewards";
+import { grantRewards, bumpStreak } from "@/lib/rewards";
 
 // ONE language-agnostic track, not one per language.
 //
@@ -192,12 +192,12 @@ export async function deleteConcept(langId, conceptId) {
 // primary account). Deliberately a flag on the user doc rather than an email
 // check: CLAUDE.md is explicit that hardcoded emails were migrated away from on
 // purpose, so granting or revoking this is a script run, not a redeploy.
-export function isConceptUnlocked(concept, completedIds, knownIds, { fullAccess = false } = {}) {
-  if (fullAccess) return true;
-  const prereqs = concept?.prerequisites || [];
-  if (prereqs.length === 0) return true;
-  const done = new Set(completedIds || []);
-  return prereqs.every(id => done.has(id) || (knownIds && !knownIds.has(id)));
+export function isConceptUnlocked(_concept, _completedIds, _knownIds, _opts = {}) {
+  // Prerequisite gating disabled - every concept is unlocked for every
+  // student. The `prerequisites` field on each concept doc is left as
+  // authored data rather than stripped, so re-enabling this gate later is a
+  // one-line revert, not a re-authoring pass.
+  return true;
 }
 
 // The concepts blocking `concept`, as full concept objects (for a "finish
@@ -284,6 +284,9 @@ export async function completeConcept({ uid, langId, conceptId, xpReward = 0, co
     }
   });
 
+  // See bumpStreak's own header (lib/rewards.js) for why this runs out here,
+  // after the transaction has resolved, rather than inside it.
+  await bumpStreak(uid);
   return { alreadyCompleted };
 }
 

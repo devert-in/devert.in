@@ -68,6 +68,10 @@ function MissionCard({ m, i, accepted, accepting, onAccept }) {
           </div>
         </div>
 
+        <p className="font-mono text-[9px] text-white/20 mb-4 leading-relaxed">
+          // reward arranged directly with the poster - not processed, escrowed, or guaranteed by DeVert
+        </p>
+
         <div className="h-1 w-full rounded-full mb-4 overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
           <motion.div
             initial={{ width: 0 }}

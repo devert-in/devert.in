@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { setCurrentAudiences, readerAudiences } from "@/lib/audiences";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut, signInWithCustomToken } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, deleteField } from "firebase/firestore";
+import { mintSharedSession, exchangeSharedSession, clearSharedSession } from "@/lib/sharedSession";
 
 const AuthContext = createContext();
 
@@ -34,6 +35,20 @@ export function AuthProvider({ children }) {
   // callers (the admin route's gate) wait for it instead of racing it.
   const [isAdmin, setIsAdmin]           = useState(false);
   const [adminChecked, setAdminChecked] = useState(false);
+  // Derived from the `superAdmin` custom auth claim (see
+  // scripts/set-super-admin-claim.mjs) - a strictly smaller circle than
+  // `admin`, for surfaces (payments/revenue) that an ordinary institution or
+  // platform admin has no business seeing. Resolves alongside isAdmin, off
+  // the same token fetch, so it shares adminChecked as its own "ready" signal
+  // rather than adding a second one that would always flip at the same time.
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  // Cross-subdomain session bridge (see lib/sharedSession.js) only ever gets
+  // ONE attempt per app load - without this guard, every re-fire of
+  // onAuthStateChanged with a null user (including the one right after an
+  // intentional logout, before the cleared cookie has necessarily been
+  // re-read) would retry the exchange, risking a sign-out-then-silently-
+  // sign-back-in loop instead of a single best-effort check.
+  const triedExchangeRef = useRef(false);
 
   useEffect(() => {
     console.log("[Auth Debug] AuthContext mounted, setting up onAuthStateChanged listener...");
@@ -43,26 +58,46 @@ export function AuthProvider({ children }) {
       if (!currentUser) {
         setUserData(null);
         setIsAdmin(false);
+        setIsSuperAdmin(false);
         setAdminChecked(true);
         setLoading(false);
         // Back to the least-privileged set on sign-out, so a signed-out tab
         // cannot keep querying with the previous user's audiences.
         setCurrentAudiences(null);
+        // One-shot, best-effort: this origin has no local Firebase session,
+        // but a sign-in on the OTHER devert.in subdomain may have left a
+        // shared cookie behind. Not awaited - loading/adminChecked above are
+        // already resolved for the (more common) genuinely-signed-out case,
+        // and a successful exchange re-fires this whole listener with a real
+        // user a moment later rather than blocking this pass on it.
+        if (!triedExchangeRef.current) {
+          triedExchangeRef.current = true;
+          exchangeSharedSession().then(customToken => {
+            if (customToken) signInWithCustomToken(auth, customToken).catch(() => {});
+          });
+        }
         return;
       }
       try {
         const token = await currentUser.getIdTokenResult();
         console.log("[Auth Debug] Token fetched successfully for", currentUser.uid);
         setIsAdmin(token.claims.admin === true);
+        setIsSuperAdmin(token.claims.superAdmin === true);
         // Publish this reader's content audiences for every content query to
         // use - see lib/audiences.js on why this is ambient rather than threaded
         // through eight lib modules. No account carries the `auds` claim yet, so
         // this resolves to public+legacy today, which is exactly what keeps
         // existing content visible.
         setCurrentAudiences(readerAudiences(token.claims));
+        // Fire-and-forget - keeps devert.in and campus.devert.in's shared
+        // cookie fresh on every real sign-in/token-refresh. Failures are
+        // swallowed inside mintSharedSession itself; this origin's own
+        // session is already established regardless of whether it succeeds.
+        mintSharedSession(token.token);
       } catch (err) {
         console.error("[Auth Debug] Token fetch failed:", err);
         setIsAdmin(false);
+        setIsSuperAdmin(false);
         // A failed token fetch must not leave stale audiences in place.
         setCurrentAudiences(null);
       } finally {
@@ -206,6 +241,10 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   const logout = async () => {
+    // Clears the shared cookie BEFORE the local sign-out - otherwise the
+    // other devert.in subdomain's shared cookie would outlive this sign-out
+    // and silently sign the user back in there on next load.
+    await clearSharedSession();
     await signOut(auth);
     setUser(null);
     setUserData(null);
@@ -236,7 +275,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, isAdmin, adminChecked, logout, refreshProfile, updateProfile, getTier }}>
+    <AuthContext.Provider value={{ user, userData, loading, isAdmin, adminChecked, isSuperAdmin, logout, refreshProfile, updateProfile, getTier }}>
       {children}
     </AuthContext.Provider>
   );

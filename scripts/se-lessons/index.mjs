@@ -11,8 +11,14 @@
 
 import { WELCOME } from "./welcome.mjs";
 import { THE_INTERNET } from "./the-internet.mjs";
+import { REAL_APPLICATIONS } from "./real-applications.mjs";
+import { AUTHENTICATION } from "./authentication.mjs";
+import { CONNECTING_EVERYTHING } from "./connecting-everything.mjs";
 
 export const SE_LESSONS = {
   welcome: WELCOME,
   "the-internet": THE_INTERNET,
+  "real-applications": REAL_APPLICATIONS,
+  authentication: AUTHENTICATION,
+  "connecting-everything": CONNECTING_EVERYTHING,
 };

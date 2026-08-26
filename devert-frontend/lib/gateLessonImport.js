@@ -73,7 +73,13 @@ const FIELD_SPEC = {
   workedExamples: { kind: "workedExamples" },
   mcqs: { kind: "mcqs" },
   numericals: { kind: "numericals" },
+  resources: { kind: "resources" },
 };
+
+// Allowed values for a resource's `kind` - mirrors RESOURCE_ICON in
+// components/se/se-lesson.jsx, the one other place this exact shape is
+// authored, so the two never drift into incompatible vocabularies.
+const RESOURCE_KINDS = ["video", "link", "pdf", "cheatsheet", "notes"];
 
 const IDENTITY_FIELDS = Object.entries(FIELD_SPEC)
   .filter(([, spec]) => spec.identity).map(([k]) => k);
@@ -169,6 +175,27 @@ function coerceField(key, spec, raw, errors, where) {
           options: q.options.map(o => o.trim()),
           correctIndex: ci,
           explanation: typeof q.explanation === "string" ? q.explanation.trim() : "",
+        });
+      });
+      return out;
+    }
+    case "resources": {
+      // The exact-timestamp requirement lives INSIDE url itself (a YouTube
+      // link with ?t=123s / &t=123s), not a separate field - a timestamp
+      // divorced from its video is meaningless the moment either changes.
+      if (!Array.isArray(raw)) return fail("must be an array.");
+      const out = [];
+      raw.forEach((r, i) => {
+        const at = `${where}: ${key}[${i}]`;
+        if (typeof r !== "object" || r === null) { errors.push(`${at} must be an object.`); return; }
+        if (!RESOURCE_KINDS.includes(r.kind)) { errors.push(`${at}.kind must be one of: ${RESOURCE_KINDS.join(", ")}.`); return; }
+        if (typeof r.title !== "string" || !r.title.trim()) { errors.push(`${at}.title is required.`); return; }
+        if (typeof r.url !== "string" || !/^https?:\/\//.test(r.url.trim())) { errors.push(`${at}.url must be a full http(s) URL.`); return; }
+        out.push({
+          kind: r.kind,
+          title: r.title.trim(),
+          url: r.url.trim(),
+          description: typeof r.description === "string" ? r.description.trim() : "",
         });
       });
       return out;
@@ -418,6 +445,16 @@ export const LESSON_IMPORT_EXAMPLE = JSON.stringify({
       answerMin: 1, answerMax: 1,
       unit: "literal",
       solution: "The eight minterms form one group of 8, leaving **B'**...",
+    }],
+    // url carries the exact timestamp itself (?t=123s) - there is no
+    // separate timestamp field, since a number divorced from its video is
+    // meaningless the moment either one changes. Only ever a video actually
+    // verified to open at that point - never a guessed link or offset.
+    resources: [{
+      kind: "video",
+      title: "Karnaugh Map (K-Map) Solved Examples - Gate Smashers",
+      url: "https://www.youtube.com/watch?v=XXXXXXXXXXX&t=245s",
+      description: "Starts at 4:05 - worked K-map grouping examples.",
     }],
   }],
 }, null, 2);

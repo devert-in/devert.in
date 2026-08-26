@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy,
+  Home, Swords, Anchor, Radio, Target, Tv2, Trophy,
   ScrollText, LogIn, X, User, Activity, Flame, Users,
 } from "lucide-react";
 import { db } from "@/lib/firebase";
@@ -16,11 +16,10 @@ const NAV_COMMANDS = [
   { icon: Anchor,     label: "Shipyard",   desc: "Project Launchpad",      href: "/shipyard" },
   { icon: Radio,      label: "Intel",      desc: "Dev Intelligence Feed",  href: "/intel" },
   { icon: Target,     label: "Missions",   desc: "Hackathons as Missions", href: "/missions" },
-  { icon: Zap,        label: "Grind",      desc: "Daily Challenges",       href: "/grind" },
   { icon: Activity,   label: "Pulse",      desc: "Dev Social Feed",        href: "/pulse" },
   { icon: Tv2,        label: "Broadcast",  desc: "DevCast Live",           href: "/broadcast" },
   { icon: Trophy,     label: "Ranks",      desc: "Tier Leaderboard",       href: "/ranks" },
-  { icon: Flame,      label: "Hackathons", desc: "Active Hackathons",      href: "/hackathons" },
+  { icon: Flame,      label: "Events",     desc: "Hackathons, Workshops & More", href: "/events" },
   { icon: ScrollText, label: "Logs",       desc: "System Changelog",       href: "/logs" },
   { icon: User,       label: "Dev Card",   desc: "Your Profile & Stats",   href: "/profile" },
   { icon: LogIn,      label: "Login",      desc: "SSH into DeVert",        href: "/login" },
@@ -85,9 +84,9 @@ export function CommandPalette() {
   const debounceRef = useRef(null);
   const router = useRouter();
   const pathname = usePathname();
-  // Public portfolios and Campus are standalone surfaces with no DeVert chrome -
-  // Cmd+K has no place opening over either one.
-  const isIsolatedSurface = pathname.startsWith("/u/") || pathname.startsWith("/campus");
+  // Public portfolios are a standalone surface with no DeVert chrome - Cmd+K
+  // has no place opening over it.
+  const isIsolatedSurface = pathname.startsWith("/u/");
 
   const isUserSearch = query.trimStart().startsWith("@");
   const rawTerm = isUserSearch ? query.trimStart().slice(1).trim() : query.trim();

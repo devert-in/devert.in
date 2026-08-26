@@ -10,7 +10,6 @@ import {
 import { parseLesson, parseLessonBlocks, tokenizeInline } from "@/lib/lessonBlocks";
 import { useSe } from "@/components/se/se-app";
 import { usePalette, useCampusAccent } from "@/components/se/se-ui";
-import { CAMPUS } from "@/lib/campus-theme";
 import { SE_ACCENT as ACCENT } from "@/lib/seCurriculum";
 
 // The renderer for the shared lesson format, used both by the standalone
@@ -521,8 +520,12 @@ export function SeLessonBody({ text }) {
   return (
     <div>
       {titled.length >= 2 && (
-        <div className="mb-4 sticky top-0 z-10 py-2 -mx-1 px-1 backdrop-blur"
-          style={{ background: campusMode ? CAMPUS.paper : "rgba(5,5,5,0.85)" }}>
+        // Sticks directly under the workspace's own chrome (CampusTopBar -
+        // top-3/lg:top-4 plus its own padded height). SeReadingBar (se-ui.jsx)
+        // is static now, not sticky, so this is the only bar stacking here -
+        // no second offset to account for.
+        <div className={`mb-4 sticky z-10 py-2 -mx-1 px-1 ${campusMode ? "top-[88px] lg:top-[82px] campus-glass-nav" : "top-0 backdrop-blur"}`}
+          style={campusMode ? undefined : { background: "rgba(5,5,5,0.85)" }}>
           <SectionRail sections={titled} active={active} />
         </div>
       )}

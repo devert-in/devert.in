@@ -31,7 +31,7 @@ import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
   serverTimestamp, writeBatch, arrayUnion, arrayRemove, runTransaction, increment,
 } from "firebase/firestore";
-import { grantRewards } from "@/lib/rewards";
+import { grantRewards, bumpStreak } from "@/lib/rewards";
 
 export const GATE_DIFFICULTIES = ["Easy", "Moderate", "Hard"];
 
@@ -353,6 +353,9 @@ export async function completeTopic({ uid, paperId, subjectId, topicId, xpReward
     }
   });
 
+  // See bumpStreak's own header (lib/rewards.js) for why this runs out here,
+  // after the transaction has resolved, rather than inside it.
+  await bumpStreak(uid);
   return !alreadyCompleted;
 }
 
@@ -476,6 +479,9 @@ export async function completeDay({ uid, paperId, date, xpReward = 20, coinRewar
     }
   });
 
+  // See bumpStreak's own header (lib/rewards.js) for why this runs out here,
+  // after the transaction has resolved, rather than inside it.
+  await bumpStreak(uid);
   return !alreadyRewarded;
 }
 

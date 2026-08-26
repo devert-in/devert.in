@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Moon, Sun } from "lucide-react";
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, campusPhotoBg } from "@/lib/campus-theme";
 
 // Extracted out of campus-app.jsx into its own file so OTHER top-level
 // Campus screens (campus-staff-login.jsx's three dedicated login pages) can
@@ -26,15 +26,35 @@ export function useCampusTheme() {
 }
 
 export function CampusThemeProvider({ children }) {
-  // Lazy initializer, not a mount effect - localStorage is already
-  // synchronously available the first time this ever renders (this
-  // component only lives inside the client-only Campus workspace tree).
-  // Dark is the default identity now (premium-SaaS redesign) - light stays
-  // fully supported, just no longer the fallback for a first-time visitor.
+  // Lazy initializer, not a mount effect - localStorage (and matchMedia) are
+  // already synchronously available the first time this ever renders (this
+  // component only lives inside the client-only Campus workspace tree). A
+  // first-time visitor with no saved preference gets whatever their OS is
+  // set to, light or dark, rather than a hardcoded default - explicitly
+  // toggling below is what opts them into a fixed choice of their own.
   const [theme, setTheme] = useState(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("campus-theme") : null;
-    return saved === "dark" || saved === "light" ? saved : "dark";
+    if (typeof window === "undefined") return "light";
+    const saved = localStorage.getItem("campus-theme");
+    if (saved === "dark" || saved === "light") return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
+
+  // Keeps following the OS setting live for as long as the visitor hasn't
+  // made an explicit choice - toggleTheme persists to localStorage the
+  // moment they do, which permanently hands control to their own pick
+  // instead (this effect checks localStorage fresh each time rather than
+  // once, so it stops reacting the instant that happens).
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncToSystem = (e) => {
+      if (localStorage.getItem("campus-theme")) return;
+      setTheme(e.matches ? "dark" : "light");
+    };
+    mq.addEventListener("change", syncToSystem);
+    return () => mq.removeEventListener("change", syncToSystem);
+  }, []);
+
   const toggleTheme = () => setTheme(t => {
     const next = t === "light" ? "dark" : "light";
     localStorage.setItem("campus-theme", next);
@@ -71,14 +91,14 @@ export function CampusThemeToggle({ className = "" }) {
 export function CampusShell({ children, nav = null }) {
   const { theme } = useCampusTheme();
   return (
-    <main data-theme={theme} style={{ background: CAMPUS.paper, minHeight: "100vh", colorScheme: theme }}
-      className={`campus-theme relative ${nav ? "flex flex-col" : "flex items-center justify-center px-6"}`}>
+    <main data-theme={theme} style={{ ...campusPhotoBg(theme), minHeight: "100vh", colorScheme: theme }}
+      className={`campus-theme campus-photo-bg relative ${nav ? "flex flex-col" : "flex items-center justify-center px-6"}`}>
       {nav}
       {/* Without the nav, this is the ONLY way out, so it stays pinned to the
           corner. With it, the header already carries the Campus logo home, and
           a second floating back-link beside it is just clutter. */}
       {!nav && (
-        <Link href="/campus"
+        <Link href="/"
           className="absolute top-5 left-5 flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors hover:opacity-80"
           style={{ color: CAMPUS.inkSoft }}>
           <ArrowLeft size={14} /> Back to Campus

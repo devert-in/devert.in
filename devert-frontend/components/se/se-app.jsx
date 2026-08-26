@@ -186,10 +186,10 @@ function SeSidebarModuleList({ tree, screen, progress, onOpenModule, onOpenLesso
         <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>FUNDAMENTALS</div>
         {tree.map(mod => (
           <button key={mod.id} onClick={() => onOpenModule(mod.id)}
-            className="campus-btn flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
+            className="campus-btn flex items-start gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
             style={{ color: CAMPUS.inkSoft }}>
-            <span className="font-mono text-[10.5px] flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{mod.number}</span>
-            <span className="text-[13px] font-medium truncate">{mod.title}</span>
+            <span className="font-mono text-[10.5px] flex-shrink-0 mt-0.5" style={{ color: CAMPUS.inkFaint }}>{mod.number}</span>
+            <span className="text-[13px] font-medium leading-snug">{mod.title}</span>
           </button>
         ))}
       </>
@@ -210,10 +210,10 @@ function SeSidebarModuleList({ tree, screen, progress, onOpenModule, onOpenLesso
         const active = screen.lessonId === lesson.id;
         return (
           <button key={lesson.id} onClick={() => onOpenLesson(mod.id, lesson.id)}
-            className="campus-btn w-full flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-left transition-all duration-150"
+            className="campus-btn w-full flex items-start gap-1.5 px-3 py-1.5 rounded-lg text-left transition-all duration-150"
             style={{ background: active ? CAMPUS.gradientPrimary : "transparent", color: active ? "#fff" : CAMPUS.inkSoft }}>
-            {done.has(lesson.id) && <CheckCircle2 size={11} className="flex-shrink-0" style={{ color: active ? "#fff" : CAMPUS.good }} />}
-            <span className="text-[12.5px] truncate">{lesson.title}</span>
+            {done.has(lesson.id) && <CheckCircle2 size={11} className="flex-shrink-0 mt-0.5" style={{ color: active ? "#fff" : CAMPUS.good }} />}
+            <span className="text-[12.5px] leading-snug">{lesson.title}</span>
           </button>
         );
       })}
@@ -315,7 +315,7 @@ function CourseRoadmap() {
       {/* search */}
       <div>
         <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
-          style={{ background: campusMode ? CAMPUS.surface : "rgba(255,255,255,0.03)", border: `1px solid ${p.cardBorder}` }}>
+          style={{ background: campusMode ? p.cardBg : "rgba(255,255,255,0.03)", border: `1px solid ${p.cardBorder}` }}>
           <Search size={14} className="flex-shrink-0" style={{ color: p.inkFainter }} />
           <input value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Search the whole course - DNS, JWT, indexes, CORS..."

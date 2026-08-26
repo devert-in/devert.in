@@ -1,12 +1,15 @@
 ﻿"use client";
 
 import { Hero } from "@/components/hero";
+import { ExploreEcosystem } from "@/components/explore-ecosystem";
 import { CampusPreview } from "@/components/campus-preview";
 import { MissionVision } from "@/components/mission-vision";
 import { PlatformPromises } from "@/components/platform-promises";
 import { ShipyardPreview } from "@/components/shipyard-preview";
+import { CommunityPreview } from "@/components/community-preview";
 import { CoreFeatures } from "@/components/core-features";
 import { MissionBoard } from "@/components/mission-board";
+import { EventsPreview } from "@/components/events-preview";
 import { HowItWorks } from "@/components/how-it-works";
 import { GrindPreview } from "@/components/grind-preview";
 import { PlatformStats } from "@/components/platform-stats";
@@ -29,6 +32,10 @@ export function LandingPage() {
       <Hero />
       <Divider />
 
+      {/* Section 1b - Explore the DeVert Universe */}
+      <ExploreEcosystem />
+      <Divider />
+
       {/* Section 2 - DeVert Campus */}
       <CampusPreview />
       <Divider />
@@ -45,12 +52,20 @@ export function LandingPage() {
       <ShipyardPreview />
       <Divider />
 
+      {/* Section 5b - Pulse & Communities */}
+      <CommunityPreview />
+      <Divider />
+
       {/* Section 6 - Core Features */}
       <CoreFeatures />
       <Divider />
 
       {/* Section 7 - Mission Board */}
       <MissionBoard />
+      <Divider />
+
+      {/* Section 7b - Events */}
+      <EventsPreview />
       <Divider />
 
       {/* Section 8 - How It Works */}

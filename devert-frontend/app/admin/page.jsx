@@ -11,7 +11,8 @@ import {
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
   Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
-  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network,
+  Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network, Inbox, Heart,
+  Hammer, Globe, Server, Smartphone, Bot,
 } from "lucide-react";
 import {
   db, auth
@@ -22,6 +23,7 @@ import { LessonConceptField } from "@/components/admin/lesson-concept-field";
 import Dropdown from "@/components/dropdown";
 import { DEFAULT_TIERS } from "@/lib/ranks";
 import { DEFAULT_ECONOMY } from "@/lib/economy";
+import { DEFAULT_REWARD_POLICY, loadRewardPolicy, saveRewardPolicy } from "@/lib/rewardPolicy";
 import {
   CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES, contestPhase,
   CONTEST_STATUSES, blankContestForm, blankContestQuestionForm, CONTEST_CSV_HELP,
@@ -48,14 +50,19 @@ import {
 import { StringListField, McqListField } from "@/components/campus/campus-daily-learning-editor";
 import { SeModulesPanel } from "@/components/admin/se-panel";
 import { AmbassadorPanel } from "@/components/admin/ambassador-panel";
+import { DemoRequestsPanel } from "@/components/admin/demo-requests-panel";
 import {
   GatePapersPanel, GateSubjectsPanel, GatePyqPanel, GateTestsPanel,
   GateFormulaPanel, GateResourcesPanel, GateLessonImportPanel,
 } from "@/components/admin/gate-panel";
 import { fetchAptitudeTopics, saveAptitudeTopic } from "@/lib/aptitude";
+import { EVENT_TYPES, isHackathon, EVENT_MODES } from "@/lib/eventTypes";
 import { withVersionSnapshot } from "@/lib/contentVersioning";
 import { LanguageLogo } from "@/components/campus/language-logo";
-import { subjectIcon } from "@/components/campus/campus-cscore";
+import { logAdminActivity } from "@/lib/adminActivityLog";
+import { ActivityLogPanel } from "@/components/admin/activity-log-panel";
+import { Input, Textarea, Section } from "@/components/admin/admin-ui";
+import { subjectIcon } from "@/lib/subjectIcon";
 import {
   collection, query, orderBy, where, getDocs, addDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch, runTransaction,
@@ -69,14 +76,6 @@ const ADMIN_EMAIL = "devert.contact@gmail.com";
 function todayIST() {
   const IST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
   return IST.toISOString().slice(0, 10);
-}
-
-// Fire-and-forget audit trail for admin actions - never blocks the action
-// itself if the write fails.
-function logAdminActivity(action, detail) {
-  addDoc(collection(db, "admin_activity_log"), {
-    action, detail, actor: auth.currentUser?.email || ADMIN_EMAIL, createdAt: serverTimestamp(),
-  }).catch(() => {});
 }
 
 // Best-effort payout confirmation email via devert-backend. The Firestore
@@ -101,68 +100,6 @@ function notifyPayoutStatus(req, status) {
       }),
     }).catch(() => {});
   }).catch(() => {});
-}
-
-function Input({ label, value, onChange, placeholder, maxLength, hint, type = "text" }) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">{label}</p>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} maxLength={maxLength}
-        className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none transition-colors"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-        onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
-        onBlur={e  => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-      />
-      {hint && <p className="font-mono text-[10px] text-white/20 mt-1">{hint}</p>}
-    </div>
-  );
-}
-
-function Textarea({ label, value, onChange, placeholder, rows = 3, maxLength }) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">{label}</p>
-      <textarea value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} rows={rows} maxLength={maxLength}
-        className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none resize-none transition-colors"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-        onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
-        onBlur={e  => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-      />
-    </div>
-  );
-}
-
-function Section({ title, icon: Icon, color, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="terminal-window mb-6">
-      <button onClick={() => setOpen(o => !o)}
-        className="terminal-header w-full flex items-center gap-2 hover:bg-white/2 transition-colors"
-      >
-        <div className="terminal-dot bg-red-500/70" />
-        <div className="terminal-dot bg-yellow-500/70" />
-        <div className="terminal-dot bg-green-500/70" />
-        <Icon size={11} className="ml-2" style={{ color }} />
-        <span className="font-mono text-xs ml-1" style={{ color }}>{title}</span>
-        <span className="ml-auto mr-1">{open ? <ChevronUp size={12} className="text-white/30" /> : <ChevronDown size={12} className="text-white/30" />}</span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="p-5">{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }
 
 // ── Missions panel ────────────────────────────────────────────────────────────
@@ -262,7 +199,8 @@ function MissionsPanel() {
         <p className="font-mono text-[10px] text-neon-cyan tracking-wider mb-2">// add mission</p>
         <div className="grid sm:grid-cols-2 gap-3">
           <Input label="CODENAME" value={form.codename} onChange={f("codename")} placeholder="OPERATION: ZERO LATENCY" />
-          <Input label="PRIZE" value={form.prize} onChange={f("prize")} placeholder="₹50,000" />
+          <Input label="PRIZE / REWARD" value={form.prize} onChange={f("prize")} placeholder="₹50,000"
+            hint="Informational only - arranged directly between poster and dev, not paid or escrowed by DeVert." />
         </div>
         <Textarea label="OBJECTIVE" value={form.objective} onChange={f("objective")} placeholder="What needs to be built..." rows={2} />
         <div className="grid sm:grid-cols-3 gap-3">
@@ -543,6 +481,141 @@ function ArenaPanel() {
   );
 }
 
+// ── Build challenges panel ────────────────────────────────────────────────────
+
+// Deliberately not reusing BLANK_CHALLENGE/ChallengeForm above - those are
+// shaped for CodeLab-linked challenges (EASY/MEDIUM/HARD, problemId, xp).
+// Build challenges are open-ended, ungraded project briefs: Beginner/
+// Intermediate/Advanced, a category, a stack, and no XP - see firestore.rules'
+// build_attempts comment for why no reward is ever attached to these.
+const BLANK_BUILD_CHALLENGE = {
+  id: "", title: "", category: "web",
+  difficulty: "BEGINNER", diffColor: "#00FF41",
+  brief: "", description: "", stack: "", locked: false,
+};
+
+const BUILD_DIFF_OPTS = [
+  { v: "BEGINNER",     c: "#00FF41" },
+  { v: "INTERMEDIATE", c: "#FF9500" },
+  { v: "ADVANCED",     c: "#FF3B3B" },
+];
+
+const BUILD_CATEGORY_OPTS = [
+  { v: "web",     label: "Web",      icon: Globe },
+  { v: "backend", label: "Backend",  icon: Server },
+  { v: "mobile",  label: "Mobile",   icon: Smartphone },
+  { v: "ai",      label: "AI",       icon: Bot },
+];
+
+function BuildChallengeForm({ ch, onChange, onRemove, index }) {
+  const f = (k) => (v) => onChange(index, k, v);
+  return (
+    <div className="border border-white/8 rounded-lg p-4 space-y-3 relative">
+      <button onClick={() => onRemove(index)} className="absolute top-3 right-3 text-white/20 hover:text-red-400 transition-colors">
+        <X size={13} />
+      </button>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">CATEGORY</p>
+          <div className="flex gap-1.5">
+            {BUILD_CATEGORY_OPTS.map(o => (
+              <button key={o.v} onClick={() => onChange(index, "category", o.v)}
+                title={o.label}
+                className="flex-1 flex items-center justify-center py-1.5 rounded transition-colors"
+                style={{
+                  color:      ch.category === o.v ? "#00FFFF" : "rgba(255,255,255,0.3)",
+                  background: ch.category === o.v ? "rgba(0,255,255,0.1)" : "rgba(255,255,255,0.03)",
+                  border:     ch.category === o.v ? "1px solid rgba(0,255,255,0.35)" : "1px solid rgba(255,255,255,0.06)",
+                }}
+              ><o.icon size={13} /></button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">DIFFICULTY</p>
+          <div className="flex gap-1.5">
+            {BUILD_DIFF_OPTS.map(o => (
+              <button key={o.v} onClick={() => { onChange(index, "difficulty", o.v); onChange(index, "diffColor", o.c); }}
+                className="flex-1 font-mono text-[9px] py-1.5 rounded transition-colors"
+                style={{
+                  color:      ch.difficulty === o.v ? o.c : "rgba(255,255,255,0.3)",
+                  background: ch.difficulty === o.v ? `${o.c}15` : "rgba(255,255,255,0.03)",
+                  border:     ch.difficulty === o.v ? `1px solid ${o.c}40` : "1px solid rgba(255,255,255,0.06)",
+                }}
+              >{o.v}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Input label="TITLE" value={ch.title} onChange={f("title")} placeholder="Build a URL Shortener" />
+        <Input label="ID SLUG" value={ch.id} onChange={f("id")} placeholder="url-shortener" hint="Stable - don't change once a build has started against it." />
+      </div>
+      <Textarea label="BRIEF (shown on the card)" value={ch.brief} onChange={f("brief")} placeholder="One-line hook." rows={2} />
+      <Textarea label="FULL DESCRIPTION (shown in the detail view)" value={ch.description} onChange={f("description")} placeholder="What to build, constraints, suggested approach..." rows={4} />
+      <Input label="SUGGESTED STACK (comma separated)" value={ch.stack} onChange={f("stack")} placeholder="Any backend language, A database, Redis (optional)" />
+    </div>
+  );
+}
+
+function BuildChallengesPanel() {
+  const [challenges, setChallenges] = useState([{ ...BLANK_BUILD_CHALLENGE }]);
+  const [saving,     setSaving]     = useState(false);
+  const [saved,      setSaved]      = useState(false);
+
+  useEffect(() => {
+    getDoc(doc(db, "system", "build"))
+      .then(snap => {
+        if (snap.exists()) {
+          setChallenges(snap.data().challenges.map(c => ({ ...c, stack: (c.stack || []).join(", ") })));
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const updateCh = (i, k, v) => setChallenges(prev => prev.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
+  const removeCh = (i) => setChallenges(prev => prev.filter((_, idx) => idx !== i));
+
+  const handleSave = async () => {
+    setSaving(true); setSaved(false);
+    try {
+      const cleaned = challenges.map(c => ({
+        ...c,
+        stack: typeof c.stack === "string" ? c.stack.split(",").map(t => t.trim()).filter(Boolean) : c.stack,
+      }));
+      await setDoc(doc(db, "system", "build"), { challenges: cleaned, updatedAt: serverTimestamp() });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) { console.error(err); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-3">
+        {challenges.map((ch, i) => (
+          <BuildChallengeForm key={i} ch={ch} onChange={updateCh} onRemove={removeCh} index={i} />
+        ))}
+      </div>
+      <button onClick={() => setChallenges(prev => [...prev, { ...BLANK_BUILD_CHALLENGE }])}
+        className="w-full font-mono text-xs text-white/30 border border-dashed border-white/10 py-2 hover:text-white/50 hover:border-white/20 transition-colors flex items-center justify-center gap-2"
+      >
+        <Plus size={11} /> add challenge
+      </button>
+      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+        onClick={handleSave} disabled={saving}
+        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        style={saved
+          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
+          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
+        }
+      >
+        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save build challenges"}
+      </motion.button>
+    </div>
+  );
+}
+
 // ── Users panel ───────────────────────────────────────────────────────────────
 
 // DeVert Campus - platform staff provision each institution and designate its
@@ -677,7 +750,7 @@ function InstitutionsPanel() {
   return (
     <div className="space-y-5">
       <div className="grid sm:grid-cols-2 gap-3">
-        <Input label="SLUG (used as /campus/<slug>)" value={form.slug} onChange={v => setForm(p => ({ ...p, slug: v }))} placeholder="mrcet" />
+        <Input label="SLUG (used as campus.devert.in/<slug>)" value={form.slug} onChange={v => setForm(p => ({ ...p, slug: v }))} placeholder="mrcet" />
         <Input label="COLLEGE NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Malla Reddy College of Engineering & Technology" />
         <Input label="LOCATION" value={form.location} onChange={v => setForm(p => ({ ...p, location: v }))} placeholder="Hyderabad, Telangana" />
         <Input label="WEBSITE" value={form.website} onChange={v => setForm(p => ({ ...p, website: v }))} placeholder="https://mrcet.ac.in" />
@@ -705,7 +778,7 @@ function InstitutionsPanel() {
           <div key={inst.id} className="rounded-lg border border-white/6 p-3 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-xs text-white/80">{inst.name}</span>
-              <span className="font-mono text-[10px] text-white/25">/campus/{inst.id}</span>
+              <span className="font-mono text-[10px] text-white/25">campus.devert.in/{inst.id}</span>
               <span className="font-mono text-[9px] px-2 py-0.5 rounded"
                 style={{ color: inst.status === "active" ? "#00FF41" : "#FF5050", background: inst.status === "active" ? "rgba(0,255,65,0.08)" : "rgba(255,80,80,0.08)" }}>
                 {inst.status?.toUpperCase()}
@@ -1830,6 +1903,115 @@ function PulsePanel() {
   );
 }
 
+// ── Communities panel (Pulse chapters) ────────────────────────────────────────
+// Admin-created content, same editingId/startEdit CRUD pattern used
+// elsewhere in this file. Deleting a community here does NOT delete the
+// pulse_posts tagged with its id or the community_members join docs - those
+// are left as harmless orphans (same tradeoff already accepted for a
+// deleted hackathon's slug-keyed docs elsewhere) rather than adding a bulk
+// cleanup pass for what's expected to be rare, admin-only content churn.
+
+function blankCommunityForm() {
+  return { slug: "", name: "", topic: "", description: "" };
+}
+
+function CommunitiesPanel() {
+  const [communities, setCommunities] = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [error,       setError]       = useState("");
+  const [editingId,   setEditingId]   = useState(null);
+  const [form, setForm] = useState(blankCommunityForm);
+  const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+
+  const load = () => {
+    setLoading(true);
+    getDocs(query(collection(db, "communities"), orderBy("createdAt", "desc")))
+      .then(snap => setCommunities(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const startEdit = (c) => {
+    setEditingId(c.id);
+    setError("");
+    setForm({ slug: c.id, name: c.name || "", topic: c.topic || "", description: c.description || "" });
+  };
+  const cancelEdit = () => { setEditingId(null); setForm(blankCommunityForm()); setError(""); };
+
+  const handleSave = async () => {
+    if (!editingId && !form.slug.trim()) return setError("Slug is required.");
+    if (!form.name.trim()) return setError("Name is required.");
+    setSaving(true); setError("");
+    try {
+      const payload = { name: form.name.trim(), topic: form.topic.trim(), description: form.description.trim() };
+      if (editingId) {
+        await updateDoc(doc(db, "communities", editingId), payload);
+      } else {
+        await setDoc(doc(db, "communities", form.slug.trim()), {
+          ...payload, memberCount: 0, createdAt: serverTimestamp(),
+        });
+      }
+      cancelEdit();
+      load();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm(`Delete community "${id}"?`)) return;
+    await deleteDoc(doc(db, "communities", id));
+    if (editingId === id) cancelEdit();
+    load();
+  };
+
+  return (
+    <div className="space-y-5">
+      {loading ? (
+        <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
+      ) : (
+        <div className="space-y-2">
+          {communities.length === 0 && <p className="font-mono text-xs text-white/20">No communities yet.</p>}
+          {communities.map(c => (
+            <div key={c.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-3">
+              <span className="font-mono text-[10px] text-white/35 flex-shrink-0">{c.id}</span>
+              <span className="font-mono text-xs text-white/75 flex-1 truncate">{c.name}</span>
+              <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">{c.memberCount ?? 0} members</span>
+              <button onClick={() => startEdit(c)} className="text-white/20 hover:text-yellow-400 transition-colors flex-shrink-0"><Pencil size={12} /></button>
+              <button onClick={() => handleDelete(c.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="border border-white/6 rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">{editingId ? `// editing ${editingId}` : "// create community"}</p>
+          {editingId && (
+            <button onClick={cancelEdit} className="font-mono text-[10px] text-white/30 hover:text-white/55 flex items-center gap-1">
+              <X size={10} /> cancel
+            </button>
+          )}
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="ai-builders" hint={editingId ? "locked once created" : undefined} />
+          <Input label="NAME" value={form.name} onChange={f("name")} placeholder="AI Builders" />
+        </div>
+        <Input label="TOPIC (optional)" value={form.topic} onChange={f("topic")} placeholder="ai" />
+        <Textarea label="DESCRIPTION" value={form.description} onChange={f("description")} placeholder="What's this community about?" rows={2} />
+        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
+        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+          onClick={handleSave} disabled={saving}
+          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <Plus size={12} /> {saving ? "saving..." : editingId ? "save changes" : "create community"}
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
 // ── Intel Resources panel ─────────────────────────────────────────────────────
 
 const ADMIN_RESOURCE_BUNDLES = [
@@ -2490,44 +2672,6 @@ function StatsPanel() {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Activity log panel ────────────────────────────────────────────────────────
-
-function ActivityLogPanel() {
-  const [logs,    setLogs]    = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsub = onSnapshot(
-      query(collection(db, "admin_activity_log"), orderBy("createdAt", "desc"), limit(50)),
-      snap => { setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); },
-      () => setLoading(false),
-    );
-    return unsub;
-  }, []);
-
-  const timeLabel = (ts) => {
-    if (!ts?.toDate) return "";
-    return ts.toDate().toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
-  };
-
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
-
-  return (
-    <div className="space-y-2 max-h-[500px] overflow-y-auto">
-      {logs.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no admin activity logged yet</p>}
-      {logs.map(log => (
-        <div key={log.id} className="flex items-start gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-          <span className="font-mono text-[9px] text-white/25 flex-shrink-0 mt-0.5 w-28">{timeLabel(log.createdAt)}</span>
-          <div className="flex-1 min-w-0">
-            <span className="font-mono text-[9px] px-1.5 py-0.5 rounded mr-2" style={{ color: "#00FF41", background: "rgba(0,255,65,0.06)" }}>{log.action}</span>
-            <span className="font-mono text-xs text-white/60">{log.detail}</span>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -5905,28 +6049,71 @@ function CodingProblemsPanel() {
   );
 }
 
-// ── Hackathons panel ──────────────────────────────────────────────────────────
-
+// ── Events panel (hackathons + workshops/meetups/open-mic/tech-talks) ─────────
+// "live" used to be the stored value here while every read path
+// (hackathons-app.jsx/hackathon-detail-view.jsx's statusMeta()) switched on
+// "active" - a hackathon set live via this form silently rendered as
+// "upcoming" forever. Fixed to "active" alongside adding eventType since this
+// form needed touching anyway; a hackathon already stuck on the old "live"
+// value just needs its status re-clicked once after this ships.
 const HACKATHON_STATUSES = [
   { v: "upcoming", c: "#00FFFF" },
-  { v: "live",     c: "#00FF41" },
+  { v: "active",   c: "#00FF41" },
   { v: "judging",  c: "#FF9500" },
   { v: "ended",    c: "rgba(255,255,255,0.3)" },
 ];
+
+function blankHackathonForm() {
+  return {
+    slug: "", title: "", tagline: "", description: "", theme: "", accentColor: "#00FF41",
+    eventType: "hackathon", host: "",
+    prizes: [
+      { place: "1st", label: "1st Place", reward: "" },
+      { place: "2nd", label: "2nd Place", reward: "" },
+      { place: "3rd", label: "3rd Place", reward: "" },
+    ],
+    registrationOpen: "", submissionDeadline: "", resultsDate: "", registrationCloseAt: "",
+    maxTeamSize: "4", minTeamSize: "", tags: "", status: "upcoming",
+    registrationFee: "", prizePool: "", venue: "", durationLabel: "",
+    registrationFormUrl: "", perks: "", whyParticipate: "", faq: "",
+    bannerImage: "", mode: "",
+  };
+}
+
+// "Question :: Answer" per line - same low-fidelity convention as the
+// comma-separated tags/perks fields, kept simple since this is admin-only
+// data entry, not user-facing input.
+function parseFaqText(text) {
+  return text.split("\n").map(l => l.trim()).filter(Boolean).map(line => {
+    const [q, ...rest] = line.split("::");
+    return { q: q.trim(), a: rest.join("::").trim() };
+  }).filter(f => f.q && f.a);
+}
+
+function faqToText(faq) {
+  return (faq || []).map(f => `${f.q} :: ${f.a}`).join("\n");
+}
+
+// Firestore Timestamp -> <input type="datetime-local"/type="date"> value.
+function tsToInputStr(ts, withTime) {
+  const ms = ts?.toDate?.()?.getTime?.() ?? (typeof ts === "number" ? ts : null);
+  if (!ms) return "";
+  const iso = new Date(ms - new Date().getTimezoneOffset() * 60000).toISOString();
+  return withTime ? iso.slice(0, 16) : iso.slice(0, 10);
+}
 
 function HackathonsPanel() {
   const [hackathons, setHackathons] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [error,      setError]      = useState("");
+  const [editingId,  setEditingId]  = useState(null);
 
-  const blank = {
-    slug: "", title: "", tagline: "", prize: "",
-    deadline: "", maxTeamSize: "4", registrations: "0",
-    tags: "", status: "upcoming",
-  };
-  const [form, setForm] = useState(blank);
+  const [form, setForm] = useState(blankHackathonForm);
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+  const setPrize = (i, k) => (v) => setForm(p => ({
+    ...p, prizes: p.prizes.map((pr, idx) => idx === i ? { ...pr, [k]: v } : pr),
+  }));
 
   const load = () => {
     setLoading(true);
@@ -5938,24 +6125,84 @@ function HackathonsPanel() {
 
   useEffect(() => { load(); }, []);
 
-  const handleCreate = async () => {
-    if (!form.slug.trim() || !form.title.trim()) return setError("Slug and title are required.");
+  const startEdit = (h) => {
+    setEditingId(h.id);
+    setError("");
+    setForm({
+      slug: h.id, title: h.title || "", tagline: h.tagline || "",
+      description: h.description || "", theme: h.theme || "", accentColor: h.accentColor || "#00FF41",
+      eventType: h.eventType || "hackathon", host: h.host || "",
+      prizes: blankHackathonForm().prizes.map(p => {
+        const existing = h.prizes?.find(pr => pr.place === p.place);
+        return existing ? { ...p, ...existing } : p;
+      }),
+      registrationOpen:   tsToInputStr(h.registrationOpen, true),
+      submissionDeadline: tsToInputStr(h.submissionDeadline, true),
+      resultsDate:        tsToInputStr(h.resultsDate, false),
+      registrationCloseAt: tsToInputStr(h.registrationCloseAt, true),
+      maxTeamSize: String(h.maxTeamSize ?? "4"),
+      minTeamSize: h.minTeamSize ? String(h.minTeamSize) : "",
+      tags: (h.tags || []).join(", "),
+      status: h.status || "upcoming",
+      registrationFee: h.registrationFee || "",
+      prizePool: h.prizePool || "",
+      venue: h.venue || "",
+      durationLabel: h.durationLabel || "",
+      registrationFormUrl: h.registrationFormUrl || "",
+      bannerImage: h.bannerImage || "",
+      mode: h.mode || "",
+      perks: (h.perks || []).join(", "),
+      whyParticipate: (h.whyParticipate || []).join("\n"),
+      faq: faqToText(h.faq),
+    });
+  };
+
+  const cancelEdit = () => { setEditingId(null); setForm(blankHackathonForm()); setError(""); };
+
+  const handleSave = async () => {
+    if (!editingId && !form.slug.trim()) return setError("Slug is required.");
+    if (!form.title.trim()) return setError("Title is required.");
     setSaving(true); setError("");
     try {
       const statusObj = HACKATHON_STATUSES.find(s => s.v === form.status) || HACKATHON_STATUSES[0];
-      await setDoc(doc(db, "hackathons", form.slug.trim()), {
+      const isHack = form.eventType === "hackathon";
+      const payload = {
         title:         form.title.trim(),
         tagline:       form.tagline.trim(),
-        prize:         form.prize.trim(),
-        deadline:      form.deadline.trim(),
+        description:   form.description.trim(),
+        theme:         form.theme.trim(),
+        accentColor:   form.accentColor,
+        eventType:     form.eventType,
+        host:          isHack ? "" : form.host.trim(),
+        prizes:        isHack ? form.prizes.filter(p => p.reward.trim()) : [],
+        registrationOpen:   form.registrationOpen   ? new Date(form.registrationOpen)   : null,
+        submissionDeadline: form.submissionDeadline ? new Date(form.submissionDeadline) : null,
+        resultsDate:        form.resultsDate         ? new Date(form.resultsDate)        : null,
+        registrationCloseAt: form.registrationCloseAt ? new Date(form.registrationCloseAt) : null,
         maxTeamSize:   parseInt(form.maxTeamSize) || 4,
-        registrations: parseInt(form.registrations) || 0,
+        minTeamSize:   form.minTeamSize ? parseInt(form.minTeamSize) || null : null,
         tags:          form.tags.split(",").map(t => t.trim()).filter(Boolean),
         status:        form.status,
         statusColor:   statusObj.c,
-        createdAt:     serverTimestamp(),
-      });
-      setForm(blank);
+        registrationFee:     form.registrationFee.trim(),
+        prizePool:           form.prizePool.trim(),
+        venue:               form.venue.trim(),
+        durationLabel:       form.durationLabel.trim(),
+        registrationFormUrl: form.registrationFormUrl.trim(),
+        bannerImage: form.bannerImage.trim(),
+        mode: form.mode,
+        perks:               form.perks.split(",").map(t => t.trim()).filter(Boolean),
+        whyParticipate:      form.whyParticipate.split("\n").map(t => t.trim()).filter(Boolean),
+        faq:                 parseFaqText(form.faq),
+      };
+      if (editingId) {
+        await updateDoc(doc(db, "hackathons", editingId), payload);
+      } else {
+        await setDoc(doc(db, "hackathons", form.slug.trim()), {
+          ...payload, registrationCount: 0, submissionCount: 0, createdAt: serverTimestamp(),
+        });
+      }
+      cancelEdit();
       load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -5967,7 +6214,7 @@ function HackathonsPanel() {
   // resurrect old, unrelated students' registrations/submissions as if they
   // belonged to the new event.
   const handleDelete = async (id) => {
-    if (!confirm(`Delete hackathon "${id}"?`)) return;
+    if (!confirm(`Delete event "${id}"?`)) return;
     const [regSnap, subSnap] = await Promise.all([
       getDocs(query(collection(db, "hackathon_registrations"), where("hackathonSlug", "==", id))),
       getDocs(query(collection(db, "hackathon_submissions"), where("hackathonSlug", "==", id))),
@@ -5978,6 +6225,7 @@ function HackathonsPanel() {
       refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
       await batch.commit();
     }
+    if (editingId === id) cancelEdit();
     load();
   };
 
@@ -5988,23 +6236,29 @@ function HackathonsPanel() {
     load();
   };
 
+  const isHack = form.eventType === "hackathon";
+
   return (
     <div className="space-y-5">
       {loading ? (
         <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
       ) : (
         <div className="space-y-2">
-          {hackathons.length === 0 && <p className="font-mono text-xs text-white/20">No hackathons yet.</p>}
+          {hackathons.length === 0 && <p className="font-mono text-xs text-white/20">No events yet.</p>}
           {hackathons.map(h => {
             const sc = HACKATHON_STATUSES.find(s => s.v === h.status) || HACKATHON_STATUSES[0];
+            const typeLabel = EVENT_TYPES.find(t => t.v === (h.eventType || "hackathon"))?.label || "Hackathon";
             return (
               <div key={h.id} className="border border-white/6 rounded-lg px-4 py-3 space-y-2">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-[10px] text-white/35 flex-shrink-0">{h.id}</span>
                   <span className="font-mono text-xs text-white/75 flex-1 truncate">{h.title}</span>
-                  <span className="font-mono text-[10px] flex-shrink-0" style={{ color: sc.c }}>{h.status.toUpperCase()}</span>
-                  <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">{h.prize}</span>
-                  <button onClick={() => handleDelete(h.id)} className="text-white/20 hover:text-red-400 transition-colors ml-1 flex-shrink-0">
+                  <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded flex-shrink-0">{typeLabel}</span>
+                  <span className="font-mono text-[10px] flex-shrink-0" style={{ color: sc.c }}>{(h.status || "upcoming").toUpperCase()}</span>
+                  <button onClick={() => startEdit(h)} className="flex items-center gap-1 font-mono text-[10.5px] px-1 flex-shrink-0" style={{ color: "#FFD700" }}>
+                    <Pencil size={12} />
+                  </button>
+                  <button onClick={() => handleDelete(h.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -6026,21 +6280,111 @@ function HackathonsPanel() {
         </div>
       )}
       <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-cyan tracking-wider">// create hackathon</p>
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">{editingId ? `// editing ${editingId}` : "// create event"}</p>
+          {editingId && (
+            <button onClick={cancelEdit} className="font-mono text-[10px] text-white/30 hover:text-white/55 flex items-center gap-1">
+              <X size={10} /> cancel
+            </button>
+          )}
+        </div>
+
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">EVENT TYPE</p>
+          <div className="flex gap-2 flex-wrap">
+            {EVENT_TYPES.map(t => (
+              <button key={t.v} onClick={() => setForm(p => ({ ...p, eventType: t.v }))}
+                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
+                style={{
+                  color:      form.eventType === t.v ? "#00FFFF" : "rgba(255,255,255,0.3)",
+                  background: form.eventType === t.v ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                  border:     form.eventType === t.v ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                }}
+              >{t.label.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">MODE (optional)</p>
+          <div className="flex gap-2 flex-wrap">
+            {EVENT_MODES.map(m => (
+              <button key={m.v} onClick={() => setForm(p => ({ ...p, mode: p.mode === m.v ? "" : m.v }))}
+                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
+                style={{
+                  color:      form.mode === m.v ? "#00FFFF" : "rgba(255,255,255,0.3)",
+                  background: form.mode === m.v ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                  border:     form.mode === m.v ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                }}
+              >{m.label.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="devcon-2026" />
+          <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="devcon-2026" hint={editingId ? "locked once created" : undefined} />
           <Input label="TITLE" value={form.title} onChange={f("title")} placeholder="DevCon Hackathon 2026" />
         </div>
-        <Input label="TAGLINE" value={form.tagline} onChange={f("tagline")} placeholder="Build the future in 48 hours" />
+        <Input label="TAGLINE" value={form.tagline} onChange={f("tagline")} placeholder="Think. Build. Electrify." />
+        <Textarea label="DESCRIPTION" value={form.description} onChange={f("description")} placeholder="What's this event about?" rows={3} />
+        <Input label="BANNER IMAGE URL (optional)" value={form.bannerImage} onChange={f("bannerImage")}
+          placeholder="https://..." hint="Shown at the top of the listing card and event page when set - card falls back to the plain accent bar otherwise" />
+
+        {!isHack && (
+          <Input label="HOST / SPEAKER" value={form.host} onChange={f("host")} placeholder="e.g. Jane Doe, Senior SWE @ Acme" />
+        )}
+
         <div className="grid sm:grid-cols-3 gap-3">
-          <Input label="PRIZE" value={form.prize} onChange={f("prize")} placeholder="₹1,00,000" />
-          <Input label="DEADLINE" value={form.deadline} onChange={f("deadline")} placeholder="Aug 31, 2026" />
+          <Input label="THEME (optional)" value={form.theme} onChange={f("theme")} placeholder="AI, Web3, Open Innovation" />
+          <Input label="ACCENT COLOR" type="color" value={form.accentColor} onChange={f("accentColor")} />
+          <Input label="VENUE (optional)" value={form.venue} onChange={f("venue")} placeholder="TBA" />
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Input label="MIN TEAM SIZE (optional)" value={form.minTeamSize} onChange={f("minTeamSize")} placeholder="2" />
           <Input label="MAX TEAM SIZE" value={form.maxTeamSize} onChange={f("maxTeamSize")} placeholder="4" />
+          <Input label="DURATION LABEL (optional)" value={form.durationLabel} onChange={f("durationLabel")} placeholder="12 Hours" />
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="REGISTRATIONS" value={form.registrations} onChange={f("registrations")} placeholder="0" />
-          <Input label="TAGS (comma separated)" value={form.tags} onChange={f("tags")} placeholder="Web, AI, Mobile" />
+          <Input label="REGISTRATION FEE (optional)" value={form.registrationFee} onChange={f("registrationFee")} placeholder="₹950 / team" />
+          <Input label="PRIZE POOL HEADLINE (optional)" value={form.prizePool} onChange={f("prizePool")} placeholder="₹20,000" />
         </div>
+        <Input label="TAGS (comma separated)" value={form.tags} onChange={f("tags")} placeholder="Web, AI, Mobile" />
+        <Input label="PERKS (comma separated, optional)" value={form.perks} onChange={f("perks")} placeholder="Breakfast, Lunch, Snacks, Certificates" />
+
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">
+            EXTERNAL REGISTRATION FORM (optional)
+          </p>
+          <Input label="FORM URL" value={form.registrationFormUrl} onChange={f("registrationFormUrl")}
+            placeholder="https://forms.gle/..." hint="When set, Register buttons link out here instead of registering in-app" />
+        </div>
+
+        {isHack && (
+          <div>
+            <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">PRIZES</p>
+            <div className="grid sm:grid-cols-3 gap-3">
+              {form.prizes.map((p, i) => (
+                <Input key={p.place} label={p.label} value={p.reward} onChange={setPrize(i, "reward")} placeholder="₹50,000" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Textarea label="WHY PARTICIPATE (one reason per line, optional)" value={form.whyParticipate} onChange={f("whyParticipate")}
+          placeholder={"Build something real\nCompete with developers\nNetwork with builders"} rows={3} />
+        <Textarea label='FAQ ("Question :: Answer" per line, optional)' value={form.faq} onChange={f("faq")}
+          placeholder={"What is the registration fee? :: ₹950 per team"} rows={3} />
+
+        <p className="font-mono text-[10px] text-white/40 tracking-widest pt-2">TIMELINE</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="REGISTRATIONS OPEN" type="datetime-local" value={form.registrationOpen} onChange={f("registrationOpen")} />
+          <Input label="REGISTRATIONS CLOSE (optional)" type="datetime-local" value={form.registrationCloseAt} onChange={f("registrationCloseAt")} />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label={isHack ? "SUBMISSION DEADLINE" : "EVENT DATE/TIME"} type="datetime-local" value={form.submissionDeadline} onChange={f("submissionDeadline")} />
+          {isHack && <Input label="RESULTS DATE" type="date" value={form.resultsDate} onChange={f("resultsDate")} />}
+        </div>
+
         <div>
           <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
           <div className="flex gap-2 flex-wrap">
@@ -6058,10 +6402,10 @@ function HackathonsPanel() {
         </div>
         {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
         <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleCreate} disabled={saving}
+          onClick={handleSave} disabled={saving}
           className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <Plus size={12} /> {saving ? "creating..." : "create hackathon"}
+          <Plus size={12} /> {saving ? "saving..." : editingId ? "save changes" : "create event"}
         </motion.button>
       </div>
     </div>
@@ -6250,9 +6594,28 @@ function ShipyardPanel() {
     finally { setWorking(w => ({ ...w, [p.id]: false })); }
   };
 
+  // Mirrors PulseModerationPanel's own delete/reject handlers: batch-delete
+  // the dependent engagement docs and roll back the owner's aggregate
+  // counters, rather than leaving project_comments/project_likes rows
+  // pointing at a project that no longer exists and a profile stat that
+  // drifts from reality forever (no reconciliation job exists for either).
   const handleDelete = async (p) => {
     if (!confirm(`Delete project "${p.name}"?`)) return;
-    await deleteDoc(doc(db, "projects", p.id));
+    const [likeSnap, commentSnap] = await Promise.all([
+      getDocs(query(collection(db, "project_likes"), where("projectId", "==", p.id))),
+      getDocs(query(collection(db, "project_comments"), where("projectId", "==", p.id))),
+    ]);
+    const batch = writeBatch(db);
+    likeSnap.docs.forEach(d => batch.delete(d.ref));
+    commentSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(doc(db, "projects", p.id));
+    if (p.ownerId && (p.likeCount || p.commentCount)) {
+      batch.update(doc(db, "users", p.ownerId), {
+        totalLikesReceived:    increment(-(p.likeCount    || 0)),
+        totalCommentsReceived: increment(-(p.commentCount || 0)),
+      });
+    }
+    await batch.commit();
     load();
   };
 
@@ -6274,7 +6637,11 @@ function ShipyardPanel() {
                   <p className="font-sans text-sm text-white/80 truncate">{p.name}</p>
                   <p className="font-mono text-[10px] text-neon-green/60">@{p.ownerHandle}</p>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="font-mono text-[9px] text-white/25 flex items-center gap-2">
+                    <Heart size={10} /> {p.likeCount ?? 0}
+                    <MessageSquare size={10} /> {p.commentCount ?? 0}
+                  </span>
                   {p.url && (
                     <a href={p.url} target="_blank" rel="noreferrer" className="text-white/20 hover:text-neon-cyan transition-colors">
                       <ExternalLink size={12} />
@@ -6319,7 +6686,9 @@ function HackathonJudgingPanel() {
   useEffect(() => {
     getDocs(query(collection(db, "hackathons"), orderBy("createdAt", "desc")))
       .then(snap => {
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Judging has no meaning for a workshop/meetup/open-mic/tech-talk -
+        // only actual hackathons ever get a hackathon_submissions doc.
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(isHackathon);
         setHackathons(list);
         if (list.length && !slug) setSlug(list[0].id);
       })
@@ -6640,6 +7009,122 @@ function EconomyPanel() {
   );
 }
 
+// The per-module XP/coins a topic pays on a perfect paper - system/rewardPolicy
+// itself has been live-configurable (see lib/rewardPolicy.js's loadRewardPolicy/
+// saveRewardPolicy) since before this panel existed, but saveRewardPolicy() had
+// zero callers anywhere in the frontend: changing a reward meant hand-writing
+// the Firestore doc directly. This is the admin surface that was missing, not
+// new config plumbing - mirrors EconomyPanel above field-for-field, just
+// keyed by module instead of a flat rate list. Deliberately scoped to xp/coins
+// only, not every tunable in DEFAULT_REWARD_POLICY (passPct, maxAttempts,
+// wrongPenaltyRatio, lockOnFail, completionRequiresPass) - those are rarer,
+// higher-blast-radius gating knobs (e.g. mis-setting maxAttempts could lock
+// every student out of a module), left as hand-edit-only until there's a
+// concrete need for a UI around them specifically.
+const REWARD_MODULE_FIELDS = [
+  { key: "defaults",               label: "DEFAULT (fallback for any module)" },
+  { key: "cscore",                 label: "CS CORE TOPIC" },
+  { key: "gate",                   label: "GATE TOPIC" },
+  { key: "programming",            label: "PROGRAMMING TOPIC" },
+  { key: "softwareEngineering",    label: "SOFTWARE ENGINEERING TOPIC" },
+  { key: "dsaConcepts",            label: "DSA CONCEPT" },
+  { key: "aptitude",               label: "APTITUDE TOPIC" },
+  { key: "daily_learning",         label: "DAILY LEARNING (DAY)" },
+  { key: "daily_learning_problem", label: "DAILY LEARNING (PROBLEM)" },
+  { key: "gate_day",               label: "GATE DAILY GOAL" },
+  { key: "roadmaps",               label: "ROADMAP TOPIC" },
+];
+
+function RewardPolicyPanel() {
+  // Flat by module key ({ defaults: {xp,coins}, cscore: {xp,coins}, ... }),
+  // reassembled into DEFAULT_REWARD_POLICY's real { defaults, modules } shape
+  // only at save time - simpler to read/update per-field than threading the
+  // real nested shape through every input's onChange.
+  const [form, setForm] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    loadRewardPolicy().then(policy => {
+      const flat = { defaults: { xp: policy.defaults.xp, coins: policy.defaults.coins } };
+      for (const f of REWARD_MODULE_FIELDS) {
+        if (f.key === "defaults") continue;
+        const mod = policy.modules[f.key] || {};
+        flat[f.key] = { xp: mod.xp ?? policy.defaults.xp, coins: mod.coins ?? policy.defaults.coins };
+      }
+      setForm(flat);
+    }).catch(console.error);
+  }, []);
+
+  const setFieldValue = (key, sub, v) => {
+    setForm(prev => ({ ...prev, [key]: { ...prev[key], [sub]: v } }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setSaved(false);
+    try {
+      const modules = {};
+      for (const f of REWARD_MODULE_FIELDS) {
+        if (f.key === "defaults") continue;
+        modules[f.key] = { xp: parseInt(form[f.key].xp) || 0, coins: parseInt(form[f.key].coins) || 0 };
+      }
+      await saveRewardPolicy({
+        defaults: { xp: parseInt(form.defaults.xp) || 0, coins: parseInt(form.defaults.coins) || 0 },
+        modules,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  if (!form) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  return (
+    <div className="space-y-4">
+      <p className="font-mono text-[10px] text-white/18">
+        What a topic pays on a perfect paper - spread across its questions, wrong answers cost a fraction (see lib/rewardPolicy.js). An admin-set xpReward/coinReward on a specific topic still overrides these.
+      </p>
+      <div className="space-y-1.5">
+        <div className="grid grid-cols-[1fr_84px_84px] gap-3 px-1">
+          <span />
+          <p className="font-mono text-[9px] text-white/25 text-center tracking-wider">XP</p>
+          <p className="font-mono text-[9px] text-white/25 text-center tracking-wider">COINS</p>
+        </div>
+        {REWARD_MODULE_FIELDS.map(f => (
+          <div key={f.key} className="grid grid-cols-[1fr_84px_84px] items-center gap-3">
+            <p className="font-mono text-[11px] text-white/50 tracking-wide truncate" title={f.label}>{f.label}</p>
+            <input type="number" value={form[f.key]?.xp ?? ""}
+              onChange={e => setFieldValue(f.key, "xp", e.target.value)}
+              className="w-full font-mono text-xs text-white/80 px-2.5 py-1.5 rounded outline-none transition-colors"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+              onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
+              onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+            />
+            <input type="number" value={form[f.key]?.coins ?? ""}
+              onChange={e => setFieldValue(f.key, "coins", e.target.value)}
+              className="w-full font-mono text-xs text-white/80 px-2.5 py-1.5 rounded outline-none transition-colors"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+              onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
+              onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+            />
+          </div>
+        ))}
+      </div>
+      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+        onClick={handleSave} disabled={saving}
+        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        style={saved
+          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
+          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
+        }
+      >
+        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save reward policy"}
+      </motion.button>
+    </div>
+  );
+}
+
 // ── Main admin page ───────────────────────────────────────────────────────────
 
 const ADMIN_TABS = [
@@ -6868,6 +7353,9 @@ function AdminPageInner() {
                 <Section title="ARENA CHALLENGES" icon={Swords} color="#FF9500">
                   <ArenaPanel />
                 </Section>
+                <Section title="BUILD CHALLENGES" icon={Hammer} color="#FF9500">
+                  <BuildChallengesPanel />
+                </Section>
                 <Section title="CONTESTS" icon={Trophy} color="#00FFFF">
                   <ContestsPanel />
                 </Section>
@@ -6891,6 +7379,13 @@ function AdminPageInner() {
                 <Section title="USERS" icon={Users} color="#C77DFF" defaultOpen={true}>
                   <UsersPanel />
                 </Section>
+                {/* Sits directly above Institutions on purpose: a demo request from
+                    the public "Bring DeVert to your campus" pitch is the step
+                    BEFORE an institution row exists below - this is that sales
+                    inbox. */}
+                <Section title="CAMPUS DEMO REQUESTS" icon={Inbox} color="#FF9500" defaultOpen={true}>
+                  <DemoRequestsPanel />
+                </Section>
                 <Section title="CAMPUS INSTITUTIONS" icon={Building2} color="#0E7C86">
                   <InstitutionsPanel />
                 </Section>
@@ -6907,6 +7402,9 @@ function AdminPageInner() {
                 </Section>
                 <Section title="PULSE FEED" icon={Activity} color="#00FF41">
                   <PulsePanel />
+                </Section>
+                <Section title="COMMUNITIES" icon={Users} color="#00FF41">
+                  <CommunitiesPanel />
                 </Section>
                 <Section title="NOTIFICATIONS" icon={Megaphone} color="#C77DFF">
                   <NotificationsPanel />
@@ -6991,6 +7489,9 @@ function AdminPageInner() {
                 </Section>
                 <Section title="WALLET ECONOMY" icon={Coins} color="#00FF41">
                   <EconomyPanel />
+                </Section>
+                <Section title="REWARD POLICY" icon={Trophy} color="#FF9500">
+                  <RewardPolicyPanel />
                 </Section>
               </>
             )}

@@ -2,10 +2,9 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Swords, Anchor, Zap, Radio, Target, Tv2, Trophy, Wallet, ScrollText } from "lucide-react";
+import { Swords, Anchor, Radio, Target, Tv2, Trophy, Wallet, ScrollText } from "lucide-react";
 
 const ACTIONS = [
-  { icon: Zap,        label: "Grind",     href: "/grind",     color: "#00FF41" },
   { icon: Swords,     label: "Arena",     href: "/arena",     color: "#FF9500" },
   { icon: Anchor,     label: "Shipyard",  href: "/shipyard",  color: "#00FFFF" },
   { icon: Target,     label: "Missions",  href: "/missions",  color: "#FF6430" },

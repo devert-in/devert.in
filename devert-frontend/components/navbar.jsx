@@ -3,16 +3,28 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Swords, Radio, Target, Zap, Tv2, Flame, Code2, LogIn, Command, User, LogOut, Activity, Wallet, GraduationCap, Network } from "lucide-react";
+import { Home, Swords, Radio, Target, Tv2, Flame, LogIn, Command, User, LogOut, Activity, Wallet, GraduationCap } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notification-bell";
+import { CAMPUS_URL } from "@/lib/campusUrl";
 
+// Mobile-only now (lg:hidden on the root <nav> below) - components/top-navbar.jsx
+// is the desktop nav, a floating top pill with grouped dropdowns, mirroring
+// the exact split Campus already uses (CampusTopBar/CampusBottomNav). This
+// dock used to be the ONE nav at every breakpoint; that changed on explicit
+// request, not as a default pattern to reach for elsewhere. Keep both files'
+// route lists in sync by hand - there's no shared source of truth between them.
+//
 // Shipyard, Ranks, and Logs deliberately live only in the Home dashboard's quick
-// actions (components/quick-actions-grid.jsx), not here - keeps the persistent dock
-// to the modules used every session. CodeLab is its own top-level route (app/codelab/),
-// separate from Arena (which still hosts Solo Challenges + Contests).
+// actions (components/quick-actions-grid.jsx), not here - keeps this dock
+// to the modules used every session. CodeLab (app/codelab/), Fundamentals
+// (app/fundamentals/) and Grind (app/grind/) are all real, standalone routes -
+// Arena still hosts Solo Challenges + Contests - but none of the three are in
+// this dock: student-facing learning/practice content is Campus's surface to
+// own, not core DeVert's, so all three stay reachable by direct link/search
+// but aren't advertised in the main nav.
 //
 // EVERY item is a plain route. Core DeVert used to open most of these as floating
 // Builder's OS windows (`windowApp`), so clicking Intel from the dock spawned a
@@ -29,13 +41,10 @@ const NAV_ITEMS = [
   { icon: Home,          label: "Home",         href: "/"             },
   { icon: Activity,      label: "Pulse",        href: "/pulse"        },
   { icon: Swords,        label: "Arena",        href: "/arena"        },
-  { icon: Code2,         label: "CodeLab",      href: "/codelab"      },
-  { icon: Network,       label: "Fundamentals", href: "/fundamentals" },
-  { icon: Zap,           label: "Grind",        href: "/grind"        },
   { icon: Radio,         label: "Intel",        href: "/intel"        },
-  { icon: GraduationCap, label: "Campus",       href: "/campus"       },
+  { icon: GraduationCap, label: "Campus",       href: CAMPUS_URL             },
   { icon: Tv2,           label: "Broadcast",    href: "/broadcast"    },
-  { icon: Flame,         label: "Hackathons",   href: "/hackathons"   },
+  { icon: Flame,         label: "Events",       href: "/events"       },
   { icon: Target,        label: "Missions",     href: "/missions"     },
 ];
 
@@ -59,10 +68,6 @@ export function Navbar() {
   if (pathname.startsWith("/admin")) return null;
   // Public portfolios are a standalone "give this to a recruiter" page - no DeVert chrome.
   if (pathname.startsWith("/u/")) return null;
-  // Campus is a deliberately separate, light "academic" surface (see
-  // components/campus/campus-app.jsx) with its own nav - the dark Builder's OS
-  // dock would clash with it and doesn't belong on an institutional workspace.
-  if (pathname.startsWith("/campus")) return null;
 
   const showTooltip = (e, label) => {
     if (profileOpen) return;
@@ -74,7 +79,7 @@ export function Navbar() {
   const hideTooltip = () => setTooltip(null);
 
   return (
-    <nav ref={navRef} className="fixed left-1/2 -translate-x-1/2 z-40 w-max max-w-[calc(100vw-2rem)]"
+    <nav ref={navRef} className="lg:hidden fixed left-1/2 -translate-x-1/2 z-40 w-max max-w-[calc(100vw-2rem)]"
       style={{ bottom: "max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem))" }}
     >
 

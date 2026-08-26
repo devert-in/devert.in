@@ -4,10 +4,14 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
-import { Terminal, Wifi, AlertCircle, X } from "lucide-react";
+import {
+  Terminal, Wifi, AlertCircle, X, GraduationCap, Flame, Anchor, Activity, Radio,
+} from "lucide-react";
 import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
+import { HackathonSpotlight } from "@/components/hackathon-spotlight";
+import { CampusSpotlight } from "@/components/campus-spotlight";
 
 const BOOT_LINES = [
   "Connecting to devert.in...",
@@ -15,6 +19,48 @@ const BOOT_LINES = [
   "Loading auth protocols...",
   "Ready. Awaiting credentials.",
 ];
+
+const ECOSYSTEM_PILLARS = [
+  { icon: GraduationCap, color: "#00FFFF", label: "Campus",  body: "Learn, practice, prepare for placements" },
+  { icon: Flame,         color: "#FF6430", label: "Events",  body: "Hackathons, workshops, meetups" },
+  { icon: Anchor,        color: "#00FF41", label: "Shipyard", body: "Ship real projects, get judged" },
+  { icon: Activity,      color: "#C77DFF", label: "Pulse",   body: "Dev feed & communities" },
+  { icon: Radio,         color: "#FFD700", label: "Intel",   body: "Opportunities, news, signal" },
+];
+
+// Desktop-only ecosystem panel, left of the (unchanged) auth card - the
+// "split experience" ask. Deliberately static, not rotating/animated on a
+// timer: a login page should never make the actual sign-in button compete
+// for attention with a moving carousel.
+function EcosystemPanel() {
+  return (
+    <div className="hidden lg:flex flex-col justify-center pr-16 flex-1">
+      <p className="font-mono text-xs mb-3 tracking-widest" style={{ color: "rgba(0,255,65,0.55)" }}>
+        // welcome_back.exe
+      </p>
+      <h1 className="font-sans font-bold tracking-tighter text-white leading-none mb-4"
+        style={{ fontSize: "clamp(2rem, 4vw, 3.2rem)" }}>
+        THE DEVELOPER<br /><span className="text-neon-cyan">UNIVERSE.</span>
+      </h1>
+      <p className="font-mono text-sm text-white/35 mb-10 max-w-sm leading-relaxed">
+        One identity. Learn, build, compete, connect, create - across all of it.
+      </p>
+      <div className="space-y-4 max-w-sm">
+        {ECOSYSTEM_PILLARS.map(p => (
+          <div key={p.label} className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${p.color}15` }}>
+              <p.icon size={16} style={{ color: p.color }} />
+            </div>
+            <div>
+              <p className="font-sans text-[13px] font-semibold text-white/85">{p.label}</p>
+              <p className="font-mono text-[10.5px] text-white/30">{p.body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Public OAuth Web Client ID for the devert-me Firebase project (not a secret —
 // same class of value as firebaseConfig.apiKey, safe to embed in client code).
@@ -123,8 +169,18 @@ function LoginContent() {
         style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,255,65,0.03) 0%, transparent 70%)" }}
       />
 
-      <div className="w-full max-w-md relative z-10">
-        <motion.div
+      <div className="w-full max-w-5xl relative z-10 flex items-center justify-center">
+        <EcosystemPanel />
+        <div className="w-full max-w-md flex-shrink-0">
+          {/* Hackathon card renders nothing without an active/upcoming
+              hackathon - same component as the Hero and the signed-in HQ
+              dashboard, so anyone landing straight on /login (a bookmark, a
+              shared link) sees it too instead of it being reachable only
+              post-login. Campus card stacks below it - column is too narrow
+              (max-w-md) for side-by-side. */}
+          <HackathonSpotlight />
+          <CampusSpotlight />
+          <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 240, damping: 24 }}
@@ -233,11 +289,12 @@ function LoginContent() {
           </div>
         </motion.div>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
-          className="font-mono text-[10px] text-white/18 text-center mt-4"
-        >
-          devert.in · Builder&apos;s OS · v2.0
-        </motion.p>
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
+            className="font-mono text-[10px] text-white/18 text-center mt-4"
+          >
+            devert.in · Builder&apos;s OS · v2.0
+          </motion.p>
+        </div>
       </div>
     </main>
   );

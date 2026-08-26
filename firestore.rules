@@ -21,6 +21,31 @@ service cloud.firestore {
       return isAuth() && request.auth.token.get('admin', false) == true;
     }
 
+    // Strictly smaller than isAdmin() - see scripts/set-super-admin-claim.mjs.
+    // For surfaces (payments/revenue) that an ordinary institution or platform
+    // admin has no business seeing, not a stronger version of admin-ness for
+    // everything else. Everywhere else in this file, isAdmin() alone remains
+    // the right check.
+    function isSuperAdmin() {
+      return isAuth() && request.auth.token.get('superAdmin', false) == true;
+    }
+
+    // Shared by pulse_posts and the communities/community_members block
+    // further down - defined here (not next to communities) because
+    // pulse_posts, which also needs them, comes first in this file.
+    function isCommunityMember(cid) {
+      return exists(/databases/$(database)/documents/community_members/$(cid + '_' + request.auth.uid));
+    }
+    function isCommunityOwner(cid) {
+      return get(/databases/$(database)/documents/communities/$(cid)).data.ownerUid == request.auth.uid;
+    }
+    function canSeeCommunity(cid) {
+      let c = get(/databases/$(database)/documents/communities/$(cid)).data;
+      return c.get('visibility', 'public') == 'public'
+        || c.ownerUid == request.auth.uid
+        || isCommunityMember(cid);
+    }
+
     // ---------- same-day reward window ----------
     // Daily Learning pays XP/coins only on the day a lesson is FOR. These build
     // today's date as an ISO string so it can be compared against the log's own
@@ -613,16 +638,29 @@ service cloud.firestore {
     // indistinguishable from a forged client write.
     match /payments/{orderId} {
       // Owner can watch their own payment progress (the checkout UI polls this
-      // while the webhook settles); staff can read for reconciliation.
-      allow read: if isAuth() && (resource.data.get('uid', '') == request.auth.uid || isAdmin());
+      // while the webhook settles); isSuperAdmin() (NOT isAdmin() - revenue
+      // data is a strictly smaller circle than every institution/platform
+      // admin) can read for reconciliation.
+      allow read: if isAuth() && (resource.data.get('uid', '') == request.auth.uid || isSuperAdmin());
       allow write: if false;
     }
 
     match /subscriptions/{uid} {
       // Publicly-unreadable but owner-readable: the client needs to know its own
       // entitlement to render the paywall, and nobody else's is any of its
-      // business.
-      allow read: if isOwner(uid) || isAdmin();
+      // business. isSuperAdmin(), not isAdmin() - same reasoning as payments
+      // above.
+      allow read: if isOwner(uid) || isSuperAdmin();
+      allow write: if false;
+    }
+
+    // DeVert Campus Individual Premium's self-serve free trial - same shape
+    // and same reasoning as subscriptions/{uid} just above, minus any money
+    // behind it. Only startCampusPremiumTrial (functions/index.js, Admin SDK)
+    // may ever create this doc; a client-writable trial flag would let anyone
+    // grant themselves one.
+    match /campus_premium_trials/{uid} {
+      allow read: if isOwner(uid) || isSuperAdmin();
       allow write: if false;
     }
 
@@ -727,11 +765,43 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.followerId == request.auth.uid;
     }
 
-    // Projects (Shipyard) - public read, owner writes
+    // Projects (Shipyard) - public read, owner writes. likeCount/commentCount
+    // use the exact same bounded-shared-counter shape as pulse_posts below -
+    // a non-owner may bump exactly one of them by exactly +-1, never set an
+    // arbitrary value. Create-time zero-lock stops a poster from forging a
+    // starting count before that bound ever applies.
     match /projects/{projectId} {
-      allow read:           if true;
-      allow create:         if isAuth() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.get('likeCount', 0)    == 0
+        && request.resource.data.get('commentCount', 0) == 0;
+      allow update: if isAuth() && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount', 'commentCount'])
+          && request.resource.data.diff(resource.data).affectedKeys().size() == 1
+          && (request.resource.data.get('likeCount', 0)    - resource.data.get('likeCount', 0))    in [-1, 0, 1]
+          && (request.resource.data.get('commentCount', 0) - resource.data.get('commentCount', 0)) in [-1, 0, 1]
+        )
+      );
+      allow delete: if isAuth() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    // Shipyard likes - public read, auth user manages their own like. Mirrors
+    // pulse_likes exactly, including the `${projectId}_${uid}` doc-id convention.
+    match /project_likes/{likeId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // Shipyard comments - public read, auth user creates their own; owner/admin
+    // deletes. Mirrors pulse_comments exactly (top-level collection + a
+    // projectId foreign key, not a subcollection - see pulse_comments below).
+    match /project_comments/{commentId} {
+      allow read:   if true;
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
     }
 
     // Missions - admin creates, public reads. Any signed-in user may bump
@@ -770,6 +840,27 @@ service cloud.firestore {
             && resource.data.status == 'in_progress'
             && request.resource.data.status in ['forfeit', 'timeout']
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'finishedAt']));
+    }
+
+    // Build attempts - starts the moment a challenge+timebox is picked. Server-
+    // stamped startedAt is the deadline authority, not anything the client
+    // reports. Resolution is a self-report dock-to-Shipyard (no grading exists
+    // for open-ended builds), so no coins/XP are ever involved here - a coin
+    // path off an unverifiable self-report is exactly what the coin economy's
+    // trust-boundary rules elsewhere in this file exist to prevent.
+    match /build_attempts/{attemptId} {
+      allow read:   if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'in_progress'
+        && request.resource.data.timeboxDays in [7, 14, 30];
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.uid == request.auth.uid && resource.data.status == 'in_progress'
+            && (
+              (request.resource.data.status == 'submitted'
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'projectId', 'submittedAt']))
+              || (request.resource.data.status == 'abandoned'
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'abandonedAt']))
+            ));
     }
 
     // Grind log (daily problems per user)
@@ -972,7 +1063,26 @@ service cloud.firestore {
     // such write may move exactly ONE of these fields by exactly ±1 - not
     // an arbitrary jump - so a single write can't fake a pile of engagement.
     match /pulse_posts/{postId} {
-      allow read:   if true;
+      // Deliberately UNCONDITIONAL, including for community-scoped posts -
+      // see the header comment on canSeeCommunity above for why. The main
+      // Pulse feed's live query (pulse-app.jsx) is an unfiltered
+      // where('status','==','approved') list() with no communityId clause,
+      // and Firestore rejects a list() outright unless its rule is provably
+      // true from the QUERY'S OWN filters alone - it cannot special-case
+      // "communityId is absent" here because millions of pre-existing posts
+      // never set that field at all (Firestore's `== null` only matches an
+      // explicit null, not a missing field, so there is no rule shape here
+      // that both (a) stays provable for that unfiltered query and (b) is
+      // conditional on communityId, short of backfilling every historical
+      // post - not done). Practical privacy for a private community instead
+      // comes from the other two gates, which a get()/create() DOES evaluate
+      // against real data: its own communities doc is unreadable by a
+      // stranger, and only a member/owner may create a post carrying its id
+      // (see the create branch just below) - so a private community is
+      // undiscoverable and unwriteable-into by anyone outside it. The
+      // residual gap is real but narrow: someone who already has a specific
+      // private post's id some other way could still read that one document.
+      allow read: if true;
       // A new post must start with every engagement counter absent or zero -
       // otherwise a poster could forge a starting likeCount/commentCount/etc.
       // directly at creation, before the bounded ±1-per-write update rule
@@ -983,7 +1093,8 @@ service cloud.firestore {
         && request.resource.data.get('saveCount', 0)    == 0
         && request.resource.data.get('shareCount', 0)   == 0
         && request.resource.data.get('viewCount', 0)    == 0
-        && request.resource.data.get('repostCount', 0)  == 0;
+        && request.resource.data.get('repostCount', 0)  == 0
+        && (request.resource.data.get('communityId', null) == null || canSeeCommunity(request.resource.data.communityId));
       allow update: if isAuth() && (
         resource.data.uid == request.auth.uid || isAdmin()
         || (
@@ -1026,6 +1137,65 @@ service cloud.firestore {
     // Pulse saves - owner reads/writes their own saves
     match /pulse_saves/{uid} {
       allow read, write: if isOwner(uid);
+    }
+
+    // Communities (Pulse chapters) - any signed-in student may create their
+    // own now (previously admin-only); the creator becomes its owner and its
+    // first member. memberCount uses the same bounded-shared-counter shape as
+    // pulse_posts' engagement counters: a non-owner joining/leaving may move
+    // it by exactly +-1, never an arbitrary value.
+    //
+    // visibility ('public' default, or 'private') gates read HERE (this doc
+    // itself) and gates pulse_posts' create rule above (only a member/owner
+    // may post into a private one) - it deliberately does NOT gate
+    // pulse_posts' read rule; see that rule's own comment for why a list()-
+    // safety constraint rules that out. (Helper functions used here -
+    // isCommunityMember/isCommunityOwner/canSeeCommunity - live up top with
+    // isAuth/isAdmin since pulse_posts, above, needs them too and comes
+    // first in the file.)
+    match /communities/{communityId} {
+      allow read: if resource.data.get('visibility', 'public') == 'public'
+        || isAdmin()
+        || (isAuth() && (resource.data.ownerUid == request.auth.uid || isCommunityMember(communityId)));
+
+      allow create: if isAuth()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.get('visibility', 'public') in ['public', 'private']
+        && request.resource.data.get('memberCount', 1) == 1;
+
+      allow delete: if isAdmin() || (isAuth() && resource.data.ownerUid == request.auth.uid);
+
+      // Two independent shapes, never mixed in one write: the owner editing
+      // its editorial fields (name/description/topic/visibility - never
+      // memberCount or ownerUid through this branch), or any member moving
+      // memberCount by the bounded join/leave +-1.
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.ownerUid == request.auth.uid
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerUid', 'memberCount']))
+        || (isAuth()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount'])
+            && (request.resource.data.get('memberCount', 0) - resource.data.get('memberCount', 0)) in [-1, 1]);
+    }
+
+    // Community membership - join-doc collection keyed `${communityId}_${uid}`,
+    // same composite-id convention as follows/{followerId}_{followedId} above.
+    // Self-join only ever works for a PUBLIC community; a private one only
+    // gains members through its owner adding them (or an admin) - see
+    // "add friends" in the Community UI, which writes someone else's uid here
+    // on the owner's behalf.
+    match /community_members/{membershipId} {
+      allow read: if true;
+      allow create: if isAuth() && (
+        (request.resource.data.uid == request.auth.uid && canSeeCommunity(request.resource.data.communityId))
+        || isCommunityOwner(request.resource.data.communityId)
+        || isAdmin()
+      );
+      allow delete: if isAuth() && (
+        resource.data.uid == request.auth.uid
+        || isCommunityOwner(resource.data.communityId)
+        || isAdmin()
+      );
     }
 
     // Reads either resource (an existing doc) or 0 - shared by user_earnings'
@@ -1254,6 +1424,33 @@ service cloud.firestore {
         && request.resource.data.get('score', 0) is number && request.resource.data.get('score', 0) >= 0 && request.resource.data.get('score', 0) <= 2000
       );
       allow update, delete: if isAdmin();
+    }
+
+    // achievements/{uid}_{achievementType}_{achievementId} - discrete, awarded
+    // badges (streak milestones, hackathon wins, contest medals, ...),
+    // distinct from reward_grants above: that ledger is a private audit
+    // trail, this collection is the public-facing artifact meant to be shown
+    // on a user's own dashboard AND on their public /u/{handle} portfolio to
+    // any visitor - read is world-open here, unlike reward_grants' owner/
+    // admin-only read. Same doc-ID-establishes-ownership idiom as
+    // reward_grants (a Firebase Auth uid never contains '_', so
+    // split('_')[0] safely isolates it regardless of how many underscores
+    // follow in achievementType/achievementId) - kept even though read is
+    // public, so isAdmin()-scoped tooling and any future owner-specific
+    // query still has a cheap, list()-safe ownership check available.
+    //
+    // No owner-write path at all, unlike reward_grants (which the OWNER can
+    // create, bounded, for self-reported learning completions): an
+    // achievement is never self-granted. It is written only by a Cloud
+    // Function via the Admin SDK (which bypasses these rules entirely, same
+    // as GradingService.java/gradeContestSubmissionOnCreate), or by an admin
+    // through the console as a manual-fix escape hatch - matching this
+    // file's existing convention (payout_requests, reward_grants) of "admin
+    // can always fix". A client, including the achievement's own owner, can
+    // never create or update one directly.
+    match /achievements/{aid} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     // One doc per (student, quiz) - the server-side answer to "has this student
@@ -2134,6 +2331,70 @@ service cloud.firestore {
         && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
     }
 
+    // ── Roadmaps ──────────────────────────────────────────────────────────────
+    // A GLOBAL, admin-authored, role/career-based catalog three levels deep
+    // (roadmaps/{roadmapId}/modules/{moduleId}/topics/{topicId}) - same
+    // authority shape as gatePapers below, one level shallower. Deliberately
+    // ONE global catalog, not institution-scoped: every institution sees
+    // identical content and identical recommendations, so there is no
+    // per-institution override doc here (contrast institutions/{id}/
+    // dailyLearning, the one genuinely per-institution content system).
+    //
+    // The three levels (Beginner/Intermediate/Advanced) are a FIELD on the
+    // module doc, not a subcollection - see lib/roadmaps.js's header. They
+    // are a fixed enum used for grouping and are ADVISORY ONLY: nothing here
+    // or in the client ever locks a level, exactly as
+    // lib/softwareEngineering.js's lesson sequencing refuses to gate a lesson
+    // on the previous one.
+    //
+    // Published content is world-readable, drafts are admin-only, so
+    // in-progress authoring never leaks. IMPORTANT: every non-admin list()
+    // against any of these collections MUST carry BOTH
+    // where("status","==","published") AND
+    // where("audiences","array-contains-any",...) - see lib/programming.js's
+    // fetchLanguages comment. An unfiltered query plus client-side filtering
+    // is denied outright for every real student, it does not silently return
+    // less.
+    match /roadmaps/{roadmapId} {
+      allow read:  if contentReadable() || isAdmin();
+      allow write: if isAdmin();
+
+      match /modules/{moduleId} {
+        allow read:  if contentReadable() || isAdmin();
+        allow write: if isAdmin();
+
+        match /topics/{topicId} {
+          allow read:  if contentReadable() || isAdmin();
+          allow write: if isAdmin();
+        }
+      }
+    }
+
+    // Per-user roadmap progress - one doc per (uid, roadmapId), id
+    // `${uid}_${roadmapId}`. A Firebase Auth uid never contains '_' and a
+    // roadmapId is a Firestore auto-ID (also '_'-free), so split('_')[0]
+    // isolates the owner exactly as programming_progress/cscore_progress/
+    // gate_progress do.
+    //
+    // completedTopicIds.hasAll(...) makes that one array append-only for the
+    // owner: without it, arrayRemove-ing a completed id and re-calling
+    // completeRoadmapTopic() would re-earn that topic's XP/coins
+    // indefinitely - the identical reward-replay exploit closed on every
+    // other progress collection above. reward_grants' create-only ledger is
+    // the second, independent backstop. startedTopicIds is deliberately NOT
+    // guarded: it carries no reward, and the convention here is to guard
+    // exactly what is reward-bearing.
+    //
+    // isAdmin() (not isAdminOfStudent) on write because deleting a roadmap,
+    // module or topic must scrub that id from every student's progress doc
+    // across every institution (see lib/roadmaps.js's scrubTopicIds).
+    match /roadmap_progress/{progressId} {
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid
+        || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
+        && (resource == null || !('completedTopicIds' in resource.data) || request.resource.data.get('completedTopicIds', []).hasAll(resource.data.completedTopicIds)));
+    }
+
     // ── GATE preparation module ────────────────────────────────────────────────
     // A GLOBAL, admin-authored catalog three levels deep
     // (gatePapers/{paperId}/subjects/{subjectId}/topics/{topicId}) - same
@@ -2300,6 +2561,30 @@ service cloud.firestore {
         || isAdminOfStudent(dailyId.split('_')[0]) || isHodOfStudent(dailyId.split('_')[0]) || isFacultyOfStudent(dailyId.split('_')[0])));
       allow write: if isAdmin() || (isAuth() && dailyId.split('_')[0] == request.auth.uid
         && (resource == null || resource.data.get('rewarded', false) == false || request.resource.data.get('rewarded', false) == true));
+    }
+
+    // GATE Roadmap - a fixed, dated day-by-day plan layered on top of the
+    // syllabus tree (lib/gateRoadmap.js). Same shape as gatePapers itself:
+    // a shared, admin-authored catalog, not a per-user doc - every student on
+    // a paper sees the identical plan, so it's world-readable-when-published
+    // rather than owner-scoped.
+    match /gate_roadmap_days/{dayId} {
+      allow read:  if contentReadable() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Per-user roadmap completion - one doc per (uid, paperId), id
+    // `${uid}_${paperId}`, identical id/monotonicity shape as gate_progress.
+    // completedDayNumbers.hasAll(...) makes it append-only for the same
+    // reward-replay reason completedTopicIds is on gate_progress: without it,
+    // removing a dayNumber and re-completing it would re-earn that day's
+    // XP/coins indefinitely (reward_grants' create-only ledger is the second,
+    // independent backstop - see completeRoadmapDay's activityId).
+    match /gate_roadmap_progress/{progressId} {
+      allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid
+        || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
+      allow write: if isAdmin() || (isAuth() && progressId.split('_')[0] == request.auth.uid
+        && (resource == null || !('completedDayNumbers' in resource.data) || request.resource.data.get('completedDayNumbers', []).hasAll(resource.data.completedDayNumbers)));
     }
 
     // Test attempts contain the student's own answers, so they are OWNER-ONLY -

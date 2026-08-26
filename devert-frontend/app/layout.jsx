@@ -3,6 +3,7 @@ import "./globals.css";
 import { IntroProvider } from "@/context/IntroContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { Navbar } from "@/components/navbar";
+import { TopNavbar } from "@/components/top-navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
 import { ContentGuard } from "@/components/content-guard";
@@ -200,11 +201,41 @@ export default function RootLayout({ children }) {
                 just itself. Nothing in the default flow depends on it, which
                 is the property that makes that possible. */}
             <CommandPalette />
+            <TopNavbar />
             <Navbar />
             {children}
             <Footer />
           </IntroProvider>
         </AuthProvider>
+        {/* Prevents a flash-of-light-theme on a hard load of any Campus page.
+            output:'export' bakes each page's HTML at BUILD time, when
+            localStorage/matchMedia don't exist - CampusThemeProvider's lazy
+            useState initializer (campus-theme-provider.jsx) falls back to
+            "light" in that environment, so the FIRST PAINT a real visitor's
+            browser shows is always light, even if their saved preference (or,
+            with none saved, their OS) is dark; React's hydration then
+            corrects `theme` state a moment later, but the wrong-theme paint
+            already happened by then. This script runs synchronously as the
+            last thing in <body> - by that point every .campus-theme root the
+            page rendered already exists in the DOM, parsed but not yet
+            painted - so it can patch the attribute/background BEFORE the
+            browser's first paint rather than after React's. Mirrors that
+            provider's own saved-vs-system precedence exactly: an explicit
+            "light" wins even over a dark OS, no saved value falls through to
+            prefers-color-scheme. Only acts on landing in dark: the SSR
+            default is already "light", so a light outcome has nothing to
+            correct. The hardcoded scrim/URL below must stay in sync with
+            lib/campus-theme.js's campusPhotoBg() dark branch - it can't
+            import that module, since this string runs before any JS bundle
+            loads. Doesn't know about a signed-in student's own uploaded
+            campusBgUrl (that's a Firestore read, unavoidably async) - it
+            corrects the default photo only, same as everyone else, until
+            React swaps in their custom one moments later. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var s=localStorage.getItem("campus-theme");var d=s==="dark"||(s!=="light"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.querySelectorAll(".campus-theme").forEach(function(el){el.setAttribute("data-theme","dark");el.style.colorScheme="dark";el.style.setProperty("--campus-bg-image","linear-gradient(rgba(10,14,23,0.62),rgba(10,14,23,0.62)),url(/campus-bg-dark-theme.jpg)");});}}catch(e){}`,
+          }}
+        />
       </body>
     </html>
   );

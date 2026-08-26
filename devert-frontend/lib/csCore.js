@@ -7,7 +7,7 @@ import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
   serverTimestamp, writeBatch, arrayUnion, arrayRemove, runTransaction,
 } from "firebase/firestore";
-import { grantRewards } from "@/lib/rewards";
+import { grantRewards, bumpStreak } from "@/lib/rewards";
 import { withVersionSnapshot } from "@/lib/contentVersioning";
 
 // See lib/programming.js's fetchLanguages for why: the where("status",...)
@@ -156,6 +156,9 @@ export async function completeTopic({ uid, subjectId, topicId, xpReward = 0, coi
     }
   });
 
+  // See bumpStreak's own header (lib/rewards.js) for why this runs out here,
+  // after the transaction has resolved, rather than inside it.
+  await bumpStreak(uid);
   return !alreadyCompleted;
 }
 
