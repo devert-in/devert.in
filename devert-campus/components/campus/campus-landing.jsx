@@ -154,29 +154,34 @@ const PREMIUM_ROADMAP = [
   { icon: Sparkles, label: "Unlimited Daily Learning", body: "The whole streak calendar rather than a sample window." },
 ];
 
+// `id` lets a link (the "For institutions" nav dropdown's Daily Learning /
+// Assessments & contests entries) jump straight to, and highlight, the
+// specific role card whose own bullet text is that link's actual subject -
+// see InstitutionsBand below - instead of every role-related link landing
+// on the same untargeted page top.
 const INSTITUTION_ROLES = [
   {
-    icon: ShieldCheck, label: "Principal", color: CAMPUS.teal,
+    id: "principal", icon: ShieldCheck, label: "Principal", color: CAMPUS.teal,
     points: ["Institution-wide readiness view", "Department comparisons", "Downloadable reports"],
   },
   {
-    icon: Building2, label: "HOD", color: CAMPUS.purple,
+    id: "hod", icon: Building2, label: "HOD", color: CAMPUS.purple,
     points: ["Department dashboard", "Scoped content management", "Classroom-level progress"],
   },
   {
-    icon: Users, label: "Faculty & class teachers", color: CAMPUS.cyan,
+    id: "faculty", icon: Users, label: "Faculty & class teachers", color: CAMPUS.cyan,
     points: ["Own classroom roster", "Per-module enable/disable", "Assessment results"],
   },
   {
-    icon: GraduationCap, label: "Students", color: CAMPUS.good,
+    id: "students", icon: GraduationCap, label: "Students", color: CAMPUS.good,
     points: ["Daily Learning with streaks", "Assessments and contests", "Live leaderboard rank"],
   },
   {
-    icon: TrendingUp, label: "Placement cell", color: CAMPUS.gold,
+    id: "placement-cell", icon: TrendingUp, label: "Placement cell", color: CAMPUS.gold,
     points: ["Company-wise preparation", "Readiness by batch", "Contest-based shortlisting"],
   },
   {
-    icon: ClipboardCheck, label: "Training cell", color: CAMPUS.warn,
+    id: "training-cell", icon: ClipboardCheck, label: "Training cell", color: CAMPUS.warn,
     points: ["Schedule the weekly plan", "Bulk roster onboarding", "Approve join requests"],
   },
 ];
@@ -1128,7 +1133,7 @@ function InstitutionsBand({ tone }) {
         action={<DemoButton source="campus-institutions" />} />
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {INSTITUTION_ROLES.map(r => (
-          <CampusCard key={r.label} className="p-6">
+          <CampusCard key={r.label} id={`role-${r.id}`} className="p-6 campus-role-card">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: tint(r.color, 14), color: r.color }}>
               <r.icon size={19} />
             </div>

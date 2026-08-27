@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Rocket, Clock, Briefcase, ChevronDown, ChevronRight, ChevronLeft, TrendingUp,
+  Rocket, Clock, Briefcase, ChevronDown, ChevronRight, TrendingUp,
   Check, Lightbulb, ListChecks, Target, BookOpen, Code2,
   AlertTriangle, Sparkles, Coins, Zap, ArrowRight, GraduationCap, Cpu,
   Database, Network, Puzzle, Ruler, CircuitBoard, Hammer, Blocks, Landmark,
@@ -21,6 +21,7 @@ import { subjectIcon } from "@/lib/subjectIcon";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
   CampusSkeleton, CampusProgressBar, CampusTabBar, RoadmapTimeline, LessonNavFooter,
+  SidebarSectionLabel, SidebarBackLink, SidebarNavRow, SidebarTopicRow, SidebarModuleGroup,
 } from "@/components/campus/campus-ui";
 import {
   fetchSubjects, fetchSubject, fetchTopics, fetchTopic,
@@ -144,25 +145,34 @@ function CsCoreSubjectSidebar({ onSelect }) {
   useEffect(() => { fetchSubjects().then(setSubjects).catch(() => setSubjects([])); }, []);
   return (
     <>
-      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>CS CORE</div>
-      {subjects === null ? <CampusSkeleton height={100} className="mx-1" /> : subjects.map(subject => {
-        const Icon = subjectIcon(subject.name);
-        return (
-          <button key={subject.id} onClick={() => onSelect(subject.id)}
-            className="campus-btn flex items-start gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
-            style={{ color: CAMPUS.inkSoft }}>
-            <Icon size={15} className="flex-shrink-0 mt-0.5" />
-            <span className="text-[13px] font-medium leading-snug">{subject.name}</span>
-          </button>
-        );
-      })}
+      <SidebarSectionLabel>CS CORE</SidebarSectionLabel>
+      {subjects === null ? <CampusSkeleton height={100} className="mx-1" /> : subjects.map(subject => (
+        <SidebarNavRow key={subject.id} label={subject.name} icon={subjectIcon(subject.name)}
+          onClick={() => onSelect(subject.id)} />
+      ))}
     </>
   );
 }
 
 function CsCoreTopicSidebar({ subjectId, activeTopicId, onSelectTopic, onBackToList }) {
+  const { user } = useAuth();
   const [topics, setTopics] = useState(null);
-  useEffect(() => { fetchTopics(subjectId).then(setTopics).catch(() => setTopics([])); }, [subjectId]);
+  const [progress, setProgress] = useState(null);
+  // First module open by default (matching SubjectRoadmap's own convention),
+  // plus whichever module the active topic (if any) belongs to - same idiom
+  // campus-aptitude.jsx's AptitudeSidebarList already used for its own
+  // category accordion.
+  const [openModules, setOpenModules] = useState(new Set());
+  useEffect(() => {
+    fetchTopics(subjectId).then(list => {
+      setTopics(list);
+      setOpenModules(new Set([list[0]?.module].filter(Boolean)));
+    }).catch(() => setTopics([]));
+  }, [subjectId]);
+  useEffect(() => {
+    if (!user) return;
+    fetchSubjectProgress(user.uid, subjectId).then(setProgress).catch(() => setProgress(null));
+  }, [user, subjectId]);
   const modules = useMemo(() => {
     if (!topics) return [];
     const byModule = []; const seen = new Map();
@@ -173,25 +183,24 @@ function CsCoreTopicSidebar({ subjectId, activeTopicId, onSelectTopic, onBackToL
     });
     return byModule;
   }, [topics]);
+  const completedIds = useMemo(() => new Set(progress?.completedTopicIds || []), [progress]);
+  const activeModule = useMemo(() => modules.find(m => m.topics.some(t => t.id === activeTopicId))?.module, [modules, activeTopicId]);
+  const toggleModule = (m) => setOpenModules(prev => {
+    const next = new Set(prev);
+    if (next.has(m)) next.delete(m); else next.add(m);
+    return next;
+  });
   return (
     <>
-      <button onClick={onBackToList} className="flex items-center gap-1 px-1 pb-2 mb-1 text-[11px] font-semibold" style={{ color: CAMPUS.inkFaint }}>
-        <ChevronLeft size={12} /> All subjects
-      </button>
+      <SidebarBackLink onClick={onBackToList}>All subjects</SidebarBackLink>
       {topics === null ? <CampusSkeleton height={120} className="mx-1" /> : modules.map(({ module, topics: moduleTopics }) => (
-        <div key={module} className="mb-1.5">
-          <div className="px-3 py-1 text-[9.5px] font-mono tracking-widest truncate" style={{ color: CAMPUS.inkFaint }}>{module.toUpperCase()}</div>
+        <SidebarModuleGroup key={module} label={module.toUpperCase()}
+          open={openModules.has(module) || module === activeModule} onToggle={() => toggleModule(module)}>
           {moduleTopics.map(t => (
-            <button key={t.id} onClick={() => onSelectTopic(t.id)}
-              className="campus-btn w-full flex items-center px-3 py-1.5 rounded-lg text-left transition-all duration-150"
-              style={{
-                background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
-                color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
-              }}>
-              <span className="text-[12.5px] leading-snug">{t.title}</span>
-            </button>
+            <SidebarTopicRow key={t.id} label={t.title} active={activeTopicId === t.id}
+              done={completedIds.has(t.id)} onClick={() => onSelectTopic(t.id)} />
           ))}
-        </div>
+        </SidebarModuleGroup>
       ))}
     </>
   );

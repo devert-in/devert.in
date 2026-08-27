@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/* Tailwind v4 auto-detects source files from this package's own root, which
+   never reaches across into the sibling devert-frontend package - so any
+   utility class used ONLY inside a file that lives there (and nowhere in
+   devert-campus's own source) never made it into this app's compiled CSS at
+   all, even though the JS import itself resolves fine via jsconfig.json's
+   "@/*": ["./*", "../devert-frontend/*"] fallback. campus-ui.jsx,
+   campus-theme-provider.jsx, language-logo.jsx and lesson-blocks.jsx are the
+   only components/campus files that exist ONLY in devert-frontend and get
+   imported here - e.g. RoadmapTimeline's `pl-14` silently compiled to
+   nothing, so its numbered-circle badge visually overlapped the module
+   title text it was supposed to leave room for. */
+@source "../../devert-frontend/components/campus";
+
+/* "For institutions" nav dropdown's Daily Learning / Assessments & contests
+   links jump to a specific INSTITUTION_ROLES card by #role-{id} (see
+   campus-landing.jsx's InstitutionsBand) rather than the bare page top every
+   link there used to share. scroll-margin-top clears the 72px sticky
+   CampusPublicNav (h-[72px], see campus-public-nav.jsx) so the card doesn't
+   land flush under it; the :target outline is what actually shows the
+   visitor which card the link meant, not just "the page scrolled somewhere." */
+.campus-role-card {
+  scroll-margin-top: 96px;
+}
+.campus-role-card:target {
+  outline: 2px solid var(--campus-teal);
+  outline-offset: 3px;
+}
+
 /* Phase 1: the real Campus theme block below is copied from
    devert-frontend/app/globals.css (kept there too, since
    components/campus-preview.jsx on the main site still renders with
