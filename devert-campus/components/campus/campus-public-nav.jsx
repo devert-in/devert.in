@@ -7,7 +7,7 @@ import {
   Sun, Moon, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, UserCircle2,
   X as CloseIcon, Menu, CodeXml, BrainCircuit, Calculator, Layers, Sparkles,
   GraduationCap, BookOpen, Code2, ListChecks, Briefcase, Trophy, Building2,
-  Users, ShieldCheck, ClipboardCheck, LineChart, LayoutDashboard,
+  Users, ClipboardCheck, LayoutDashboard,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { DEVERT_URL } from "@/lib/campusUrl";
@@ -95,7 +95,6 @@ const NAV_MENUS = [
         title: "Interviews",
         links: [
           { label: "Company Vault", href: "/practice?mode=companyPrep", icon: Briefcase, hint: "Round-by-round breakdowns" },
-          { label: "Contests", href: "/contests", icon: Trophy, hint: "Open, timed and ranked" },
         ],
       },
     ],
@@ -124,7 +123,6 @@ const NAV_MENUS = [
         title: "For colleges",
         links: [
           { label: "Solutions by role", href: "/institutions", icon: Users, hint: "Principal to placement cell" },
-          { label: "Campus licence", href: "/pricing", icon: ShieldCheck, hint: "How it is quoted" },
         ],
       },
     ],
@@ -138,17 +136,25 @@ const NAV_MENUS = [
     label: "For institutions",
     columns: [
       {
+        // "Solutions by role" (bare /institutions) lived here too, but
+        // Campuses -> For colleges already links that same label to that
+        // same page - dropped here rather than there since Daily
+        // Learning/Assessments & contests belong specifically to this menu.
+        // Both remaining links are anchored to the specific
+        // INSTITUTION_ROLES card whose own bullet text is that link's
+        // subject - Training cell's first bullet literally is "Schedule the
+        // weekly plan", Students' second bullet is "Assessments and
+        // contests" - so each now actually lands on, and highlights, the
+        // thing it names.
         title: "The workspace",
         links: [
-          { label: "Solutions by role", href: "/institutions", icon: Users, hint: "Six roles, one workspace" },
-          { label: "Daily Learning", href: "/institutions", icon: ClipboardCheck, hint: "Schedule the weekly plan" },
-          { label: "Assessments & contests", href: "/institutions", icon: Trophy, hint: "Run and grade your own" },
+          { label: "Daily Learning", href: "/institutions#role-training-cell", icon: ClipboardCheck, hint: "Schedule the weekly plan" },
+          { label: "Assessments & contests", href: "/institutions#role-students", icon: Trophy, hint: "Run and grade your own" },
         ],
       },
       {
         title: "Getting started",
         links: [
-          { label: "Licence & pricing", href: "/pricing", icon: LineChart, hint: "Quoted per institution" },
           { label: "Request a demo", action: "demo", icon: ArrowUpRight, hint: "Talk to us directly" },
         ],
       },

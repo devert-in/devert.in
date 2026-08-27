@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Calculator, Brain, MessageSquare, Clock, ChevronDown, ChevronRight,
+  Calculator, Brain, MessageSquare, Clock, ChevronDown,
   Check, Lightbulb, ListChecks, Target, BookOpen, Trophy,
   AlertTriangle, Sparkles, Coins, Zap, ArrowRight, TrendingUp,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import { CAMPUS } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
   CampusSkeleton, CampusProgressBar, RoadmapTimeline,
+  SidebarSectionLabel, SidebarTopicRow, SidebarModuleGroup,
 } from "@/components/campus/campus-ui";
 import {
   APTITUDE_CATEGORIES, fetchAptitudeTopics, fetchAptitudeTopic, fetchTopicQuestions,
@@ -97,13 +98,22 @@ export function CampusAptitudeTab({ sidebarSlot }) {
 // the full tree (same grouping AptitudeRoadmap renders inline), just with
 // the active topic highlighted once one is open.
 function AptitudeSidebarList({ activeTopicId, onSelectTopic }) {
+  const { user } = useAuth();
   const [topics, setTopics] = useState(null);
+  const [progress, setProgress] = useState(null);
   // Collapsed by default except whichever category the active topic (if
   // any) belongs to - open categories are a Set of category names, same
   // shape as AptitudeRoadmap's own inline accordion state, just independent
   // of it (this is a second, sidebar-only instance of the same UI idea).
   const [openCategories, setOpenCategories] = useState(new Set());
   useEffect(() => { fetchAptitudeTopics().then(setTopics).catch(() => setTopics([])); }, []);
+  useEffect(() => {
+    if (!user) return;
+    getDoc(doc(db, "user_aptitude_progress", user.uid))
+      .then(snap => setProgress(snap.exists() ? snap.data() : null))
+      .catch(() => setProgress(null));
+  }, [user]);
+  const completedIds = useMemo(() => new Set(progress?.completedTopicIds || []), [progress]);
   const byCategory = useMemo(() => {
     const grouped = {};
     for (const cat of APTITUDE_CATEGORIES) grouped[cat] = [];
@@ -122,30 +132,20 @@ function AptitudeSidebarList({ activeTopicId, onSelectTopic }) {
   });
   return (
     <>
-      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>APTITUDE</div>
+      <SidebarSectionLabel>APTITUDE</SidebarSectionLabel>
       {topics === null ? <CampusSkeleton height={140} className="mx-1" /> : APTITUDE_CATEGORIES.map(cat => {
         const catTopics = byCategory[cat];
         if (!catTopics.length) return null;
         const Meta = CATEGORY_META[cat] || CATEGORY_META.Quantitative;
         const open = openCategories.has(cat) || cat === activeCategory;
         return (
-          <div key={cat} className="mb-1.5">
-            <button onClick={() => toggleCategory(cat)}
-              className="w-full flex items-center gap-1.5 px-3 py-1 text-[9.5px] font-mono tracking-widest text-left" style={{ color: Meta.color }}>
-              {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-              <Meta.icon size={11} /> {cat.toUpperCase()}
-            </button>
-            {open && catTopics.map(t => (
-              <button key={t.id} onClick={() => onSelectTopic(t.id)}
-                className="campus-btn w-full flex items-center px-3 py-1.5 rounded-lg text-left transition-all duration-150"
-                style={{
-                  background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
-                  color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
-                }}>
-                <span className="text-[12.5px] leading-snug">{t.name}</span>
-              </button>
+          <SidebarModuleGroup key={cat} label={cat.toUpperCase()} icon={Meta.icon} color={Meta.color}
+            open={open} onToggle={() => toggleCategory(cat)}>
+            {catTopics.map(t => (
+              <SidebarTopicRow key={t.id} label={t.name} active={activeTopicId === t.id}
+                done={completedIds.has(t.id)} onClick={() => onSelectTopic(t.id)} />
             ))}
-          </div>
+          </SidebarModuleGroup>
         );
       })}
     </>
