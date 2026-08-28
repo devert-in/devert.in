@@ -8,7 +8,6 @@ const config = (phase: string): NextConfig => {
       async rewrites() {
         return [
           { source: "/u/:path*", destination: "/u" },
-          { source: "/h/:path*", destination: "/h" },
           { source: "/contest/:path*", destination: "/contest" },
           // :path+ (one-or-more), not :path* - bare /pulse must stay the
           // feed itself, mirroring how production's "/pulse/**" Hosting

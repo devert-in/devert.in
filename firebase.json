@@ -32,7 +32,6 @@
       "rewrites": [
         { "source": "/api/auth/**", "run": { "serviceId": "devert-backend", "region": "asia-south1" } },
         { "source": "/u/**", "function": "uHandleRouter" },
-        { "source": "/h/**", "destination": "/h.html" },
         { "source": "/campus/**", "function": "campusPreviewRouter" },
         { "source": "/contest/**", "function": "contestPreviewRouter" },
         { "source": "/pulse/**", "function": "pulsePreviewRouter" }

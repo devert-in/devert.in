@@ -1,5 +1,6 @@
 import { fetchPublishedContests } from "@/lib/contests";
 import { fetchPublishedProblems } from "@/lib/codelab";
+import { hackathonStaticParams } from "@/lib/hackathon-seo";
 // Campus's own institution/section URLs moved to devert-campus/app/sitemap.ts
 // alongside the rest of Campus - it's now a different origin
 // (campus.devert.in), so it needs its own sitemap, not an entry in this one.
@@ -34,9 +35,10 @@ export default async function sitemap() {
     { url: "https://devert.in/terms", changeFrequency: "monthly", priority: 0.3 },
   ].map(r => ({ ...r, lastModified: new Date() }));
 
-  const [contests, problems] = await Promise.allSettled([
+  const [contests, problems, hackathons] = await Promise.allSettled([
     fetchPublishedContests(),
     fetchPublishedProblems(),
+    hackathonStaticParams(),
   ]);
 
   // lib/contests.js is plain JS (no declared return shape) - `any` here is
@@ -61,5 +63,12 @@ export default async function sitemap() {
     priority: 0.5,
   }));
 
-  return [...staticRoutes, ...contestUrls, ...problemUrls];
+  const hackathonUrls = (hackathons.status === "fulfilled" ? hackathons.value : []).map((h: any) => ({
+    url: `https://devert.in/h/${h.slug}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
+  return [...staticRoutes, ...contestUrls, ...problemUrls, ...hackathonUrls];
 }
