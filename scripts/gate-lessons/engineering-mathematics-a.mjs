@@ -1320,18 +1320,18 @@ Order of 3 :: 3, 3+3=2, 3+3+3=1, 3+3+3+3=0. Order 4, same as 1 (3 is also a gene
 
 Orders found: 0 has order 1 (it IS the identity), 1 and 3 have order 4, 2 has order 2. Every one of these (1, 2, 4) divides |G|=4, confirming Lagrange's theorem - and since an element of order 4 exists, (Z4, +) is cyclic.`,
     analogies: [
-      "A group is a monoid with a working \\"undo\\" button on every element - whatever operation you did, there's always a way back to the identity.",
-      "A cyclic group is a clock: repeatedly adding 1 hour cycles you through every position before landing back on 12 - one \\"generator\\" (the +1 step) reaches every element.",
+      "A group is a monoid with a working \"undo\" button on every element - whatever operation you did, there's always a way back to the identity.",
+      "A cyclic group is a clock: repeatedly adding 1 hour cycles you through every position before landing back on 12 - one \"generator\" (the +1 step) reaches every element.",
     ],
     commonMistakes: [
       "Confirming an identity exists and stopping there, without separately checking that EVERY element has an inverse.",
       "Assuming all groups are abelian - matrix groups under multiplication are a standard non-abelian counter-example.",
       "Forgetting Lagrange's theorem only rules out impossible subgroup/element orders (non-divisors) - it does not guarantee a subgroup of every divisor size actually exists.",
-      "Confusing the order of the GROUP (total element count) with the order of an ELEMENT (smallest k with a^k = identity) - both are called \\"order\\" and context decides which.",
+      "Confusing the order of the GROUP (total element count) with the order of an ELEMENT (smallest k with a^k = identity) - both are called \"order\" and context decides which.",
       "Assuming cyclic implies non-abelian or vice versa - every cyclic group is automatically abelian, though not every abelian group is cyclic.",
     ],
     memoryTricks: [
-      "Group = Monoid + Inverses (\\"MIG\\": Monoid, Inverses, Group).",
+      "Group = Monoid + Inverses (\"MIG\": Monoid, Inverses, Group).",
       "Order of an element divides order of the group - Lagrange's theorem, always check divisibility first to eliminate impossible answers.",
       "Cyclic groups are always abelian - one generator repeating itself can never fail to commute with itself.",
     ],
@@ -1342,7 +1342,7 @@ Orders found: 0 has order 1 (it IS the identity), 1 and 3 have order 4, 2 has or
     ],
     shortcuts: [
       "Given a group's order, list its divisors first - any proposed subgroup or element order NOT on that list can be eliminated immediately via Lagrange's theorem.",
-      "To disprove \\"this is a group\\" fast, hunt for one element with no inverse - a single counter-example is enough, no need to check every element if you spot one failure early.",
+      "To disprove \"this is a group\" fast, hunt for one element with no inverse - a single counter-example is enough, no need to check every element if you spot one failure early.",
       "If a structure is described via matrices, don't assume abelian - check AB vs BA explicitly if commutativity is asked about.",
     ],
     pyqRelevance: `Groups are one of the more frequently asked Discrete Mathematics topics, typically as "is this structure a group/monoid/neither" (1-2 marks) or a Lagrange's-theorem-based question about possible subgroup or element orders.
@@ -1418,7 +1418,7 @@ An element of order exactly 24 would generate the entire group (making it cyclic
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "Graphs as a formal object: vertices, edges, degree, and the handshake lemma",
-      "Connectivity - what it means for a graph to be \\"all in one piece\\", and what a cut vertex/bridge does to that",
+      "Connectivity - what it means for a graph to be \"all in one piece\", and what a cut vertex/bridge does to that",
       "The difference between a graph, a tree, and a DAG, and why trees are the minimally-connected case",
       "Vertex and edge connectivity as a number, not just a yes/no property",
     ],
@@ -1709,10 +1709,10 @@ Since an augmenting path exists, M = {A-1} is NOT maximum (Berge's theorem). Add
       "Hall's condition is a bottleneck check: if any small group's combined options are fewer than the group's own size, someone in that group is guaranteed to be left out.",
     ],
     commonMistakes: [
-      "Treating \\"maximum matching\\" and \\"perfect matching\\" as the same thing - maximum just means biggest achievable, perfect specifically means everyone is matched.",
+      "Treating \"maximum matching\" and \"perfect matching\" as the same thing - maximum just means biggest achievable, perfect specifically means everyone is matched.",
       "Forgetting Hall's theorem applies to BIPARTITE graphs specifically, not to matching problems on general graphs.",
       "Assuming an augmenting path must be long or complex - even a single unmatched edge between two unmatched vertices counts as a (length-1) augmenting path.",
-      "Checking only a few \\"obvious\\" subsets for Hall's condition and declaring it holds, without finding the specific tightest bottleneck subset that could violate it.",
+      "Checking only a few \"obvious\" subsets for Hall's condition and declaring it holds, without finding the specific tightest bottleneck subset that could violate it.",
       "Assuming every graph with an even number of vertices automatically has a perfect matching - evenness is necessary, not sufficient.",
     ],
     memoryTricks: [
@@ -1869,7 +1869,7 @@ Greedy used 3 colours (A, B, C) on this 5-cycle - and 3 is in fact the true chro
     commonMistakes: [
       "Assuming the clique number always equals the chromatic number - odd cycles are the standard counter-example (clique number 2, chromatic number 3).",
       "Assuming greedy colouring always finds the true minimum χ(G) - it only guarantees at most Δ(G)+1, and a bad vertex order can waste colours.",
-      "Forgetting that bipartite is EXACTLY equivalent to 2-colourable (with at least one edge) - not just \\"related to\\" 2-colourability.",
+      "Forgetting that bipartite is EXACTLY equivalent to 2-colourable (with at least one edge) - not just \"related to\" 2-colourability.",
       "Confusing chromatic number (fewest colours for VERTICES, no shared colour between adjacent vertices) with edge colouring (a related but different problem about colouring edges instead).",
       "Assuming the four-colour theorem (χ≤4) applies to any graph - it is specifically for PLANAR graphs only.",
     ],
@@ -1950,4 +1950,5 @@ Every vertex in a clique needs a distinct colour from every other vertex in it, 
       },
     ],
   },
+};
 

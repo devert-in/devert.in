@@ -1,6 +1,17 @@
-// Seeds gate_roadmap_days - the full 139-day GATE CS roadmap, Day 1 = 15 Aug
-// 2026 through Day 139 = 31 Dec 2026 - built on top of DeVert's own live
-// gatePapers/cs topic catalog. A roadmap day never duplicates lesson content -
+// Seeds gate_roadmap_days - the full 139-day GATE CS roadmap - built on top
+// of DeVert's own live gatePapers/cs topic catalog.
+//
+// AMENDMENT: the plan was originally calendar-locked (Day 1 = 15 Aug 2026,
+// Day 139 = 31 Dec 2026 - the `date`/`week` fields below still reflect that
+// original seeding). lib/gateRoadmap.js has since been converted to
+// self-paced (every day open from Day 1, gated by each student's own
+// startedAt instead of a real calendar date) - see that file's header. The
+// `date` field seeded by this script is therefore historical metadata only;
+// nothing reads it for gating anymore. dayNumber, topicIds, subjectId,
+// topicsSummary, estimatedMinutes and difficulty are all still exactly what
+// the self-paced UI consumes, so this generator did not need to change.
+//
+// A roadmap day never duplicates lesson content -
 // it only REFERENCES real topicIds that already exist in that paper's tree,
 // the same way lib/gate.js's own recommendNextTopic() points at existing
 // topics rather than copying them.

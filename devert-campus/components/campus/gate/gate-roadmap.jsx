@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Map, Lock, CheckCircle2, ArrowRight, Sparkles, CalendarDays,
+  Map, CheckCircle2, ArrowRight, Sparkles, CalendarDays, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { CAMPUS, tint } from "@/lib/campus-theme";
@@ -11,10 +11,10 @@ import { useGate, GateSignInPrompt } from "@/components/campus/gate/gate-app";
 import { GateSectionHeading, GateStat } from "@/components/campus/gate/gate-ui";
 import {
   fetchRoadmapDays, fetchRoadmapProgress, completeRoadmapDay,
-  roadmapDayStatus, currentRoadmapDayNumber, TOTAL_ROADMAP_DAYS,
+  roadmapDayStatus, roadmapPaceStatus, TOTAL_ROADMAP_DAYS,
 } from "@/lib/gateRoadmap";
 
-// The GATE Roadmap - a fixed, dated day-by-day plan on top of the existing
+// The GATE Roadmap - a SELF-PACED day-by-day plan on top of the existing
 // syllabus tree. Only "cs" has a curated plan as of this writing (see
 // scripts/seed-gate-roadmap.mjs's own header for why DA/CS+DA don't yet - no
 // official DA syllabus was available to verify a topic breakdown against,
@@ -22,9 +22,10 @@ import {
 // every other GATE lesson does). Other papers render an honest empty state
 // rather than a plan nobody checked.
 //
-// "Locked" is calendar-date based (see lib/gateRoadmap.js's own header) - a
-// day opens once its date arrives, not once a prior day is finished, so
-// missing a day never strands you behind your own calendar.
+// No day is ever locked (see lib/gateRoadmap.js's own header) - every day is
+// open from day 1, so a fast student can work ahead and a slower one is
+// never punished for falling behind their own pace. "Current" and the
+// ahead/behind-schedule stat are informational only.
 
 const KIND_LABEL = {
   new: { label: "New topics", color: CAMPUS.teal },
@@ -45,14 +46,12 @@ function groupByWeek(days) {
 
 function DayCard({ day, status, onComplete, onOpenTopic }) {
   const kind = KIND_LABEL[day.kind] || KIND_LABEL.new;
-  const locked = status === "locked";
   const done = status === "done";
   const current = status === "current";
   return (
     <CampusCard
       className="p-4 flex flex-col gap-2.5"
       style={{
-        opacity: locked ? 0.55 : 1,
         border: current ? `1px solid ${tint(CAMPUS.teal, 45)}` : undefined,
         boxShadow: current ? `0 0 0 1px ${tint(CAMPUS.teal, 25)}, ${CAMPUS.shadow}` : CAMPUS.shadow,
       }}
@@ -62,35 +61,30 @@ function DayCard({ day, status, onComplete, onOpenTopic }) {
           <span className="font-mono text-[13px] font-bold flex-shrink-0" style={{ color: CAMPUS.ink }}>
             Day {day.dayNumber}
           </span>
-          {locked && <Lock size={12} style={{ color: CAMPUS.inkFaint }} />}
           {done && <CheckCircle2 size={14} style={{ color: CAMPUS.good }} />}
         </div>
         <CampusChip color={kind.color}>{kind.label}</CampusChip>
       </div>
-
-      <p className="font-mono text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>{day.date}</p>
 
       <div className="min-w-0">
         <p className="text-[13px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{day.subjectLabel}</p>
         <p className="text-[11.5px] leading-relaxed mt-0.5" style={{ color: CAMPUS.inkSoft }}>{day.topicsSummary}</p>
       </div>
 
-      {!locked && (
-        <div className="flex items-center justify-between gap-2 mt-1 pt-2.5" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
-          <span className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>
-            {day.estimatedMinutes ? `${Math.round(day.estimatedMinutes / 60 * 10) / 10} hrs` : ""} · +{day.xpReward || 0} XP
-          </span>
-          {done ? (
-            <span className="text-[11px] font-semibold" style={{ color: CAMPUS.good }}>Done</span>
-          ) : day.topicIds?.length ? (
-            <button onClick={() => onOpenTopic(day)} className="flex items-center gap-1 text-[11.5px] font-semibold" style={{ color: CAMPUS.teal }}>
-              Open <ArrowRight size={12} />
-            </button>
-          ) : null}
-        </div>
-      )}
+      <div className="flex items-center justify-between gap-2 mt-1 pt-2.5" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+        <span className="text-[10.5px] font-mono" style={{ color: CAMPUS.inkFaint }}>
+          {day.estimatedMinutes ? `~${Math.round(day.estimatedMinutes / 60 * 10) / 10} hrs` : ""}
+        </span>
+        {done ? (
+          <span className="text-[11px] font-semibold" style={{ color: CAMPUS.good }}>Done</span>
+        ) : day.topicIds?.length ? (
+          <button onClick={() => onOpenTopic(day)} className="flex items-center gap-1 text-[11.5px] font-semibold" style={{ color: CAMPUS.teal }}>
+            Open <ArrowRight size={12} />
+          </button>
+        ) : null}
+      </div>
 
-      {!locked && !done && (
+      {!done && (
         <CampusButton size="sm" variant={current ? "primary" : "secondary"} icon={CheckCircle2} onClick={() => onComplete(day)}>
           Mark day complete
         </CampusButton>
@@ -106,8 +100,6 @@ export function GateRoadmap() {
   const [progress, setProgress] = useState(null);
   const [completing, setCompleting] = useState(null);
 
-  const todayDayNumber = useMemo(() => currentRoadmapDayNumber(), []);
-
   useEffect(() => {
     if (!paper?.id) return;
     setDays(null);
@@ -121,6 +113,10 @@ export function GateRoadmap() {
 
   const completedDayNumbers = progress?.completedDayNumbers || [];
   const doneCount = completedDayNumbers.length;
+  const pace = useMemo(
+    () => roadmapPaceStatus({ startedAt: progress?.startedAt, completedCount: doneCount }),
+    [progress?.startedAt, doneCount]);
+  const personalDay = pace.personalDay;
 
   const handleComplete = async (day) => {
     if (!user || completing) return;
@@ -147,14 +143,19 @@ export function GateRoadmap() {
         label="GATE PREPARATION · ROADMAP"
         icon={Map}
         title="Day-by-day plan"
-        description={`Day ${todayDayNumber} of ${TOTAL_ROADMAP_DAYS} · 15 Aug 2026 → 31 Dec 2026. A day opens on its own date whether or not you finished the last one - missing a day never locks you out.`}
+        description={`${TOTAL_ROADMAP_DAYS} days, entirely self-paced - every day is open from Day 1. Move faster if you already know a topic, slower where you don't; nothing here ever locks.`}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <GateStat label="Today" value={`Day ${todayDayNumber}`} icon={CalendarDays} color={CAMPUS.teal} />
         <GateStat label="Days completed" value={doneCount} sub={days ? `of ${days.length} curated` : ""} icon={CheckCircle2} color={CAMPUS.good} />
-        <GateStat label="Plan window" value="Aug 15–31" sub="curated so far" icon={Sparkles} color={CAMPUS.gold} />
-        <GateStat label="Total program" value={`${TOTAL_ROADMAP_DAYS} days`} sub="15 Aug – 31 Dec" icon={Map} color={CAMPUS.purple} />
+        <GateStat label="Your pace" value={pace.started ? `Day ${personalDay}` : "Not started"}
+          sub={pace.started ? "days since you began" : "complete a day to begin"} icon={CalendarDays} color={CAMPUS.teal} />
+        {pace.started && (
+          <GateStat label={pace.delta >= 0 ? "Ahead of pace" : "Behind pace"}
+            value={pace.delta === 0 ? "On pace" : `${Math.abs(pace.delta)} day${Math.abs(pace.delta) === 1 ? "" : "s"}`}
+            icon={pace.delta >= 0 ? TrendingUp : TrendingDown} color={pace.delta >= 0 ? CAMPUS.good : CAMPUS.warn} />
+        )}
+        <GateStat label="Total program" value={`${TOTAL_ROADMAP_DAYS} days`} sub="self-paced" icon={Sparkles} color={CAMPUS.purple} />
       </div>
 
       {days === null ? (
@@ -163,18 +164,18 @@ export function GateRoadmap() {
         </div>
       ) : days.length === 0 ? (
         <CampusEmptyState icon={Map} color={CAMPUS.teal} title="No roadmap curated for this paper yet"
-          description={`${paper?.name || "This paper"} doesn't have a curated day-by-day plan yet - only GATE CS has one so far, built from its official syllabus. Switch to the CS paper to see it, or use Daily GATE for a plan that adapts to your own progress instead of a fixed calendar.`}
+          description={`${paper?.name || "This paper"} doesn't have a curated day-by-day plan yet - only GATE CS has one so far, built from its official syllabus. Switch to the CS paper to see it, or use Daily GATE for a shorter, recurring daily ritual instead.`}
           action={<CampusButton size="sm" variant="secondary" onClick={() => go("daily")}>Open Daily GATE</CampusButton>} />
       ) : (
         groupByWeek(days).map(([week, weekDays]) => (
           <div key={week}>
             <h3 className="text-[13px] font-semibold mb-3" style={{ color: CAMPUS.inkSoft }}>
-              Week {week} <span className="font-mono text-[11px]" style={{ color: CAMPUS.inkFaint }}>· {weekDays[0].date} – {weekDays[weekDays.length - 1].date}</span>
+              Week {week} <span className="font-mono text-[11px]" style={{ color: CAMPUS.inkFaint }}>· Days {weekDays[0].dayNumber}–{weekDays[weekDays.length - 1].dayNumber}</span>
             </h3>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
               {weekDays.map(day => (
                 <DayCard key={day.dayNumber} day={day}
-                  status={roadmapDayStatus(day, { completedDayNumbers, todayDayNumber })}
+                  status={roadmapDayStatus(day, { completedDayNumbers, personalDay })}
                   onComplete={handleComplete} onOpenTopic={handleOpenTopic} />
               ))}
             </div>

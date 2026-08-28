@@ -1,5 +1,5 @@
-// GATE Roadmap - a fixed, dated day-by-day study plan (Day 1 = 15 Aug 2026)
-// layered on top of the existing GATE catalog (gatePapers/{paperId}/subjects/
+// GATE Roadmap - a SELF-PACED day-by-day study plan (139 day-slots) layered
+// on top of the existing GATE catalog (gatePapers/{paperId}/subjects/
 // {subjectId}/topics/{topicId}). A roadmap day never duplicates lesson
 // content - it only REFERENCES real topicIds that already exist in that
 // paper's tree (see topicIds below), the same way lib/gate.js's own
@@ -8,48 +8,55 @@
 // Two-collection split, same reasoning as every other GATE progress pair:
 //   - gate_roadmap_days: the STATIC plan. Identical for every student on a
 //     given paper, admin-authored/seeded, world-readable-when-published -
-//     same shape as gatePapers itself (see firestore.rules).
+//     same shape as gatePapers itself (see firestore.rules). Its `date`
+//     field is a leftover from the plan's original calendar-locked seeding
+//     and is no longer read for gating - kept only as historical metadata.
 //   - gate_roadmap_progress: the PER-STUDENT completion state, one doc per
 //     (uid, paperId), same id/monotonicity pattern as gate_progress's
-//     completedTopicIds (see completeRoadmapDay below).
+//     completedTopicIds (see completeRoadmapDay below). Also carries each
+//     student's own `startedAt`, stamped on their first completed day.
 //
-// "Locked" here is CALENDAR-DATE based, not completion-based - mirroring
-// campus-daily-learning.jsx's dayStatus() (the one existing "locked" pattern
-// in Campus), not inventing a new kind of gate. A roadmap day opens once its
-// date arrives, regardless of whether earlier days were finished - the same
-// paced-program framing Daily Learning already uses, since a completion-gated
-// lock would strand a student who missed a day behind their own calendar.
+// SELF-PACED, not calendar-locked: this module originally gated a day open
+// by a fixed calendar date (Day 1 = 15 Aug 2026 for every student, via
+// ROADMAP_START_DATE). That meant a student ahead of the material had no way
+// to move faster, and one who fell behind stayed locked out until the real
+// calendar caught up. It's since been converted to track each student's OWN
+// startedAt instead - every day is reachable from day 1 onward (no "locked"
+// state at all); personalDayNumber()/roadmapPaceStatus() below are purely
+// informational pacing signals ("you're 3 days ahead of your own pace"), the
+// same "roadmap day never gates on lesson content" model that has always
+// applied to topics, just now applied to pace too.
+//
+// NO REWARDS: completeRoadmapDay deliberately never calls grantRewards -
+// same precedent as lib/gate.js's markTopicRevised(). This plan is meant to
+// be Learning -> Practice -> PYQs -> Revision -> Testing, not a coin/XP
+// source; topic completion elsewhere in GATE (lib/gate.js's completeTopic)
+// still rewards normally.
 import { db } from "@/lib/firebase";
 import {
   collection, doc, getDoc, getDocs, query, where, orderBy,
   serverTimestamp, arrayUnion, runTransaction,
 } from "firebase/firestore";
-import { grantRewards, isAlreadyGranted } from "@/lib/rewards";
 
-// Day 1 of the roadmap, IST. Every other day's date is derived from this one
-// constant plus its dayNumber - see roadmapDateForDay() - so the whole plan
-// shifts by editing one line if the program's start date ever changes.
-export const ROADMAP_START_DATE = "2026-08-15";
-export const TOTAL_ROADMAP_DAYS = 139; // 15 Aug 2026 -> 31 Dec 2026 inclusive
+export const TOTAL_ROADMAP_DAYS = 139;
 
-export function roadmapDateForDay(dayNumber) {
-  // Deliberately UTC (no +05:30): this only ever does calendar-day
-  // arithmetic on ROADMAP_START_DATE, never a real-time comparison, and
-  // toISOString() reads back the UTC calendar date - stamping the instant
-  // at IST midnight instead would read back as the PREVIOUS day everywhere
-  // downstream (18:30 UTC the day before). currentRoadmapDayNumber() below
-  // does compare against a real `now`, so it correctly keeps +05:30.
-  const start = new Date(`${ROADMAP_START_DATE}T00:00:00Z`);
-  const d = new Date(start.getTime() + (dayNumber - 1) * 86400000);
-  return d.toISOString().slice(0, 10);
-}
-
-// Whole-plan day count elapsed since the start date, IST, clamped to
-// [1, TOTAL_ROADMAP_DAYS] - "Day X / 139" on the roadmap header.
-export function currentRoadmapDayNumber(now = new Date()) {
-  const start = new Date(`${ROADMAP_START_DATE}T00:00:00+05:30`);
+// Days elapsed since a student's OWN startedAt, clamped to [1,
+// TOTAL_ROADMAP_DAYS]. No startedAt yet (hasn't completed a first day) reads
+// as day 1 - "recommended today" before a student has begun.
+export function personalDayNumber(startedAt, now = new Date()) {
+  if (!startedAt) return 1;
+  const start = startedAt.toDate ? startedAt.toDate() : new Date(startedAt);
   const diffDays = Math.floor((now.getTime() - start.getTime()) / 86400000) + 1;
   return Math.max(1, Math.min(TOTAL_ROADMAP_DAYS, diffDays));
+}
+
+// How many days a student's actual completions run ahead of or behind their
+// own elapsed-day pace - positive delta = ahead of schedule, negative =
+// behind. Purely informational (see module header) - never gates access.
+export function roadmapPaceStatus({ startedAt, completedCount, now = new Date() }) {
+  if (!startedAt) return { started: false, personalDay: 1, delta: 0 };
+  const personalDay = personalDayNumber(startedAt, now);
+  return { started: true, personalDay, delta: (completedCount || 0) - personalDay };
 }
 
 export function roadmapDayId(paperId, dayNumber) {
@@ -81,50 +88,39 @@ export async function fetchRoadmapProgress(uid, paperId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-// "locked" / "done" / "current" / "open" - current is today's actual day
-// number, not just "not locked and not done", so the UI can highlight it
-// distinctly from every other already-open day.
-export function roadmapDayStatus(day, { completedDayNumbers, todayDayNumber }) {
-  if (day.dayNumber > todayDayNumber) return "locked";
+// "done" / "current" / "open" - no "locked" state (see module header). Every
+// day is reachable regardless of personal pace; "current" just highlights
+// where a student's own elapsed-day count puts them today.
+export function roadmapDayStatus(day, { completedDayNumbers, personalDay }) {
   if ((completedDayNumbers || []).includes(day.dayNumber)) return "done";
-  if (day.dayNumber === todayDayNumber) return "current";
+  if (day.dayNumber === personalDay) return "current";
   return "open";
 }
 
-// Grades and records ONE roadmap day, exactly once, ever - same idempotency
+// Records ONE roadmap day complete, exactly once, ever - same idempotency
 // shape as lib/gate.js's completeDay(): read-check-inside-the-transaction,
 // never trust a client's own "have I already done this" render state.
-// activityId is unique per (paperId, dayNumber), so the create-only
-// reward_grants ledger is a second, independent backstop beyond the
-// monotonic completedDayNumbers array below (identical defense-in-depth to
-// every other reward path in this codebase).
-export async function completeRoadmapDay({ uid, paperId, dayNumber, xpReward = 15, coinReward = 6 }) {
+// startedAt is stamped only on the first-ever call for this (uid, paperId),
+// then left untouched - it anchors personalDayNumber()/roadmapPaceStatus().
+// Deliberately does NOT call grantRewards - see module header.
+export async function completeRoadmapDay({ uid, paperId, dayNumber }) {
   if (!uid) return { alreadyDone: true };
   const ref = doc(db, "gate_roadmap_progress", roadmapProgressId(uid, paperId));
-  const activityType = "gate_roadmap_day";
-  const activityId = `${paperId}_day${dayNumber}`;
 
   return runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const existing = snap.exists() ? snap.data() : null;
     const alreadyDone = !!existing?.completedDayNumbers?.includes(dayNumber);
-    const alreadyPaid = alreadyDone || await isAlreadyGranted(tx, uid, activityType, activityId);
 
     tx.set(ref, {
       uid,
       paperId,
+      startedAt: existing?.startedAt || serverTimestamp(),
       completedDayNumbers: arrayUnion(dayNumber),
       lastCompletedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
-    if (!alreadyPaid) {
-      grantRewards(uid, {
-        xpReward, coinReward, scoreReward: xpReward,
-        transactionType: "gate_roadmap_day_completed",
-        activityType, activityId, sourceModule: "gate",
-      }, tx);
-    }
-    return { alreadyDone: alreadyPaid };
+    return { alreadyDone };
   });
 }

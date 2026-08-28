@@ -17,7 +17,13 @@ import { DIGITAL_LOGIC } from "./digital-logic.mjs";
 import { THEORY_OF_COMPUTATION } from "./theory-of-computation.mjs";
 import { COMPUTER_ORGANIZATION_AND_ARCHITECTURE } from "./computer-organization-and-architecture.mjs";
 import { PROGRAMMING_AND_DATA_STRUCTURES } from "./programming-and-data-structures.mjs";
+import { PROGRAMMING_AND_DATA_STRUCTURES_B } from "./programming-and-data-structures-b.mjs";
 import { OPERATING_SYSTEM } from "./operating-system.mjs";
+import { ENGINEERING_MATHEMATICS_A } from "./engineering-mathematics-a.mjs";
+import { ENGINEERING_MATHEMATICS_B } from "./engineering-mathematics-b.mjs";
+import { ENGINEERING_MATHEMATICS_C } from "./engineering-mathematics-c.mjs";
+import { ALGORITHMS } from "./algorithms.mjs";
+import { COMPILER_DESIGN } from "./compiler-design.mjs";
 
 // digital-logic.mjs was re-authored from scratch (14 topics covering Boolean
 // Algebra/Minimization, Combinational/Sequential Circuits, and Number
@@ -29,16 +35,30 @@ import { OPERATING_SYSTEM } from "./operating-system.mjs";
 // Concurrency and Synchronization, Deadlock, Scheduling, Memory Management,
 // File Systems).
 //
-// programming-and-data-structures.mjs is PARTIAL (4/14 topics) - the missing
-// topics were mid-write when its authoring agent hit the org's spend limit.
-// That's fine per this file's own module-at-a-time rollout model; the
-// remaining topics just need a follow-up authoring pass before they show
-// real content.
+// programming-and-data-structures is COMPLETE (15/15) as of -b.mjs's
+// authoring: the original file covers C Basics through Structures/Unions/
+// Storage Classes (5), -b.mjs covers Recursion through Graph Representations
+// (10: recursion, recursion tracing, arrays, stacks, queues, linked lists,
+// tree traversals, BSTs, binary heaps, graph representations).
+//
+// engineering-mathematics is split across three files purely because it's
+// the syllabus's biggest subject (33 topics: Discrete Math + Linear Algebra +
+// Calculus + Probability & Statistics) - -a.mjs covers Discrete Math I/II
+// (11 topics: propositional/first-order logic through graph colouring),
+// -b.mjs covers Calculus in full (5) plus one Probability topic
+// (random-variables), -c.mjs completes it: Discrete Math III (3), all of
+// Linear Algebra (5), and the remaining 8 Probability & Statistics topics.
+// COMPLETE (33/33) as of -c.mjs's authoring. -a.mjs and -b.mjs were authored
+// but never registered here for a while, so none of it had reached
+// Firestore until that was fixed.
 export const GATE_LESSONS = {
   "general-aptitude": GENERAL_APTITUDE,
   "digital-logic": DIGITAL_LOGIC,
   "theory-of-computation": THEORY_OF_COMPUTATION,
   "computer-organization-and-architecture": COMPUTER_ORGANIZATION_AND_ARCHITECTURE,
-  "programming-and-data-structures": PROGRAMMING_AND_DATA_STRUCTURES,
+  "programming-and-data-structures": { ...PROGRAMMING_AND_DATA_STRUCTURES, ...PROGRAMMING_AND_DATA_STRUCTURES_B },
   "operating-system": OPERATING_SYSTEM,
+  "engineering-mathematics": { ...ENGINEERING_MATHEMATICS_A, ...ENGINEERING_MATHEMATICS_B, ...ENGINEERING_MATHEMATICS_C },
+  "algorithms": ALGORITHMS,
+  "compiler-design": COMPILER_DESIGN,
 };
