@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Flame, Trophy, Calendar, Users, Clock, Share2, Check,
@@ -282,6 +283,12 @@ function SubmitModal({ slug, uid, handle, displayName, onClose, onSubmitted, exi
 export function HackathonDetailView({ slug, onBack }) {
   const windowed = useIsWindowed();
   const { user, userData } = useAuth();
+  const router = useRouter();
+  // onBack is only ever passed by HackathonsApp's in-place view (clears
+  // selectedSlug without navigating). The standalone /h/[slug] route
+  // (app/h/[slug]/page.jsx, a real server component now - see hackathon-seo.js)
+  // renders this with no onBack at all, so it needs a real navigation instead.
+  const handleBack = onBack || (() => router.push("/hackathons"));
 
   const [hackathon,  setHackathon]  = useState(null);
   const [loading,    setLoading]    = useState(true);
@@ -426,7 +433,7 @@ export function HackathonDetailView({ slug, onBack }) {
         <p className="font-mono text-2xl text-white/20 mb-3">404</p>
         <p className="font-mono text-sm text-white/30 mb-2">Event not found</p>
         <p className="font-mono text-xs text-white/15 mb-8">// check the URL or wait for announcements</p>
-        <button onClick={onBack}
+        <button onClick={handleBack}
           className="font-mono text-xs text-neon-cyan/60 border border-neon-cyan/20 px-4 py-2 rounded hover:bg-neon-cyan/6 transition-colors">
           ← all events
         </button>
@@ -476,7 +483,7 @@ export function HackathonDetailView({ slug, onBack }) {
 
           {/* Breadcrumb */}
           <div className="flex items-center gap-3 mb-5">
-            <button onClick={onBack}
+            <button onClick={handleBack}
               className="flex items-center gap-1.5 font-mono text-[10px] text-white/20 hover:text-white/40 transition-colors">
               <ArrowLeft size={10} /> events
             </button>
