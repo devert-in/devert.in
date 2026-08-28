@@ -39,6 +39,8 @@ const GLOBAL_SECTION_METADATA = {
   campuses: { title: "Campuses | DeVert Campus", description: "Every college running DeVert Campus. Find yours and request access - your Training & Placement Cell approves it." },
   institutions: { title: "For institutions | DeVert Campus", description: "Daily Learning scheduling, assessments, contests, leaderboards and role-based dashboards for principals, HODs, faculty and placement cells." },
   pricing: { title: "Pricing | DeVert Campus", description: "Free to learn. Individual Premium is ₹29 a month per learner, down to ₹19.1 a month on the yearly plan, with an 11-day free trial; a campus licence is quoted per institution." },
+  "daily-learning": { title: "Daily Learning for institutions | DeVert Campus", description: "Schedule structured weekly learning plans for every batch, track classroom and department progress, and turn daily learning into a campus-wide habit." },
+  assessments: { title: "Assessments & Contests for institutions | DeVert Campus", description: "Create assessments and coding contests, auto-evaluate submissions, rank performance, and surface placement readiness for your students." },
 };
 
 export async function generateMetadata({ params }) {
