@@ -463,9 +463,12 @@ export function HackathonDetailView({ slug, onBack }) {
 
         <div className="relative max-w-5xl mx-auto">
 
-          {/* Banner image (optional - most events keep the plain accent-bar hero below) */}
+          {/* Banner image (optional - most events keep the plain accent-bar hero below).
+              A compact strip, not a full hero block - most banners supplied for this
+              (event-poster/wordmark style graphics with a lot of their own empty margin)
+              looked oversized and mostly blank stretched across a 21:9 box. */}
           {hackathon.bannerImage && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full aspect-[21/9] rounded-lg overflow-hidden mb-6 border border-white/8">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full aspect-[3/1] max-h-[220px] rounded-lg overflow-hidden mb-6 border border-white/8">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={hackathon.bannerImage} alt="" className="w-full h-full object-cover" />
             </motion.div>
