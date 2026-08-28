@@ -43,6 +43,7 @@ const doc = {
   eventType: "hackathon",
   theme: "",
   accentColor: "#00FF41",
+  bannerImage: "https://devert.in/devertathon26-banner.png",
   host: "",
   prizes: [
     { place: "1st", label: "1st Place", reward: "" },
