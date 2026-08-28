@@ -458,7 +458,7 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
    ------------------------------------------------------------------- */
 .vs-scope {
   --vs-bg: #dcc6a3; --vs-ink: #17140f; --vs-ink-soft: #5b5142; --vs-ink-faint: #8a7f6c;
-  --vs-panel: #12131b; --vs-panel-2: #1a1c27; --vs-line: rgba(23,20,15,0.14);
+  --vs-panel: #12131b; --vs-panel-2: #333a4d; --vs-line: rgba(23,20,15,0.14);
   --vs-line-dark: rgba(255,255,255,0.1); --vs-cream: #f4efe3;
   font-family: var(--vs-body), ui-sans-serif, system-ui, sans-serif;
   color: var(--vs-ink); background: var(--vs-bg); -webkit-font-smoothing: antialiased;
@@ -503,7 +503,7 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 
 .vs-plan-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
 @media (max-width: 860px) { .vs-plan-grid { grid-template-columns: 1fr; } }
-.vs-plan-card, .vs-pick-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 24px; }
+.vs-plan-card, .vs-pick-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 24px; border: 1px solid rgba(244,239,227,0.1); }
 .vs-plan-route { display: flex; align-items: center; gap: 14px; font-size: 14px; margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--vs-line-dark); }
 .vs-plan-route b { display: block; font-size: 15px; }
 .vs-plan-route small { display: block; color: rgba(244,239,227,0.5); font-size: 11px; margin-top: 2px; }
@@ -525,7 +525,7 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 
 .vs-panel.dark { background: var(--vs-panel); }
 .vs-feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-.vs-feature-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 22px; }
+.vs-feature-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 22px; border: 1px solid rgba(244,239,227,0.1); }
 .vs-feature-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: rgba(244,239,227,0.08); font-size: 15px; margin-bottom: 16px; }
 .vs-feature-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
 .vs-feature-card p { font-size: 12.5px; line-height: 1.6; color: rgba(244,239,227,0.6); }
@@ -548,7 +548,7 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 .vs-pricing-note { text-align: center; font-size: 13px; color: var(--vs-ink-soft); max-width: 60ch; margin: 0 auto 30px; }
 
 .vs-plan-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
-.vs-plan-tile { background: var(--vs-panel-2); border-radius: 16px; padding: 18px 18px; display: flex; flex-direction: column; border: 1px solid transparent; }
+.vs-plan-tile { background: var(--vs-panel-2); border-radius: 16px; padding: 18px 18px; display: flex; flex-direction: column; border: 1px solid rgba(244,239,227,0.1); }
 .vs-plan-tile.featured { border-color: rgba(244,239,227,0.35); }
 .vs-plan-tile-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; min-height: 20px; }
 .vs-plan-tile-top span:first-child { font-size: 12.5px; font-weight: 700; color: var(--vs-cream); }

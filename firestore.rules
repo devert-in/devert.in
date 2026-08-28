@@ -2553,7 +2553,7 @@ service cloud.firestore {
         && (resource == null || resource.data.get('rewarded', false) == false || request.resource.data.get('rewarded', false) == true));
     }
 
-    // GATE Roadmap - a fixed, dated day-by-day plan layered on top of the
+    // GATE Roadmap - a self-paced day-by-day plan layered on top of the
     // syllabus tree (lib/gateRoadmap.js). Same shape as gatePapers itself:
     // a shared, admin-authored catalog, not a per-user doc - every student on
     // a paper sees the identical plan, so it's world-readable-when-published
@@ -2565,11 +2565,10 @@ service cloud.firestore {
 
     // Per-user roadmap completion - one doc per (uid, paperId), id
     // `${uid}_${paperId}`, identical id/monotonicity shape as gate_progress.
-    // completedDayNumbers.hasAll(...) makes it append-only for the same
-    // reward-replay reason completedTopicIds is on gate_progress: without it,
-    // removing a dayNumber and re-completing it would re-earn that day's
-    // XP/coins indefinitely (reward_grants' create-only ledger is the second,
-    // independent backstop - see completeRoadmapDay's activityId).
+    // completedDayNumbers.hasAll(...) makes it append-only so a student can't
+    // rewrite their own completion/pace history - completing this plan is
+    // deliberately not reward-bearing (see completeRoadmapDay), but the
+    // monotonicity guarantee is still worth keeping for data integrity.
     match /gate_roadmap_progress/{progressId} {
       allow read:  if isAdmin() || (isAuth() && (progressId.split('_')[0] == request.auth.uid
         || isAdminOfStudent(progressId.split('_')[0]) || isHodOfStudent(progressId.split('_')[0]) || isFacultyOfStudent(progressId.split('_')[0])));
