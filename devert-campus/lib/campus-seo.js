@@ -15,7 +15,10 @@ import { fetchInstitutions, fetchInstitution } from "@/lib/institutions";
 // give you the real value, Next replaces every export of a "use client"
 // module with an opaque client-reference proxy, which isn't iterable. This
 // file has no "use client" directive, so both sides import the same array.
-export const GLOBAL_SECTIONS = ["contests", "learning", "practice", "campuses", "institutions", "pricing"];
+export const GLOBAL_SECTIONS = [
+  "contests", "learning", "practice", "campuses", "institutions", "pricing",
+  "daily-learning", "assessments",
+];
 
 // The subset of GLOBAL_SECTIONS that are marketing/info pages built from the
 // landing page's own band components (CampusInfoPage), not the learning shell
@@ -23,7 +26,7 @@ export const GLOBAL_SECTIONS = ["contests", "learning", "practice", "campuses", 
 // reason GLOBAL_SECTIONS is: app/campus/[slug]/page.jsx needs it at build time,
 // and a "use client" module's exports are opaque client-reference proxies on the
 // server. Must stay a subset of GLOBAL_SECTIONS or the route never resolves.
-export const LANDING_PAGE_SECTIONS = ["campuses", "institutions", "pricing"];
+export const LANDING_PAGE_SECTIONS = ["campuses", "institutions", "pricing", "daily-learning", "assessments"];
 
 // key: the internal CampusWorkspace tab id (campus-app.jsx's TAB_URL_SEGMENT
 // keys must match these exactly). urlSegment: "" means the institution root

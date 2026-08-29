@@ -7,7 +7,7 @@ import {
   Sun, Moon, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, UserCircle2,
   X as CloseIcon, Menu, CodeXml, BrainCircuit, Calculator, Layers, Sparkles,
   GraduationCap, BookOpen, Code2, ListChecks, Briefcase, Trophy, Building2,
-  Users, ShieldCheck, ClipboardCheck, LineChart, LayoutDashboard,
+  Users, ClipboardCheck, LayoutDashboard, LineChart,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { DEVERT_URL } from "@/lib/campusUrl";
@@ -95,7 +95,6 @@ const NAV_MENUS = [
         title: "Interviews",
         links: [
           { label: "Company Vault", href: "/practice?mode=companyPrep", icon: Briefcase, hint: "Round-by-round breakdowns" },
-          { label: "Contests", href: "/contests", icon: Trophy, hint: "Open, timed and ranked" },
         ],
       },
     ],
@@ -124,7 +123,6 @@ const NAV_MENUS = [
         title: "For colleges",
         links: [
           { label: "Solutions by role", href: "/institutions", icon: Users, hint: "Principal to placement cell" },
-          { label: "Campus licence", href: "/pricing", icon: ShieldCheck, hint: "How it is quoted" },
         ],
       },
     ],
@@ -138,11 +136,19 @@ const NAV_MENUS = [
     label: "For institutions",
     columns: [
       {
+        // Daily Learning and Assessments & contests used to anchor into
+        // InstitutionsBand's six role cards (#role-training-cell/#role-
+        // students) - repurposed to their own dedicated pages instead (see
+        // LANDING_PAGES' "daily-learning"/"assessments" entries in
+        // campus-landing.jsx), each with its own PLAN/CREATE-stage flow,
+        // feature cards and dashboard preview, so "what does Daily Learning
+        // mean" gets a real answer instead of a highlighted card among six
+        // unrelated roles.
         title: "The workspace",
         links: [
           { label: "Solutions by role", href: "/institutions", icon: Users, hint: "Six roles, one workspace" },
-          { label: "Daily Learning", href: "/institutions", icon: ClipboardCheck, hint: "Schedule the weekly plan" },
-          { label: "Assessments & contests", href: "/institutions", icon: Trophy, hint: "Run and grade your own" },
+          { label: "Daily Learning", href: "/daily-learning", icon: ClipboardCheck, hint: "Schedule the weekly plan" },
+          { label: "Assessments & contests", href: "/assessments", icon: Trophy, hint: "Run and grade your own" },
         ],
       },
       {

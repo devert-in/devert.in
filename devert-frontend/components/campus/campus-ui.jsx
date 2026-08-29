@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, Download, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Download, Sparkles } from "lucide-react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { CAMPUS, tint } from "@/lib/campus-theme";
@@ -392,6 +392,132 @@ export function CampusBreadcrumb({ items, className = "" }) {
         );
       })}
     </nav>
+  );
+}
+
+// ---------------- Learn module sidebar (contextual sub-nav) ----------------
+//
+// Programming/CS Core/Aptitude/Roadmaps each portal their own language-or-
+// subject list, then that item's topic tree, into CampusContextSidebar's
+// slot (see campus-app.jsx's "Navigation Architecture 2.0" comment) - and
+// until now each of the four files hand-rolled an identical `campus-btn`
+// button with no hover feedback at all (`.campus-btn` only lifts 1px; the
+// surface-tint hover every OTHER nav row in the app gets lives in the
+// `.campus-nav-item`/`.campus-nav-item-active` globals.css rules, which
+// nothing actually applied a className for). These four give every one of
+// those lists the same polish in one place instead of four copies quietly
+// drifting apart.
+
+// Section caption ("PROGRAMMING", "CS CORE", "APTITUDE", "ROADMAPS") atop
+// a module's own sidebar list - a bottom hairline instead of bare
+// tracking-wide caps text floating with nothing to anchor it to the list
+// below.
+export function SidebarSectionLabel({ children }) {
+  return (
+    <div className="px-2.5 pb-2 mb-1.5 text-[10px] font-mono tracking-widest border-b"
+      style={{ color: CAMPUS.inkFaint, borderColor: CAMPUS.line }}>
+      {children}
+    </div>
+  );
+}
+
+// "All languages" / "All subjects" / "All roadmaps" - was a bare unstyled
+// <button> with zero hover feedback; now gets the same campus-nav-item lift
+// as every row below it, so going back reads as part of the same list
+// rather than a stray label sitting above it.
+export function SidebarBackLink({ onClick, children }) {
+  return (
+    <button onClick={onClick}
+      className="campus-btn campus-nav-item w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-1.5 text-[11px] font-semibold text-left transition-all duration-150"
+      style={{ color: CAMPUS.inkFaint }}>
+      <ChevronLeft size={12} /> {children}
+    </button>
+  );
+}
+
+// A module's top-level list row (a language, a CS Core subject, a roadmap) -
+// wraps the icon in the same tinted-chip idiom CampusStat/CampusEmptyState
+// already use elsewhere (instead of a bare, same-color-as-the-text icon)
+// and picks up campus-nav-item's hover lift, so these finally read as
+// clickable rows instead of plain icon+text lines.
+export function SidebarNavRow({ icon: Icon, label, onClick }) {
+  return (
+    <button onClick={onClick}
+      className="campus-btn campus-nav-item w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-150"
+      style={{ color: CAMPUS.inkSoft }}>
+      {Icon && (
+        <span className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: tint(CAMPUS.teal, 12) }}>
+          <Icon size={14} />
+        </span>
+      )}
+      <span className="text-[13px] font-medium leading-snug truncate">{label}</span>
+    </button>
+  );
+}
+
+// A collapsible module group inside a topic-tree sidebar (Programming's
+// "FUNDAMENTALS", CS Core's "OPERATING SYSTEMS", Roadmaps' per-level module,
+// Aptitude's category) - same collapsed-by-default-except-the-group-
+// containing-the-active-topic idiom Aptitude's sidebar already used on its
+// own (see campus-aptitude.jsx's activeCategory), just extracted so every
+// caller shares the one toggle-header markup instead of a fourth
+// hand-rolled copy. Fully controlled (`open`/`onToggle`) - callers keep
+// owning the open-set state and the "is this the active topic's group"
+// check, since that logic already differs slightly per caller (a Set of
+// module names vs. category names).
+export function SidebarModuleGroup({ label, icon: Icon, color = CAMPUS.inkFaint, open, onToggle, children }) {
+  return (
+    <div className="mb-1.5">
+      <button onClick={onToggle}
+        className="campus-btn campus-nav-item w-full flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9.5px] font-mono tracking-widest text-left transition-all duration-150"
+        style={{ color }}>
+        {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+        {Icon && <Icon size={11} />}
+        <span className="truncate">{label}</span>
+      </button>
+      {/* Indented + a connecting guide line so the topics read as nested
+          under the module header above them, not as a second flush-left
+          list with no relation to it. */}
+      {open && (
+        <div className="mt-0.5 ml-4 pl-2 border-l" style={{ borderColor: CAMPUS.line }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A single topic inside a module's topic tree (Programming/CS Core/Roadmaps'
+// topic sidebar, Aptitude's per-category list). The active row is a soft
+// tint + left accent bar, not CAMPUS.gradientPrimary's solid fill - that
+// gradient is the platform's "primary button" idiom (now a bright warm
+// orange, see lib/campus-theme.js's CAMPUS.teal comment), and a solid block
+// of it behind plain list text read as a loud CTA button rather than "this
+// is where you are," which is all a sidebar row selection needs to say.
+// Every inactive row gets the campus-nav-item hover lift that was
+// previously missing entirely.
+//
+// `done` was a filled/empty circle bubble at first - traded for a small
+// arrow instead (colored to still hint completion) since the row bubbles
+// read as a checklist-of-many rather than a simple nav list. A literal
+// borderTop divider between rows (RoadmapTimeline's other signature) was
+// also deliberately left out - that reads as a flush list of full-width
+// rows in a single card, but these are individually rounded pill buttons
+// with a gap between them, so a top border would just cut into a rounded
+// corner rather than read as a divider.
+export function SidebarTopicRow({ label, active, done, onClick }) {
+  return (
+    <button onClick={onClick}
+      className={`campus-btn campus-nav-item w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-all duration-150 ${active ? "campus-nav-item-active" : ""}`}
+      style={{
+        background: active ? tint(CAMPUS.teal, 14) : "transparent",
+        color: active ? CAMPUS.teal : CAMPUS.inkSoft,
+        borderLeft: `2px solid ${active ? CAMPUS.teal : "transparent"}`,
+      }}>
+      <ChevronRight size={11} className="flex-shrink-0"
+        style={{ color: done ? CAMPUS.good : active ? CAMPUS.teal : CAMPUS.inkFaint }} />
+      <span className="text-[12.5px] leading-snug truncate flex-1">{label}</span>
+    </button>
   );
 }
 

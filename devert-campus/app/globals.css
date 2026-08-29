@@ -7,14 +7,29 @@
    jsconfig.json's @/* fallback and CLAUDE.md's devert-campus entry). Any
    utility class that appears ONLY inside a devert-frontend file, and
    nowhere in this app's own few hundred files, silently never makes it
-   into this build's CSS - confirmed case: campus-ui.jsx's CampusStat
-   renders a decorative opacity-[0.08] watermark circle that was shipping
-   fully OPAQUE on every Campus stat card (Total Students, Pending
-   Requests, ...), because that exact class string appears nowhere in
-   devert-campus for the scanner to find. @source pulls the whole sibling
-   app into this build's scan instead of hunting down every affected class
-   one at a time. */
+   into this build's CSS - confirmed cases: campus-ui.jsx's CampusStat
+   rendered a decorative opacity-[0.08] watermark circle fully OPAQUE on
+   every Campus stat card, and RoadmapTimeline's `pl-14` silently compiled
+   to nothing, so its numbered-circle badge visually overlapped the module
+   title text it was supposed to leave room for. @source pulls the whole
+   sibling app into this build's scan instead of hunting down every
+   affected class one at a time. */
 @source "../../devert-frontend";
+
+/* "For institutions" nav dropdown's Daily Learning / Assessments & contests
+   links jump to a specific INSTITUTION_ROLES card by #role-{id} (see
+   campus-landing.jsx's InstitutionsBand) rather than the bare page top every
+   link there used to share. scroll-margin-top clears the 72px sticky
+   CampusPublicNav (h-[72px], see campus-public-nav.jsx) so the card doesn't
+   land flush under it; the :target outline is what actually shows the
+   visitor which card the link meant, not just "the page scrolled somewhere." */
+.campus-role-card {
+  scroll-margin-top: 96px;
+}
+.campus-role-card:target {
+  outline: 2px solid var(--campus-teal);
+  outline-offset: 3px;
+}
 
 /* Phase 1: the real Campus theme block below is copied from
    devert-frontend/app/globals.css (kept there too, since

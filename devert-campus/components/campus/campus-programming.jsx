@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Rocket, Clock, Briefcase, TrendingUp, ChevronDown, ChevronLeft,
+  Rocket, Clock, Briefcase, TrendingUp, ChevronDown,
   Check, Lightbulb, ListChecks, Target, BookOpen, Code2,
   AlertTriangle, Sparkles, Coins, Zap, ArrowRight, GraduationCap,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import { CAMPUS } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
   CampusSkeleton, CampusProgressBar, RoadmapTimeline,
+  SidebarSectionLabel, SidebarBackLink, SidebarNavRow, SidebarTopicRow, SidebarModuleGroup,
 } from "@/components/campus/campus-ui";
 import {
   fetchLanguages, fetchLanguage, fetchTopics, fetchTopic,
@@ -127,22 +128,35 @@ function ProgrammingLanguageSidebar({ onSelect }) {
   useEffect(() => { fetchLanguages().then(setLanguages).catch(() => setLanguages([])); }, []);
   return (
     <>
-      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>PROGRAMMING</div>
+      <SidebarSectionLabel>PROGRAMMING</SidebarSectionLabel>
       {languages === null ? <CampusSkeleton height={100} className="mx-1" /> : languages.map(lang => (
-        <button key={lang.id} onClick={() => onSelect(lang.id)}
-          className="campus-btn flex items-start gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
-          style={{ color: CAMPUS.inkSoft }}>
-          <LanguageLogo name={lang.name} size={16} className="flex-shrink-0 mt-0.5" />
-          <span className="text-[13px] font-medium leading-snug">{lang.name}</span>
-        </button>
+        <SidebarNavRow key={lang.id} label={lang.name} onClick={() => onSelect(lang.id)}
+          icon={(props) => <LanguageLogo name={lang.name} {...props} />} />
       ))}
     </>
   );
 }
 
 function ProgrammingTopicSidebar({ langId, activeTopicId, onSelectTopic, onBackToList }) {
+  const { user } = useAuth();
   const [topics, setTopics] = useState(null);
-  useEffect(() => { fetchTopics(langId).then(setTopics).catch(() => setTopics([])); }, [langId]);
+  const [progress, setProgress] = useState(null);
+  // First module open by default (matching LanguageRoadmap's own convention
+  // below), plus whichever module the active topic (if any) belongs to -
+  // same idiom campus-aptitude.jsx's AptitudeSidebarList already used for
+  // its own category accordion, just applied to a topic tree that used to
+  // render every module always fully expanded.
+  const [openModules, setOpenModules] = useState(new Set());
+  useEffect(() => {
+    fetchTopics(langId).then(list => {
+      setTopics(list);
+      setOpenModules(new Set([list[0]?.module].filter(Boolean)));
+    }).catch(() => setTopics([]));
+  }, [langId]);
+  useEffect(() => {
+    if (!user) return;
+    fetchLanguageProgress(user.uid, langId).then(setProgress).catch(() => setProgress(null));
+  }, [user, langId]);
   const modules = useMemo(() => {
     if (!topics) return [];
     const byModule = []; const seen = new Map();
@@ -153,25 +167,24 @@ function ProgrammingTopicSidebar({ langId, activeTopicId, onSelectTopic, onBackT
     });
     return byModule;
   }, [topics]);
+  const completedIds = useMemo(() => new Set(progress?.completedTopicIds || []), [progress]);
+  const activeModule = useMemo(() => modules.find(m => m.topics.some(t => t.id === activeTopicId))?.module, [modules, activeTopicId]);
+  const toggleModule = (m) => setOpenModules(prev => {
+    const next = new Set(prev);
+    if (next.has(m)) next.delete(m); else next.add(m);
+    return next;
+  });
   return (
     <>
-      <button onClick={onBackToList} className="flex items-center gap-1 px-1 pb-2 mb-1 text-[11px] font-semibold" style={{ color: CAMPUS.inkFaint }}>
-        <ChevronLeft size={12} /> All languages
-      </button>
+      <SidebarBackLink onClick={onBackToList}>All languages</SidebarBackLink>
       {topics === null ? <CampusSkeleton height={120} className="mx-1" /> : modules.map(({ module, topics: moduleTopics }) => (
-        <div key={module} className="mb-1.5">
-          <div className="px-3 py-1 text-[9.5px] font-mono tracking-widest truncate" style={{ color: CAMPUS.inkFaint }}>{module.toUpperCase()}</div>
+        <SidebarModuleGroup key={module} label={module.toUpperCase()}
+          open={openModules.has(module) || module === activeModule} onToggle={() => toggleModule(module)}>
           {moduleTopics.map(t => (
-            <button key={t.id} onClick={() => onSelectTopic(t.id)}
-              className="campus-btn w-full flex items-center px-3 py-1.5 rounded-lg text-left transition-all duration-150"
-              style={{
-                background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
-                color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
-              }}>
-              <span className="text-[12.5px] leading-snug">{t.title}</span>
-            </button>
+            <SidebarTopicRow key={t.id} label={t.title} active={activeTopicId === t.id}
+              done={completedIds.has(t.id)} onClick={() => onSelectTopic(t.id)} />
           ))}
-        </div>
+        </SidebarModuleGroup>
       ))}
     </>
   );

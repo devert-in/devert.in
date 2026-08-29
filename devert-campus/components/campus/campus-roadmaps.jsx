@@ -23,7 +23,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Rocket, Zap, Check, ListChecks, ArrowRight, Sparkles, Coins,
-  ChevronLeft, ChevronDown, Search, X as XIcon, Loader2,
+  ChevronDown, Search, X as XIcon, Loader2,
   BrainCircuit, Server, Layout, Layers, Cloud, BarChart3, Smartphone,
   ShieldAlert, CircuitBoard, Bot, Palette, Briefcase, FlaskConical,
   Code2, Compass, Route, Clock, AlertTriangle,
@@ -33,6 +33,7 @@ import { CAMPUS } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
   CampusSkeleton, CampusProgressBar, CampusTabBar, LessonNavFooter,
+  SidebarSectionLabel, SidebarBackLink, SidebarNavRow, SidebarTopicRow, SidebarModuleGroup,
 } from "@/components/campus/campus-ui";
 import { RoadmapFlowchart } from "@/components/campus/roadmap-flowchart";
 import { CampusThemeProvider } from "@/components/campus/campus-theme-provider";
@@ -175,7 +176,16 @@ function CampusRoadmapsPublicShell({ initialRoadmapSlug }) {
           screen={routedScreen}
           setScreen={(next) => {
             if (next.view === "list") goToList();
-            else if (next.view === "detail") setScreen({ view: "detail", roadmapId: next.roadmapId, roadmapSlug: screen.roadmapSlug });
+            // Was calling setScreen(...) directly with the stale-closure
+            // screen.roadmapSlug (undefined, since a click from the list
+            // view has no roadmap open yet) instead of goToRoadmap - which
+            // is the only thing that also sets resolvedId and pushes the
+            // real /roadmaps/{slug} URL. routedScreen's own roadmapId comes
+            // from resolvedId, not screen.roadmapId, so skipping goToRoadmap
+            // left resolvedId null forever: RoadmapDetail got roadmapId=null
+            // roadmapSlug=undefined and sat on its loading skeleton with no
+            // error - clicking a card did something, but never opened it.
+            else if (next.view === "detail") goToRoadmap(next.roadmapId, next.roadmapSlug);
             else goToTopic(next.topicId);
           }}
           onResolveRoadmap={(id) => setResolvedId(id)}
@@ -209,7 +219,7 @@ function RoadmapsScreens({ screen, setScreen, onResolveRoadmap }) {
   }
   return (
     <RoadmapsLanding
-      onOpenRoadmap={(roadmapId) => setScreen({ view: "detail", roadmapId })}
+      onOpenRoadmap={(roadmapId, roadmapSlug) => setScreen({ view: "detail", roadmapId, roadmapSlug })}
     />
   );
 }
@@ -227,48 +237,65 @@ function RoadmapsListSidebar({ onSelect }) {
   useEffect(() => { fetchRoadmaps().then(setRoadmaps).catch(() => setRoadmaps([])); }, []);
   return (
     <>
-      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>ROADMAPS</div>
-      {roadmaps === null ? <CampusSkeleton height={100} className="mx-1" /> : roadmaps.map((r) => {
-        const Icon = roadmapIcon(r.icon);
-        return (
-          <button key={r.id} onClick={() => onSelect(r.id)}
-            className="campus-btn flex items-start gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-150"
-            style={{ color: CAMPUS.inkSoft }}>
-            <Icon size={15} className="flex-shrink-0 mt-0.5" />
-            <span className="text-[13px] font-medium leading-snug">{r.title}</span>
-          </button>
-        );
-      })}
+      <SidebarSectionLabel>ROADMAPS</SidebarSectionLabel>
+      {roadmaps === null ? <CampusSkeleton height={100} className="mx-1" /> : roadmaps.map((r) => (
+        <SidebarNavRow key={r.id} label={r.title} icon={roadmapIcon(r.icon)} onClick={() => onSelect(r.id)} />
+      ))}
     </>
   );
 }
 
 function RoadmapsTreeSidebar({ roadmapId, activeTopicId, onSelectTopic, onBackToList }) {
+  const { user } = useAuth();
   const [tree, setTree] = useState(null);
-  useEffect(() => { fetchRoadmapTree(roadmapId).then(setTree).catch(() => setTree([])); }, [roadmapId]);
+  const [progress, setProgress] = useState(null);
+  // First module (of the first level) open by default, plus whichever
+  // module the active topic (if any) belongs to - same idiom
+  // campus-aptitude.jsx's AptitudeSidebarList already used for its own
+  // category accordion. Keyed by module id, not title - two levels can
+  // legitimately share a module title (see groupModulesByLevel/
+  // RoadmapTimeline's own moduleLabel comment), so a title-keyed Set would
+  // open/close both at once.
+  const [openModules, setOpenModules] = useState(new Set());
+  useEffect(() => {
+    fetchRoadmapTree(roadmapId).then(t => {
+      setTree(t);
+      const firstLevel = groupModulesByLevel(t).find(l => l.modules.length > 0);
+      setOpenModules(new Set([firstLevel?.modules[0]?.id].filter(Boolean)));
+    }).catch(() => setTree([]));
+  }, [roadmapId]);
+  useEffect(() => {
+    if (!user) return;
+    fetchRoadmapProgress(user.uid, roadmapId).then(setProgress).catch(() => setProgress(null));
+  }, [user, roadmapId]);
   const byLevel = useMemo(() => (tree ? groupModulesByLevel(tree) : []), [tree]);
+  const completedIds = useMemo(() => new Set(progress?.completedTopicIds || []), [progress]);
+  const activeModuleId = useMemo(() => {
+    for (const level of byLevel) {
+      const m = level.modules.find(m => m.topics.some(t => t.id === activeTopicId));
+      if (m) return m.id;
+    }
+    return undefined;
+  }, [byLevel, activeTopicId]);
+  const toggleModule = (id) => setOpenModules(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   return (
     <>
-      <button onClick={onBackToList} className="flex items-center gap-1 px-1 pb-2 mb-1 text-[11px] font-semibold" style={{ color: CAMPUS.inkFaint }}>
-        <ChevronLeft size={12} /> All roadmaps
-      </button>
+      <SidebarBackLink onClick={onBackToList}>All roadmaps</SidebarBackLink>
       {tree === null ? <CampusSkeleton height={140} className="mx-1" /> : byLevel.map((level) => level.modules.length > 0 && (
         <div key={level.key} className="mb-2">
           <div className="px-3 py-1 text-[9.5px] font-mono tracking-widest" style={{ color: LEVEL_COLOR[level.key] }}>{level.label.toUpperCase()}</div>
           {level.modules.map((m) => (
-            <div key={m.id} className="mb-1">
-              <div className="px-3 py-1 text-[9.5px] font-mono tracking-widest truncate" style={{ color: CAMPUS.inkFaint }}>{m.title.toUpperCase()}</div>
+            <SidebarModuleGroup key={m.id} label={m.title.toUpperCase()}
+              open={openModules.has(m.id) || m.id === activeModuleId} onToggle={() => toggleModule(m.id)}>
               {m.topics.map((t) => (
-                <button key={t.id} onClick={() => onSelectTopic(t.id)}
-                  className="campus-btn w-full flex items-center px-3 py-1.5 rounded-lg text-left transition-all duration-150"
-                  style={{
-                    background: activeTopicId === t.id ? CAMPUS.gradientPrimary : "transparent",
-                    color: activeTopicId === t.id ? "#fff" : CAMPUS.inkSoft,
-                  }}>
-                  <span className="text-[12.5px] leading-snug">{t.title}</span>
-                </button>
+                <SidebarTopicRow key={t.id} label={t.title} active={activeTopicId === t.id}
+                  done={completedIds.has(t.id)} onClick={() => onSelectTopic(t.id)} />
               ))}
-            </div>
+            </SidebarModuleGroup>
           ))}
         </div>
       ))}
@@ -370,7 +397,7 @@ function RoadmapsLanding({ onOpenRoadmap }) {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((r) => (
-            <RoadmapCard key={r.id} roadmap={r} progress={progressByRoadmap.get(r.id)} onClick={() => onOpenRoadmap(r.id)} />
+            <RoadmapCard key={r.id} roadmap={r} progress={progressByRoadmap.get(r.id)} onClick={() => onOpenRoadmap(r.id, r.slug)} />
           ))}
         </div>
       )}
