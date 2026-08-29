@@ -9,6 +9,13 @@ import { mintSharedSession, exchangeSharedSession, clearSharedSession } from "@/
 
 const AuthContext = createContext();
 
+// Placements Prep module's staff roles - a `role` field on users/{uid}
+// (default "student", see firestore.rules' myRole()). Not a real trust
+// boundary on its own: every prep* collection is actually gated by
+// isStaff()/isPrepAdmin() in firestore.rules, which also OR in the real
+// isAdmin claim below - this mirrors that exact logic for UI gating only.
+const STAFF_ROLES = ["faculty", "tpo", "admin"];
+
 function getTier(xp = 0) {
   if (xp >= 10000) return { name: "LEGEND",    color: "#FFD700" };
   if (xp >= 5000)  return { name: "ELITE",     color: "#FF6430" };
@@ -274,8 +281,22 @@ export function AuthProvider({ children }) {
     setUserData(prev => ({ ...prev, ...updates }));
   };
 
+  // Placements Prep module's additions - kept additive so existing pages
+  // consuming { user, userData, loading, logout } are unaffected. isStaff
+  // mirrors firestore.rules' isStaff()/isPrepAdmin() exactly: a role field
+  // on the user doc (default "student"), OR'd with the real isAdmin claim
+  // above rather than a hardcoded email - same reasoning as everywhere else
+  // in this file. `profile` is a straight alias for userData, matching the
+  // name the Prep pages already destructure.
+  const role = userData?.role || "student";
+  const isStaff = STAFF_ROLES.includes(role) || isAdmin;
+  const isOnboarded = !!userData?.prepOnboarded;
+
   return (
-    <AuthContext.Provider value={{ user, userData, loading, isAdmin, adminChecked, isSuperAdmin, logout, refreshProfile, updateProfile, getTier }}>
+    <AuthContext.Provider value={{
+      user, userData, loading, isAdmin, adminChecked, isSuperAdmin, logout, refreshProfile, updateProfile, getTier,
+      role, profile: userData, isStaff, isOnboarded,
+    }}>
       {children}
     </AuthContext.Provider>
   );

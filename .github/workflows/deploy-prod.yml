@@ -94,3 +94,8 @@ jobs:
         run: npx firebase-tools deploy --only hosting,functions --project devert-me --force
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deploy Firestore rules + indexes (Placements Prep)
+        run: npx firebase-tools deploy --only firestore --project devert-me
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

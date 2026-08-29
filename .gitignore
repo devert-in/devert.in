@@ -152,3 +152,8 @@ test/_tmp-*
 # control. Regenerate them from Firestore when they're needed.
 scripts/contest-classwise-results-*.csv
 scripts/contest-classwise-report-*.html
+scripts/results-*.csv
+scripts/results-*.html
+
+# Unrelated third-party template, not part of the DeVert product.
+/Portfolio-white-theme-main/

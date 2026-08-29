@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  Home, Swords, Anchor, Radio, Target, Tv2, Trophy,
-  ScrollText, LogIn, X, User, Activity, Flame, Users,
+  Home, Swords, Anchor, Radio, Target, Zap, Tv2, Trophy,
+  ScrollText, LogIn, X, User, Activity, Flame, Users, GraduationCap,
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query as fsQuery, where, getDocs, limit } from "firebase/firestore";
@@ -16,10 +16,12 @@ const NAV_COMMANDS = [
   { icon: Anchor,     label: "Shipyard",   desc: "Project Launchpad",      href: "/shipyard" },
   { icon: Radio,      label: "Intel",      desc: "Dev Intelligence Feed",  href: "/intel" },
   { icon: Target,     label: "Missions",   desc: "Hackathons as Missions", href: "/missions" },
+  { icon: Zap,        label: "Grind",      desc: "Daily Challenges",       href: "/grind" },
   { icon: Activity,   label: "Pulse",      desc: "Dev Social Feed",        href: "/pulse" },
   { icon: Tv2,        label: "Broadcast",  desc: "DevCast Live",           href: "/broadcast" },
   { icon: Trophy,     label: "Ranks",      desc: "Tier Leaderboard",       href: "/ranks" },
   { icon: Flame,      label: "Events",     desc: "Hackathons, Workshops & More", href: "/events" },
+  { icon: GraduationCap, label: "Prep",    desc: "Placements Prep Portal", href: "/prep" },
   { icon: ScrollText, label: "Logs",       desc: "System Changelog",       href: "/logs" },
   { icon: User,       label: "Dev Card",   desc: "Your Profile & Stats",   href: "/profile" },
   { icon: LogIn,      label: "Login",      desc: "SSH into DeVert",        href: "/login" },

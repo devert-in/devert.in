@@ -1,0 +1,141 @@
+// Seed Python MCQs — core language semantics, traced against actual CPython behaviour.
+
+export const pythonQuestions = [
+  {
+    id: "seed-py-001",
+    type: "mcq",
+    category: "python",
+    topic: "data-types",
+    difficulty: "easy",
+    prompt: "What does `print(type([]))` output in Python?",
+    options: ["list", "<class 'list'>", "tuple", "NoneType"],
+    correctIndex: 1,
+    explanation:
+      "`type()` returns the type object itself, and printing a type object shows `<class 'list'>` — not the bare word \"list\". This is different from `[].__class__.__name__`, which WOULD print just \"list\". Knowing the difference between a type object and its name trips up a lot of beginners.",
+    tags: ["types", "builtins"],
+  },
+  {
+    id: "seed-py-002",
+    type: "mcq",
+    category: "python",
+    topic: "mutability",
+    difficulty: "easy",
+    prompt: "Which of the following Python data types is IMMUTABLE?",
+    options: ["list", "dict", "set", "tuple"],
+    correctIndex: 3,
+    explanation:
+      "A tuple cannot be changed after creation — no append, no item assignment. list, dict and set are all mutable: you can add/remove/change their contents in place. Immutability is exactly why tuples (unlike lists) can be used as dictionary keys.",
+    tags: ["tuples", "mutability"],
+  },
+  {
+    id: "seed-py-003",
+    type: "mcq",
+    category: "python",
+    topic: "slicing",
+    difficulty: "easy",
+    prompt: "What is the output of the following code?\n\n```python\na = [1, 2, 3, 4, 5]\nprint(a[::-1])\n```",
+    options: ["[1, 2, 3, 4, 5]", "[5, 4, 3, 2, 1]", "[]", "IndexError"],
+    correctIndex: 1,
+    explanation:
+      "The slice `[::-1]` means \"start at the end, stop at the beginning, step −1\" — the standard idiom for reversing a sequence without a loop. It works on any sequence (list, string, tuple) and always returns a new object, leaving the original unchanged.",
+    tags: ["slicing", "lists"],
+  },
+  {
+    id: "seed-py-004",
+    type: "mcq",
+    category: "python",
+    topic: "mutable-default-arguments",
+    difficulty: "hard",
+    prompt:
+      "What is printed by the SECOND call to f in this code?\n\n```python\ndef f(x, lst=[]):\n    lst.append(x)\n    return lst\n\nprint(f(1))\nprint(f(2))\n```",
+    options: ["[2]", "[1, 2]", "[1]", "TypeError"],
+    correctIndex: 1,
+    explanation:
+      "Default argument values are evaluated exactly ONCE, at function-definition time, and that same list object is reused across every call that doesn't pass its own `lst`. So the first call appends 1 to it, and the second call appends 2 to the SAME list, printing `[1, 2]`. The standard fix is `def f(x, lst=None): lst = lst if lst is not None else []`.",
+    tags: ["gotchas", "default-arguments"],
+  },
+  {
+    id: "seed-py-005",
+    type: "mcq",
+    category: "python",
+    topic: "exceptions",
+    difficulty: "medium",
+    prompt: "In a try/except/else/finally block, which clause is GUARANTEED to run whether or not an exception occurred?",
+    options: ["except", "else", "finally", "try"],
+    correctIndex: 2,
+    explanation:
+      "`finally` always executes — on success, on a caught exception, and even if the function returns or an uncaught exception propagates out. `else` only runs if NO exception occurred, and `except` only runs if one DID. `finally` is the right place for cleanup like closing a file or a network connection.",
+    tags: ["exceptions", "control-flow"],
+  },
+  {
+    id: "seed-py-006",
+    type: "mcq",
+    category: "python",
+    topic: "string-methods",
+    difficulty: "easy",
+    prompt: 'What does `"Hello   World".split()` return (note the extra spaces)?',
+    options: [
+      "['Hello', '', '', 'World']",
+      "['Hello', 'World']",
+      "['Hello   World']",
+      "TypeError",
+    ],
+    correctIndex: 1,
+    explanation:
+      "Calling `.split()` with NO argument splits on any run of whitespace and automatically discards empty strings — so consecutive spaces collapse into one separator. To keep the empty strings between adjacent separators you would need `.split(' ')` with an explicit single-space argument instead.",
+    tags: ["strings", "split"],
+  },
+  {
+    id: "seed-py-007",
+    type: "mcq",
+    category: "python",
+    topic: "dictionaries",
+    difficulty: "medium",
+    prompt: "In Python 3.7 and later, what order does iterating over a `dict` follow?",
+    options: ["Sorted key order", "Insertion order", "Random order", "Reverse insertion order"],
+    correctIndex: 1,
+    explanation:
+      "Since Python 3.7, dict insertion order is guaranteed as part of the language specification (it was a CPython implementation detail in 3.6). Keys, values and items always come back in the order they were first inserted, which is why `dict` can safely be used to build ordered lookups without importing `OrderedDict`.",
+    tags: ["dictionaries", "ordering"],
+  },
+  {
+    id: "seed-py-008",
+    type: "mcq",
+    category: "python",
+    topic: "generators",
+    difficulty: "medium",
+    prompt: "Which keyword, when used inside a function body, turns that function into a generator?",
+    options: ["return", "yield", "async", "lambda"],
+    correctIndex: 1,
+    explanation:
+      "A single `yield` anywhere in a function body makes Python treat every call to it as producing a generator object instead of running the body immediately. Each `next()` call resumes execution right after the last `yield`, which is how generators produce values lazily, one at a time, without building the whole sequence in memory.",
+    tags: ["generators", "iterators"],
+  },
+  {
+    id: "seed-py-009",
+    type: "mcq",
+    category: "python",
+    topic: "scoping",
+    difficulty: "hard",
+    prompt:
+      "What happens when this code runs?\n\n```python\nx = 10\n\ndef f():\n    print(x)\n    x = 20\n\nf()\n```",
+    options: ["Prints 10", "Prints 20", "UnboundLocalError", "NameError"],
+    correctIndex: 2,
+    explanation:
+      "Python decides a variable's scope for the WHOLE function body at compile time. Because `x` is assigned anywhere inside `f`, it is treated as local for the entire function — including the `print(x)` line that runs before the assignment — so referencing it there raises `UnboundLocalError: local variable 'x' referenced before assignment`. Adding `global x` inside `f` would let it read the module-level `x` instead.",
+    tags: ["scoping", "gotchas"],
+  },
+  {
+    id: "seed-py-010",
+    type: "mcq",
+    category: "python",
+    topic: "operators",
+    difficulty: "easy",
+    prompt: "What is the value of `7 // 2` in Python?",
+    options: ["3.5", "3", "4", "3.0"],
+    correctIndex: 1,
+    explanation:
+      "`//` is floor division: it divides and rounds DOWN to the nearest integer, giving `3` (an int, since both operands are ints). Regular division `/` would give `3.5` (a float) — the double slash is the operator to reach for whenever you need a whole-number quotient.",
+    tags: ["operators", "division"],
+  },
+];

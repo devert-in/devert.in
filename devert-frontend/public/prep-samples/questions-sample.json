@@ -1,0 +1,84 @@
+[
+  {
+    "type": "mcq",
+    "category": "aptitude",
+    "topic": "Percentages",
+    "difficulty": "easy",
+    "prompt": "A student scores 462 marks out of 600 in an exam. What percentage did the student score?",
+    "options": ["70%", "77%", "80%", "82%"],
+    "correctIndex": 1,
+    "explanation": "Percentage = (462 / 600) * 100 = 77%. Divide the marks obtained by the total marks, then multiply by 100 to convert the fraction to a percentage.",
+    "tags": ["percentages", "arithmetic"]
+  },
+  {
+    "type": "mcq",
+    "category": "reasoning",
+    "topic": "Number Series",
+    "difficulty": "medium",
+    "prompt": "Find the next number in the series: 2, 6, 12, 20, 30, ?",
+    "options": ["36", "40", "42", "44"],
+    "correctIndex": 2,
+    "explanation": "The differences between consecutive terms are 4, 6, 8, 10, 12 (increasing by 2 each time). 30 + 12 = 42. This is a classic n(n+1) series: 1*2, 2*3, 3*4, 4*5, 5*6, 6*7=42.",
+    "tags": ["series", "patterns"]
+  },
+  {
+    "type": "mcq",
+    "category": "verbal",
+    "topic": "Synonyms",
+    "difficulty": "easy",
+    "prompt": "Choose the word most similar in meaning to 'CONCISE'.",
+    "options": ["Verbose", "Brief", "Ambiguous", "Elaborate"],
+    "correctIndex": 1,
+    "explanation": "'Concise' means expressing much in few words. 'Brief' shares this meaning. 'Verbose' and 'Elaborate' mean the opposite (wordy), and 'Ambiguous' means unclear, which is unrelated.",
+    "tags": ["vocabulary", "synonyms"]
+  },
+  {
+    "type": "mcq",
+    "category": "dsa",
+    "topic": "Time Complexity",
+    "difficulty": "medium",
+    "prompt": "What is the time complexity of binary search on a sorted array of n elements?",
+    "options": ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
+    "correctIndex": 1,
+    "explanation": "Binary search halves the search space on every comparison, so the number of comparisons needed is proportional to log2(n), giving O(log n) time complexity.",
+    "tags": ["complexity", "searching"]
+  },
+  {
+    "type": "mcq",
+    "category": "python",
+    "topic": "Data Types",
+    "difficulty": "easy",
+    "prompt": "What is the output of `type([])` in Python?",
+    "options": ["<class 'tuple'>", "<class 'list'>", "<class 'dict'>", "<class 'set'>"],
+    "correctIndex": 1,
+    "explanation": "Square brackets `[]` create an empty list in Python, so `type([])` returns `<class 'list'>`. Tuples use `()`, dicts use `{}` with key:value pairs, and sets use `{}` or `set()`.",
+    "tags": ["basics", "data-types"]
+  },
+  {
+    "type": "mcq",
+    "category": "java",
+    "topic": "OOP Basics",
+    "difficulty": "medium",
+    "prompt": "Which keyword is used in Java to prevent a class from being subclassed?",
+    "options": ["static", "final", "private", "abstract"],
+    "correctIndex": 1,
+    "explanation": "The `final` keyword, when applied to a class, prevents any other class from extending it. `abstract` does the opposite (forces subclassing to be usable), `static` relates to class-level members, and `private` controls access, not inheritance.",
+    "tags": ["oop", "keywords"]
+  },
+  {
+    "type": "mcq",
+    "category": "cs-core",
+    "topic": "Operating Systems",
+    "difficulty": "hard",
+    "prompt": "In an operating system, what is a 'deadlock'?",
+    "options": [
+      "A process that has terminated abnormally",
+      "A situation where two or more processes are each waiting for a resource held by the other, so none can proceed",
+      "A process running at the highest priority",
+      "A memory leak caused by unfreed heap allocations"
+    ],
+    "correctIndex": 1,
+    "explanation": "A deadlock occurs when a set of processes are blocked because each process is holding a resource and waiting for another resource held by another process in the same set — none can make progress. The four necessary conditions are mutual exclusion, hold-and-wait, no preemption, and circular wait.",
+    "tags": ["os", "deadlock", "processes"]
+  }
+]

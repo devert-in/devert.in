@@ -30,6 +30,20 @@ service cloud.firestore {
       return isAuth() && request.auth.token.get('superAdmin', false) == true;
     }
 
+    // Placements Prep role helpers (used by /users rules below as well as
+    // prep* collections). No hardcoded-email fallback here - isAdmin() (the
+    // custom claim) already covers platform admins; a role field on the
+    // user doc is the only other way in, same as everywhere else in this
+    // module.
+    function userDoc(uid) { return get(/databases/$(database)/documents/users/$(uid)).data; }
+    function myRole() { return request.auth != null ? userDoc(request.auth.uid).get('role', 'student') : 'none'; }
+    function isStaff() { return request.auth != null && (myRole() in ['faculty', 'tpo', 'admin'] || isAdmin()); }
+    function isPrepAdmin() { return request.auth != null && (myRole() == 'admin' || isAdmin()); }
+    function examData(examId) { return get(/databases/$(database)/documents/prepExams/$(examId)).data; }
+    // Grace window (design §4/§5: submissionGraceSecs, default 120s) so a debounced
+    // autosave or final submit that lands microseconds after endsAt isn't rejected.
+    function examEndsWithGrace(examId) { return examData(examId).endsAt + duration.value(120, 's'); }
+
     // Shared by pulse_posts and the communities/community_members block
     // further down - defined here (not next to communities) because
     // pulse_posts, which also needs them, comes first in this file.
@@ -562,8 +576,14 @@ service cloud.firestore {
           // answer is an admin running scripts/set-full-access.mjs, never the
           // account itself.
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId', 'fullAccess']
+            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId', 'fullAccess', 'role']
           )) || isAdmin()
+        // Placements Prep module's staff/admin role field - same shape as the
+        // institution-membership branch below (a narrow, field-scoped grant,
+        // not a doc-wide bypass): only isPrepAdmin() may set who is faculty/
+        // tpo/admin for that module, and only that one field, never bundled
+        // with any other write.
+        || (isPrepAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']))
         || (isAuth() && (
           boundedUserCounterWrite('followersCount') || boundedUserCounterWrite('pulsePostsCount')
           || boundedUserCounterWrite('totalLikesReceived') || boundedUserCounterWrite('totalCommentsReceived')
@@ -875,6 +895,91 @@ service cloud.firestore {
     match /system/{document=**} {
       allow read:  if true;
       allow write: if isAdmin();
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Placements Prep module
+    // ────────────────────────────────────────────────────────────
+
+    match /prepQuestions/{qid} {
+      allow read: if request.auth != null;
+      allow write: if isPrepAdmin();
+    }
+
+    match /prepCourses/{courseId} {
+      allow read: if request.auth != null;
+      allow write: if isStaff();
+    }
+
+    match /prepDailyTasks/{dateId} {
+      allow read: if request.auth != null;
+      allow write: if isStaff();
+    }
+
+    match /prepClassGroups/{groupId} {
+      allow read: if request.auth != null;
+      allow write: if isStaff();
+    }
+
+    match /prepAnnouncements/{annId} {
+      allow read: if request.auth != null;
+      allow write: if isStaff();
+    }
+
+    match /prepExams/{examId} {
+      allow read: if isStaff() || (request.auth != null && resource.data.published == true);
+      allow write: if isStaff();
+    }
+
+    match /prepExamPapers/{examId} {
+      allow read: if isStaff()
+        || (request.auth != null
+            && examData(examId).published == true
+            && request.time >= examData(examId).startsAt);
+      allow write: if isStaff();
+    }
+
+    match /prepExamKeys/{examId} {
+      allow read: if isStaff()
+        || (request.auth != null && request.time > examData(examId).endsAt);
+      allow write: if isStaff();
+    }
+
+    match /prepSubmissions/{subId} {
+      allow read: if request.auth != null
+        && (resource.data.uid == request.auth.uid || isStaff());
+
+      allow create: if request.auth != null
+        && subId == request.resource.data.examId + '_' + request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && examData(request.resource.data.examId).published == true
+        && request.time >= examData(request.resource.data.examId).startsAt
+        && request.time <= examEndsWithGrace(request.resource.data.examId)
+        && request.resource.data.rollNumber == userDoc(request.auth.uid).get('rollNumber', null);
+
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && resource.data.status != 'submitted'
+        && request.time <= examEndsWithGrace(resource.data.examId)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.examId == resource.data.examId;
+
+      allow delete: if isPrepAdmin();
+    }
+
+    match /prepAttempts/{uid}/records/{attemptId} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isStaff());
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Collection-group read for staff dashboards across all students
+    match /{path=**}/records/{attemptId} {
+      allow read: if isStaff();
+    }
+
+    match /prepProgress/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isStaff());
+      allow write: if request.auth != null && request.auth.uid == uid;
     }
 
     // Past broadcast episodes

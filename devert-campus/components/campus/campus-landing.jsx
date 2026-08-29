@@ -7,10 +7,11 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Bricolage_Grotesque, Inter as InterFont } from "next/font/google";
 import {
   MapPin, Search, BookOpen, ClipboardCheck, Trophy, ShieldCheck,
-  ArrowRight, ArrowUpRight, GraduationCap, Building2,
+  ArrowRight, ArrowUpRight, ArrowDown, GraduationCap, Building2,
   Users, ChevronRight, TrendingUp, Code2, Briefcase,
   CodeXml, BrainCircuit, Calculator, Layers, Sparkles,
   Lock, Check, ListChecks, Mic, LineChart, Flame, Plus, Minus, Crown,
+  CalendarClock, BarChart3, CheckCircle2, Target, Radar,
 } from "lucide-react";
 import { fetchInstitutions, DEPARTMENTS } from "@/lib/institutions";
 import { fetchPublishedContests, bucketContests, contestPhase } from "@/lib/contests";
@@ -26,7 +27,7 @@ import { RazorpayCheckoutButton } from "@/components/payments/razorpay-checkout-
 import { FreeTrialButton } from "@/components/payments/free-trial-button";
 import {
   CampusCard, CampusChip, CampusSkeleton, CampusEmptyState,
-  CampusTable, CampusBadge, CampusGoogleButton,
+  CampusTable, CampusBadge, CampusGoogleButton, CampusProgressBar,
 } from "@/components/campus/campus-ui";
 
 // Scoped to the homepage hero/features/practice bands only (via the vs-*
@@ -197,6 +198,71 @@ const INSTITUTION_ROLES = [
     id: "training-cell", icon: ClipboardCheck, label: "Training cell", color: CAMPUS.warn,
     points: ["Schedule the weekly plan", "Bulk roster onboarding", "Approve join requests"],
   },
+];
+
+// Daily Learning and Assessments & Contests each get their own dedicated
+// /daily-learning and /assessments institution pages (see LANDING_PAGES
+// below) instead of anchoring into InstitutionsBand's six role cards -
+// "what does Daily Learning mean" deserves its own PLAN/CREATE-stage flow,
+// not a repeat of Principal/HOD/Faculty/Students/Placement/Training. Both
+// pages share the exact same visual system (FlowSteps, feature-card grid,
+// dashboard preview) so they read as two modules of one platform rather
+// than two independently hand-rolled pitches.
+const DAILY_LEARNING_FLOW = [
+  {
+    stage: "Plan", who: "Training Cell / Institution", icon: CalendarClock, color: CAMPUS.warn,
+    points: ["Creates the weekly learning plan", "Assigns learning to batches", "Manages the schedule"],
+  },
+  {
+    stage: "Assign", who: "Faculty / HOD", icon: ClipboardCheck, color: CAMPUS.purple,
+    points: ["Manages classroom learning", "Tracks module completion", "Identifies learning gaps"],
+  },
+  {
+    stage: "Learn", who: "Students", icon: Flame, color: CAMPUS.good,
+    points: ["Complete daily learning", "Maintain learning streaks", "Progress through modules"],
+  },
+  {
+    stage: "Track", who: "Institution", icon: BarChart3, color: CAMPUS.teal,
+    points: ["Gets department/batch-level progress", "Sees completion trends", "Identifies students who need support"],
+  },
+];
+
+const DAILY_LEARNING_FEATURES = [
+  { icon: CalendarClock, title: "Weekly Learning Plans", body: "Schedule structured learning for every batch.", color: CAMPUS.warn },
+  { icon: ListChecks, title: "Classroom Progress", body: "See what students have completed and where they are falling behind.", color: CAMPUS.purple },
+  { icon: Flame, title: "Learning Streaks", body: "Help students build consistent daily learning habits.", color: CAMPUS.good },
+  { icon: BarChart3, title: "Institution-wide Visibility", body: "Track learning progress across departments, batches, and classrooms.", color: CAMPUS.teal },
+];
+
+const ASSESSMENTS_FLOW = [
+  {
+    stage: "Create", who: "Training Cell / Faculty", icon: ClipboardCheck, color: CAMPUS.warn,
+    points: ["Create assessments and contests", "Schedule for a batch or department", "Set difficulty and duration"],
+  },
+  {
+    stage: "Attempt", who: "Students", icon: Users, color: CAMPUS.cyan,
+    points: ["Attempt under real time pressure", "Solve coding problems and questions", "Compete campus-wide"],
+  },
+  {
+    stage: "Evaluate", who: "DeVert", icon: CheckCircle2, color: CAMPUS.good,
+    points: ["Auto-evaluates every submission", "Grades against real test cases", "Surfaces performance instantly"],
+  },
+  {
+    stage: "Rank", who: "Institution", icon: Crown, color: CAMPUS.gold,
+    points: ["Ranks students on performance", "Builds contest leaderboards", "Flags top performers"],
+  },
+  {
+    stage: "Improve", who: "Faculty / Students", icon: TrendingUp, color: CAMPUS.purple,
+    points: ["Understand skill gaps", "Target weak topics next", "Track improvement over time"],
+  },
+];
+
+const ASSESSMENT_FEATURES = [
+  { icon: ClipboardCheck, title: "Assessments", body: "Create and schedule assessments for batches, classrooms, or departments.", color: CAMPUS.warn },
+  { icon: Trophy, title: "Coding Contests", body: "Run competitive coding challenges and campus-wide contests.", color: CAMPUS.gold },
+  { icon: CheckCircle2, title: "Automated Evaluation", body: "Evaluate submissions and surface performance instantly.", color: CAMPUS.good },
+  { icon: Crown, title: "Rankings & Readiness", body: "Understand student performance, identify top performers, and discover readiness for placements.", color: CAMPUS.purple },
+  { icon: Radar, title: "Performance Insights", body: "Identify skill gaps and understand where students need more learning.", color: CAMPUS.cyan },
 ];
 
 // The individual ladder. Priced for a student paying out of their own pocket at
@@ -1181,6 +1247,259 @@ function InstitutionsBand({ tone }) {
   );
 }
 
+// ---------------- Daily Learning / Assessments & Contests (institutions) ----------------
+
+// One numbered stage flow, shared by both pages below - "how does Daily
+// Learning actually work" (Plan -> Assign -> Learn -> Track) and "how does
+// Assessments & Contests actually work" (Create -> Attempt -> Evaluate ->
+// Rank -> Improve) are the same shape of question, so they get the same
+// answer: a connected row of who-does-what, not a hand-rolled diagram each.
+// Horizontal with connecting arrows on desktop, stacked with a down-arrow on
+// mobile. `steps`: [{ stage, who, icon, color, points }].
+function FlowSteps({ steps }) {
+  return (
+    <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 mb-12">
+      {steps.map((s, i) => (
+        // display:contents - the card and its following arrow are direct
+        // children of the outer flex row (so they wrap/reflow together),
+        // this div exists only to pair a key with a React.Fragment-shaped
+        // pair of siblings.
+        <div key={s.stage} className="contents">
+          <CampusCard className="p-5 flex-1 lg:basis-0">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: tint(s.color, 14), color: s.color }}>
+                <s.icon size={17} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9.5px] font-mono tracking-widest" style={{ color: s.color }}>STEP {i + 1} &middot; {s.stage.toUpperCase()}</p>
+                <p className="text-[13px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{s.who}</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {s.points.map(p => (
+                <span key={p} className="flex items-start gap-2 text-[11.5px]" style={{ color: CAMPUS.inkSoft }}>
+                  <Check size={11} style={{ color: s.color, marginTop: 2, flexShrink: 0 }} /> {p}
+                </span>
+              ))}
+            </div>
+          </CampusCard>
+          {i < steps.length - 1 && (
+            <div className="flex items-center justify-center flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>
+              <ArrowDown size={16} className="lg:hidden" />
+              <ArrowRight size={16} className="hidden lg:block" />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// A small stat tile shared by both dashboard previews below - illustrative
+// sample data (a worked example of what the dashboard looks like), same
+// convention VistaPlanPanel's "Java + DSA" example plan already uses
+// elsewhere on this page - never a claimed live platform-wide number the
+// way heroStats/DirectoryBand's counts are.
+function PreviewTile({ label, value, color, icon: Icon, className = "" }) {
+  return (
+    <div className={`p-3.5 rounded-xl ${className}`} style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+      <p className="text-[9px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>{label}</p>
+      <p className="text-xl font-bold flex items-center gap-1.5" style={{ color }}>
+        {Icon && <Icon size={16} />} {value}
+      </p>
+    </div>
+  );
+}
+
+function PreviewBarRow({ label, pct, color }) {
+  return (
+    <div className="flex items-center gap-3 mb-2 last:mb-0">
+      <span className="text-[11px] w-20 flex-shrink-0 truncate" style={{ color: CAMPUS.inkSoft }}>{label}</span>
+      <CampusProgressBar pct={pct} color={color} />
+      <span className="text-[10.5px] font-mono w-8 text-right flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{pct}%</span>
+    </div>
+  );
+}
+
+function DailyLearningPreview() {
+  const WEEK_PLAN = [
+    { day: "Mon", topic: "Arrays & Strings", done: true },
+    { day: "Tue", topic: "OOP Fundamentals", done: true },
+    { day: "Wed", topic: "DBMS - Normalization", done: false },
+    { day: "Thu", topic: "Operating Systems", done: false },
+    { day: "Fri", topic: "Mock Assessment", done: false },
+  ];
+  const DEPARTMENTS_PROGRESS = [
+    { label: "Computer Science", pct: 82 },
+    { label: "Electronics", pct: 65 },
+    { label: "Mechanical", pct: 58 },
+  ];
+  return (
+    <CampusCard className="p-6">
+      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+        <div>
+          <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>PREVIEW &middot; WEEKLY LEARNING</p>
+          <p className="text-[15px] font-bold" style={{ color: CAMPUS.ink }}>CS &middot; Batch 2026</p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: CAMPUS.good }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: CAMPUS.good }} /> Scheduled for this week
+        </span>
+      </div>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div>
+          <p className="text-[10px] font-mono tracking-widest mb-3" style={{ color: CAMPUS.inkFaint }}>THIS WEEK&apos;S PLAN</p>
+          <div className="flex flex-col gap-2">
+            {WEEK_PLAN.map(d => (
+              <div key={d.day} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+                <span className="text-[10px] font-mono w-7 flex-shrink-0" style={{ color: CAMPUS.inkFaint }}>{d.day}</span>
+                <span className="text-[12.5px] flex-1" style={{ color: CAMPUS.ink }}>{d.topic}</span>
+                {d.done
+                  ? <Check size={13} style={{ color: CAMPUS.good, flexShrink: 0 }} />
+                  : <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ border: `1.5px solid ${CAMPUS.line}` }} />}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <PreviewTile label="COMPLETION" value="78%" color={CAMPUS.good} />
+            <PreviewTile label="AVG STREAK" value="9 days" color={CAMPUS.warn} icon={Flame} />
+          </div>
+          <div className="p-4 rounded-xl" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+            <p className="text-[9.5px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>DEPARTMENT PROGRESS</p>
+            {DEPARTMENTS_PROGRESS.map(d => <PreviewBarRow key={d.label} label={d.label} pct={d.pct} color={CAMPUS.teal} />)}
+          </div>
+        </div>
+      </div>
+    </CampusCard>
+  );
+}
+
+function AssessmentsPreview() {
+  const LEADERBOARD = [
+    { rank: 1, name: "A. Sharma", score: 96 },
+    { rank: 2, name: "R. Iyer", score: 91 },
+    { rank: 3, name: "M. Fatima", score: 88 },
+  ];
+  const SKILLS = [
+    { label: "DSA", pct: 74 },
+    { label: "DBMS", pct: 58 },
+    { label: "Aptitude", pct: 82 },
+  ];
+  return (
+    <CampusCard className="p-6">
+      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+        <div>
+          <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>PREVIEW &middot; WEEKLY ASSESSMENT</p>
+          <p className="text-[15px] font-bold" style={{ color: CAMPUS.ink }}>DSA Contest &middot; Round 3</p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: CAMPUS.gold }}>
+          <Crown size={13} /> Live leaderboard
+        </span>
+      </div>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div>
+          <p className="text-[10px] font-mono tracking-widest mb-3" style={{ color: CAMPUS.inkFaint }}>TOP PERFORMERS</p>
+          <div className="flex flex-col gap-2">
+            {LEADERBOARD.map(row => (
+              <div key={row.rank} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10.5px] font-bold flex-shrink-0"
+                  style={row.rank === 1
+                    ? { background: tint(CAMPUS.gold, 20), color: CAMPUS.gold }
+                    : { background: CAMPUS.surface2, color: CAMPUS.inkFaint }}>
+                  {row.rank}
+                </span>
+                <span className="text-[12.5px] flex-1" style={{ color: CAMPUS.ink }}>{row.name}</span>
+                <span className="text-[12px] font-mono font-bold" style={{ color: CAMPUS.good }}>{row.score}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
+            <PreviewTile label="AVG SCORE" value="71%" color={CAMPUS.teal} />
+            <PreviewTile label="COMPLETION" value="94%" color={CAMPUS.good} />
+            <PreviewTile label="PLACEMENT READY" value="62%" color={CAMPUS.purple} />
+          </div>
+          <div className="p-4 rounded-xl" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+            <p className="text-[9.5px] font-mono tracking-widest mb-2" style={{ color: CAMPUS.inkFaint }}>SKILL-WISE PERFORMANCE</p>
+            {SKILLS.map(s => <PreviewBarRow key={s.label} label={s.label} pct={s.pct} color={CAMPUS.purple} />)}
+          </div>
+        </div>
+      </div>
+    </CampusCard>
+  );
+}
+
+function DailyLearningInstitutionsBand({ tone }) {
+  return (
+    <Band id="daily-learning-institutions" tone={tone}>
+      <BandHeader eyebrow="For institutions &middot; Daily Learning" title="Turn daily learning into a campus-wide habit"
+        description="Give every student a structured learning plan, schedule the right content for each batch, and see how learning progresses across classrooms and departments."
+        action={<DemoButton source="campus-daily-learning-institutions" />} />
+
+      <FlowSteps steps={DAILY_LEARNING_FLOW} />
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+        {DAILY_LEARNING_FEATURES.map(f => (
+          <CampusCard key={f.title} className="p-5">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: tint(f.color, 14), color: f.color }}>
+              <f.icon size={17} />
+            </div>
+            <h4 className="text-[13.5px] font-semibold mb-1.5" style={{ color: CAMPUS.ink }}>{f.title}</h4>
+            <p className="text-[12px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{f.body}</p>
+          </CampusCard>
+        ))}
+      </div>
+
+      <DailyLearningPreview />
+    </Band>
+  );
+}
+
+function AssessmentsInstitutionsBand({ tone }) {
+  return (
+    <Band id="assessments-institutions" tone={tone}>
+      <BandHeader eyebrow="For institutions &middot; Assessments &amp; Contests" title="Turn learning into measurable outcomes"
+        description="Assess what students know, run coding challenges and contests, identify skill gaps, and turn performance into meaningful insights."
+        action={<DemoButton source="campus-assessments-institutions" />} />
+
+      <FlowSteps steps={ASSESSMENTS_FLOW} />
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        {ASSESSMENT_FEATURES.map(f => (
+          <CampusCard key={f.title} className="p-5">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: tint(f.color, 14), color: f.color }}>
+              <f.icon size={17} />
+            </div>
+            <h4 className="text-[13.5px] font-semibold mb-1.5" style={{ color: CAMPUS.ink }}>{f.title}</h4>
+            <p className="text-[12px] leading-relaxed" style={{ color: CAMPUS.inkSoft }}>{f.body}</p>
+          </CampusCard>
+        ))}
+      </div>
+
+      <div className="mb-8">
+        <AssessmentsPreview />
+      </div>
+
+      {/* Placement Cell gets a callout, not a section - assessment/contest
+          performance feeds placement readiness, but this page's core is
+          measuring and challenging learning, not running placements. */}
+      <CampusCard className="p-5 flex items-center gap-4 flex-wrap" style={{ borderColor: tint(CAMPUS.gold, 30) }}>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <TrendingUp size={16} style={{ color: CAMPUS.gold }} />
+          <span className="text-[12.5px] font-semibold" style={{ color: CAMPUS.ink }}>For the Placement Cell</span>
+        </div>
+        <div className="flex items-center gap-2 text-[12px] flex-wrap" style={{ color: CAMPUS.inkSoft }}>
+          <span>Company-wise preparation</span> <ArrowRight size={12} style={{ flexShrink: 0 }} />
+          <span>Performance</span> <ArrowRight size={12} style={{ flexShrink: 0 }} />
+          <span>Shortlisting</span>
+        </div>
+      </CampusCard>
+    </Band>
+  );
+}
+
 // ---------------- pricing + faq ----------------
 
 // Same shape as DemoButton: owns its dialog so each of the six pricing CTAs
@@ -1503,6 +1822,8 @@ function LandingFooter() {
 const LANDING_PAGES = {
   campuses: { bands: () => <DirectoryBand /> },
   institutions: { bands: () => <InstitutionsBand /> },
+  "daily-learning": { bands: () => <DailyLearningInstitutionsBand /> },
+  assessments: { bands: () => <AssessmentsInstitutionsBand /> },
   // Pricing carries the FAQ because most of the FAQ is about what is free,
   // what is licensed and why - which is the question someone on a pricing page
   // is already asking.

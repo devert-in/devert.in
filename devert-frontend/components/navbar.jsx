@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Swords, Radio, Target, Tv2, Flame, LogIn, Command, User, LogOut, Activity, Wallet, GraduationCap } from "lucide-react";
+import { Home, Swords, Radio, Target, Tv2, Flame, LogIn, Command, User, LogOut, Activity, Wallet, GraduationCap, ClipboardCheck } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
@@ -38,14 +38,15 @@ import { CAMPUS_URL } from "@/lib/campusUrl";
 // specialised surface (an AI workspace, a multi-file editor) can opt back into it
 // later without this dock being involved.
 const NAV_ITEMS = [
-  { icon: Home,          label: "Home",         href: "/"             },
-  { icon: Activity,      label: "Pulse",        href: "/pulse"        },
-  { icon: Swords,        label: "Arena",        href: "/arena"        },
-  { icon: Radio,         label: "Intel",        href: "/intel"        },
-  { icon: GraduationCap, label: "Campus",       href: CAMPUS_URL             },
-  { icon: Tv2,           label: "Broadcast",    href: "/broadcast"    },
-  { icon: Flame,         label: "Events",       href: "/events"       },
-  { icon: Target,        label: "Missions",     href: "/missions"     },
+  { icon: Home,           label: "Home",      href: "/"             },
+  { icon: Activity,       label: "Pulse",     href: "/pulse"        },
+  { icon: Swords,         label: "Arena",     href: "/arena"        },
+  { icon: Radio,          label: "Intel",     href: "/intel"        },
+  { icon: GraduationCap,  label: "Campus",    href: CAMPUS_URL      },
+  { icon: Tv2,            label: "Broadcast", href: "/broadcast"    },
+  { icon: Flame,          label: "Events",    href: "/events"       },
+  { icon: Target,         label: "Missions",  href: "/missions"     },
+  { icon: ClipboardCheck, label: "Prep",      href: "/prep"         },
 ];
 
 export function Navbar() {
