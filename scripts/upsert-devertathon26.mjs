@@ -142,7 +142,7 @@ const doc = {
     { q: "Can I use AI tools during the hackathon?", a: "Yes, responsibly - AI should assist your team, not replace it. You must still be able to explain your implementation." },
     { q: "What should I bring on the day?", a: "College ID, laptop + charger, any hardware you need, and come with your dev environment already set up." },
   ],
-  registrationFormUrl: "https://docs.google.com/forms/d/1k75DVxJ9j9Obp88D8VDNQgvxFrm0NAOpD7J8GV1erZY/",
+  registrationFormUrl: "https://app.studenttribe.in/events/devert-a-thon",
   tags: ["Hackathon"],
   status: "upcoming",
   statusColor: "#00FFFF",
