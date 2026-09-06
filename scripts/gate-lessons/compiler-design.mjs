@@ -8,6 +8,13 @@ export const COMPILER_DESIGN = {
   "lexical-analysis": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lexical Analysis: Introduction - Tokens, Patterns, Lexeme",
+      url: "https://www.youtube.com/watch?v=C7NykE7PS9A",
+      description: "IT Miner explains the lexical analysis phase of a compiler and the distinction between tokens, lexemes, and patterns.",
+    }],
     whatYoullLearn: [
       "What a lexical analyzer actually does: turning raw source text into a stream of tokens",
       "Token, lexeme, and pattern - three related terms that get confused constantly",
@@ -99,6 +106,13 @@ Pipeline: regex per token -> NFA (Thompson's) -> combined DFA (subset constructi
   "parsing-top-down": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Top Down Parsers - Recursive Descent Parsers",
+      url: "https://www.youtube.com/watch?v=iddRD8tJi44",
+      description: "Neso Academy explains top-down parsing via recursive-descent parsers.",
+    }],
     whatYoullLearn: [
       "How top-down (LL) parsing builds a parse tree from the root downward",
       "Why left recursion breaks top-down parsing, and how to eliminate it",
@@ -203,6 +217,13 @@ Recursive descent: one function per nonterminal, using FIRST to choose, recursin
   "parsing-bottom-up": {
     difficulty: "Hard",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Bottom-Up Parsers - Chapter-4 - Compiler Design - nesoacademy.org",
+      url: "https://www.youtube.com/watch?v=kQMIQQmmkj8",
+      description: "Neso Academy's introduction to bottom-up (shift-reduce/LR) parsing.",
+    }],
     whatYoullLearn: [
       "How bottom-up (shift-reduce) parsing builds the parse tree from the leaves upward",
       "The LR parser hierarchy: LR(0), SLR, LALR, LR(1), and roughly what distinguishes their power",
@@ -300,6 +321,13 @@ Shift-reduce conflict: shift-vs-reduce ambiguity. Reduce-reduce conflict: which 
   "syntax-directed-translation": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Syntax Directed Translation Explained - Synthesized & Inherited Attributes - GATE Compiler Design",
+      url: "https://www.youtube.com/watch?v=-xxSMt-2nKo",
+      description: "Arpit Yadav explains syntax-directed translation with synthesized and inherited attributes for GATE prep.",
+    }],
     whatYoullLearn: [
       "What synthesized and inherited attributes are, with the direction each one flows",
       "S-attributed vs L-attributed grammars, and why the distinction matters for evaluation order",
@@ -399,6 +427,13 @@ S-attributed: synthesized only, single bottom-up pass, fits LR. L-attributed: al
   "runtime-environments": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Runtime Environment & Code Optimization - Chapter-7 - Compiler Design - nesoacademy.org",
+      url: "https://www.youtube.com/watch?v=SaKfQX_tQrs",
+      description: "Neso Academy's chapter on runtime environments, covering activation records and storage/scoping for procedure calls.",
+    }],
     whatYoullLearn: [
       "What an activation record holds, and why every function call needs one",
       "Static vs dynamic scoping, and how each one resolves a variable reference differently",
@@ -498,6 +533,13 @@ Call by value (copy, no caller effect), call by reference (address, direct calle
   "intermediate-code-generation": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Intermediate Code Generation - Chapter-6 - Compiler Design - nesoacademy.org",
+      url: "https://www.youtube.com/watch?v=SiYxGP0O68s",
+      description: "Neso Academy's Compiler Design chapter introducing intermediate code generation and three-address code representation.",
+    }],
     whatYoullLearn: [
       "Why compilers generate an intermediate representation instead of going straight to machine code",
       "Three-address code, and the specific 'at most one operator per instruction' rule that defines it",
@@ -603,6 +645,13 @@ y = t1 * t2
   "local-optimisation": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-24: Peephole Optimization in Compiler - Dead code elimination - Strength reduction",
+      url: "https://www.youtube.com/watch?v=clb4tnEm8l4",
+      description: "Gate Smashers covers peephole optimization and related basic-block/local optimization techniques (dead code elimination, strength reduction).",
+    }],
     whatYoullLearn: [
       "What a basic block is, and why optimization is naturally scoped to one first",
       "Peephole optimization: what it looks at, and the specific patterns it catches",
@@ -701,6 +750,13 @@ Local optimization can't see across blocks - motivates data-flow analysis (Liven
   "constant-propagation": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Constant Propagation in Compiler Design - Constant Folding in compiler design - Local optimization",
+      url: "https://www.youtube.com/watch?v=ckx1aWLrx6U",
+      description: "CSE concepts with Parinita covers constant propagation and constant folding as local/data-flow optimization techniques with examples.",
+    }],
     whatYoullLearn: [
       "What constant propagation actually does, beyond simple local constant folding",
       "Why this requires data-flow analysis across the whole control flow graph, not just one block",
@@ -790,6 +846,13 @@ At a merge point, a variable is constant only if EVERY incoming path agrees on t
   "liveness-analysis": {
     difficulty: "Hard",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Liveness Analysis Example - Compiler Design - GATE CS",
+      url: "https://www.youtube.com/watch?v=kCAGW2PhlOo",
+      description: "Prof. Ravindrababu Ravula works a liveness/live-variable data-flow analysis example for GATE CS preparation.",
+    }],
     whatYoullLearn: [
       "What it means for a variable to be 'live' at a program point, precisely",
       "Why liveness analysis is a BACKWARD data-flow analysis, unlike constant propagation's forward direction",
@@ -885,6 +948,13 @@ Applications: register allocation (non-overlapping live ranges share a register)
   "common-subexpression-elimination": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Common Subexpression Elimination in Compiler Design - common subexpression algorithm in compiler",
+      url: "https://www.youtube.com/watch?v=U1RVsnNhaAA",
+      description: "CSE concepts with Parinita walks through local common subexpression elimination as a code optimization technique with a worked algorithm example.",
+    }],
     whatYoullLearn: [
       "What counts as a 'common subexpression', precisely",
       "Available expressions analysis, the data-flow technique CSE is built on",

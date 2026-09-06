@@ -780,6 +780,13 @@ Myhill-Nerode: L is regular iff finitely many classes under "same accepted conti
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 30, coinReward: 12,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-34: Closure properties of regular languages in TOC",
+      url: "https://www.youtube.com/watch?v=2k8r4HGdxBw",
+      description: "Gate Smashers lecture on closure properties (union, intersection, concatenation, star, complement) of regular languages.",
+    }],
     whatYoullLearn: [
       "Which operations regular languages are closed under, and how each closure is proved",
       "Using closure properties to prove a language is NOT regular, without the pumping lemma",
@@ -1559,6 +1566,13 @@ All the counting happened in stack HEIGHT - the one resource a finite automaton 
     difficulty: "Moderate",
     estimatedMinutes: 35,
     xpReward: 30, coinReward: 12,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Closure properties of Context Free Languages || CFG || TOC || FLAT || Theory of Computation",
+      url: "https://www.youtube.com/watch?v=XEhUMkmVMGs",
+      description: "Sudhakar Atchala lecture on closure properties of context-free languages in Theory of Computation.",
+    }],
     whatYoullLearn: [
       "Which operations CFLs are closed under, and the two headline ones they are not",
       "Why intersection and complement fail, with the standard counter-example",

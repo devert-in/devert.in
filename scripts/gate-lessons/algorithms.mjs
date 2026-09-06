@@ -15,6 +15,13 @@ export const ALGORITHMS = {
   "asymptotic-notation": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "1.8.1 Asymptotic Notations Big Oh - Omega - Theta #1",
+      url: "https://www.youtube.com/watch?v=A03oI0znAoc",
+      description: "Explains Big-O, Big-Omega, and Big-Theta notation with formal definitions and examples.",
+    }],
     whatYoullLearn: [
       "What Big-O, Big-Omega, and Big-Theta each actually bound, precisely",
       "Why constants and lower-order terms are dropped, and when that's actually valid",
@@ -110,6 +117,13 @@ Standard order: O(1)<O(log n)<O(sqrt n)<O(n)<O(n log n)<O(n^2)<O(n^3)<O(2^n)<O(n
   "worst-case-time-and-space-complexity": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "1.11 Best Worst and Average Case Analysis",
+      url: "https://www.youtube.com/watch?v=lj3E24nnPjI",
+      description: "Covers best-case, worst-case, and average-case time complexity analysis using search examples.",
+    }],
     whatYoullLearn: [
       "The difference between best, average, and worst-case complexity, and which one Big-O typically describes",
       "Space complexity, and why it must include auxiliary space, not just the input's own size",
@@ -197,6 +211,13 @@ Space complexity = auxiliary (extra) space, not input size. In-place algorithms 
   "recurrence-solving-for-algorithms": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "2.4.1 Masters Theorem in Algorithms for Dividing Function #1",
+      url: "https://www.youtube.com/watch?v=OynWkEj0S-s",
+      description: "Teaches the Master Theorem for solving divide-and-conquer recurrence relations.",
+    }],
     whatYoullLearn: [
       "The Master Theorem, and the three cases that classify a divide-and-conquer recurrence's solution",
       "How to identify a, b, and f(n) from a recurrence and apply the theorem correctly",
@@ -308,6 +329,13 @@ T(n) = Theta(n^(log_b a)) = Theta(n^3). So k=3.`,
   "searching": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-15: Binary Search in Data Structure by #Naina Mam",
+      url: "https://www.youtube.com/watch?v=9HlbVEVt_Y0",
+      description: "Explains the binary search algorithm and its logarithmic time complexity.",
+    }],
     whatYoullLearn: [
       "Linear search vs binary search, and the ONE precondition binary search absolutely requires",
       "Why binary search is O(log n), derived from how fast it halves the search space",
@@ -434,6 +462,13 @@ Variants: first/last occurrence (modified stopping condition), rotated array (id
   "sorting": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "L-1.6: Time Complexities of all Searching and Sorting Algorithms in 10 minute | GATE & other Exams",
+      url: "https://www.youtube.com/watch?v=gBz44smaa9A",
+      description: "Rapid-fire comparison of time complexities across all major sorting (and searching) algorithms for GATE.",
+    }],
     whatYoullLearn: [
       "The time/space complexity and stability of every major comparison-based sort",
       "Why comparison-based sorting has an Omega(n log n) LOWER bound, and which sorts actually meet it",
@@ -535,6 +570,13 @@ Omega(n log n) bounds comparison sorts only - counting sort O(n+k) and radix sor
   "hashing": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "8.1 Hashing Techniques to Resolve Collision | Separate Chaining and Linear Probing | Data structure",
+      url: "https://www.youtube.com/watch?v=zeMa9sg-VJM",
+      description: "Explains hash collision resolution via separate chaining and linear probing.",
+    }],
     whatYoullLearn: [
       "What a hash function does, and the properties a good one needs",
       "Collision resolution: chaining vs open addressing, and open addressing's three probing strategies",
@@ -646,6 +688,13 @@ Load factor alpha = entries/size predicts cost directly; hash tables resize once
   "greedy-algorithms": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "3. Greedy Method - Introduction",
+      url: "https://www.youtube.com/watch?v=ARvQcqJ_-NY",
+      description: "Introduces the greedy algorithm design paradigm, feasible vs optimal solutions, and general method.",
+    }],
     whatYoullLearn: [
       "What makes a problem greedy-solvable: the greedy-choice property and optimal substructure",
       "Classic greedy algorithms and the specific choice rule each one makes at every step",
@@ -738,6 +787,13 @@ Exchange argument: the standard informal correctness-proof technique for greedy 
   "dynamic-programming": {
     difficulty: "Hard",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "4 Principle of Optimality - Dynamic Programming introduction",
+      url: "https://www.youtube.com/watch?v=5dRGRueKU3M",
+      description: "Introduces dynamic programming via the principle of optimality and memoization vs tabulation.",
+    }],
     whatYoullLearn: [
       "The two properties a problem needs for DP to apply: overlapping subproblems and optimal substructure",
       "Memoization (top-down) vs tabulation (bottom-up), and the trade-offs between them",
@@ -871,6 +927,13 @@ Design steps: identify the state, write the recurrence, implement via memoizatio
   "divide-and-conquer": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "L-3.0: Divide and Conquer | Algorithm",
+      url: "https://www.youtube.com/watch?v=I8w2XN0w-fQ",
+      description: "Introduces the divide-and-conquer algorithm design technique with example applications.",
+    }],
     whatYoullLearn: [
       "The three-step divide-and-conquer pattern, and how it differs from DP despite both being recursive",
       "Classic divide-and-conquer algorithms beyond sorting: binary search, and finding max/min",
@@ -974,6 +1037,13 @@ Complexity analysed via the Master Theorem.`,
   "graph-traversals": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "5.1 Graph Traversals - BFS & DFS -Breadth First Search and Depth First Search",
+      url: "https://www.youtube.com/watch?v=pcKY4hjDrxk",
+      description: "Explains breadth-first search and depth-first search graph traversal algorithms.",
+    }],
     whatYoullLearn: [
       "BFS and DFS: the exact data structure each uses, and why that choice produces their different traversal orders",
       "Time and space complexity of both, for adjacency list and adjacency matrix representations",
@@ -1129,6 +1199,13 @@ Applications: connected components (repeat from each unvisited vertex), cycle de
   "minimum-spanning-trees": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "3.5 Prims and Kruskals Algorithms - Greedy Method",
+      url: "https://www.youtube.com/watch?v=4ZlRH0eK-qQ",
+      description: "Covers Prim's and Kruskal's greedy algorithms for finding a minimum spanning tree.",
+    }],
     whatYoullLearn: [
       "What a spanning tree is, and what makes one MINIMUM (in a weighted graph)",
       "Kruskal's algorithm: the edge-sorting greedy approach, and why Union-Find is the right tool for it",
@@ -1241,6 +1318,13 @@ Cut Property justifies both greedy MST algorithms. Kruskal's: sort edges, add if
   "shortest-paths": {
     difficulty: "Hard",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Shortest Path Algorithms (Dijkstra and Bellman-Ford) - Simplified",
+      url: "https://www.youtube.com/watch?v=2raV0H9KqY8",
+      description: "Explains Dijkstra's and Bellman-Ford single-source shortest path algorithms.",
+    }],
     whatYoullLearn: [
       "Dijkstra's algorithm, and the ONE precondition it requires that both Bellman-Ford and Floyd-Warshall don't",
       "Bellman-Ford, and why it can handle negative weights (and even detect negative cycles)",

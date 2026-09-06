@@ -20,6 +20,13 @@ export const ENGINEERING_MATHEMATICS_A = {
   "propositional-logic": {
     difficulty: "Easy",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Motivation & Introduction to Propositional Logic",
+      url: "https://www.youtube.com/watch?v=IZpvlR5J7FQ",
+      description: "Introduces propositions, logical connectives, and the basics of propositional logic.",
+    }],
     xpReward: 20, coinReward: 8,
     whatYoullLearn: [
       "What a proposition is, and the five connectives that combine them",
@@ -211,6 +218,13 @@ This is why GATE never asks you to hand-build a table for more than 3-4 variable
   "first-order-logic": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "First Order Logic (Solved Problems) - Part 1",
+      url: "https://www.youtube.com/watch?v=1bpXqRL2dl8",
+      description: "Walks through solved problems translating statements into first-order/predicate logic with quantifiers.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "Why propositional logic isn't expressive enough, and what predicates and quantifiers add",
@@ -396,6 +410,13 @@ Database and API contracts are full of this distinction: "every user has at leas
   "sets": {
     difficulty: "Easy",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Set Theory (Basics of Sets)",
+      url: "https://www.youtube.com/watch?v=Ql7pHnavYSA",
+      description: "Covers what a set is, well-defined sets, and basic set notation.",
+    }],
     xpReward: 20, coinReward: 8,
     whatYoullLearn: [
       "Sets, subsets and the power set - and why a power set's size is always a power of 2",
@@ -569,6 +590,13 @@ Note this is different from the power-set-size question (2^5 = 32 total subsets 
   "relations": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Introduction to Relations",
+      url: "https://www.youtube.com/watch?v=4Caxyh0zt_o",
+      description: "Introduces binary relations between sets in discrete mathematics.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "What a relation actually is - just a set of pairs, nothing more exotic",
@@ -730,6 +758,13 @@ Transitive closure is directly the algorithm behind computing "all indirect depe
   "functions": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Functions | Chapter-7 | Discrete Mathematics | nesoacademy.org",
+      url: "https://www.youtube.com/watch?v=AMgmkmlJKAs",
+      description: "Covers functions, their types, and properties in discrete mathematics.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "A function as a special kind of relation - one where every input has exactly one output",
@@ -905,6 +940,13 @@ Each bijection pairs every element of the first set with a distinct element of t
   "partial-orders-and-lattices": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Partial Order Relations and Lattices",
+      url: "https://www.youtube.com/watch?v=d_ttdq8wMKw",
+      description: "Explains partial order relations (POSETs) and lattice structures in discrete mathematics.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "A partial order as reflexive + antisymmetric + transitive, and how it differs from a total order",
@@ -1076,6 +1118,13 @@ Lattices specifically underlie type systems (a subtype relation is a partial ord
   "monoids": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Monoid in Discrete Mathematics | Group Theory",
+      url: "https://www.youtube.com/watch?v=wYPEEJLVjXg",
+      description: "Explains what a monoid is, building on semigroup concepts in group theory.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "What makes a binary operation \"closed\" over a set, and why that's the very first check",
@@ -1225,6 +1274,13 @@ String concatenation, list concatenation, and numeric sum/product are the concre
   "groups": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Introduction to Group Theory | Discrete Mathematics",
+      url: "https://www.youtube.com/watch?v=K6gRKzkd1mI",
+      description: "Introduces groups and the group axioms in abstract algebra.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "A group as a monoid where every element also has an inverse",
@@ -1415,6 +1471,13 @@ An element of order exactly 24 would generate the entire group (making it cyclic
   "graph-connectivity": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "6.11 Connected Components | How to find Connected Components in Graph | Graph Theory",
+      url: "https://www.youtube.com/watch?v=9esCn0awd5k",
+      description: "Explains graph connectivity and how to find connected components.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "Graphs as a formal object: vertices, edges, degree, and the handshake lemma",
@@ -1621,6 +1684,13 @@ Trees specifically are the backbone of file systems, DOM structures, and organis
   "graph-matching": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Introduction to Matching in Bipartite Graphs (Hall's Marriage Theorem)",
+      url: "https://www.youtube.com/watch?v=ooPLtxKXJPo",
+      description: "Introduces matching in bipartite graphs and states/applies Hall's marriage theorem.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "A matching as a set of edges with no shared endpoints - pairing things up without overlap",
@@ -1789,6 +1859,13 @@ Hall's theorem's "no bottleneck" framing is a genuinely useful mental check in s
   "graph-colouring": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "29 - Graph Coloring and Chromatic Number of a Graph",
+      url: "https://www.youtube.com/watch?v=G-dkYSoluys",
+      description: "Explains graph coloring and how to determine a graph's chromatic number.",
+    }],
     xpReward: 25, coinReward: 10,
     whatYoullLearn: [
       "Graph colouring as a rule: no two connected vertices may share a colour",

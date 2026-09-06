@@ -35,6 +35,13 @@ export const GENERAL_APTITUDE = {
     difficulty: "Easy",
     estimatedMinutes: 25,
     xpReward: 20, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Tenses | Chapter-5 | General English | nesoacademy.org",
+      url: "https://www.youtube.com/watch?v=WmvJWVond1U",
+      description: "Neso Academy's dedicated chapter on English grammar tenses from their GATE/PSU General English course.",
+    }],
     whatYoullLearn: [
       "Why GATE tests tense at all, and the narrow set of forms it actually asks about",
       "The three tenses times four aspects grid that generates every English verb form",
@@ -178,6 +185,13 @@ Exam habit: find the time marker, then look at the options.`,
     difficulty: "Easy",
     estimatedMinutes: 25,
     xpReward: 20, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "English Grammar - Verbal Ability Series for GATE 2021 | General Aptitude",
+      url: "https://www.youtube.com/watch?v=Wt_URzW3Aho",
+      description: "Shreyas A, via Unacademy Ascend's GATE/ESE verbal ability series, covering core English grammar including parts of speech.",
+    }],
     whatYoullLearn: [
       "The one question that decides every article choice",
       "Adjective order - why \"a big red wooden box\" is the only acceptable ordering",
@@ -336,6 +350,13 @@ Prepositions: not derivable. Learn them as attached pairs. High-frequency GATE s
     difficulty: "Easy",
     estimatedMinutes: 25,
     xpReward: 20, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Subject-Verb Agreement | Chapter-6 | General English | nesoacademy.org",
+      url: "https://www.youtube.com/watch?v=uDqDbevh3no",
+      description: "Neso Academy chapter on subject-verb agreement rules, the core of this topic's grammar content.",
+    }],
     whatYoullLearn: [
       "Subject-verb agreement, and the four sentence shapes that make it hard",
       "Correlative conjunction pairs, and why GATE loves breaking them",
@@ -494,6 +515,13 @@ Correlative pairs are fixed: either-or, neither-nor, not only-but also, both-and
     difficulty: "Easy",
     estimatedMinutes: 25,
     xpReward: 20, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Q and A GATE Verbal, Idioms, Vocabulary Practice | Lec 25 | General Aptitude | GATE 2021 CSE",
+      url: "https://www.youtube.com/watch?v=WYeMpyYmaNY",
+      description: "Unacademy Computer Science lecture drilling vocabulary, idioms, and phrase-in-context questions for GATE.",
+    }],
     whatYoullLearn: [
       "Why GATE tests vocabulary in context rather than as isolated definitions",
       "Reading word parts to decode a word you have genuinely never seen",
@@ -1113,6 +1141,13 @@ Watch for truncated y-axes and unit mismatches (lakhs vs crores). Round aggressi
     difficulty: "Easy",
     estimatedMinutes: 25,
     xpReward: 20, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "GATE General Aptitude Numerical Computation Data Interpretation (Part - 1)",
+      url: "https://www.youtube.com/watch?v=T8Zvu2BcJBg",
+      description: "SuperProfs.com lecture on numerical computation and data-interpretation style GATE aptitude questions.",
+    }],
     whatYoullLearn: [
       "Estimation as a deliberate exam technique, not sloppiness",
       "Which direction your rounding error points, and how to keep track of it",
@@ -1284,6 +1319,13 @@ Decompose percentages into 25% / 10% / 1% chunks. Always sanity-check the magnit
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Logarithm, Powers & Exponents - 1 | Lec 59 | General Aptitude | GATE/ESE 2021 Exam",
+      url: "https://www.youtube.com/watch?v=HVWHfx-DB2U",
+      description: "Kreatryx GATE (Unacademy) lecture covering powers and exponents fundamentals for GATE aptitude.",
+    }],
     whatYoullLearn: [
       "Why successive percentage changes do not add, and what to do instead",
       "Ratios as a scaling tool, using the multiplier-k method",
@@ -1488,6 +1530,13 @@ x% of y = y% of x.`,
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "GATE General Aptitude | PERMUTATIONS & COMBINATIONS | 5 Most Important PYQs | CSIR-NET | Christy V",
+      url: "https://www.youtube.com/watch?v=eseX9KxuvA0",
+      description: "Christy Varghese covers permutations and combinations theory with 5 key previous-year GATE questions.",
+    }],
     whatYoullLearn: [
       "Logarithms as the inverse of exponentiation, and the four rules that follow",
       "The one question that separates a permutation from a combination",
@@ -1688,6 +1737,13 @@ Repeats -> divide by each repeat's factorial. Circle -> (n-1)!. Necklace -> (n-1
     difficulty: "Moderate",
     estimatedMinutes: 25,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Arithmetic Progression and Geometric Progression | Aptitude for GATE | AP and GP | GATE 2023",
+      url: "https://www.youtube.com/watch?v=Vj5Mj5yZnbo",
+      description: "GATE CSE Lectures by Amit Khurana covers AP/GP series and progressions for GATE aptitude.",
+    }],
     whatYoullLearn: [
       "Recognising an AP, a GP, and the patterns that are neither",
       "The nth-term and sum formulas, and when each applies",
@@ -1884,6 +1940,13 @@ If terms swing, split odd and even positions - two interleaved series. Letter se
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "GATE PYQs on Geometry and Mensuration | General Aptitude | by Shrenik Jain",
+      url: "https://www.youtube.com/watch?v=rWOjWgCrVXc",
+      description: "Shrenik Jain (via Unacademy) works through GATE previous-year questions on geometry and mensuration.",
+    }],
     whatYoullLearn: [
       "The area and volume formulas GATE actually uses",
       "How scaling a linear dimension affects area and volume - the most-tested idea here",
@@ -2084,6 +2147,13 @@ Check curved versus total surface area, and check units (1 litre = 1000 cm^3).`,
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lecture #02 | Probability | GATE GA Course by Christy Varghese",
+      url: "https://www.youtube.com/watch?v=190kOGtcxUw",
+      description: "Christy Varghese's GATE General Aptitude course lecture dedicated to probability fundamentals and problems.",
+    }],
     whatYoullLearn: [
       "Mean, median and mode - and when each one misrepresents the data",
       "The addition and multiplication rules, and the independence assumption they rest on",
@@ -2292,6 +2362,13 @@ Sample spaces: die 6, two dice 36, n coins 2^n, deck 52. Two dice summing to 7 h
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Aptitude Lecture 5 : Syllogism and Logical Deduction, Module 1",
+      url: "https://www.youtube.com/watch?v=p2Fxe42LHIA",
+      description: "Mech Zone lecture on syllogisms and logical deduction, core content for this reasoning topic.",
+    }],
     whatYoullLearn: [
       "Deduction versus induction, and why only one of them guarantees its conclusion",
       "Syllogisms, and the invalid patterns that feel true",
@@ -2450,6 +2527,13 @@ Heuristic: two "some" premises almost always mean no conclusion follows.`,
     difficulty: "Easy",
     estimatedMinutes: 20,
     xpReward: 20, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "GATE 2025 - ANALOGY | THEORY & 20 PYQs | Verbal Ability | General Aptitude",
+      url: "https://www.youtube.com/watch?v=W1y50WehSMo",
+      description: "Christy Varghese (Christy's Classes) covers analogy theory plus 20 previous-year GATE questions on verbal analogies.",
+    }],
     whatYoullLearn: [
       "Naming the relationship as the one technique that makes analogies fast",
       "The standard relationship types GATE draws from",
@@ -2580,6 +2664,13 @@ Letter and number analogies: convert letters to positions (A=1..Z=26) first - th
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "GATE SPECIAL MONTH | GENERAL APTITUDE Numerical relations Part 2",
+      url: "https://www.youtube.com/watch?v=siFkKYl1GPs",
+      description: "TLS Online (CSIR-DBT NET/GATE prep) lecture specifically on numerical relations reasoning problems.",
+    }],
     whatYoullLearn: [
       "Coding-decoding as a small set of underlying transformations",
       "Blood relations, and why a diagram beats mental tracking every time",
@@ -2778,6 +2869,13 @@ Grid puzzles: read all clues first, apply the most constraining first (not the l
     difficulty: "Moderate",
     estimatedMinutes: 25,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec 1 : Rotation of shapes || Spatial Aptitude || General Aptitude GATE 2024",
+      url: "https://www.youtube.com/watch?v=bOTYgY32gHs",
+      description: "BIOTECHWALI-Nidhi Sharma's spatial aptitude lecture on rotation of shapes, one of the named transformations.",
+    }],
     whatYoullLearn: [
       "The four transformations, and which properties each one preserves",
       "The one test that separates a rotation from a mirror image",
@@ -2938,6 +3036,13 @@ Scaling by k: lengths x k, areas x k^2, angles unchanged. Track one asymmetric f
     difficulty: "Moderate",
     estimatedMinutes: 25,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "[5] Spatial Reasoning for GATE | Formation of Figures | General Aptitude GATE Lectures",
+      url: "https://www.youtube.com/watch?v=wnVPwpz-9dU",
+      description: "IMS GATE Academy lecture on formation/assembly of figures, part of a numbered GATE spatial-reasoning lecture series.",
+    }],
     whatYoullLearn: [
       "Area conservation as the first check on any assembly question",
       "Counting edges, vertices and angles to eliminate options fast",
@@ -3123,6 +3228,13 @@ If no rule appears quickly, tabulate one countable property across all five figu
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Spatial Aptitude Questions for GATE 2023 - Paper Folding - Solved GATE Question",
+      url: "https://www.youtube.com/watch?v=UWPHXxrtQUs",
+      description: "teacher4u channel solves a GATE paper-folding spatial reasoning question in detail.",
+    }],
     whatYoullLearn: [
       "Unfolding as reflection applied in reverse order",
       "Why n folds produce 2^n copies of a single cut",

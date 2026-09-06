@@ -115,8 +115,9 @@ export function Footer() {
           </p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <a href="/about"   className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">About</a>
-            <a href="/privacy" className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Privacy Policy</a>
-            <a href="/terms"   className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Terms of Service</a>
+            <a href="/privacy"   className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Privacy Policy</a>
+            <a href="/terms"     className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Terms of Service</a>
+            <a href="/workplace" className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Workplace Policy</a>
             <p className="font-mono text-xs text-white/15">Built by The Duo // v2.0</p>
           </div>
         </div>

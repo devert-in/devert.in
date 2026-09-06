@@ -17,6 +17,13 @@ export const PROGRAMMING_AND_DATA_STRUCTURES_B = {
   "recursion": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Recursion in C",
+      url: "https://www.youtube.com/watch?v=kepBmgvWNDw",
+      description: "Introduces recursion in C programming with worked examples of recursive functions.",
+    }],
     whatYoullLearn: [
       "What makes a recursive function actually terminate - the base case, and why it must be reached",
       "How the call stack models recursion: each call gets its own stack frame with its own local variables",
@@ -166,6 +173,13 @@ No reachable base case -> stack overflow, not a silent infinite loop.`,
   "recursion-tracing-and-output-prediction": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Recursion (Solved Problem 1)",
+      url: "https://www.youtube.com/watch?v=IVLUGb_gDDE",
+      description: "Traces a recursive C function step by step to predict its output for a solved GATE-style problem.",
+    }],
     whatYoullLearn: [
       "A systematic method for predicting a recursive function's exact printed output by hand",
       "Tracing recursion that has multiple recursive calls per invocation (like a tree, not a single chain)",
@@ -305,6 +319,13 @@ Pass-by-value parameters are independent per call; pointers/globals are shared a
   "arrays": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-3: Arrays in Data Structure by #Naina Mam | Initialization, Declaration, Memory Representation",
+      url: "https://www.youtube.com/watch?v=6e6yKtr2VGI",
+      description: "Introduces arrays as a data structure, covering declaration, initialization, and memory representation.",
+    }],
     whatYoullLearn: [
       "Why array access is O(1) - the actual address arithmetic behind arr[i]",
       "Why insertion/deletion in the middle of an array is O(n), not O(1)",
@@ -435,6 +456,13 @@ End insertion/deletion: O(1). Middle/beginning: O(n) due to shifting. Unsorted s
   "stacks": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Introduction to Stacks",
+      url: "https://www.youtube.com/watch?v=I37kGX-nZEI",
+      description: "Introduces the stack data structure, the stack ADT, and its primary operations.",
+    }],
     whatYoullLearn: [
       "The LIFO discipline and the three core operations: push, pop, peek",
       "Array-based vs linked-list-based stack implementation, and the trade-off between them",
@@ -571,6 +599,13 @@ See '*': pop 5, pop 6, compute 6*5=30, push 30. Final value: 30.`,
   "queues": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Queues | Chapter-7 | Data Structures | nesoacademy.org",
+      url: "https://www.youtube.com/watch?v=D80AB1WkzRk",
+      description: "Covers the queue data structure, its properties, and its operations.",
+    }],
     whatYoullLearn: [
       "The FIFO discipline and the two ends a queue operates at",
       "Why a naive array-based queue wastes space, and how a CIRCULAR array queue fixes it",
@@ -720,6 +755,13 @@ Priority queue: dequeues by priority (usually heap-based, O(log n)), not arrival
   "linked-lists": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Introduction to Linked List",
+      url: "https://www.youtube.com/watch?v=R9PTBwOzceo",
+      description: "Introduces the linked list data structure and the motivation behind it.",
+    }],
     whatYoullLearn: [
       "Why linked-list insertion/deletion at a KNOWN position is O(1), unlike an array's O(n)",
       "Singly, doubly, and circular linked lists, and what each buys over a plain singly-linked list",
@@ -858,6 +900,13 @@ Singly (one direction), doubly (bidirectional, extra memory), circular (last nod
   "trees-and-tree-traversals": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "5.6 Binary Tree traversal | Preorder, Inorder, Postorder | Data Structures Tutorials",
+      url: "https://www.youtube.com/watch?v=e_Wv_pH4Se8",
+      description: "Explains preorder, inorder, and postorder binary tree traversal methods.",
+    }],
     whatYoullLearn: [
       "Core tree terminology: root, leaf, height, depth, and how they're computed",
       "The three depth-first traversals (inorder, preorder, postorder) and how their output order differs",
@@ -1007,6 +1056,13 @@ Level-order needs a queue (BFS), not recursion. Inorder+preorder (or +postorder)
   "binary-search-trees": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-53: Binary Search Tree in Data Structure | Insertion and Traversal in BST",
+      url: "https://www.youtube.com/watch?v=sXABdGalFNg",
+      description: "Explains binary search trees, covering insertion and traversal operations.",
+    }],
     whatYoullLearn: [
       "The BST property and why it makes inorder traversal produce sorted output",
       "Search, insert, and delete, and why their complexity is O(height), not O(log n) in general",
@@ -1153,6 +1209,13 @@ Deletion: leaf (remove), one child (replace with it), two children (replace with
   "binary-heaps": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "6.15 हीप की मूल बातें | न्यूनतम हीप | अधिकतम हीप",
+      url: "https://www.youtube.com/watch?v=wj9IODIsNoI",
+      description: "Explains the basics of the heap data structure, including min-heap and max-heap properties.",
+    }],
     whatYoullLearn: [
       "The heap property (min-heap and max-heap) and how it differs from the BST property",
       "The array representation of a complete binary tree, and the parent/child index formulas",
@@ -1303,6 +1366,13 @@ Build-heap from n elements: O(n) via bottom-up bubble-down, not O(n log n).`,
   "graph-representations": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "6.1 Graph Representation in Data Structure (Graph Theory) | Adjacency Matrix and Adjacency List",
+      url: "https://www.youtube.com/watch?v=5hPfm_uqXmw",
+      description: "Covers representing graphs in memory using adjacency matrix and adjacency list.",
+    }],
     whatYoullLearn: [
       "Adjacency matrix vs adjacency list, and the space/time trade-off between them",
       "When a graph is 'sparse' vs 'dense', and why that decides which representation is better",

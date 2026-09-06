@@ -24,6 +24,8 @@ import { ENGINEERING_MATHEMATICS_B } from "./engineering-mathematics-b.mjs";
 import { ENGINEERING_MATHEMATICS_C } from "./engineering-mathematics-c.mjs";
 import { ALGORITHMS } from "./algorithms.mjs";
 import { COMPILER_DESIGN } from "./compiler-design.mjs";
+import { DATABASES } from "./databases.mjs";
+import { COMPUTER_NETWORKS } from "./computer-networks.mjs";
 
 // digital-logic.mjs was re-authored from scratch (14 topics covering Boolean
 // Algebra/Minimization, Combinational/Sequential Circuits, and Number
@@ -35,11 +37,18 @@ import { COMPILER_DESIGN } from "./compiler-design.mjs";
 // Concurrency and Synchronization, Deadlock, Scheduling, Memory Management,
 // File Systems).
 //
-// programming-and-data-structures is COMPLETE (15/15) as of -b.mjs's
-// authoring: the original file covers C Basics through Structures/Unions/
-// Storage Classes (5), -b.mjs covers Recursion through Graph Representations
-// (10: recursion, recursion tracing, arrays, stacks, queues, linked lists,
-// tree traversals, BSTs, binary heaps, graph representations).
+// programming-and-data-structures is 14/15, NOT complete: the original file
+// covers only 4 of its 5 "Programming in C" topics (C Basics, Control Flow
+// and Functions, Arrays and Strings in C, Structures/Unions/Storage
+// Classes) - "Pointers and Memory" (pointers-and-memory) is in the syllabus
+// but has no authored lesson in either file, despite an earlier version of
+// this comment claiming 5/5 here. -b.mjs covers Recursion through Graph
+// Representations in full (10: recursion, recursion tracing, arrays,
+// stacks, queues, linked lists, tree traversals, BSTs, binary heaps, graph
+// representations). pointers-and-memory already has a real authored PYQ
+// (scripts/gate-pyqs-content/verified-batch-1.mjs) and is cited as a
+// prerequisite by another lesson, so it's a genuine authoring gap worth
+// closing, not a topic nobody's gotten to yet.
 //
 // engineering-mathematics is split across three files purely because it's
 // the syllabus's biggest subject (33 topics: Discrete Math + Linear Algebra +
@@ -61,4 +70,6 @@ export const GATE_LESSONS = {
   "engineering-mathematics": { ...ENGINEERING_MATHEMATICS_A, ...ENGINEERING_MATHEMATICS_B, ...ENGINEERING_MATHEMATICS_C },
   "algorithms": ALGORITHMS,
   "compiler-design": COMPILER_DESIGN,
+  "databases": DATABASES,
+  "computer-networks": COMPUTER_NETWORKS,
 };

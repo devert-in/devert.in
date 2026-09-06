@@ -30,6 +30,13 @@ export const ENGINEERING_MATHEMATICS_C = {
   "combinatorics-counting": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Complete Permutation & Combination concept in 1 Shot",
+      url: "https://www.youtube.com/watch?v=GiufP88K7do",
+      description: "Covers permutations and combinations fundamentals and problem-solving techniques.",
+    }],
     xpReward: 25, coinReward: 9,
     whatYoullLearn: [
       "When to multiply and when to add while counting - the two rules everything else builds from",
@@ -154,6 +161,13 @@ Arrangements = 6! / (3! * 2! * 1!) = 720 / (6*2) = 720/12 = 60`,
   "recurrence-relations": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Characteristic equation and characteristic roots of recurrence relations",
+      url: "https://www.youtube.com/watch?v=GvOBBcnIjlw",
+      description: "Explains solving linear recurrence relations using the characteristic equation/root method.",
+    }],
     xpReward: 25, coinReward: 9,
     whatYoullLearn: [
       "What a recurrence relation is, and how it differs from a closed-form formula",
@@ -273,6 +287,13 @@ Distinct from Master Theorem recurrences (Algorithms subject) - same word, diffe
   "generating-functions": {
     difficulty: "Hard",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "[Discrete Mathematics] Generating Functions | Why Generating Function? | GATE CS/IT",
+      url: "https://www.youtube.com/watch?v=9Y8JMHdcFP8",
+      description: "Introduces generating functions and how they're used to solve counting problems for GATE.",
+    }],
     xpReward: 30, coinReward: 10,
     whatYoullLearn: [
       "What a generating function is, and why encoding a sequence as a power series makes it easier to manipulate",
@@ -387,6 +408,13 @@ To solve a recurrence: multiply by x^n, sum, rewrite in terms of G(x), solve alg
   "matrices": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-1: Algebra Of Matrices | Linear Algebra",
+      url: "https://www.youtube.com/watch?v=HItonQ_FekE",
+      description: "Lecture on matrix algebra fundamentals and operations for GATE.",
+    }],
     xpReward: 20, coinReward: 8,
     whatYoullLearn: [
       "The core matrix operations - addition, multiplication, transpose - and which ones require compatible dimensions",
@@ -493,6 +521,13 @@ Rank = number of linearly independent rows = number of linearly independent colu
   "determinants": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Engineering Mathematics 01 | Matrices and Determinants | GATE - For All Branches",
+      url: "https://www.youtube.com/watch?v=_DbJoSWchV0",
+      description: "Covers determinants and their properties as part of GATE engineering mathematics.",
+    }],
     xpReward: 22, coinReward: 8,
     whatYoullLearn: [
       "What the determinant measures geometrically, and why a zero determinant is special",
@@ -617,6 +652,13 @@ Row swap flips sign; add-a-multiple-of-a-row leaves it unchanged; scaling a row 
   "system-of-linear-equations": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "RANK FACTORS of solution of system of linear equations | Linear Algebra | Mathematics",
+      url: "https://www.youtube.com/watch?v=aZIfqluouXA",
+      description: "Explains using matrix rank to determine the nature/number of solutions of a linear system.",
+    }],
     xpReward: 25, coinReward: 9,
     whatYoullLearn: [
       "Solving Ax = b via Gaussian elimination to row-echelon form",
@@ -723,6 +765,13 @@ Homogeneous Ax=0 always has x=0; for square A, det(A)!=0 means only x=0, det(A)=
   "eigenvalues-and-eigenvectors": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Eigenvalues & Eigenvectors | Properties of Eigenvalues | PYQs Of GATE & IIT JAM",
+      url: "https://www.youtube.com/watch?v=mNT0kXxjYjg",
+      description: "Covers eigenvalues, eigenvectors, and their properties through GATE previous-year questions.",
+    }],
     xpReward: 25, coinReward: 9,
     whatYoullLearn: [
       "What an eigenvalue/eigenvector pair actually means geometrically",
@@ -848,6 +897,13 @@ Sum = 4 + (-2) + 6 = 8  (this also equals the trace directly, as a cross-check).
   "lu-decomposition": {
     difficulty: "Moderate",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "LU Decomposition | Engineering Mathematics | GATE Launchpad Series",
+      url: "https://www.youtube.com/watch?v=y8Whx9oMOCg",
+      description: "Explains the LU decomposition method for solving systems of linear equations.",
+    }],
     xpReward: 22, coinReward: 8,
     whatYoullLearn: [
       "What LU decomposition is and why it's useful for solving Ax=b repeatedly with different b",
@@ -968,6 +1024,13 @@ Zero pivot during elimination breaks plain LU; PA=LU (with a permutation) is the
     difficulty: "Easy",
     estimatedMinutes: 20,
     xpReward: 18, coinReward: 7,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-26: Uniform Distribution | Probability and Statistics",
+      url: "https://www.youtube.com/watch?v=n_1Z-HVemP0",
+      description: "Gate Smashers lecture on uniform distribution (PDF, mean, variance) with GATE-style examples.",
+    }],
     whatYoullLearn: [
       "The discrete uniform distribution (equally likely outcomes) and its mean/variance",
       "The continuous uniform distribution on [a,b] and its constant-height PDF",
@@ -1061,6 +1124,13 @@ Continuous uniform [a,b]: flat PDF 1/(b-a), mean (a+b)/2, variance (b-a)^2/12. I
     difficulty: "Moderate",
     estimatedMinutes: 30,
     xpReward: 25, coinReward: 9,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-24: Normal Distribution | Probability and Statistics",
+      url: "https://www.youtube.com/watch?v=4rHwrkc-w9Y",
+      description: "Gate Smashers lecture on the normal (Gaussian) distribution and its properties for GATE prep.",
+    }],
     whatYoullLearn: [
       "The bell-curve shape of the normal distribution and its two parameters, mean and variance",
       "Standardizing any normal variable into the standard normal Z",
@@ -1166,6 +1236,13 @@ Z-table gives P(Z<=z); use 1-P for "greater than", subtraction for ranges, symme
     difficulty: "Moderate",
     estimatedMinutes: 25,
     xpReward: 22, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-27: Exponential Distribution | Probability and Statistics",
+      url: "https://www.youtube.com/watch?v=y7q9U35R9v8",
+      description: "Gate Smashers lecture on the exponential distribution: PDF/CDF, memoryless property, examples.",
+    }],
     whatYoullLearn: [
       "What the exponential distribution models: waiting time until the next random event",
       "Its PDF, mean, and variance in terms of the rate parameter lambda",
@@ -1277,6 +1354,13 @@ Exponential (gaps) and Poisson (counts) describe the same process, sharing lambd
     difficulty: "Moderate",
     estimatedMinutes: 25,
     xpReward: 22, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-20: Poisson Distribution | Probability and Statistics",
+      url: "https://www.youtube.com/watch?v=zv7_EwPyzCo",
+      description: "Gate Smashers lecture introducing the Poisson distribution with derivation and solved examples.",
+    }],
     whatYoullLearn: [
       "What the Poisson distribution models: the count of rare, independent events in a fixed interval",
       "Its PMF and the single parameter lambda that is simultaneously its mean AND variance",
@@ -1383,6 +1467,13 @@ Approximates Binomial(n,p) when n large, p small, np moderate (lambda=np).`,
     difficulty: "Easy",
     estimatedMinutes: 25,
     xpReward: 20, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-18: Binomial or Bernoulli Distribution | Probability and Statistics",
+      url: "https://www.youtube.com/watch?v=IFhvaO_b5ds",
+      description: "Gate Smashers lecture on binomial and Bernoulli distributions with formulas and solved examples.",
+    }],
     whatYoullLearn: [
       "The conditions that must hold for a scenario to be binomial: fixed trials, two outcomes, constant probability, independence",
       "The PMF and where each factor in it comes from combinatorially",
@@ -1487,6 +1578,15 @@ Approximated by Poisson(lambda=np) when n large, p small.`,
     difficulty: "Easy",
     estimatedMinutes: 20,
     xpReward: 18, coinReward: 7,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable. Covers
+    // mean/median/mode directly; standard deviation is the adjacent lecture
+    // (Lec-16/21) in the same Gate Smashers series - closest substantive match.
+    resources: [{
+      kind: "video",
+      title: "Lec-19: Mean, Median & Mode | Probability and Statistics",
+      url: "https://www.youtube.com/watch?v=ecY2x1xU1mE",
+      description: "Gate Smashers lecture on mean, median and mode as measures of central tendency.",
+    }],
     whatYoullLearn: [
       "The three measures of central tendency and when each is the right one to use",
       "Why the median is robust to outliers while the mean is not",
@@ -1602,6 +1702,13 @@ Standard deviation = sqrt(4) = 2`,
     difficulty: "Moderate",
     estimatedMinutes: 25,
     xpReward: 22, coinReward: 8,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-11: Conditional Probability with Easiest Explanation & Example",
+      url: "https://www.youtube.com/watch?v=dQ6RL8qe320",
+      description: "Gate Smashers lecture explaining conditional probability with a worked example.",
+    }],
     whatYoullLearn: [
       "What P(A|B) actually means: probability of A once you already know B happened",
       "The conditional probability formula and how it re-scales the sample space",
@@ -1705,6 +1812,13 @@ Multiplication rule: P(AnB)=P(B)P(A|B), chains for more events by conditioning o
     difficulty: "Hard",
     estimatedMinutes: 30,
     xpReward: 28, coinReward: 10,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Lec-14: BAYES' Theorem | Probability and Statistics | Most Important Topic",
+      url: "https://www.youtube.com/watch?v=WOYylyjkq_g",
+      description: "Gate Smashers lecture deriving and applying Bayes' theorem with GATE-relevant examples.",
+    }],
     whatYoullLearn: [
       "Bayes' Theorem, derived directly from the conditional probability definition",
       "Using the law of total probability to compute the denominator when it isn't given directly",
