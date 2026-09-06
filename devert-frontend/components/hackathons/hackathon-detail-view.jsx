@@ -473,11 +473,16 @@ export function HackathonDetailView({ slug, onBack }) {
           {/* Banner image (optional - most events keep the plain accent-bar hero below).
               A compact strip, not a full hero block - most banners supplied for this
               (event-poster/wordmark style graphics with a lot of their own empty margin)
-              looked oversized and mostly blank stretched across a 21:9 box. */}
+              looked oversized and mostly blank stretched across a 21:9 box. object-contain,
+              not object-cover: a banner's real aspect ratio rarely matches this box's 3:1
+              exactly (e.g. devertathon26-banner.png is 2.25:1), and object-cover crops
+              whatever doesn't fit - for a wordmark-style banner that chops real content
+              (the top/bottom of the artwork) rather than empty margin. contain letterboxes
+              instead, which reads fine against the page's own dark background. */}
           {hackathon.bannerImage && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full aspect-[3/1] max-h-[220px] rounded-lg overflow-hidden mb-6 border border-white/8">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={hackathon.bannerImage} alt="" className="w-full h-full object-cover" />
+              <img src={hackathon.bannerImage} alt="" className="w-full h-full object-contain" />
             </motion.div>
           )}
 

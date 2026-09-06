@@ -11,6 +11,13 @@ export const PROGRAMMING_AND_DATA_STRUCTURES = {
   "c-basics-data-types-and-operators": {
     difficulty: "Easy",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Introduction to Operators in C",
+      url: "https://www.youtube.com/watch?v=50Pb27JoUrw",
+      description: "Introduces the different types of operators supported in the C programming language.",
+    }],
     whatYoullLearn: [
       "What char, int, float and double actually cost in memory, and why the sizes matter for tracing code",
       "Why integer division throws away the remainder, and how one double operand changes the whole answer",
@@ -191,6 +198,13 @@ So the program prints 3, 1, 3.5, 11, -126, and "assigned".`,
   "control-flow-and-functions": {
     difficulty: "Easy",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Introduction to Functions in C",
+      url: "https://www.youtube.com/watch?v=3lqgdqoY83o",
+      description: "Introduces functions in C, covering why they're needed and how they're defined and called.",
+    }],
     whatYoullLearn: [
       "How if/else-if/else chains and switch actually pick a branch, and where each one traps a careless reader",
       "The three-part for loop as sugar over while, and what each part is allowed to skip",
@@ -369,6 +383,13 @@ The only difference between the two functions is whether the parameter is a valu
   "arrays-and-strings-in-c": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "C_62 Strings in C - part 1 | C programming tutorials",
+      url: "https://www.youtube.com/watch?v=x_3FKTDkGT8",
+      description: "Introduces strings in C programming and how character arrays represent them.",
+    }],
     whatYoullLearn: [
       "How a C string is really just a char array with a hidden '\\0' terminator, and what happens when that terminator goes missing",
       "The difference between an array's declared size and a string's actual length",
@@ -558,6 +579,13 @@ Same text, two different comparisons, two different answers - because == and str
   "structures-unions-and-storage-classes": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Introduction to Structures in C",
+      url: "https://www.youtube.com/watch?v=zmRxC7gYw-g",
+      description: "Introduces structures in C, explaining why they're needed and how they're declared.",
+    }],
     whatYoullLearn: [
       "Why a struct's size is usually more than the sum of its members' sizes - padding and alignment",
       "How a union lets several members share the same memory, and why writing one and reading another reinterprets the bits",

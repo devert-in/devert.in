@@ -28,6 +28,13 @@ export const ENGINEERING_MATHEMATICS_B = {
   "limits": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Limits, Continuity & Differentiability-1 | Lec 18 | Engineering Mathematics | GATE (All Branches)",
+      url: "https://www.youtube.com/watch?v=MRLiEl49xTY",
+      description: "Introduces the concept of limits as part of a GATE calculus lecture.",
+    }],
     xpReward: 30, coinReward: 12,
     whatYoullLearn: [
       "What a limit actually means, using a simple 'how close without touching' picture",
@@ -259,6 +266,13 @@ Memorise the standard limits equal to 1 as x->0: sin(x)/x, tan(x)/x, (e^x-1)/x, 
   "continuity-and-differentiability": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Continuity & Differentiability | GATE QUESTIONS | Engineering Mathematics | Mr. Kundan P. Kumar",
+      url: "https://www.youtube.com/watch?v=BIc2WwlFjUg",
+      description: "Covers continuity and differentiability concepts with worked GATE exam questions.",
+    }],
     xpReward: 30, coinReward: 12,
     whatYoullLearn: [
       "What makes a function continuous at a point - three conditions, all required",
@@ -461,6 +475,13 @@ For piecewise functions: check continuity first (matching values at the join), t
   "maxima-and-minima": {
     difficulty: "Moderate",
     estimatedMinutes: 35,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Engineering Mathematics 07 | Maxima Minima | GATE - For All Branches",
+      url: "https://www.youtube.com/watch?v=2TWoL2ZCO8M",
+      description: "Covers finding maxima and minima of functions for GATE engineering mathematics.",
+    }],
     xpReward: 30, coinReward: 12,
     whatYoullLearn: [
       "What a critical point is, and why f'(x) = 0 alone doesn't guarantee a max or min",
@@ -661,6 +682,13 @@ Optimisation word problems: reduce to one variable using the given constraint, t
   "mean-value-theorem": {
     difficulty: "Moderate",
     estimatedMinutes: 30,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Mean Value Theorem -1 | Lec 23 | Engineering Mathematics | GATE (All Branches)",
+      url: "https://www.youtube.com/watch?v=S-s4HH9nfx0",
+      description: "Explains the mean value theorem and its application to GATE-style problems.",
+    }],
     xpReward: 30, coinReward: 12,
     whatYoullLearn: [
       "Rolle's theorem and Lagrange's Mean Value Theorem, and how the second is the general case of the first",
@@ -851,6 +879,13 @@ Cauchy's MVT generalises Lagrange's to two functions at once, and is the tool us
   "integration": {
     difficulty: "Hard",
     estimatedMinutes: 40,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Engineering Mathematics 08 | Integration (Basics) | GATE 2025 Series | All Branches",
+      url: "https://www.youtube.com/watch?v=4C-enEoDq4s",
+      description: "Covers the basics of integration for GATE engineering mathematics.",
+    }],
     xpReward: 35, coinReward: 15,
     whatYoullLearn: [
       "Integration as differentiation run backwards, and what the '+C' actually means",
@@ -1115,6 +1150,13 @@ Shortcut worth checking first: odd integrand over a symmetric interval gives 0; 
   "random-variables": {
     difficulty: "Easy",
     estimatedMinutes: 25,
+    // Verified via YouTube oEmbed (2026-08-29) - real, publicly viewable.
+    resources: [{
+      kind: "video",
+      title: "Probability Part-5 (Random Variable) || GATE Lectures for Engineering mathematics",
+      url: "https://www.youtube.com/watch?v=6qBKiO_mMcA",
+      description: "GATE engineering-mathematics lecture introducing random variables in probability.",
+    }],
     xpReward: 20, coinReward: 8,
     whatYoullLearn: [
       "What a random variable actually is - a labelling machine for outcomes of a random experiment",
