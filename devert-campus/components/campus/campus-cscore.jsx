@@ -622,10 +622,19 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
 
   // The first unfinished topic, so "Continue" lands on work rather than on
   // something already ticked off. Falls back to whatever was last opened (a
-  // student mid-way through a lesson they haven't completed), then to the start.
+  // student mid-way through a lesson they haven't completed), then to the
+  // start - but ONLY when the subject genuinely isn't finished yet. Once
+  // every topic is complete, lastOpenedTopicId normally still resolves (it's
+  // the last-completed topic's own id, so the second .find() below matches
+  // it and Continue reopens something already showing DONE, for review) -
+  // this allDone guard exists for the one case where it can't: the deleted
+  // topic that used to be lastOpenedTopicId is now scrubbed to null by
+  // deleteTopic, and without this guard the fallback would silently restart
+  // a finished student at topics[0] instead of showing SubjectComplete below.
+  const allDone = total > 0 && completed === total;
   const nextTopic = topics.find(t => !completedIds.has(t.id))
     || topics.find(t => t.id === progress?.lastOpenedTopicId)
-    || topics[0];
+    || (allDone ? null : topics[0]);
   const started = completed > 0 || !!progress?.lastOpenedTopicId;
 
   return (
@@ -653,11 +662,13 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
               </div>
             </div>
           </div>
-          {nextTopic && (
+          {nextTopic ? (
             <CampusButton icon={started ? Rocket : Zap} onClick={() => onOpenTopic(nextTopic.id)}>
               {started ? "Continue" : "Start learning"}
             </CampusButton>
-          )}
+          ) : allDone ? (
+            <CampusChip color={CAMPUS.good} icon={Check}>SUBJECT COMPLETE</CampusChip>
+          ) : null}
         </div>
 
         {total > 0 && started && (
@@ -895,10 +906,13 @@ function TopicView({ subjectId, topicId, onBack, onOpenTopic }) {
     if (!subjectTopics || subjectTopics.length === 0) return null;
     const idx = subjectTopics.findIndex(t => t.id === topicId);
     if (idx === -1) return null;
-    if (idx === subjectTopics.length - 1) return { done: true };
+    // prev is computed BEFORE the last-topic early return, so the final topic
+    // still offers a way back rather than only the end-of-subject card.
+    const prev = subjectTopics[idx - 1] || null;
+    if (idx === subjectTopics.length - 1) return { done: true, prev };
     const current = subjectTopics[idx];
     const next = subjectTopics[idx + 1];
-    return { next, crossesModule: (next.module || "General") !== (current.module || "General") };
+    return { prev, next, crossesModule: (next.module || "General") !== (current.module || "General") };
   }, [subjectTopics, topicId]);
 
   // Everything keyed to this topic is reset SYNCHRONOUSLY as topicId changes,
@@ -1196,6 +1210,7 @@ function TopicView({ subjectId, topicId, onBack, onOpenTopic }) {
               (Roadmaps) - see that component's own header. */}
           <LessonNavFooter
             next={nextTopicInfo?.next ? { ...nextTopicInfo.next, groupLabel: nextTopicInfo.next.module } : null}
+            prev={nextTopicInfo?.prev ? { id: nextTopicInfo.prev.id, title: nextTopicInfo.prev.title } : null}
             crossesModule={nextTopicInfo?.crossesModule}
             done={!!nextTopicInfo?.done}
             onOpenTopic={onOpenTopic}

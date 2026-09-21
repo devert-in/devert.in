@@ -3,10 +3,11 @@
   "scripts": {
     "build": "npm --prefix devert-frontend run build",
     "build:campus": "npm --prefix devert-campus run build",
+    "build:careers": "npm --prefix devert-careers run build",
     "sync:shells": "node scripts/sync-static-shells.mjs",
-    "deploy": "npm --prefix devert-frontend run build && npm run build:campus && npm run sync:shells && npx firebase-tools deploy --only hosting,firestore:rules,storage,functions --project devert-me",
+    "deploy": "npm --prefix devert-frontend run build && npm run build:campus && npm run build:careers && npm run sync:shells && npx firebase-tools deploy --only hosting,firestore:rules,storage,functions --project devert-me",
     "deploy:rules": "npx firebase-tools deploy --only firestore:rules,storage --project devert-me",
-    "deploy:hosting": "npm --prefix devert-frontend run build && npm run build:campus && npm run sync:shells && npx firebase-tools deploy --only hosting,functions --project devert-me",
+    "deploy:hosting": "npm --prefix devert-frontend run build && npm run build:campus && npm run build:careers && npm run sync:shells && npx firebase-tools deploy --only hosting,functions --project devert-me",
     "upload:resources": "node scripts/upload-intel-resources.mjs",
     "test": "npx firebase-tools emulators:exec --only firestore \"node --test test/\""
   },

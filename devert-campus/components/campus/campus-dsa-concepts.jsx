@@ -16,7 +16,7 @@ import {
 import { fetchPublishedProblems } from "@/lib/codelab";
 import {
   CampusCard, CampusChip, CampusButton, CampusEmptyState, CampusSkeleton,
-  CampusBreadcrumb, CampusProgressBar, CampusTabBar,
+  CampusBreadcrumb, CampusProgressBar, CampusTabBar, LessonNavFooter,
 } from "@/components/campus/campus-ui";
 import { LessonBody, CodeExampleBlock } from "@/components/campus/lesson-blocks";
 import { LanguageLogo } from "@/components/campus/language-logo";
@@ -80,6 +80,7 @@ export function CampusDsaConcepts({ onOpenProblem }) {
     return (
       <ConceptView key={`${screen.langId}:${screen.conceptId}`}
         langId={screen.langId} conceptId={screen.conceptId} user={user} onOpenProblem={onOpenProblem}
+        onOpenConcept={conceptId => setScreen({ view: "concept", langId: screen.langId, conceptId })}
         onBack={() => setScreen({ view: "roadmap", langId: screen.langId })} />
     );
   }
@@ -343,8 +344,9 @@ function ConceptLanguageSection({ concept }) {
   );
 }
 
-function ConceptView({ langId, conceptId, user, onBack, onOpenProblem }) {
+function ConceptView({ langId, conceptId, user, onBack, onOpenProblem, onOpenConcept }) {
   const [concept, setConcept] = useState(undefined); // undefined = loading, null = missing
+  const [siblings, setSiblings] = useState([]);
   const [problems, setProblems] = useState([]);
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [answers, setAnswers] = useState({});
@@ -354,6 +356,10 @@ function ConceptView({ langId, conceptId, user, onBack, onOpenProblem }) {
 
   useEffect(() => {
     fetchConcept(langId, conceptId).then(setConcept).catch(() => setConcept(null));
+    // Sibling list drives the prev/next footer below. Same published +
+    // audience-filtered, `order`-sorted query ConceptRoadmap renders from, so
+    // the footer walks concepts in exactly the order the roadmap shows them.
+    fetchConcepts(langId).then(setSiblings).catch(() => setSiblings([]));
     // Whole published problem set, once per concept screen - the related-problems
     // section derives its list from each problem's own `category`, so there is no
     // per-concept query to make (and no duplicated tag data to keep in sync).
@@ -367,6 +373,31 @@ function ConceptView({ langId, conceptId, user, onBack, onOpenProblem }) {
   }, [langId, conceptId, user]);
 
   const related = useMemo(() => relatedProblemsForConcept(concept, problems), [concept, problems]);
+  // Same Easy->Medium->Hard order RelatedProblems below visually renders in,
+  // flattened once into an id order.
+  const relatedOrder = useMemo(() => [...related.Easy, ...related.Medium, ...related.Hard].map(p => p.id), [related]);
+  // Wraps onOpenProblem so RelatedProblems can keep calling it with just an
+  // id, while campus-app.jsx's onOpenProblem gets the WHOLE related-problems
+  // order as a second argument. Same fix/reasoning as campus-dsa-sheet.jsx's
+  // identical openProblemWithContext (passing the whole order, not just one
+  // next id, is what lets repeated "Next Problem" clicks keep following it) -
+  // without this, CampusProblemView's "Next Problem" falls back to its
+  // contextless global-catalog sort, which can drop a student into an
+  // unrelated concept's problem instead of the next one here.
+  const openProblemWithContext = useCallback((id) => {
+    onOpenProblem?.(id, relatedOrder);
+  }, [onOpenProblem, relatedOrder]);
+  // Linear prev/next over the sibling list. DSA Concepts is a FLAT ordered
+  // roadmap (no module grouping, unlike CS Core/Programming), so there is no
+  // crossesModule case to handle - every step is a plain topic-to-topic move.
+  // While siblings is still loading, findIndex returns -1 and both neighbours
+  // stay null, so the footer renders nothing rather than flashing a wrong one.
+  const neighbours = useMemo(() => {
+    const i = siblings.findIndex(c => c.id === conceptId);
+    if (i === -1) return { prev: null, next: null, isLast: false };
+    return { prev: siblings[i - 1] || null, next: siblings[i + 1] || null, isLast: i === siblings.length - 1 };
+  }, [siblings, conceptId]);
+
   // Memoised so the `score` useMemo below has a stable dependency - a fresh []
   // fallback identity each render would re-grade on every keystroke elsewhere.
   const quiz = useMemo(() => concept?.quiz || [], [concept]);
@@ -431,7 +462,7 @@ function ConceptView({ langId, conceptId, user, onBack, onOpenProblem }) {
 
         <ConceptLanguageSection concept={concept} />
 
-        <RelatedProblems related={related} onOpenProblem={onOpenProblem} />
+        <RelatedProblems related={related} onOpenProblem={openProblemWithContext} />
 
         {quiz.length > 0 && (
           <ConceptQuiz quiz={quiz} answers={answers} graded={graded} score={score}
@@ -464,6 +495,22 @@ function ConceptView({ langId, conceptId, user, onBack, onOpenProblem }) {
             {alreadyDone ? "Completed" : saving ? "Saving..." : "Complete"}
           </CampusButton>
         </CampusCard>
+
+        {/* The way forward. Without this the only exit from a finished concept
+            was the breadcrumb back to the roadmap - even though the Complete
+            button's own copy promises it "unlocks the next concept". Shown
+            regardless of alreadyDone, matching CS Core's identical footer:
+            this roadmap is attempt-based, not gated, so there is no reason to
+            also gate navigation on having completed anything. */}
+        <LessonNavFooter
+          prev={neighbours.prev ? { id: neighbours.prev.id, title: neighbours.prev.title } : null}
+          next={neighbours.next ? { id: neighbours.next.id, title: neighbours.next.title } : null}
+          done={neighbours.isLast}
+          onOpenTopic={id => onOpenConcept?.(id)}
+          onBack={onBack}
+          endTitle="You've reached the end of the DSA Concepts roadmap"
+          endBody="Head back to the roadmap to revisit any concept, or put these to work on the Problems tab."
+        />
       </div>
     </div>
   );

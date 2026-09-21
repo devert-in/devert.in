@@ -3,28 +3,32 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Swords, Radio, Target, Tv2, Flame, LogIn, Command, User, LogOut, Activity, Wallet, GraduationCap, ClipboardCheck } from "lucide-react";
+import { LogIn, Command, User, LogOut, Wallet, Globe, Users2, ArrowUpRight } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notification-bell";
-import { CAMPUS_URL } from "@/lib/campusUrl";
+import { NAV_ROUTES } from "@/lib/navConfig";
+import { FOUNDERS, founderPath } from "@/lib/founders";
 
 // Mobile-only now (lg:hidden on the root <nav> below) - components/top-navbar.jsx
 // is the desktop nav, a floating top pill with grouped dropdowns, mirroring
 // the exact split Campus already uses (CampusTopBar/CampusBottomNav). This
 // dock used to be the ONE nav at every breakpoint; that changed on explicit
-// request, not as a default pattern to reach for elsewhere. Keep both files'
-// route lists in sync by hand - there's no shared source of truth between them.
+// request, not as a default pattern to reach for elsewhere. Both files now
+// read from the shared lib/navConfig.js instead of keeping their own route
+// lists in sync by hand - see that file's header for why it isn't just one
+// identical list both render (the dock deliberately shows a narrower set).
 //
 // Shipyard, Ranks, and Logs deliberately live only in the Home dashboard's quick
 // actions (components/quick-actions-grid.jsx), not here - keeps this dock
-// to the modules used every session. CodeLab (app/codelab/), Fundamentals
-// (app/fundamentals/) and Grind (app/grind/) are all real, standalone routes -
-// Arena still hosts Solo Challenges + Contests - but none of the three are in
-// this dock: student-facing learning/practice content is Campus's surface to
-// own, not core DeVert's, so all three stay reachable by direct link/search
-// but aren't advertised in the main nav.
+// to the modules used every session. Fundamentals (app/fundamentals/) and
+// Grind (app/grind/) are real, standalone routes - Arena still hosts Solo
+// Challenges + Contests - but neither is in this dock: student-facing
+// learning/practice content is Campus's surface to own, not core DeVert's,
+// so both stay reachable by direct link/search but aren't advertised in the
+// main nav. (CodeLab used to be a third example here - it was removed from
+// the main site entirely in favor of Campus-only, see commit c0383c3.)
 //
 // EVERY item is a plain route. Core DeVert used to open most of these as floating
 // Builder's OS windows (`windowApp`), so clicking Intel from the dock spawned a
@@ -37,28 +41,33 @@ import { CAMPUS_URL } from "@/lib/campusUrl";
 // intact but unmounted - see components/window/window-layer.jsx - so a
 // specialised surface (an AI workspace, a multi-file editor) can opt back into it
 // later without this dock being involved.
-const NAV_ITEMS = [
-  { icon: Home,           label: "Home",      href: "/"             },
-  { icon: Activity,       label: "Pulse",     href: "/pulse"        },
-  { icon: Swords,         label: "Arena",     href: "/arena"        },
-  { icon: Radio,          label: "Intel",     href: "/intel"        },
-  { icon: GraduationCap,  label: "Campus",    href: CAMPUS_URL      },
-  { icon: Tv2,            label: "Broadcast", href: "/broadcast"    },
-  { icon: Flame,          label: "Events",    href: "/events"       },
-  { icon: Target,         label: "Missions",  href: "/missions"     },
-  { icon: ClipboardCheck, label: "Prep",      href: "/prep"         },
-];
+const NAV_ITEMS = NAV_ROUTES.filter(r => r.mobile);
 
 export function Navbar() {
   const pathname = usePathname();
   const { hasShownIntro } = useIntro();
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
   const navRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  // Founder profiles popover. Separate from profileOpen because that one is
+  // the signed-in user's OWN account menu (Dev Card/Wallet/Logout) and is
+  // auth-gated - founders must be reachable signed out too, so they cannot
+  // live inside it.
+  const [foundersOpen, setFoundersOpen] = useState(false);
 
-  useEffect(() => { setProfileOpen(false); setConfirmLogout(false); }, [pathname]);
+  useEffect(() => { setProfileOpen(false); setConfirmLogout(false); setFoundersOpen(false); }, [pathname]);
+
+  // Escape closes the founders popover, matching the desktop pill's
+  // FoundersMenu. Registered unconditionally (not behind `if (foundersOpen)`)
+  // because the early returns below mean hooks must not be conditional.
+  useEffect(() => {
+    if (!foundersOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") setFoundersOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [foundersOpen]);
 
   // The intro splash only ever plays for a logged-out visitor (app/page.jsx
   // sends a logged-in user straight to HomeDashboard, bypassing it entirely),
@@ -136,6 +145,16 @@ export function Navbar() {
                 <Wallet size={12} /> Wallet
               </div>
             </Link>
+            {/* Global Super Admin only - same link/gate as top-navbar.jsx's
+                ProfileMenu, which had this on desktop only; a super-admin on
+                a narrow viewport had no in-UI path to it at all. */}
+            {isSuperAdmin && (
+              <Link href="/manage" onClick={() => setProfileOpen(false)}>
+                <div className="flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-white/55 hover:text-neon-green hover:bg-white/3 transition-colors cursor-pointer">
+                  <Globe size={12} /> Manage
+                </div>
+              </Link>
+            )}
             <div className="h-px bg-white/6 mx-3" />
             {confirmLogout ? (
               <div className="px-4 py-3">
@@ -163,6 +182,52 @@ export function Navbar() {
                 <LogOut size={12} /> Logout
               </button>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Founders popover - rendered here, as a sibling of the profile
+          dropdown and OUTSIDE the dock's horizontally scrolling item strip,
+          for the same reason the tooltip and profile menu are: anything
+          inside that strip is clipped by its overflow-x-auto and would also
+          slide sideways as the strip scrolls. Anchored left-0 (the trigger
+          lives at the left end of the strip) where profile is right-0. */}
+      <AnimatePresence>
+        {foundersOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.94 }}
+            transition={{ duration: 0.14 }}
+            role="menu" aria-label="Founder profiles"
+            className="absolute bottom-full mb-3 left-0 rounded-xl overflow-hidden"
+            style={{
+              background: "rgba(5,5,5,0.97)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+              width: "min(17rem, calc(100vw - 2.5rem))",
+              zIndex: 50,
+            }}
+          >
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] px-4 pt-3 pb-1.5 text-white/30">
+              Founders
+            </p>
+            {FOUNDERS.map((f) => (
+              <Link key={f.key} href={founderPath(f)} onClick={() => setFoundersOpen(false)} role="menuitem">
+                <div className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer">
+                  <span aria-hidden="true"
+                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-mono text-[10px] font-bold"
+                    style={{ background: `${f.accent}1A`, color: f.accent, border: `1px solid ${f.accent}59` }}>
+                    {f.initials}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-mono text-xs text-white/75">{f.shortName}</span>
+                    <span className="block font-mono text-[10px] text-white/35">{f.role}</span>
+                  </span>
+                  <ArrowUpRight size={12} className="flex-shrink-0 text-white/25" />
+                </div>
+              </Link>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -230,6 +295,31 @@ export function Navbar() {
             );
           })}
 
+          {/* Founders - in the SCROLLING strip, not the pinned section on the
+              right. The pinned section is already Search + Bell + Profile,
+              which at 375px leaves no room for a fourth control without
+              squeezing all of them; the strip absorbs one more item for free
+              because it scrolls. It is a <button> among <Link>s because it
+              opens two destinations rather than going to one. */}
+          <motion.button
+            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}
+            onClick={() => { setFoundersOpen(o => !o); setProfileOpen(false); }}
+            aria-expanded={foundersOpen} aria-haspopup="menu" aria-label="Founder profiles"
+            onMouseEnter={(e) => showTooltip(e, "Founders")}
+            onMouseLeave={hideTooltip}
+            className="relative flex items-center justify-center gap-2 w-9 h-9 lg:w-auto lg:h-10 lg:px-3.5 rounded-xl transition-colors flex-shrink-0"
+            style={{
+              background: foundersOpen ? "rgba(0,255,255,0.1)" : "transparent",
+              boxShadow: foundersOpen ? "0 0 14px rgba(0,255,255,0.18)" : "none",
+            }}
+          >
+            <Users2 size={15} style={{ color: foundersOpen ? "#00FFFF" : "rgba(255,255,255,0.38)" }} />
+            <span className="hidden lg:inline font-mono text-xs whitespace-nowrap"
+              style={{ color: foundersOpen ? "#00FFFF" : "rgba(255,255,255,0.38)" }}>
+              Founders
+            </span>
+          </motion.button>
+
           {/* Trailing padding so last icon isn't hidden under the fade */}
           <div className="w-4 flex-shrink-0" />
         </div>
@@ -258,7 +348,7 @@ export function Navbar() {
           {user ? (
             <motion.button
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}
-              onClick={() => { setProfileOpen(p => !p); hideTooltip(); }}
+              onClick={() => { setProfileOpen(p => !p); setFoundersOpen(false); hideTooltip(); }}
               onMouseEnter={(e) => showTooltip(e, "Account")}
               onMouseLeave={hideTooltip}
               className="flex items-center justify-center w-9 h-9 lg:w-10 lg:h-10 rounded-xl transition-colors"

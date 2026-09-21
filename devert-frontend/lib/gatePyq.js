@@ -101,6 +101,83 @@ export async function deletePyq(pyqId) {
   await deleteDoc(doc(db, "gate_pyqs", pyqId));
 }
 
+// ---------------- review queue (PDF-extracted drafts) ----------------
+
+// A question imported from an official GATE question paper by
+// scripts/extract-gate-pyqs.mjs arrives as status:"draft" with a non-empty
+// reviewFlags array and NO ANSWER - the source PDFs contain no answer key, so
+// there is nothing to import one from. These helpers are the path from that
+// state to a published question, and they exist in this module rather than in
+// the admin component so the "what makes a question publishable" rule lives
+// next to the schema it is about.
+
+// The flags scripts/extract-gate-pyqs.mjs raises, with what each one means for
+// a reviewer. Kept here, beside the bank, so the admin UI and the extractor
+// cannot drift into describing the same flag differently.
+export const PYQ_REVIEW_FLAGS = {
+  "no-answer-key": "The source paper has no answer key - supply the answer",
+  "symbol-loss": "Mathematical symbols were dropped in extraction - check against the original",
+  "figure-reference": "Refers to a figure/diagram that is not in the text",
+  "truncated-stem": "Stem is suspiciously short - probably an image-based question",
+  "option-count": "Does not have exactly four options",
+  "empty-option": "At least one option extracted as empty - likely image options",
+};
+
+// The one gate between an extracted draft and a student seeing it. Publishing
+// a question whose answer nobody supplied would be worse than not having the
+// question: a candidate revising would be marked wrong on a correct answer and
+// have it filed into their mistakes notebook, and the per-topic accuracy the
+// analytics screen reports would be measuring the import, not the student.
+// Hence a hard refusal here rather than a warning in the UI.
+export function pyqPublishBlockers(pyq) {
+  const blockers = [];
+  if (!(pyq.question || "").trim()) blockers.push("The question text is empty.");
+  if (pyq.questionType === "nat") {
+    if (!Number.isFinite(pyq.natMin)) blockers.push("A NAT question needs an accepted numeric answer.");
+  } else {
+    if (!(pyq.options || []).length) blockers.push("No options.");
+    if (!(pyq.correctOptionIds || []).length) blockers.push("No correct answer has been supplied.");
+    if (pyq.questionType === "mcq" && (pyq.correctOptionIds || []).length > 1) {
+      blockers.push("An MCQ must have exactly one correct option (use MSQ for several).");
+    }
+    if ((pyq.options || []).some(o => !(o.text || "").trim())) blockers.push("An option is empty.");
+  }
+  if (!(pyq.subjectId || "").trim()) blockers.push("No subject assigned.");
+  return blockers;
+}
+
+// Marks a draft verified and publishes it in ONE write, because the two are
+// the same decision: "I have checked this against the original paper" is
+// exactly what makes it fit to show. Splitting them into verify-then-publish
+// would create a third state (verified but invisible) that nothing renders and
+// nobody would remember to clear.
+export async function verifyAndPublishPyq(pyqId, pyq, reviewerUid) {
+  const blockers = pyqPublishBlockers(pyq);
+  if (blockers.length) throw new Error(blockers.join(" "));
+  await updateDoc(doc(db, "gate_pyqs", pyqId), {
+    status: "published",
+    needsReview: false,
+    reviewedAt: serverTimestamp(),
+    reviewedBy: reviewerUid || null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Sends a published question back to the queue - the honest action when a
+// student reports that an answer is wrong. It un-publishes rather than just
+// tagging it, so the questionable version stops being served the moment the
+// doubt is raised rather than when the correction is finished.
+export async function sendPyqBackToReview(pyqId, reason) {
+  await updateDoc(doc(db, "gate_pyqs", pyqId), {
+    status: "draft",
+    needsReview: true,
+    reviewedAt: null,
+    reviewedBy: null,
+    reviewFlags: arrayUnion(reason || "reopened"),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function importPyqsBatch(rows) {
   for (let i = 0; i < rows.length; i += 200) {
     const batch = writeBatch(db);

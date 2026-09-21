@@ -1,0 +1,2829 @@
+[
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 1,
+    "paperSection": null,
+    "order": 1,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Expedite, Hasten, Hurry, __________\n\n            Fill the blank by choosing a word with a meaning similar to that of the words\n            given above.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Accelerate"
+      },
+      {
+        "id": "b",
+        "text": "Retard"
+      },
+      {
+        "id": "c",
+        "text": "Provide"
+      },
+      {
+        "id": "d",
+        "text": "Disable"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 2,
+    "paperSection": null,
+    "order": 2,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "A black square PQRS has been cut into two parts. One part of it is shown in\n          Panel I. Which one of the shapes in Panel II is the other part?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(i)"
+      },
+      {
+        "id": "b",
+        "text": "(ii)"
+      },
+      {
+        "id": "c",
+        "text": "(iii)"
+      },
+      {
+        "id": "d",
+        "text": "(iv)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 3,
+    "paperSection": null,
+    "order": 3,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "A day can only be cloudy or sunny. The probability of a day being cloudy is 0.5,\n          independent of the condition on other days. What is the probability that in any\n          given four days, there will be three cloudy days and one sunny day?",
+    "options": [
+      {
+        "id": "a",
+        "text": "1/4"
+      },
+      {
+        "id": "b",
+        "text": "3/4"
+      },
+      {
+        "id": "c",
+        "text": "2/3"
+      },
+      {
+        "id": "d",
+        "text": "3/8"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 4,
+    "paperSection": null,
+    "order": 4,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "The values of Stock A and Stock B on a particular day are Rs. 50 and Rs. 80,\n          respectively. An investor invests Rs. 100 in Stock A and Rs. 80 in Stock B. He\n          sells all the stocks the next day when the value of Stock A is Rs. 55 and Stock B\n          is Rs. 70. The profit made by the investor is Rs. ________",
+    "options": [
+      {
+        "id": "a",
+        "text": "0"
+      },
+      {
+        "id": "b",
+        "text": "5"
+      },
+      {
+        "id": "c",
+        "text": "10"
+      },
+      {
+        "id": "d",
+        "text": "20"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 5,
+    "paperSection": null,
+    "order": 5,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "`When it is raining, peacocks dance.'\n          Based only on this sentence, which one of the following options is necessarily\n          true?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Peacocks dance only when it is raining."
+      },
+      {
+        "id": "b",
+        "text": "When peacocks dance, it is raining."
+      },
+      {
+        "id": "c",
+        "text": "When peacocks are not dancing, it is not raining."
+      },
+      {
+        "id": "d",
+        "text": "When it is not raining, peacocks do not dance. Q.6 � Q.10 Carry TWO marks Each"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 6,
+    "paperSection": null,
+    "order": 6,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Water : P :: Food : Q\n\n            Choose the P and Q combination from the options below to form a meaningful\n            analogy.",
+    "options": [
+      {
+        "id": "a",
+        "text": "P = Thirst; Q = Hunger"
+      },
+      {
+        "id": "b",
+        "text": "P = Drink; Q = Hunger"
+      },
+      {
+        "id": "c",
+        "text": "P = Thirst; Q = Satiated"
+      },
+      {
+        "id": "d",
+        "text": "P = Wet; Q = Critic"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 7,
+    "paperSection": null,
+    "order": 7,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Two tiles are missing in Panel I. Which one of the options in Panel II is the\n          appropriate choice for the missing tiles?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(i)"
+      },
+      {
+        "id": "b",
+        "text": "(ii)"
+      },
+      {
+        "id": "c",
+        "text": "(iii)"
+      },
+      {
+        "id": "d",
+        "text": "(iv)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 8,
+    "paperSection": null,
+    "order": 8,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Figures (i) and (ii) represent intercity highway systems. The black dots represent\n          cities and the line segments between them represent intercity highways.\n          A salesperson needs to make a trip. She needs to start from a city, visit each of the\n          remaining cities exactly once, and finally return to the same city from which she\n          started.\n          Which one of the following options is then true?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Such a trip is possible for (i), but not for (ii)."
+      },
+      {
+        "id": "b",
+        "text": "Such a trip is possible for (ii), but not for (i)."
+      },
+      {
+        "id": "c",
+        "text": "Such a trip is possible for both (i) and (ii)."
+      },
+      {
+        "id": "d",
+        "text": "Such a trip is possible neither for (i) nor for (ii)."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 9,
+    "paperSection": null,
+    "order": 9,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "The figure in Panel I below is a grid of cells with four rows and four columns.\n          The numbers on the top and on the left represent the number of cells that are to\n          be shaded in that column and row, respectively. Which one of the options shown\n          in Panel II below represents the grid shaded correctly?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(i)"
+      },
+      {
+        "id": "b",
+        "text": "(ii)"
+      },
+      {
+        "id": "c",
+        "text": "(iii)"
+      },
+      {
+        "id": "d",
+        "text": "(iv)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 10,
+    "paperSection": null,
+    "order": 10,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "An unbiased six-faced dice whose faces are marked with numbers 1, 2, 3, 4, 5,\n          and 6 is rolled twice in succession and the number on the top face is recorded\n          each time. The probability that the sum of the two recorded numbers is a prime\n          number is ________",
+    "options": [
+      {
+        "id": "a",
+        "text": "3 36"
+      },
+      {
+        "id": "b",
+        "text": "13 36"
+      },
+      {
+        "id": "c",
+        "text": "15 36"
+      },
+      {
+        "id": "d",
+        "text": "19 36 Q.11 � Q.35 Carry ONE mark Each"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 11,
+    "paperSection": null,
+    "order": 11,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "For two different persons  and , the predicate (, ) denotes that x knows y.\n            Consider the following statement.\n            There is a person who does not know anyone else, but that person is known by\n            everyone else.\n            Which one of the following expressions represents the above statement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "()() ((  )  ((, )  �(, )))"
+      },
+      {
+        "id": "b",
+        "text": "()() ((  )  ((, )  �(, )))"
+      },
+      {
+        "id": "c",
+        "text": "()() ((  )  ((, )  �(, )))"
+      },
+      {
+        "id": "d",
+        "text": "()() ((  )  ((, )  �(, )))"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 12,
+    "paperSection": null,
+    "order": 12,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "The set T represents various traversals over binary tree. The set S represents the\n          order of visiting nodes during a traversal.\n\n                                    T                 S\n\n                                    I: Inorder L: left subtree, node, right subtree\n\n                                    II: Preorder M: node, left subtree, right subtree\n\n                                    III: Postorder N: left subtree, right subtree, node\n\nWhich one of the following is the correct match from T to S ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "I � L, II � M, III � N"
+      },
+      {
+        "id": "b",
+        "text": "I � M, II � L, III � N"
+      },
+      {
+        "id": "c",
+        "text": "I � N, II � M, III � L"
+      },
+      {
+        "id": "d",
+        "text": "I � L, II � N, III � M"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 13,
+    "paperSection": null,
+    "order": 13,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Which one of the following statements is equivalent to the following assertion?\n                             Turing machine  decides the language   {0,1}",
+    "options": [
+      {
+        "id": "a",
+        "text": "Turing machine  halts on all input strings in {0,1}"
+      },
+      {
+        "id": "b",
+        "text": "Turing machine  accepts all input strings in"
+      },
+      {
+        "id": "c",
+        "text": "Turing machine  rejects all input strings in {0,1} -"
+      },
+      {
+        "id": "d",
+        "text": "Turing machine  accepts all input strings in  and rejects all input strings in {0,1} -"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 14,
+    "paperSection": null,
+    "order": 14,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "The probability density function () of a random variable  which takes real\n          values is\n\n                                    () = 1 exp(- 2),         (-, +)\n                                    32                 18\n\nWhich one of the following statements is correct about the random variable  ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "is an exponential random variable"
+      },
+      {
+        "id": "b",
+        "text": "is a normal random variable"
+      },
+      {
+        "id": "c",
+        "text": "is a Poisson random variable"
+      },
+      {
+        "id": "d",
+        "text": "is a uniform random variable"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 15,
+    "paperSection": null,
+    "order": 15,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "In the context of DBMS, consider the two sets T and S given below.\n\n                                    T                 S\n\nI: Logical schema L: Views\n\nII: Physical schema M: File organization and indexes\n\nIII: External schema N: Relations\n\nWhich one of the following is the correct match from T to S ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "I � L, II � M, III � N"
+      },
+      {
+        "id": "b",
+        "text": "I � M, II � L, III � N"
+      },
+      {
+        "id": "c",
+        "text": "I � N, II � M, III � L"
+      },
+      {
+        "id": "d",
+        "text": "I � N, II � L, III � M"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 16,
+    "paperSection": null,
+    "order": 16,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Which one of the following options is not a property of Boolean Algebra?\n\n       Note: + is OR operation, . is AND operation, and  is NOT operation",
+    "options": [
+      {
+        "id": "a",
+        "text": "+  =  +"
+      },
+      {
+        "id": "b",
+        "text": ".  = 1"
+      },
+      {
+        "id": "c",
+        "text": "+  = 1"
+      },
+      {
+        "id": "d",
+        "text": ".  =  ."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 17,
+    "paperSection": null,
+    "order": 17,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "In C runtime environment, which one of the following is stored in heap?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A static variable declared inside a function"
+      },
+      {
+        "id": "b",
+        "text": "An array of integers declared inside a function"
+      },
+      {
+        "id": "c",
+        "text": "A dynamically allocated array of integers created using malloc() function call"
+      },
+      {
+        "id": "d",
+        "text": "Return address of a function"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.242Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 18,
+    "paperSection": null,
+    "order": 18,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the following two statements about interrupt handling mechanisms in a\n          CPU.\n          S1: In non-vectored interrupt mechanism, it usually takes more time to start the\n          Interrupt Service Routine (ISR) when compared to that in a vectored interrupt\n          mechanism.\n          S2: In daisy-chain interrupt mechanism, the CPU polls all the input devices\n          individually to determine the source of the interrupt.\n          Which one of the following options is correct with respect to S1 and S2 ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Both S1 and S2 are true"
+      },
+      {
+        "id": "b",
+        "text": "Both S1 and S2 are false"
+      },
+      {
+        "id": "c",
+        "text": "S1 is true and S2 is false"
+      },
+      {
+        "id": "d",
+        "text": "S1 is false and S2 is true"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 19,
+    "paperSection": null,
+    "order": 19,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the following three ANSI-C programs, P1, P2, and P3.\n\nP1                                  P2                                P3\n\n#include <stdio.h> #include <stdio.h> #include <stdio.h>\n\nint a=5;                            int main(){    int main(){\nint main(){                            int a=5;       int a=5;\n                                       int a=7;       float a=7;\n   int a=7;                            return(0);     return(0);\n   return(0);\n}                                   }              }\n\nWhich one of the following statements is true?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Only P1 will compile without any error"
+      },
+      {
+        "id": "b",
+        "text": "Only P2 will compile without any error"
+      },
+      {
+        "id": "c",
+        "text": "Only P3 will compile without any error"
+      },
+      {
+        "id": "d",
+        "text": "All three programs P1, P2, and P3 will compile without any error"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 20,
+    "paperSection": null,
+    "order": 20,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider concurrent execution of two transactions 1 and 2 in a DBMS, both of\n          which access a data object . For these two transactions to not conflict on , which\n          one of the following statements must be true?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Both 1 and 2 only read"
+      },
+      {
+        "id": "b",
+        "text": "1 reads  and 2 writes"
+      },
+      {
+        "id": "c",
+        "text": "1 writes  and 2 reads"
+      },
+      {
+        "id": "d",
+        "text": "Both 1 and 2 write"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 21,
+    "paperSection": null,
+    "order": 21,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider a file of size 4 million bytes being transferred between two hosts\n      connected via a path consisting of three consecutive links of bandwidth 2 Mbps,\n      500 kbps, and 1 Mbps, respectively. All processing delays and propagation delays\n      are negligible. Assume that there is no other background traffic over the path and\n      no other additional overhead to transfer the file.\n\n      Which one of the following is the total time (in seconds) to transfer the file?\n\n      Note: 1M=106, 1k=103",
+    "options": [
+      {
+        "id": "a",
+        "text": "731"
+      },
+      {
+        "id": "b",
+        "text": "64"
+      },
+      {
+        "id": "c",
+        "text": "8"
+      },
+      {
+        "id": "d",
+        "text": "16"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 22,
+    "paperSection": null,
+    "order": 22,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Which one of the following protocols may need to broadcast some of its messages?",
+    "options": [
+      {
+        "id": "a",
+        "text": "SMTP"
+      },
+      {
+        "id": "b",
+        "text": "FTP"
+      },
+      {
+        "id": "c",
+        "text": "DHCP"
+      },
+      {
+        "id": "d",
+        "text": "HTTP"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 23,
+    "paperSection": null,
+    "order": 23,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Which one of the following CPU scheduling algorithms cannot be preemptive?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Shortest Remaining Time First (SRTF) Scheduling"
+      },
+      {
+        "id": "b",
+        "text": "First Come First Serve (FCFS) Scheduling"
+      },
+      {
+        "id": "c",
+        "text": "Round Robin Scheduling"
+      },
+      {
+        "id": "d",
+        "text": "Priority Scheduling"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 24,
+    "paperSection": null,
+    "order": 24,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the following functions, where  is a positive integer.\n\n                                1/3 , log() , log(!), 2log()\n\n          Which one of the following options lists the functions in increasing order of\n          asymptotic growth rate?\n          Note: Assume the base of log to be 2.",
+    "options": [
+      {
+        "id": "a",
+        "text": "log() , 1/3, 2log() , log(!)"
+      },
+      {
+        "id": "b",
+        "text": "1/3, log() , log(!) , 2log()"
+      },
+      {
+        "id": "c",
+        "text": "log() , 1/3, log(!) , 2log()"
+      },
+      {
+        "id": "d",
+        "text": "2log() , 1/3, log() , log(!)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 25,
+    "paperSection": null,
+    "order": 25,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Which of the following can be recurrence relation(s) corresponding to an algorithm\n          with time complexity ()?",
+    "options": [
+      {
+        "id": "a",
+        "text": "() = ( - 1) + 1, (1) = 1"
+      },
+      {
+        "id": "b",
+        "text": "()  =  2                       +  1,  (1) = 1 (2)"
+      },
+      {
+        "id": "c",
+        "text": "()  =  2                       +  ,   (1) = 1 (2)"
+      },
+      {
+        "id": "d",
+        "text": "() = ( - 1) + , (1) = 1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 26,
+    "paperSection": null,
+    "order": 26,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Let  be a binary relation on the set {1, 2, ... , 10}, where (, )   if the product\n          of  and  is square of an integer. Which of the following properties is/are satisfied\n          by ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Reflexive"
+      },
+      {
+        "id": "b",
+        "text": "Symmetric"
+      },
+      {
+        "id": "c",
+        "text": "Transitive"
+      },
+      {
+        "id": "d",
+        "text": "Antisymmetric"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 27,
+    "paperSection": null,
+    "order": 27,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "For a real number , let () = -11(32 -  + 1)  . Which of the following\n          statements is/are true?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The value of () is independent of the value of"
+      },
+      {
+        "id": "b",
+        "text": "The value of () can vary with the value of"
+      },
+      {
+        "id": "c",
+        "text": "There exists   (-, +) such that () is a positive real number"
+      },
+      {
+        "id": "d",
+        "text": "There exists   (-, +) such that () is a negative real number"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 28,
+    "paperSection": null,
+    "order": 28,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "In a system, numbers are represented using 4-bit two's complement form. Consider\n          four numbers 1 =1011, 2 =1101, 3 =1010 and 4 =1001 in the system.\n          Which of the following operations will result in arithmetic overflow?",
+    "options": [
+      {
+        "id": "a",
+        "text": "1 + 2"
+      },
+      {
+        "id": "b",
+        "text": "2 + 3"
+      },
+      {
+        "id": "c",
+        "text": "3 - 4"
+      },
+      {
+        "id": "d",
+        "text": "1 + 4"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 29,
+    "paperSection": null,
+    "order": 29,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Which of the following grammars is/are ambiguous?",
+    "options": [
+      {
+        "id": "a",
+        "text": "|"
+      },
+      {
+        "id": "b",
+        "text": "+  |    |"
+      },
+      {
+        "id": "c",
+        "text": "|  |"
+      },
+      {
+        "id": "d",
+        "text": "|"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 30,
+    "paperSection": null,
+    "order": 30,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "The keys 5, 28, 19, 15, 26, 33, 12, 17, 10 are inserted into a hash table using the\n          hash function () =   9. The collisions are resolved by chaining. After all\n          the keys are inserted, the length of the longest chain is __________. (answer in\n          integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 31,
+    "paperSection": null,
+    "order": 31,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider the system of linear equations given below.\n                                                      +  =\n\n                                                   16 +  = 24\n          Suppose the values of a and b are chosen such that the system of linear equations\n          produce multiple solutions. Then the product of a and b is __________. (answer in\n          integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 32,
+    "paperSection": null,
+    "order": 32,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider an array  = [10, 7, 8, 19, 41, 35, 25, 31]. Suppose the merge sort\n          algorithm is executed on array  to sort it in increasing order. The merge sort\n          algorithm will carry out a total of 7 merge operations.\n          A merge operation on sorted left array  and sorted right array  is said to be void\n          if the output of the merge operation is the elements of array  followed by the\n          elements of array .\n          The number of void merge operations among these 7 merge operations\n          is __________. (answer in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 33,
+    "paperSection": null,
+    "order": 33,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "If an IP network uses a subnet mask of 255.255.240.0, the maximum number of IP\n          addresses that can be assigned to network interfaces is __________. (answer in\n          integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 34,
+    "paperSection": null,
+    "order": 34,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "The 32-bit IEEE 754 single precision representation of a number is 0xC2710000.\n          The number in decimal representation is ________. (rounded off to two decimal\n          places)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 35,
+    "paperSection": null,
+    "order": 35,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "A lexical analyzer uses the following token definitions\n                  [ -  - ]\n                  [0 - 9]\n                   ( | )*\n                  +\n                  ( |  | )+\n\n          For the string given below,\n                               1 23 78  7 5 14 8\n\n          the number of tokens (excluding ) that will be produced by the lexical analyzer\n          is __________. (answer in integer)\n\nQ.36 � Q.65 Carry TWO marks Each",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 36,
+    "paperSection": null,
+    "order": 36,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a complete graph  with  vertices ( > 4). Note that multiple spanning\n            trees can be constructed over . Each of these spanning trees is represented as a\n            set of edges. The Jaccard coefficient between any two sets is defined as the ratio of\n            the size of the intersection of the two sets to the size of the union of the two sets.\n\n            Which one of the following options gives the lowest possible value for the Jaccard\n            coefficient between any two spanning trees of  ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "1"
+      },
+      {
+        "id": "b",
+        "text": "1 2 - 3"
+      },
+      {
+        "id": "c",
+        "text": "0"
+      },
+      {
+        "id": "d",
+        "text": "1 - 1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 37,
+    "paperSection": null,
+    "order": 37,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let  be a weighted directed acyclic graph with  edges and  vertices. Given\n          and a source vertex  in , which one of the following options gives the worst case\n          time complexity of the fastest algorithm to find the lengths of shortest paths from\n          to all vertices that are reachable from  in ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "( + )"
+      },
+      {
+        "id": "b",
+        "text": "( +  log())"
+      },
+      {
+        "id": "c",
+        "text": "()"
+      },
+      {
+        "id": "d",
+        "text": "(3)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 38,
+    "paperSection": null,
+    "order": 38,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider an array  of integers of size . The indices of  run from 1 to . An\n          algorithm is to be designed to check whether  satisfies the condition given below.\n          ,   {1, ... ,  - 1} such that  > , ([ + 1] - []) > ([ + 1] - [])\n          Which one of the following gives the worst case time complexity of the fastest\n          algorithm that can be designed for the problem?",
+    "options": [
+      {
+        "id": "a",
+        "text": "()"
+      },
+      {
+        "id": "b",
+        "text": "(log())"
+      },
+      {
+        "id": "c",
+        "text": "( log())"
+      },
+      {
+        "id": "d",
+        "text": "(2)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 39,
+    "paperSection": null,
+    "order": 39,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a table , where the elements [][], 0  ,   , represent the cost of\n          the optimal solutions of different subproblems of a problem that is being solved\n          using a dynamic programming algorithm. The recursive formulation to compute the\n          table entries is as follows:\n\n[0][] = [][0] = 1                                  for  = 0,1,2, ... ,\n\n[][] = 2[ - 1][] + 3[][ - 1] for 1  ,\n\nConsider the following two algorithms to compute entries of . Assume that for\nboth the algorithms, for all 0  ,   , [][] has been initialized to 1.\n\n Algorithm 1: For  = 1, 2, ... ,\n                          For  = 1, 2, ... ,\n\n                                [][] = 2[ - 1][] + 3[][ - 1]\n\nAlgorithm 2: For  = 2, 3, ... , 2\n                         For  = 1, 2, ... ,\n                               For  = 1, 2, ... ,\n                                    If ( +  == )\n                                         [][] = 2[ - 1][] + 3[][ - 1]\n\nAlgorithm ,   {1,2} is said to be correct if and only if it calculates the correct\nvalues of [][], for all 0  ,   , (as per the recursive formulation) at the end\nof the execution of the algorithm .\n\nWhich one of the following statements is true?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Both algorithms 1 and 2 are correct"
+      },
+      {
+        "id": "b",
+        "text": "Algorithm 1 is correct, but algorithm 2 is incorrect"
+      },
+      {
+        "id": "c",
+        "text": "Algorithm 2 is correct, but algorithm 1 is incorrect"
+      },
+      {
+        "id": "d",
+        "text": "Both algorithms 1 and 2 are incorrect"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 40,
+    "paperSection": null,
+    "order": 40,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the following 4-variable Boolean function\n                                   (, , , ) = (0, 1, 2, 3, 8, 9, 10, 11)\n\n          Consider  as MSB,  as LSB. Which one of the following options represents the\n          minimal sum of products form for the above function?\n\n       Note: + is OR operation, . is AND operation,  is NOT operation",
+    "options": [
+      {
+        "id": "a",
+        "text": "+  +  +"
+      },
+      {
+        "id": "b",
+        "text": ""
+      },
+      {
+        "id": "c",
+        "text": ".  +  ."
+      },
+      {
+        "id": "d",
+        "text": ""
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "empty-option"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 41,
+    "paperSection": null,
+    "order": 41,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the canonical (0) parsing of the grammar below using terminals\n          {, , } and non-terminals {, , , } with  as the start symbol.\n\n                      |\n                      |\n                      |\n          Which one of the following options gives the number of shift-reduce conflicts that\n          will occur in the (0) ACTION table?",
+    "options": [
+      {
+        "id": "a",
+        "text": "2"
+      },
+      {
+        "id": "b",
+        "text": "3"
+      },
+      {
+        "id": "c",
+        "text": "4"
+      },
+      {
+        "id": "d",
+        "text": "5"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.243Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 42,
+    "paperSection": null,
+    "order": 42,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "In the context of schema normalization in relational DBMS, consider a set F of\n          functional dependencies. The set of all functional dependencies implied by F is\n          called the closure of F. To compute the closure of F, Armstrong's Axioms can be\n          applied. Consider , , and  as sets of attributes over a relational schema. The three\n          rules of Armstrong's Axioms are described as follows.\n          Reflexivity: If    , then\n          Augmentation: If   , then    for any Z\n          Transitivity: If    and   , then\n          The additional rule of Union is defined as follows.\n          Union: If    and   , then\n          It can be proved that the additional rule of Union is also implied by the three rules\n          of Armstrong's Axioms. Listed below are four combinations of these three rules.\n          Which one of these combinations is both necessary and sufficient for the proof ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Reflexivity, Augmentation, and Transitivity"
+      },
+      {
+        "id": "b",
+        "text": "Reflexivity and Augmentation"
+      },
+      {
+        "id": "c",
+        "text": "Transitivity"
+      },
+      {
+        "id": "d",
+        "text": "Augmentation and Transitivity"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.244Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 43,
+    "paperSection": null,
+    "order": 43,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the transmission of data bits 110001011 over a link that uses Cyclic\n          Redundancy Check (CRC) code for error detection. If the generator bit pattern is\n          given to be 1001, which one of the following options shows the remainder bit\n          pattern appended to the data bits before transmission?",
+    "options": [
+      {
+        "id": "a",
+        "text": "011"
+      },
+      {
+        "id": "b",
+        "text": "101"
+      },
+      {
+        "id": "c",
+        "text": "000"
+      },
+      {
+        "id": "d",
+        "text": "100"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.244Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 44,
+    "paperSection": null,
+    "order": 44,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a processor that has 16 general purpose registers and it uses 2-byte\n          instruction format for all its instructions. Variable-sized opcodes are permitted.\n          There are three different types of instructions; M-type, R-type, and C-type. Each\n          M-type instruction has 2 register operands and a 6-bit immediate operand. Each R-\n          type instruction has 3 register operands. Each C-type instruction has a register\n          operand and a 6-bit offset value. If there are 2 unique M-type opcodes and 7 unique\n          R-type opcodes, which one of the following options gives the maximum number of\n          unique opcodes possible for C-type instructions?",
+    "options": [
+      {
+        "id": "a",
+        "text": "8"
+      },
+      {
+        "id": "b",
+        "text": "4"
+      },
+      {
+        "id": "c",
+        "text": "64"
+      },
+      {
+        "id": "d",
+        "text": "16"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.244Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 45,
+    "paperSection": null,
+    "order": 45,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the control flow graph given below.\n\n          Which one of the following options is the set of live variables at the exit point of\n          each basic block?",
+    "options": [
+      {
+        "id": "a",
+        "text": "B1:{a, b, c, e, f}, B2:{d, e}, B3:{b, c, e, f}, B4:"
+      },
+      {
+        "id": "b",
+        "text": "B1:, B2:{d, e}, B3:{a, c, f}, B4:"
+      },
+      {
+        "id": "c",
+        "text": "B1:{a, b, c, e, f}, B2:{d, e}, B3:{c, e, f}, B4:"
+      },
+      {
+        "id": "d",
+        "text": "B1:, B2:{d, e, f}, B3:{a, b, c, e, f}, B4:"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.244Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 46,
+    "paperSection": null,
+    "order": 46,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "An index in a DBMS is said to be dense if an index entry appears for every\n      search-key value in the indexed file. Otherwise it is called a sparse index. Consider\n\n      the following two statements.\n\n      S1: A hash index must be a dense index\n      S2: A + tree index can be a sparse index\n\n      Which one of the following options is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Both S1 and S2 are true"
+      },
+      {
+        "id": "b",
+        "text": "Both S1 and S2 are false"
+      },
+      {
+        "id": "c",
+        "text": "S1 is true and S2 is false"
+      },
+      {
+        "id": "d",
+        "text": "S1 is false and S2 is true"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.244Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 47,
+    "paperSection": null,
+    "order": 47,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the following two finite automata 1 and 2.\n\n          Which of the following statements is/are true?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(1) = (2)"
+      },
+      {
+        "id": "b",
+        "text": "(1) is a proper subset of (2)"
+      },
+      {
+        "id": "c",
+        "text": "(1)  (2) = { }"
+      },
+      {
+        "id": "d",
+        "text": "((1)  (2)) consists of all strings in {0,1} whose length is divisible by 3"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.244Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 48,
+    "paperSection": null,
+    "order": 48,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let  = {, , , } and let  = {  , , ,   0}.\n\n          Which of the following constraints ensure(s) that the language  is context-free?",
+    "options": [
+      {
+        "id": "a",
+        "text": "+  =  +"
+      },
+      {
+        "id": "b",
+        "text": "=  and  ="
+      },
+      {
+        "id": "c",
+        "text": "=  and  ="
+      },
+      {
+        "id": "d",
+        "text": "+  =  +"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.244Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 49,
+    "paperSection": null,
+    "order": 49,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a binary search tree (BST) with  leaf nodes ( > 0). Given any node ,\n      the key present in the node is denoted as (). All the keys present in the given\n\n      BST are distinct. The keys belong to the set of real numbers.\n\n      For a node , let () denote the node that is its inorder successor. If a node\n      does not have an inorder successor, then () is . As there are no\n      duplicates, if () is not , then () < (()).\n\n      Corresponding to every leaf node  that has a non-NULL (), a new key\n      with the following property is to be inserted into the BST.\n\n                                    () <  < (())\n\n      Let  represent the list of all such new keys to be inserted into the BST.\n      Which of the following statements is/are true?",
+    "options": [
+      {
+        "id": "a",
+        "text": "cannot have any duplicates"
+      },
+      {
+        "id": "b",
+        "text": "will have at least one element"
+      },
+      {
+        "id": "c",
+        "text": "After inserting all keys from , the height of the BST can increase at most by one"
+      },
+      {
+        "id": "d",
+        "text": "Number of nodes in the BST will double after inserting all keys from"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.244Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 50,
+    "paperSection": null,
+    "order": 50,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a stack  and a queue . Both of them are initially empty and have the\n      capacity to store ten elements each. The elements 1, 2, 3, 4, and 5 arrive one by one,\n\n      in that order. When an element arrives, it is assigned either to  (pushed on  ) or\n\n      to  (enqueued to ). Once all the five elements are stored, the output is generated\n\n      in two steps. First, stack S is emptied by popping all elements. Then queue  is\n\n      emptied by dequeueing all elements. The output obtained by following this process\n\n      is 4 3 1 2 5 .\n\n      Given the output, the objective is to predict whether an element was assigned to\n      or .\n\n      Which of the following options is/are possible valid assignment(s) of the\n      elements?\n\n      Note: In the options, the notation  denotes that element  was assigned to  and\n       denotes that element  was assigned to .",
+    "options": [
+      {
+        "id": "a",
+        "text": "1, 2, 3, 4, 5"
+      },
+      {
+        "id": "b",
+        "text": "1, 2, 3, 4, 5"
+      },
+      {
+        "id": "c",
+        "text": "1, 2, 3, 4, 5"
+      },
+      {
+        "id": "d",
+        "text": "1, 2, 3, 4, 5"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 51,
+    "paperSection": null,
+    "order": 51,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider three processes P1, P2, and P3 running identical code, as shown in the\n          pseudocode below. A and B are two binary semaphores initialized to 1 and 0,\n          respectively. X is a shared variable initialized to 0. Each line in the pseudocode is\n          executed atomically.\n          Pseudocode of P1, P2, and P3\n                           Wait(A);\n                           Print(*);\n                           X = X+1;\n                           If (X == 2)\n                                {\n                                     Print($);\n                                     Signal(B);\n                                }\n                           Signal(A);\n                           Wait(B);\n                           Print(#);\n                           Signal(B);\n          Assume that any of the three processes can start to execute first and context\n          switching can happen between these processes at any arbitrary time and in any\n          arbitrary order.\n          Which of the following patterns is/are possible to be generated as an outcome of the\n          execution of these three processes?",
+    "options": [
+      {
+        "id": "a",
+        "text": "**$*###"
+      },
+      {
+        "id": "b",
+        "text": "**$#*##"
+      },
+      {
+        "id": "c",
+        "text": "**$##*#"
+      },
+      {
+        "id": "d",
+        "text": "***$###"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 52,
+    "paperSection": null,
+    "order": 52,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a system with a processor and a 4 KB direct mapped cache with block size\n          of 16 bytes. The system has a 16 MB physical memory. Four words P, Q, R, and S\n          are accessed by the processor in the same order 10 times. That is, there are a total\n          of 40 memory references in the sequence P, Q, R, S, P, Q, R, S,...\n          Assume that the cache memory is initially empty. The physical addresses of the\n          words are given below (1 word =1 byte).\n                          P: 0x845B32, Q: 0x845B26, R: 0x845B36, S: 0x846B32\n          Which of the following statements is/are true?\n          Note: 1K=210 and 1M=220",
+    "options": [
+      {
+        "id": "a",
+        "text": "Every access to P results in a cache miss"
+      },
+      {
+        "id": "b",
+        "text": "Every access to R results in a cache hit"
+      },
+      {
+        "id": "c",
+        "text": "Every access to Q results in a cache miss"
+      },
+      {
+        "id": "d",
+        "text": "Except the first access to S, all subsequent accesses to S result in cache hits"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 53,
+    "paperSection": null,
+    "order": 53,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "To keep track of free blocks in a file system, one of the two approaches is generally\n      used � using bitmaps (bit vectors) or using linked lists. Consider that the linked list\n      approach is used to keep track of free blocks in a file system. Assume that the disk\n      size is 16 GB, block size is 2 KB, and block numbers used are 32-bit long. A single\n      pointer of size 4 bytes is used in each block of the list to point to the next block of\n      the list. The number of blocks required to hold the free disk block numbers is\n      ____________. (answer in integer)\n\n      Note: 1K=210 and 1G=230",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 54,
+    "paperSection": null,
+    "order": 54,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "A system has a Translation Lookaside Buffer (TLB) that has a reach of 1 MB. TLB\n      reach is defined as the total amount of physical memory that can be accessed\n      through the TLB entries. The paging system uses pages of size 4 KB. The virtual\n      address space is 64 GB and physical address space is 1 GB. If each TLB entry stores\n      a 4-bit process id, page number, frame number, and a 2-bit control field, then the\n      size of the TLB (in bytes) is ___________. (answer in integer)\n\n      Note: 1K=210, 1M=220, 1G=230",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 55,
+    "paperSection": null,
+    "order": 55,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider contiguous allocation of physical memory to processes using variable\n      partitioning scheme. Suppose there are 8 holes in the memory of sizes 20 KB, 4 KB,\n      25 KB, 18 KB, 7 KB, 9 KB, 15 KB, and 12 KB. Assume that no two holes are\n      adjacent. Two processes P1 of size 16 KB and P2 of size 9 KB arrive in that order,\n      and they are allocated memory using the best-fit technique. After allocating space\n      to P1 and P2, the number of holes of size less than 8 KB is ____________. (answer\n      in integer)\n\n      Note: 1K=210",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 56,
+    "paperSection": null,
+    "order": 56,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider a system with 1 MB physical memory and a word length of 1 byte. The\n      system uses a direct mapped cache, with block numbers starting from 0. The word\n      with physical address 0xA2C28 is mapped to the cache block number 17610. The\n      maximum possible size of the cache (in KB) for this configuration is ___________.\n      (answer in integer)\n\n      Note: 1K=210 and 1M=220",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 57,
+    "paperSection": null,
+    "order": 57,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "A non-pipelined instruction execution unit that operates at 1.6 GHz clock takes an\n      average of 5 clock cycles to complete the execution of an instruction. To improve\n      the performance, the system was pipelined with a goal of achieving an average\n      throughput of one instruction per clock cycle. However, it could operate only at\n      1.2 GHz due to pipeline overheads. While executing a program in the pipelined\n      design, 30% of instructions encountered a stall of 2 cycles due to pipeline hazards.\n      The speed-up obtained by the pipelined design over the non-pipelined one for this\n      program is ___________. (rounded off to two decimal places)\n\n      Note: 1G=109",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 58,
+    "paperSection": null,
+    "order": 58,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider a new TCP connection between a sender and a receiver. The receiver\n      advertised window is constant at 48 KB, the maximum segment size (MSS) is\n      2 KB, and the slow start threshold for TCP congestion control is 16 KB. Assume\n      that there are no timeouts or duplicate acknowledgements. The number of rounds\n      of transmission required for the congestion control algorithm of the TCP connection\n      to reach the congestion avoidance phase is ___________. (answer in integer)\n\n      Note: 1K=210",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 59,
+    "paperSection": null,
+    "order": 59,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider the digital circuit shown below with two input lines A and B, two select\n          lines S0 and S1, and an output line Y. The blocks Q and M represent active high\n          2:4 decoder and 4-to-1 multiplexer, respectively. Out of 16 possible input\n          combinations, the number of combinations that produce Y=1 is ____________.\n          (answer in integer)\n\n          Note: One input combination is an instance of [A B S1 S0].",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 60,
+    "paperSection": null,
+    "order": 60,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider the following ANSI-C program.\n\n          #include <stdio.h>\n\n          int main(){\n\n                       int *ptr, a, b, c;\n                       a=5; b=11; c=20;\n                       ptr=&a; *ptr=c; ptr=&c;\n                       a=*(&b); c=*ptr-a;\n                       printf(\"%d\",c);\n                       return(0);\n          }\n\n          The output of this program is ____________. (answer in integer)\n\n          Note: Assume that the program compiles and runs successfully.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 61,
+    "paperSection": null,
+    "order": 61,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider the following ANSI-C function.\n          int func(int start, int end){\n                       int length=end+1-start;\n                       if((length<1)||(start<0)||(end<0)){ return(0); }\n                       if(length%3==0){\n                                   return(func(start+1, end));\n                       } else if(length%3==1){\n                                   return(1+func(start, end-1));\n                       } else {\n                                   return(func(start+2, end));\n                       }\n          }\n          The maximum possible value that can be returned from this function is\n          ____________. (answer in integer)\n\n          Note: Ignore syntax errors (if any) in the function.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 62,
+    "paperSection": null,
+    "order": 62,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "The determinant of a 4 � 4 matrix A is 3. The value of the determinant of 2A is\n          ____________. (answer in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 63,
+    "paperSection": null,
+    "order": 63,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Suppose an unbiased coin is tossed 6 times. Each coin toss is independent of all\n          previous coin tosses. Let 1 be the event that among the second, fourth, and sixth\n          coin tosses, there are at least two heads. Let 2 be the event that among the first,\n          second, third, and fifth coin tosses, there are equal number of heads and tails.\n          The conditional probability P(1| 2) is equal to ____________. (rounded off to\n          one decimal place)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 64,
+    "paperSection": null,
+    "order": 64,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider a function : (0,1)  {0, 1} defined as follows.\n          For a real number   (0,1) , () = 1 if the second digit after the decimal point\n          in  is one of the four digits 2, 3, 6 and 7. Otherwise, () is equal to 0.\n          The number of points in (0,1) at which  is discontinuous is ___________. (answer\n          in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  },
+  {
+    "year": 2026,
+    "paperId": "cs",
+    "paperCode": "CS",
+    "session": 2,
+    "questionNumber": 65,
+    "paperSection": null,
+    "order": 65,
+    "sourceFile": "CS/2026_CS2.pdf",
+    "organizingInstitute": "IIT Guwahati",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "It is necessary to design a link-layer protocol between two hosts that are directly\n          connected over a lossless link of length 3000 kilometers. Assume that the link\n          bandwidth is 108 bits per second and that the propagation delay in the link is 5\n          nanoseconds per meter. Every transmitted data byte is assigned a unique sequence\n          number.\n          Let  be the minimum number of bits needed for the sequence number field in the\n          protocol header such that\n             i. the sequence numbers do not wrap around before 60 seconds, and\n            ii. the maximum utilization of the link is achieved.\n          The value of  is ______. (answer in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.245Z"
+  }
+]

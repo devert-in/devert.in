@@ -59,6 +59,28 @@ jobs:
           NEXT_PUBLIC_API_URL: https://devert-backend-550891323057.asia-south1.run.app
           NEXT_PUBLIC_AUTH_DOMAIN: devert.in
 
+      - name: Install careers dependencies
+        run: npm ci
+        working-directory: devert-careers
+
+      # devert-careers imports lib/careers.js and lib/firebase.js straight from
+      # devert-frontend (see devert-careers/jsconfig.json's @/* fallback), so
+      # devert-frontend must already be checked out - it is, same job - but does
+      # NOT need to be built first: the import is source-level, not a build
+      # artifact dependency. Same arrangement as the campus build above.
+      #
+      # No NEXT_PUBLIC_* env needed here, unlike the campus build. This app
+      # mounts no AuthProvider and calls no backend: it reads the world-readable
+      # job_openings collection and writes job_applications, both straight to
+      # Firestore with the config baked into lib/firebase.js. If a signed-in
+      # experience or a backend call is ever added here, NEXT_PUBLIC_API_URL and
+      # NEXT_PUBLIC_AUTH_DOMAIN have to be set on THIS step too - Next.js inlines
+      # NEXT_PUBLIC_* per app at build time, which is exactly the trap the
+      # campus step documents.
+      - name: Build careers
+        run: npm run build
+        working-directory: devert-careers
+
       # functions/index.js's crawler-preview routers (uHandleRouter,
       # contestPreviewRouter, pulsePreviewRouter) each serve a copy of the
       # real SPA shell to non-crawler traffic - this step is what keeps that

@@ -15,6 +15,7 @@ import HeroSection from "@/components/portfolio/hero-section";
 import ShareModal from "@/components/portfolio/share-modal";
 import { renderSection } from "@/components/portfolio/section-renderer";
 import { effectiveSections } from "@/lib/portfolio-sections";
+import { fetchUserAchievements } from "@/lib/achievements";
 
 function getTierFromXP(xp = 0) {
   if (xp >= 10000) return { name: "LEGEND",    color: "#FFD700" };
@@ -38,6 +39,7 @@ export default function PublicDevCard() {
   const [guestPromptOpen, setGuestPromptOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [pulsePosts, setPulsePosts] = useState([]);
+  const [systemAchievements, setSystemAchievements] = useState([]);
 
   const isOwnProfile = user && profile && user.uid === profile.uid;
 
@@ -104,6 +106,18 @@ export default function PublicDevCard() {
     getDocs(query(collection(db, "projects"), where("ownerId", "==", profile.uid), orderBy("createdAt", "desc")))
       .then(snap => setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(e => { console.error(e); setProjects([]); });
+  }, [profile?.uid]);
+
+  /* ── server-granted achievements (streak milestones, etc. - see
+     functions/index.js's grantStreakAchievementOnUpdate) - previously
+     fetched by lib/achievements.js's fetchUserAchievements with no UI
+     surface anywhere; merged into the self-reported list in
+     section-renderer.jsx's "achievements" case below. ── */
+  useEffect(() => {
+    if (!profile?.uid) { setSystemAchievements([]); return; }
+    fetchUserAchievements(profile.uid)
+      .then(setSystemAchievements)
+      .catch(e => { console.error(e); setSystemAchievements([]); });
   }, [profile?.uid]);
 
   /* ── this user's own approved pulse posts ── */
@@ -197,7 +211,7 @@ export default function PublicDevCard() {
   ].filter(Boolean).slice(0, 4);
 
   const sections = effectiveSections(profile);
-  const sectionData = { profile, projects, pulsePosts, onShare: () => setShareOpen(true) };
+  const sectionData = { profile, projects, pulsePosts, systemAchievements, onShare: () => setShareOpen(true) };
 
   return (
     <main className="min-h-screen pb-8">

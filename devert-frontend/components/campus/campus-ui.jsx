@@ -707,27 +707,49 @@ export function RoadmapTimeline({
 // `next.groupLabel` is only rendered when `crossesModule` is true, so a
 // caller whose "next" object has no such field (nothing crossed) simply
 // omits it.
+//
+// `prev` is optional and purely additive: a caller that passes none renders
+// exactly the single full-width next card this component always rendered.
+// Pass both and they sit side by side above the sm: breakpoint. Both go
+// through the SAME onOpenTopic callback, so a caller needs no second handler.
 export function LessonNavFooter({
-  next, crossesModule, done, onOpenTopic, onBack,
+  next, prev, crossesModule, done, onOpenTopic, onBack,
   groupNoun = "Module", endTitle, endBody, endButtonLabel = "Back to Roadmap",
 }) {
   return (
     <>
-      {next && (
-        <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
-              {crossesModule ? `NEXT ${groupNoun.toUpperCase()}` : "NEXT TOPIC"}
-            </p>
-            <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{next.title}</p>
-            {crossesModule && next.groupLabel && (
-              <p className="text-[11px] mt-0.5 truncate" style={{ color: CAMPUS.inkFaint }}>{next.groupLabel}</p>
-            )}
-          </div>
-          <CampusButton icon={ArrowRight} onClick={() => onOpenTopic(next.id)}>
-            {crossesModule ? `Next ${groupNoun}` : "Next Topic"}
-          </CampusButton>
-        </CampusCard>
+      {(prev || next) && (
+        <div className={prev && next ? "grid sm:grid-cols-2 gap-3" : ""}>
+          {prev && (
+            <CampusCard className="p-4 flex items-center gap-3">
+              <CampusButton variant="secondary" icon={ArrowLeft} onClick={() => onOpenTopic(prev.id)}>
+                Previous
+              </CampusButton>
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
+                  PREVIOUS TOPIC
+                </p>
+                <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{prev.title}</p>
+              </div>
+            </CampusCard>
+          )}
+          {next && (
+            <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
+                  {crossesModule ? `NEXT ${groupNoun.toUpperCase()}` : "NEXT TOPIC"}
+                </p>
+                <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{next.title}</p>
+                {crossesModule && next.groupLabel && (
+                  <p className="text-[11px] mt-0.5 truncate" style={{ color: CAMPUS.inkFaint }}>{next.groupLabel}</p>
+                )}
+              </div>
+              <CampusButton icon={ArrowRight} onClick={() => onOpenTopic(next.id)}>
+                {crossesModule ? `Next ${groupNoun}` : "Next Topic"}
+              </CampusButton>
+            </CampusCard>
+          )}
+        </div>
       )}
 
       {done && (

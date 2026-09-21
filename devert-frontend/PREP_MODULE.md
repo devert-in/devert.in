@@ -46,17 +46,20 @@ API — don't hand-roll Firestore calls elsewhere in the app.
 
 ## Roles & bootstrapping the first admin
 
-Roles: `student` (default) → `faculty` / `tpo` → `admin`. `isStaff` = faculty/tpo/admin
-(or the bootstrap email below). Only `admin` (or the bootstrap email) can write
-`prepQuestions`, manage roles, or delete submissions.
+Roles: `student` (default) → `faculty` / `tpo` → `admin`. `isStaff` = faculty/tpo/admin.
+`isPrepAdmin()` (`firestore.rules`) is `role == "admin" || isAdmin()` — the platform's
+own `admin` custom claim already satisfies it too, deliberately: there is no
+hardcoded-email fallback here (that pattern was removed platform-wide as a security
+hardening — see the root `CLAUDE.md`, "Never reintroduce a hardcoded admin email").
 
 **To create the first admin**, either:
-1. Sign in once with `admin@devert.in` — this email is hardcoded as an admin
-   bootstrap identity in both `firestore.rules` and `context/AuthContext.js`, no
-   Firestore edit needed, **or**
+1. Grant yourself the platform admin claim: `node scripts/set-admin-claim.mjs <email>`
+   — the same way every other admin surface bootstraps (see root `CLAUDE.md`). This
+   satisfies `isPrepAdmin()` immediately, no Firestore edit needed, **or**
 2. Open the Firebase console → Firestore → `users/{uid}` for the account you want
-   to promote → set the field `role` to `"admin"`. (The `/prep/admin` → Roles tab
-   can promote any *other* user by email lookup once you have one admin.)
+   to promote → set the field `role` to `"admin"`, if you want prep-scoped admin
+   without full platform admin. (The `/prep/admin` → Roles tab can promote any
+   *other* user by email lookup once you have one admin.)
 
 Roll number is mandatory before any exam/contest attempt (`/prep/onboarding`,
 enforced both client-side and in `firestore.rules`) and is immutable once set —

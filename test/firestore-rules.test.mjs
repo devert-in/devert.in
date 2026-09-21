@@ -10,7 +10,10 @@ import {
   assertSucceeds,
   assertFails,
 } from "@firebase/rules-unit-testing";
-import { collection, query, where, getDocs, getCountFromServer } from "firebase/firestore";
+import {
+  collection, query, where, getDocs, getCountFromServer,
+  doc, getDoc, setDoc, addDoc, serverTimestamp,
+} from "firebase/firestore";
 
 let testEnv;
 
@@ -66,6 +69,32 @@ test("a non-owner may bump profileViews alone, but not alongside any other field
   await assertFails(visitor.firestore().doc("users/victim-uid").update({ xp: 999999 }));
 });
 
+// The owner-branch's selfWriteDeltaSane() checks were all vacuously true for
+// any field they don't name, so a write touching ONLY one of the ten
+// boundedUserCounterWrite() fields (never named there) made the whole owner
+// branch collapse to plain isOwner(uid) - no bound at all. Every one of
+// these must now be denied from the owner branch and instead forced through
+// boundedUserCounterWrite's +-1 check (still available to the owner, since
+// that branch only requires isAuth()).
+test("the owner CANNOT forge their own social-proof counters to an arbitrary value (devtools)", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("users/owner-uid").set({
+      handle: "owner", followersCount: 3, pulsePostsCount: 1, totalLikesReceived: 2,
+      totalCommentsReceived: 0, totalSavesReceived: 0, totalSharesReceived: 0,
+      totalViewsReceived: 0, totalRepostsReceived: 0, totalRepostsMade: 0, profileViews: 0,
+    });
+  });
+  const owner = testEnv.authenticatedContext("owner-uid");
+  const ownDoc = owner.firestore().doc("users/owner-uid");
+  await assertFails(ownDoc.update({ followersCount: 999999999 }));
+  await assertFails(ownDoc.update({ pulsePostsCount: 999999999 }));
+  await assertFails(ownDoc.update({ totalLikesReceived: 999999999 }));
+  await assertFails(ownDoc.update({ profileViews: 999999999 }));
+  // A legitimate +-1 bump (e.g. undo-follow rolling back the owner's own
+  // pulsePostsCount after deleting a post) must still work.
+  await assertSucceeds(ownDoc.update({ pulsePostsCount: 0 }));
+});
+
 test("a non-owner cannot set another user's coin balance to an arbitrary value", async () => {
   const attacker = testEnv.authenticatedContext("attacker-uid");
   const victimEarnings = attacker.firestore().doc("user_earnings/victim-uid");
@@ -105,6 +134,23 @@ test("the owner CANNOT convert more than the per-write coin cap in one shot", as
   const owner = testEnv.authenticatedContext("owner-uid");
   const ownEarnings = owner.firestore().doc("user_earnings/owner-uid");
   await assertFails(ownEarnings.set({ pulseCoins: 5001, totalCoins: 5001 }, { merge: true }));
+});
+
+// coin_transactions used to also allow a non-owner to create a
+// 'like_received'/'comment_received'/'save_received' entry crediting someone
+// ELSE's uid, left over from before Pulse engagement stopped granting coins.
+// It could no longer inflate the real user_earnings balance (that disjunct
+// was already removed), but it let anyone forge a fake "you got a like" row
+// on a stranger's coin history/Wallet activity feed. Only a self-logged
+// entry (request.resource.data.uid == request.auth.uid) may be created now.
+test("coin_transactions can only be self-logged, never forged onto someone else's uid", async () => {
+  const liker = testEnv.authenticatedContext("liker-uid");
+  await assertFails(liker.firestore().collection("coin_transactions").add({
+    uid: "author-uid", amount: 10, type: "like_received",
+  }));
+  await assertSucceeds(liker.firestore().collection("coin_transactions").add({
+    uid: "liker-uid", amount: 25, type: "daily_learning",
+  }));
 });
 
 test("the owner CAN reserve/withdraw coins on payout - pulseCoins decreases, totalCoins never moves", async () => {
@@ -374,6 +420,31 @@ test("a user can create their own contest submission with raw answers + honest m
   await assertFails(user.firestore().doc("contests/c1/submissions/user-uid4").set({
     answers: { q1: "a" }, graded: false, maxScore: 5000,
   }));
+});
+
+// attemptDrafts/{uid} - the draft-only autosave contest attempts write to so
+// a mid-attempt refresh doesn't discard unsubmitted answers (see
+// lib/contests.js's saveContestDraft/fetchContestDraft). Genuinely separate
+// from submissions/{uid} - this test only needs to confirm it is owner-only
+// both ways, since the create-vs-update distinction the real submission path
+// depends on is exercised by the surrounding submission tests instead.
+test("a user can create/update only their own contest attemptDraft, never read or write a peer's", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await seedContest(ctx, "c-draft"); });
+  const user = testEnv.authenticatedContext("user-uid");
+  await assertSucceeds(user.firestore().doc("contests/c-draft/attemptDrafts/user-uid").set({
+    answers: { q1: "a" }, qIndex: 0,
+  }));
+  // The cheap update path (no isApprovedForContest re-check, see its own
+  // comment in firestore.rules) is still owner-only.
+  await assertSucceeds(user.firestore().doc("contests/c-draft/attemptDrafts/user-uid").update({
+    answers: { q1: "a", q2: "b" }, qIndex: 1,
+  }));
+  await assertFails(user.firestore().doc("contests/c-draft/attemptDrafts/other-uid").set({
+    answers: { q1: "a" }, qIndex: 0,
+  }));
+  const peer = testEnv.authenticatedContext("peer-uid");
+  await assertFails(peer.firestore().doc("contests/c-draft/attemptDrafts/user-uid").get());
+  await assertFails(peer.firestore().doc("contests/c-draft/attemptDrafts/user-uid").update({ qIndex: 5 }));
 });
 
 test("a user cannot grade their own contest submission before contestEnd, above the contest's prize caps, or above maxScore", async () => {
@@ -2585,4 +2656,157 @@ test("reading a DSA sheet grants no extra access to the problems it references",
   // And a referenced id that doesn't exist is simply unreadable, not an error
   // path that leaks anything - lib/dsaSheets.js drops such rows client-side.
   await assertFails(learner.firestore().doc("problems/p-missing").get());
+});
+
+// --- Careers (job_openings / job_applications) -----------------------------
+// Two collections with opposite trust models, so both directions are worth
+// pinning down: a posting anyone may READ but only an admin may write, and an
+// application anyone may WRITE but only an admin may read.
+
+async function seedJobOpenings(ctx) {
+  const fs = ctx.firestore();
+  await fs.doc("job_openings/frontend-engineer").set({
+    slug: "frontend-engineer", title: "Frontend Engineer", status: "published",
+    team: "Engineering", employmentType: "full-time", locationType: "hybrid", order: 100,
+  });
+  await fs.doc("job_openings/secret-role").set({
+    slug: "secret-role", title: "Unannounced Role", status: "draft", order: 900,
+  });
+}
+
+// The minimum valid application, as components/careers/apply-form.jsx sends it.
+function validApplication(extra = {}) {
+  return {
+    jobId: "frontend-engineer",
+    jobTitle: "Frontend Engineer",
+    name: "Ada Lovelace",
+    email: "ada@example.com",
+    status: "new",
+    createdAt: serverTimestamp(),
+    ...extra,
+  };
+}
+
+test("a job opening is world-readable, and only an admin can write one", async () => {
+  await testEnv.withSecurityRulesDisabled(seedJobOpenings);
+
+  // Public read is the point: a posting nobody can read without an account is
+  // not a posting, and the static export reads these anonymously at build time
+  // to emit JobPosting structured data.
+  const guest = testEnv.unauthenticatedContext();
+  await assertSucceeds(getDoc(doc(guest.firestore(), "job_openings/frontend-engineer")));
+
+  // A draft is UNLISTED, not secret - /careers filters on status, but the doc
+  // itself is readable by anyone who guesses the slug. This test exists to make
+  // that explicit rather than to be fixed: see the rule's own comment before
+  // putting anything confidential in an unpublished posting.
+  await assertSucceeds(getDoc(doc(guest.firestore(), "job_openings/secret-role")));
+
+  // Authoring is platform-admin-only. A signed-in stranger must not be able to
+  // post a job as DeVert, edit the pay-free perks list, or publish their own.
+  const stranger = testEnv.authenticatedContext("job-seeker");
+  await assertFails(setDoc(doc(stranger.firestore(), "job_openings/frontend-engineer"), { title: "hijacked" }, { merge: true }));
+  await assertFails(setDoc(doc(stranger.firestore(), "job_openings/fake-role"), { title: "Pay me", status: "published" }));
+
+  const admin = testEnv.authenticatedContext("plat-admin", { admin: true });
+  await assertSucceeds(setDoc(doc(admin.firestore(), "job_openings/frontend-engineer"), { order: 50 }, { merge: true }));
+  await assertSucceeds(setDoc(doc(admin.firestore(), "job_openings/secret-role"), { status: "published" }, { merge: true }));
+});
+
+test("anyone can apply for a job without an account, but cannot forge the decision", async () => {
+  const guest = testEnv.unauthenticatedContext();
+  const apps = () => collection(guest.firestore(), "job_applications");
+
+  // The whole point of the unauthenticated create: no account needed to apply.
+  await assertSucceeds(addDoc(apps(), validApplication()));
+  await assertSucceeds(addDoc(apps(), validApplication({
+    phone: "+91 90000 00000",
+    resumeUrl: "https://example.com/ada.pdf",
+    githubUrl: "https://github.com/ada",
+    linkedinUrl: "https://linkedin.com/in/ada",
+    portfolioUrl: "https://ada.dev",
+    devertHandle: "ada",
+    coverNote: "I built a difference engine.",
+    source: "careers/frontend-engineer",
+  })));
+
+  // status is pinned to "new" on create - an applicant must never be able to
+  // write themselves into a decision.
+  await assertFails(addDoc(apps(), validApplication({ status: "hired" })));
+  await assertFails(addDoc(apps(), validApplication({ status: "interviewing" })));
+
+  // createdAt must be the server's clock, not the client's.
+  await assertFails(addDoc(apps(), validApplication({ createdAt: new Date("2020-01-01") })));
+
+  // Field whitelist: anything not named in the rule is rejected outright, so a
+  // future reviewer field cannot be smuggled in before it exists.
+  await assertFails(addDoc(apps(), validApplication({ rating: 10 })));
+  await assertFails(addDoc(apps(), validApplication({ internalNote: "hire me" })));
+
+  // Length caps - these are unauthenticated writes, so an uncapped text field is
+  // free storage for anyone who finds the form.
+  await assertFails(addDoc(apps(), validApplication({ coverNote: "x".repeat(2001) })));
+  await assertFails(addDoc(apps(), validApplication({ resumeUrl: `https://e.com/${"x".repeat(500)}` })));
+  await assertFails(addDoc(apps(), validApplication({ name: "x".repeat(81) })));
+
+  // Required fields and a plausible email.
+  await assertFails(addDoc(apps(), validApplication({ email: "not-an-email" })));
+  await assertFails(addDoc(apps(), validApplication({ name: "A" })));
+  await assertFails(addDoc(apps(), { jobId: "frontend-engineer", status: "new", createdAt: serverTimestamp() }));
+});
+
+test("an application's uid cannot be attributed to somebody else", async () => {
+  // Signed in, claiming your own uid: fine, and it is how the admin inbox shows
+  // the MEMBER badge.
+  const applicant = testEnv.authenticatedContext("applicant-uid");
+  await assertSucceeds(addDoc(
+    collection(applicant.firestore(), "job_applications"),
+    validApplication({ uid: "applicant-uid" }),
+  ));
+
+  // Signed in, claiming someone else's: denied.
+  await assertFails(addDoc(
+    collection(applicant.firestore(), "job_applications"),
+    validApplication({ uid: "someone-else-uid" }),
+  ));
+
+  // Logged out, claiming any uid at all: denied. request.auth is null here, so
+  // this also proves the isAuth() guard runs before request.auth.uid is touched.
+  const guest = testEnv.unauthenticatedContext();
+  await assertFails(addDoc(
+    collection(guest.firestore(), "job_applications"),
+    validApplication({ uid: "applicant-uid" }),
+  ));
+});
+
+test("nobody but an admin can read or change a submitted application", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc("job_applications/app1").set({
+      jobId: "frontend-engineer", name: "Ada Lovelace", email: "ada@example.com",
+      phone: "+91 90000 00000", coverNote: "private", status: "new", uid: "applicant-uid",
+      createdAt: new Date(),
+    });
+  });
+
+  // These carry phone numbers, resumes and cover notes. A logged-out visitor,
+  // any signed-in user, and even the applicant themselves are all denied - the
+  // applicant has no read path back to their own row by design, so enumerating
+  // the collection reveals nothing about who else applied.
+  const guest = testEnv.unauthenticatedContext();
+  await assertFails(getDoc(doc(guest.firestore(), "job_applications/app1")));
+  await assertFails(getDocs(collection(guest.firestore(), "job_applications")));
+
+  const stranger = testEnv.authenticatedContext("nosy-uid");
+  await assertFails(getDoc(doc(stranger.firestore(), "job_applications/app1")));
+  await assertFails(getDocs(collection(stranger.firestore(), "job_applications")));
+
+  const applicant = testEnv.authenticatedContext("applicant-uid");
+  await assertFails(getDoc(doc(applicant.firestore(), "job_applications/app1")));
+  // ...and cannot advance their own application either.
+  await assertFails(setDoc(doc(applicant.firestore(), "job_applications/app1"), { status: "hired" }, { merge: true }));
+
+  const admin = testEnv.authenticatedContext("plat-admin", { admin: true });
+  await assertSucceeds(getDoc(doc(admin.firestore(), "job_applications/app1")));
+  await assertSucceeds(getDocs(collection(admin.firestore(), "job_applications")));
+  await assertSucceeds(setDoc(doc(admin.firestore(), "job_applications/app1"), { status: "screening" }, { merge: true }));
 });

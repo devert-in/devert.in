@@ -7,7 +7,7 @@ export default function robots() {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/admin", "/wallet", "/api/"],
+      disallow: ["/admin", "/manage", "/wallet", "/api/"],
     },
     sitemap: "https://devert.in/sitemap.xml",
   };

@@ -1,0 +1,2868 @@
+[
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 1,
+    "paperSection": null,
+    "order": 1,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "If `' denotes increasing order of intensity, then the meaning of the words\n\n            [sick  infirm  moribund] is analogous to [silly  _______  daft].\n            Which one of the given options is appropriate to fill the blank?",
+    "options": [
+      {
+        "id": "a",
+        "text": "frown"
+      },
+      {
+        "id": "b",
+        "text": "fawn"
+      },
+      {
+        "id": "c",
+        "text": "vein"
+      },
+      {
+        "id": "d",
+        "text": "vain"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 2,
+    "paperSection": null,
+    "order": 2,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "The 15 parts of the given figure are to be painted such that no two adjacent parts\n\n          with shared boundaries (excluding corners) have the same color. The minimum\n          number of colors required is",
+    "options": [
+      {
+        "id": "a",
+        "text": "4"
+      },
+      {
+        "id": "b",
+        "text": "3"
+      },
+      {
+        "id": "c",
+        "text": "5"
+      },
+      {
+        "id": "d",
+        "text": "6"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 3,
+    "paperSection": null,
+    "order": 3,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "How many 4-digit positive integers divisible by 3 can be formed using only the\n\n          digits {1, 3, 4, 6, 7}, such that no digit appears more than once in a number?",
+    "options": [
+      {
+        "id": "a",
+        "text": "24"
+      },
+      {
+        "id": "b",
+        "text": "48"
+      },
+      {
+        "id": "c",
+        "text": "72"
+      },
+      {
+        "id": "d",
+        "text": "12"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 4,
+    "paperSection": null,
+    "order": 4,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "The sum of the following infinite series is\n                                          11111 1 1\n\n                                    2 + 2 + 3 + 4 + 8 + 9 + 16 + 27 +",
+    "options": [
+      {
+        "id": "a",
+        "text": "11/3"
+      },
+      {
+        "id": "b",
+        "text": "7/2"
+      },
+      {
+        "id": "c",
+        "text": "13/4"
+      },
+      {
+        "id": "d",
+        "text": "9/2"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 5,
+    "paperSection": null,
+    "order": 5,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "In an election, the share of valid votes received by the four candidates A, B, C, and\n          D is represented by the pie chart shown. The total number of votes cast in the\n          election were 1,15,000, out of which 5,000 were invalid.\n\n                              Share of valid votes\n\n                                         D\n\n                                         15%\n                                                           A\n\n                                      C                40%\n\n            20%\n\n                                          B\n                                         25%\n\nBased on the data provided, the total number of valid votes received by the\ncandidates B and C is",
+    "options": [
+      {
+        "id": "a",
+        "text": "45,000"
+      },
+      {
+        "id": "b",
+        "text": "49,500"
+      },
+      {
+        "id": "c",
+        "text": "51,750"
+      },
+      {
+        "id": "d",
+        "text": "54,000 Q.6 � Q.10 Carry TWO marks Each"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 6,
+    "paperSection": null,
+    "order": 6,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Thousands of years ago, some people began dairy farming. This coincided with a\n\n            number of mutations in a particular gene that resulted in these people developing\n            the ability to digest dairy milk.\n            Based on the given passage, which of the following can be inferred?",
+    "options": [
+      {
+        "id": "a",
+        "text": "All human beings can digest dairy milk."
+      },
+      {
+        "id": "b",
+        "text": "No human being can digest dairy milk."
+      },
+      {
+        "id": "c",
+        "text": "Digestion of dairy milk is essential for human beings."
+      },
+      {
+        "id": "d",
+        "text": "In human beings, digestion of dairy milk resulted from a mutated gene."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 7,
+    "paperSection": null,
+    "order": 7,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "The probability of a boy or a girl being born is 1/2. For a family having only\n            three children, what is the probability of having two girls and one boy?",
+    "options": [
+      {
+        "id": "a",
+        "text": "3/8"
+      },
+      {
+        "id": "b",
+        "text": "1/8"
+      },
+      {
+        "id": "c",
+        "text": "1/4"
+      },
+      {
+        "id": "d",
+        "text": "1/2"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 8,
+    "paperSection": null,
+    "order": 8,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Person 1 and Person 2 invest in three mutual funds A, B, and C. The amounts they\n          invest in each of these mutual funds are given in the table.\n\n                                      Mutual fund A Mutual fund B Mutual fund C\n\n          Person 1                    10,000        20,000  20,000\n\n          Person 2                    20,000        15,000  15,000\n\nAt the end of one year, the total amount that Person 1 gets is 500 more than\nPerson 2. The annual rate of return for the mutual funds B and C is 15% each. What\nis the annual rate of return for the mutual fund A?",
+    "options": [
+      {
+        "id": "a",
+        "text": "7.5%"
+      },
+      {
+        "id": "b",
+        "text": "10%"
+      },
+      {
+        "id": "c",
+        "text": "15%"
+      },
+      {
+        "id": "d",
+        "text": "20%"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 9,
+    "paperSection": null,
+    "order": 9,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Three different views of a dice are shown in the figure below.\n\n          The piece of paper that can be folded to make this dice is",
+    "options": [
+      {
+        "id": "a",
+        "text": ""
+      },
+      {
+        "id": "b",
+        "text": ""
+      },
+      {
+        "id": "c",
+        "text": ""
+      },
+      {
+        "id": "d",
+        "text": ""
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference",
+      "empty-option"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 10,
+    "paperSection": null,
+    "order": 10,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Visualize two identical right circular cones such that one is inverted over the other\n      and they share a common circular base. If a cutting plane passes through the vertices\n      of the assembled cones, what shape does the outer boundary of the\n      resulting cross-section make?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A rhombus"
+      },
+      {
+        "id": "b",
+        "text": "A triangle"
+      },
+      {
+        "id": "c",
+        "text": "An ellipse"
+      },
+      {
+        "id": "d",
+        "text": "A hexagon Q.11 � Q.35 Carry ONE mark Each"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 11,
+    "paperSection": null,
+    "order": 11,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the following statements:\n               (i) The mean and variance of a Poisson random variable are equal.\n               (ii) For a standard normal random variable, the mean is zero and the\n                        variance is one.\n\n          Which ONE of the following options is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Both (i) and (ii) are true"
+      },
+      {
+        "id": "b",
+        "text": "(i) is true and (ii) is false"
+      },
+      {
+        "id": "c",
+        "text": "(ii) is true and (i) is false"
+      },
+      {
+        "id": "d",
+        "text": "Both (i) and (ii) are false"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 12,
+    "paperSection": null,
+    "order": 12,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Three fair coins are tossed independently. T is the event that two or more tosses\n          result in heads. S is the event that two or more tosses result in tails.\n          What is the probability of the event    ?",
+    "options": [
+      {
+        "id": "a",
+        "text": "0"
+      },
+      {
+        "id": "b",
+        "text": "0.5"
+      },
+      {
+        "id": "c",
+        "text": "0.25"
+      },
+      {
+        "id": "d",
+        "text": "1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 13,
+    "paperSection": null,
+    "order": 13,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the matrix  = [23 -11].\n      Which ONE of the following statements is TRUE?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The eigenvalues of  are non-negative and real."
+      },
+      {
+        "id": "b",
+        "text": "The eigenvalues of  are complex conjugate pairs."
+      },
+      {
+        "id": "c",
+        "text": "One eigenvalue of  is positive and real, and another eigenvalue of  is zero."
+      },
+      {
+        "id": "d",
+        "text": "One eigenvalue of  is non-negative and real, and another eigenvalue of  is negative and real."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 14,
+    "paperSection": null,
+    "order": 14,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider performing depth-first search (DFS) on an undirected and unweighted\n      graph G starting at vertex . For any vertex  in G, [] is the length of the shortest\n      path from  to . Let (, ) be an edge in G such that [] < []. If the edge\n      (, ) is explored first in the direction from  to  during the above DFS, then (, )\n\n      becomes a ______ edge.",
+    "options": [
+      {
+        "id": "a",
+        "text": "tree"
+      },
+      {
+        "id": "b",
+        "text": "cross"
+      },
+      {
+        "id": "c",
+        "text": "back"
+      },
+      {
+        "id": "d",
+        "text": "gray"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 15,
+    "paperSection": null,
+    "order": 15,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "For any twice differentiable function :   , if at some   , () = 0\n          and () > 0, then the function  necessarily has a ______ at  = .\n          Note:  denotes the set of real numbers.",
+    "options": [
+      {
+        "id": "a",
+        "text": "local minimum"
+      },
+      {
+        "id": "b",
+        "text": "global minimum"
+      },
+      {
+        "id": "c",
+        "text": "local maximum"
+      },
+      {
+        "id": "d",
+        "text": "global maximum"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 16,
+    "paperSection": null,
+    "order": 16,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Match the items in Column 1 with the items in Column 2 in the following table:\n\n         Column 1                                               Column 2\n\n(p) First In First Out                                 (i) Stacks\n(q) Lookup Operation                                   (ii) Queues\n(r) Last In First Out                                  (iii) Hash Tables",
+    "options": [
+      {
+        "id": "a",
+        "text": "(p) - (ii), (q) - (iii), (r) - (i)"
+      },
+      {
+        "id": "b",
+        "text": "(p) - (ii), (q) - (i), (r) - (iii)"
+      },
+      {
+        "id": "c",
+        "text": "(p) - (i), (q) - (ii), (r) - (iii)"
+      },
+      {
+        "id": "d",
+        "text": "(p) - (i), (q) - (iii), (r) - (ii)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 17,
+    "paperSection": null,
+    "order": 17,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the dataset with six datapoints: {(, ), (, ), ... , (, )},\n      where  = [10] ,  = [10] ,  = [-01] ,  = [-01] ,  = [22] ,  = [--22]\n      and the labels are given by  =  =  = 1, and  =  =  = -1. A hard\n      margin linear support vector machine is trained on the above dataset.\n\n      Which ONE of the following sets is a possible set of support vectors?",
+    "options": [
+      {
+        "id": "a",
+        "text": "{ ,  ,  }"
+      },
+      {
+        "id": "b",
+        "text": "{ ,  ,  }"
+      },
+      {
+        "id": "c",
+        "text": "{,  }"
+      },
+      {
+        "id": "d",
+        "text": "{ ,  ,  ,  }"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.385Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 18,
+    "paperSection": null,
+    "order": 18,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Match the items in Column 1 with the items in Column 2 in the following table:\n\n                    Column 1                                     Column 2\n      (p) Principal Component Analysis                 (i) Discriminative Model\n      (q) Na�ve Bayes Classification                   (ii) Dimensionality Reduction\n      (r) Logistic Regression                          (iii) Generative Model",
+    "options": [
+      {
+        "id": "a",
+        "text": "(p) - (iii), (q) - (i), (r) - (ii)"
+      },
+      {
+        "id": "b",
+        "text": "(p) - (ii), (q) - (i), (r) - (iii)"
+      },
+      {
+        "id": "c",
+        "text": "(p) - (ii), (q) - (iii), (r) - (i)"
+      },
+      {
+        "id": "d",
+        "text": "(p) - (iii), (q) - (ii), (r) - (i)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 19,
+    "paperSection": null,
+    "order": 19,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Euclidean distance based -means clustering algorithm was run on a dataset of 100\n\n      points with  = 3. If the points [11] and [-11] are both part of cluster 3, then which\n      ONE of the following points is necessarily also part of cluster 3?",
+    "options": [
+      {
+        "id": "a",
+        "text": "[00]"
+      },
+      {
+        "id": "b",
+        "text": "[02]"
+      },
+      {
+        "id": "c",
+        "text": "[20]"
+      },
+      {
+        "id": "d",
+        "text": "[01]"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 20,
+    "paperSection": null,
+    "order": 20,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Given a dataset with  binary-valued attributes (where  > 2) for a two-class\n      classification task, the number of parameters to be estimated for learning a na�ve\n      Bayes classifier is",
+    "options": [
+      {
+        "id": "a",
+        "text": "2 + 1"
+      },
+      {
+        "id": "b",
+        "text": "2 + 1"
+      },
+      {
+        "id": "c",
+        "text": "2+1 + 1"
+      },
+      {
+        "id": "d",
+        "text": "2 + 1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 21,
+    "paperSection": null,
+    "order": 21,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider performing uniform hashing on an open address hash table with load\n      factor  =  < 1, where  elements are stored in the table with  slots. The\n\n                                                                                                       1\n\n      expected number of probes in an unsuccessful search is at most .\n\n                                                                                                     1-\n\n      Inserting an element in this hash table requires at most ______ probes, on average.",
+    "options": [
+      {
+        "id": "a",
+        "text": "1 ln (1 - )"
+      },
+      {
+        "id": "b",
+        "text": "1 1 -"
+      },
+      {
+        "id": "c",
+        "text": "1+2"
+      },
+      {
+        "id": "d",
+        "text": "1 1 +"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 22,
+    "paperSection": null,
+    "order": 22,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "For any binary classification dataset, let   � and   � be the\n\n      between-class and within-class scatter (covariance) matrices, respectively. The\n      Fisher linear discriminant is defined by   , that maximizes\n\n                                      ()  =\n\n      If  = (),  is non-singular and   0, then (, ) must satisfy which ONE\n      of the following equations?\n\n      Note:  denotes the set of real numbers.",
+    "options": [
+      {
+        "id": "a",
+        "text": "-1 ="
+      },
+      {
+        "id": "b",
+        "text": "="
+      },
+      {
+        "id": "c",
+        "text": "="
+      },
+      {
+        "id": "d",
+        "text": "= 2"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 23,
+    "paperSection": null,
+    "order": 23,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Let 1and 2 be two admissible heuristics used in  search.\n      Which ONE of the following expressions is always an admissible heuristic?",
+    "options": [
+      {
+        "id": "a",
+        "text": "1 + 2"
+      },
+      {
+        "id": "b",
+        "text": "1 � 2"
+      },
+      {
+        "id": "c",
+        "text": "1/2, (2  0)"
+      },
+      {
+        "id": "d",
+        "text": "|1 - 2|"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 24,
+    "paperSection": null,
+    "order": 24,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider five random variables , , , , and  whose joint distribution\n          satisfies:\n\n                         (, , , , ) = ()()(|, )(|)(|)\n\n          Which ONE of the following statements is FALSE?",
+    "options": [
+      {
+        "id": "a",
+        "text": "is conditionally independent of  given"
+      },
+      {
+        "id": "b",
+        "text": "is conditionally independent of  given"
+      },
+      {
+        "id": "c",
+        "text": "and  are conditionally independent given"
+      },
+      {
+        "id": "d",
+        "text": "and  are conditionally independent given"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 25,
+    "paperSection": null,
+    "order": 25,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the following statement:\n          In adversarial search, �  pruning can be applied to game trees of any depth where\n           is the (m) value choice we have formed so far at any choice point along the\n          path for the MAX player and  is the (n) value choice we have formed so far\n          at any choice point along the path for the MIN player.\n          Which ONE of the following choices of (m) and (n) makes the above statement\n          valid?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(m) = highest, (n) = highest"
+      },
+      {
+        "id": "b",
+        "text": "(m) = lowest, (n) = highest"
+      },
+      {
+        "id": "c",
+        "text": "(m) = highest, (n) = lowest"
+      },
+      {
+        "id": "d",
+        "text": "(m) = lowest, (n) = lowest"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 26,
+    "paperSection": null,
+    "order": 26,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider a database that includes the following relations:\n\n          Defender(name, rating, side, goals)\n\n          Forward(name, rating, assists, goals)\n\n          Team(name, club, price)\n\n          Which ONE of the following relational algebra expressions checks that every name\n          occurring in Team appears in either Defender or Forward, where  denotes the\n          empty set?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(Team)  ( (Defender)   (Forward)) ="
+      },
+      {
+        "id": "b",
+        "text": "( (Defender)   (Forward))   (Team) ="
+      },
+      {
+        "id": "c",
+        "text": "(Team)  ( (Defender)   (Forward)) ="
+      },
+      {
+        "id": "d",
+        "text": "( (Defender)   (Forward))   (Team) ="
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 27,
+    "paperSection": null,
+    "order": 27,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Let the minimum, maximum, mean and standard deviation values for the attribute\n      income of data scientists be 46000, 170000, 96000, and 21000, respective ly.\n      The z-score normalized income value of 106000 is closest to which ONE of the\n      following options?",
+    "options": [
+      {
+        "id": "a",
+        "text": "0.217"
+      },
+      {
+        "id": "b",
+        "text": "0.476"
+      },
+      {
+        "id": "c",
+        "text": "0.623"
+      },
+      {
+        "id": "d",
+        "text": "2.304"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 28,
+    "paperSection": null,
+    "order": 28,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the following tree traversals on a full binary tree:\n\n               (i) Preorder\n               (ii) Inorder\n               (iii) Postorder\n\n          Which of the following traversal options is/are sufficient to uniquely reconstruct\n          the full binary tree?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(i) and (ii)"
+      },
+      {
+        "id": "b",
+        "text": "(ii) and (iii)"
+      },
+      {
+        "id": "c",
+        "text": "(i) and (iii)"
+      },
+      {
+        "id": "d",
+        "text": "(ii) only"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 29,
+    "paperSection": null,
+    "order": 29,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Let  and  be two propositions. Which of the following statements is a tautology\n          /are tautologies?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(�   )  (  )"
+      },
+      {
+        "id": "b",
+        "text": "(  � )  (�  )"
+      },
+      {
+        "id": "c",
+        "text": "(�   )  (�  )"
+      },
+      {
+        "id": "d",
+        "text": "(  � )  (  )"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 30,
+    "paperSection": null,
+    "order": 30,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider sorting the following array of integers in ascending order using an in-place\n          Quicksort algorithm that uses the last element as the pivot.\n                                           60 70 80 90 100\n          The minimum number of swaps performed during this Quicksort is ______.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 31,
+    "paperSection": null,
+    "order": 31,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider the following two tables named Raider and Team in a relational database\n      maintained by a Kabaddi league. The attribute ID in table Team references the\n      primary key of the Raider table, ID.\n\n                                                      Raider\n                                      ID Name Raids RaidPoints\n                                      1 Arjun 200 250\n                                      2 Ankush 190 219\n                                      3 Sunil 150 200\n                                      4 Reza 150 190\n                                      5 Pratham 175 220\n                                      6 Gopal 193 215\n\n                                              Team\n\n                                      City    ID           BidPoints\n                                                           200\n                                      Jaipur  2            195\n                                                           175\n                                      Patna   3            250\n                                                           200\n                                      Hyderabad 5          200\n\n                                      Jaipur  1\n\n                                      Patna   4\n\n                                      Jaipur  6\n\n      The SQL query described below is executed on this database:\n\n      SELECT *\n      FROM Raider, Team\n      WHERE Raider.ID=Team.ID AND City=\"Jaipur\" AND\n      RaidPoints > 200;\n\n      The number of rows returned by this query is ______.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 32,
+    "paperSection": null,
+    "order": 32,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "The fundamental operations in a double-ended queue D are:\n          insertFirst(e) � Insert a new element e at the beginning of D.\n          insertLast(e) � Insert a new element e at the end of D.\n          removeFirst() � Remove and return the first element of D.\n          removeLast() � Remove and return the last element of D.\n          In an empty double-ended queue, the following operations are performed:\n           insertFirst(10)\n           insertLast(32)\n          a removeFirst()\n           insertLast(28)\n           insertLast(17)\n          a removeFirst()\n          a  removeLast()\n\n          The value of a is ______.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 33,
+    "paperSection": null,
+    "order": 33,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Let :     be the  function      ()  =     1    .\n                                             1 + -\n\n      The value of the derivative of  at  where () = 0.4 is ______\n      (rounded off to two decimal places).\n\n      Note:  denotes the set of real numbers.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 34,
+    "paperSection": null,
+    "order": 34,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "The sample average of 50 data points is 40. The updated sample average after\n          including a new data point taking the value of 142 is ______.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.386Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 35,
+    "paperSection": null,
+    "order": 35,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "123\n      Consider the 3 � 3 matrix  = [3 1 3].\n\n                                              436\n\n      The determinant of ( + 12) is ______.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 36,
+    "paperSection": null,
+    "order": 36,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "A fair six-sided die (with faces numbered 1, 2, 3, 4, 5, 6) is repeatedly thrown\n      independently.\n\n      What is the expected number of times the die is thrown until two consecutive throws\n      of even numbers are seen?",
+    "options": [
+      {
+        "id": "a",
+        "text": "2"
+      },
+      {
+        "id": "b",
+        "text": "4"
+      },
+      {
+        "id": "c",
+        "text": "6"
+      },
+      {
+        "id": "d",
+        "text": "8"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 37,
+    "paperSection": null,
+    "order": 37,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let :    be a function. Note:  denotes the set of real numbers.\n\n                      -,                             if  < -2\n      () = {2 +  + ,                                 if   [-2, 2]\n                                                     if  > 2\n                        ,\n\n      Which ONE of the following choices gives the values of , ,  that make the\n      function  continuous and differentiable?",
+    "options": [
+      {
+        "id": "a",
+        "text": "1 = 4 ,  = 0,  = 1"
+      },
+      {
+        "id": "b",
+        "text": "1 = 2 ,  = 0,  = 0"
+      },
+      {
+        "id": "c",
+        "text": "= 0,  = 0,  = 0"
+      },
+      {
+        "id": "d",
+        "text": "= 1,  = 1,  = -4"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 38,
+    "paperSection": null,
+    "order": 38,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the following Python code:\n\n      def count(child_dict, i):\n             if i not in child_dict.keys():\n                      return 1\n             ans = 1\n             for j in child_dict[i]:\n                    ans += count(child_dict, j)\n             return ans\n\n      child_dict = dict()\n      child_dict[0] = [1,2]\n      child_dict[1] = [3,4,5]\n      child_dict[2] = [6,7,8]\n      print(count(child_dict,0))\n\n      Which ONE of the following is the output of this code?",
+    "options": [
+      {
+        "id": "a",
+        "text": "6"
+      },
+      {
+        "id": "b",
+        "text": "1"
+      },
+      {
+        "id": "c",
+        "text": "8"
+      },
+      {
+        "id": "d",
+        "text": "9"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 39,
+    "paperSection": null,
+    "order": 39,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the function computeS(X) whose pseudocode is given below:\n\n                   computeS(X)\n                   [1]  1\n                   for  2 to ()\n\n                      []  1\n                      if [ - 1]  []\n\n                              []  [] + [ - 1]\n                      end if\n                   end for\n                   return S\n          Which ONE of the following values is returned by the function computeS(X)\n          for X = [6, 3, 5, 4, 10]?",
+    "options": [
+      {
+        "id": "a",
+        "text": "[1, 1, 2, 3, 4]"
+      },
+      {
+        "id": "b",
+        "text": "[1, 1, 2, 3, 3]"
+      },
+      {
+        "id": "c",
+        "text": "[1, 1, 2, 1, 2]"
+      },
+      {
+        "id": "d",
+        "text": "[1, 1, 2, 1, 5]"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 40,
+    "paperSection": null,
+    "order": 40,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let () denote the maximum number of comparisons made while searching for\n          an entry in a sorted array of size  using binary search.\n          Which ONE of the following options is TRUE?",
+    "options": [
+      {
+        "id": "a",
+        "text": "() = (/2) + 1"
+      },
+      {
+        "id": "b",
+        "text": "() = (/2) + (/2)"
+      },
+      {
+        "id": "c",
+        "text": "() = (/2)"
+      },
+      {
+        "id": "d",
+        "text": "() = ( - 1) + 1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 41,
+    "paperSection": null,
+    "order": 41,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the following Python function:\n          def fun(D, s1, s2):\n                       if s1 < s2:\n                             D[s1], D[s2] = D[s2], D[s1]\n                             fun(D, s1+1, s2-1)\n          What does this Python function fun() do? Select the ONE appropriate option\n          below.",
+    "options": [
+      {
+        "id": "a",
+        "text": "It finds the smallest element in D from index s1 to s2, both inclusive."
+      },
+      {
+        "id": "b",
+        "text": "It performs a merge sort in-place on this list D between indices s1 and s2, both inclusive."
+      },
+      {
+        "id": "c",
+        "text": "It reverses the list D between indices s1 and s2, both inclusive."
+      },
+      {
+        "id": "d",
+        "text": "It swaps the elements in D at indices s1 and s2, and leaves the remaining elements unchanged."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 42,
+    "paperSection": null,
+    "order": 42,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the table below, where the (, ) element of the table is the distance\n\n      between points  and . Single linkage clustering is performed on data points,\n      1, 2, 3, 4, 5.\n\n             1 2 3 4 5\n      1 0 1 4 3 6\n      2 1 0 3 5 3\n      3 4 3 0 2 5\n      4 3 5 2 0 1\n      5 6 3 5 1 0\n\n      Which ONE of the following is the correct representation of the clusters produced?",
+    "options": [
+      {
+        "id": "a",
+        "text": ""
+      },
+      {
+        "id": "b",
+        "text": ""
+      },
+      {
+        "id": "c",
+        "text": ""
+      },
+      {
+        "id": "d",
+        "text": ""
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference",
+      "empty-option"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 43,
+    "paperSection": null,
+    "order": 43,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the two neural networks (NNs) shown in Figures 1 and 2, with\n      activation (() = max{0, } ,   ).  denotes the set of real numbers. The\n      connections and their corresponding weights are shown in the Figures. The biases\n      at every neuron are set to 0. For what values of , ,  in Figure 2 are the two NNs\n      equivalent, when 1, 2, 3 are positive?\n\n      Figure 1\n\n      Figure 2",
+    "options": [
+      {
+        "id": "a",
+        "text": "= 36,  = 24,  = 24"
+      },
+      {
+        "id": "b",
+        "text": "= 24,  = 24,  = 36"
+      },
+      {
+        "id": "c",
+        "text": "= 18,  = 36,  = 24"
+      },
+      {
+        "id": "d",
+        "text": "= 36,  = 36,  = 36"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 44,
+    "paperSection": null,
+    "order": 44,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a state space where the start state is number 1. The successor function for\n      the state numbered n returns two states numbered n+1 and n+2. Assume that the\n      states in the unexpanded state list are expanded in the ascending order of numbers\n      and the previously expanded states are not added to the unexpanded state list.\n\n      Which ONE of the following statements about breadth-first search (BFS) and\n      depth-first search (DFS) is true, when reaching the goal state number 6?",
+    "options": [
+      {
+        "id": "a",
+        "text": "BFS expands more states than DFS."
+      },
+      {
+        "id": "b",
+        "text": "DFS expands more states than BFS."
+      },
+      {
+        "id": "c",
+        "text": "Both BFS and DFS expand equal number of states."
+      },
+      {
+        "id": "d",
+        "text": "Both BFS and DFS do not reach the goal state number 6."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 45,
+    "paperSection": null,
+    "order": 45,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the following sorting algorithms:\n               (i) Bubble sort\n               (ii) Insertion sort\n               (iii) Selection sort\n\n          Which ONE among the following choices of sorting algorithms sorts the numbers\n          in the array [4, 3, 2, 1, 5] in increasing order after exactly two passes over the array?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(i) only"
+      },
+      {
+        "id": "b",
+        "text": "(iii) only"
+      },
+      {
+        "id": "c",
+        "text": "(i) and (iii) only"
+      },
+      {
+        "id": "d",
+        "text": "(ii) and (iii) only"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 46,
+    "paperSection": null,
+    "order": 46,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Given the relational schema  = (, , , , , ) and the set of functional\n          dependencies:\n                                 {  ,   ,   ,   ,   }\n          Which of the following functional dependencies can be derived from the above\n          set?",
+    "options": [
+      {
+        "id": "a",
+        "text": ""
+      },
+      {
+        "id": "b",
+        "text": ""
+      },
+      {
+        "id": "c",
+        "text": ""
+      },
+      {
+        "id": "d",
+        "text": ""
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "empty-option"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 47,
+    "paperSection": null,
+    "order": 47,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Select all choices that are subspaces of 3.\n          Note:  denotes the set of real numbers.",
+    "options": [
+      {
+        "id": "a",
+        "text": "1                                1  1 { = [2]  3:  =  [1] +  [0] , ,   } 3 0  0"
+      },
+      {
+        "id": "b",
+        "text": "1                                1     1 { = [2]  3:  = 2 [2] + 2 [0] , ,   } 3 0     1"
+      },
+      {
+        "id": "c",
+        "text": "1 { = [2]  3: 51 + 23 = 0, 41 - 22 + 33 = 0} 3"
+      },
+      {
+        "id": "d",
+        "text": "1 { = [2]  3: 51 + 23 + 4 = 0} 3"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 48,
+    "paperSection": null,
+    "order": 48,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Which of the following statements is/are TRUE?\n          Note:  denotes the set of real numbers.",
+    "options": [
+      {
+        "id": "a",
+        "text": "There exist   3�3,   3, and   3 such that  =  has a unique solution and M =  has infinite solutions."
+      },
+      {
+        "id": "b",
+        "text": "There exist   3�3,   3, and   3 such that  =  has no solutions and M =  has infinite solutions."
+      },
+      {
+        "id": "c",
+        "text": "There exist   2�3,   2, and   2 such that  =  has a unique solution and M =  has infinite solutions."
+      },
+      {
+        "id": "d",
+        "text": "There exist   3�2,   3, and   3 such that  =  has a unique solution and M =  has no solutions."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 49,
+    "paperSection": null,
+    "order": 49,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let  be the set of real numbers,  be a subspace of 3 and   3�3 be the\n          matrix corresponding to the projection on to the subspace .\n          Which of the following statements is/are TRUE?",
+    "options": [
+      {
+        "id": "a",
+        "text": "If  is a 1-dimensional subspace of 3, then the null space of  is a 1-dimensional subspace."
+      },
+      {
+        "id": "b",
+        "text": "If  is a 2-dimensional subspace of 3, then the null space of  is a 1-dimensional subspace."
+      },
+      {
+        "id": "c",
+        "text": "2 ="
+      },
+      {
+        "id": "d",
+        "text": "3 ="
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 50,
+    "paperSection": null,
+    "order": 50,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the function :    where  is the set of all real numbers.\n\n                                      ()  =   4  -  2 3  -  3 2  +  1\n                                             4       3       2\n\n      Which of the following statements is/are TRUE?",
+    "options": [
+      {
+        "id": "a",
+        "text": "= 0 is a local maximum of f"
+      },
+      {
+        "id": "b",
+        "text": "= 3 is a local minimum of f"
+      },
+      {
+        "id": "c",
+        "text": "= -1 is a local maximum of f"
+      },
+      {
+        "id": "d",
+        "text": "= 0 is a local minimum of f"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 51,
+    "paperSection": null,
+    "order": 51,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the directed acyclic graph (DAG) below:\n\n          Which of the following is/are valid vertex orderings that can be obtained from a\n          topological sort of the DAG?",
+    "options": [
+      {
+        "id": "a",
+        "text": "P Q R S T U V"
+      },
+      {
+        "id": "b",
+        "text": "P R Q V S U T"
+      },
+      {
+        "id": "c",
+        "text": "P Q R S V U T"
+      },
+      {
+        "id": "d",
+        "text": "P R Q S V T U"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 52,
+    "paperSection": null,
+    "order": 52,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let H, , , and  represent height, number of internal nodes, number of leaf nodes,\n          and the total number of nodes respectively in a rooted binary tree.\n          Which of the following statements is/are always TRUE?",
+    "options": [
+      {
+        "id": "a",
+        "text": "+ 1"
+      },
+      {
+        "id": "b",
+        "text": "+ 1    2+1 - 1"
+      },
+      {
+        "id": "c",
+        "text": "2 - 1"
+      },
+      {
+        "id": "d",
+        "text": "2-1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 53,
+    "paperSection": null,
+    "order": 53,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the following figures representing datasets consisting of\n          two-dimensional features with two classes denoted by circles and squares.\n\n(i)                                            (ii)\n\n(iii)                                          (iv)\n\n          Which of the following is/are TRUE?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(i) is linearly separable."
+      },
+      {
+        "id": "b",
+        "text": "(ii) is linearly separable."
+      },
+      {
+        "id": "c",
+        "text": "(iii) is linearly separable."
+      },
+      {
+        "id": "d",
+        "text": "(iv) is linearly separable."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 54,
+    "paperSection": null,
+    "order": 54,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let game(ball, rugby) be true if the ball is used in rugby and false otherwise.\n          Let shape(ball, round) be true if the ball is round and false otherwise.\n          Consider the following logical sentences:\n          s1: ball � game(ball, rugby) shape(ball, round)\n          s2: ball � shape(ball, round) game(ball, rugby)\n          s3: ball game(ball, rugby)  � shape(ball, round)\n          s4: ball shape(ball, round)  � game(ball, rugby)\n          Which of the following choices is/are logical representations of the assertion,\n                         \"All balls are round except balls used in rugby\"?",
+    "options": [
+      {
+        "id": "a",
+        "text": "1  3"
+      },
+      {
+        "id": "b",
+        "text": "1  2"
+      },
+      {
+        "id": "c",
+        "text": "2  3"
+      },
+      {
+        "id": "d",
+        "text": "3  4"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 55,
+    "paperSection": null,
+    "order": 55,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "An OTT company is maintaining a large disk-based relational database of differe nt\n          movies with the following schema:\n\n          Movie(ID, CustomerRating)\n          Genre(ID, Name)\n          Movie_Genre(MovieID, GenreID)\n\n          Consider the following SQL query on the relation database above:\n\n          SELECT *\n          FROM Movie, Genre, Movie_Genre\n          WHERE\n\n                   Movie.CustomerRating > 3.4 AND\n                   Genre.Name = \"Comedy\" AND\n                   Movie_Genre.MovieID = Movie.ID AND\n                   Movie_Genre.GenreID = Genre.ID;\n\n          This SQL query can be sped up using which of the following indexing options?\n\nA     B+ tree on all the attributes.\n\nB     Hash index on Genre.Name and B+ tree on the remaining attributes.\n\nC     Hash index on Movie.CustomerRating and B+ tree on the remaining\n\n      attributes.\n\nD     Hash index on all the attributes.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 56,
+    "paperSection": null,
+    "order": 56,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Let  be a random variable uniformly distributed in the interval [1, 3] and  be a\n\n      random variable uniformly distributed in the interval [2, 4]. If X and Y are\n      independent of each other, the probability P(  ) is ______ (rounded off to\n\n      three decimal places).",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 57,
+    "paperSection": null,
+    "order": 57,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Let  be a random variable exponentially distributed with parameter  > 0. The\n      probability density function of X is given by:\n\n                                       ()  =  {0,- ,             0\n\n      If 5() = (), where () and () indicate the expectation and variance\n      of , respectively, the value of  is ______ (rounded off to one decimal place).",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 58,
+    "paperSection": null,
+    "order": 58,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider two events T and S. Let  denote the complement of the event T. The\n      probability associated with different events are given as follows:\n\n                        ( ) = 0.6, (|) = 0.3, (| ) = 0.6\n\n      Then, (|) is ______ (rounded off to two decimal places).",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.387Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 59,
+    "paperSection": null,
+    "order": 59,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider a joint probability density function of two random variables X and Y\n\n      ,(, ) = {20,,                           0 <  < 2,    0 <  <\n                                              otherwise\n\n      Then, [| = 1.5] is ______.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.388Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 60,
+    "paperSection": null,
+    "order": 60,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Evaluate the following limit:\n\n                                      lim  ln((2+1) cos )  = ______.\n                                                    2\n                                      0",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.388Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 61,
+    "paperSection": null,
+    "order": 61,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "1\n\n                 2\n      Let  = 3 , and let 1, 2 , 3 , 4, 5 be the singular values of the matrix\n\n                 4\n               [5]\n\n      =  (where  is the transpose of ). The value of 5=1  is ______.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.388Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 62,
+    "paperSection": null,
+    "order": 62,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Details of ten international cricket games between two teams \"Green\" and \"Blue \"\n      are given in Table C. This table consists of matches played on different pitches,\n\n      across formats along with their winners. The attribute Pitch can take one of two\n      values: spin-friendly (represented as ) or pace-friendly (represented as ). The\n      attribute Format can take one of two values: one-day match (represented as ) or\n      test match (represented as ).\n\n      A cricket organization would like to use the information given in Table C to develop\n      a decision-tree model to predict outcomes of future games between these two teams.\n\n      To develop such a model, the computed InformationGain(C, Pitch) with respect to\n      the Target is ______ (rounded off to two decimal places).\n\n                                        Table C\n\n      Match                           Pitch Format Winner (Target)\n      Number\n                                                     Green\n         1                                           Blue\n         2                                           Blue\n         3                                           Blue\n         4                                           Green\n         5                                           Blue\n         6                                           Green\n         7                                           Blue\n         8                                           Blue\n         9                                           Green\n         10",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.388Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 63,
+    "paperSection": null,
+    "order": 63,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Given the two-dimensional dataset consisting of 5 data points from two classes\n      (circles and squares) and assume that the Euclidean distance is used to measure the\n      distance between two points. The minimum odd value of  in -nearest neighbor\n\n      algorithm for which the diamond () shaped data point is assigned the label square\n\n      is ______.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.388Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 64,
+    "paperSection": null,
+    "order": 64,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Given the following Bayesian Network consisting of four Bernoulli random\n          variables and the associated conditional probability tables:\n\n                                                        ()\n                                             = 0 0.5\n                                             = 1 0.5\n\n                                            ( = 0| )  ( = 1| )\n                                                           0.5\n       = 0                                  0.5            0.5\n\n       = 1                                  0.5       ( = 1| )\n                                                            0\n                                      ( = 0| )              1\n\n       = 0                                  1\n\n       = 1                                  0\n\n       = 0                             = 0  ( = 0| )        ( = 1| )\n       = 0                             = 1       0.5             0.5\n       = 1                             = 0        1               0\n       = 1                             = 1        1               0\n                                                 0.5             0.5\n\n      The value of ( = 1,  = 1,  = 1,  = 1) = ______ (rounded off to three\n      decimal places).",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.388Z"
+  },
+  {
+    "year": 2024,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 65,
+    "paperSection": null,
+    "order": 65,
+    "sourceFile": "DA/DA2024.pdf",
+    "organizingInstitute": "IISc Bengaluru",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Two fair coins are tossed independently. X is a random variable that takes a value\n      of 1 if both tosses are heads and 0 otherwise. Y is a random variable that takes a\n      value of 1 if at least one of the tosses is heads and 0 otherwise.\n\n      The value of the covariance of X and Y is ______ (rounded off to three decimal\n      places).",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.388Z"
+  }
+]

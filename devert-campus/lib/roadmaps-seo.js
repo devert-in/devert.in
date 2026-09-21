@@ -38,7 +38,14 @@ export async function roadmapStaticParams() {
 
 export function buildRoadmapsIndexMetadata() {
   const url = `${SITE}/roadmaps`;
-  const title = "Career Roadmaps | DeVert Campus";
+  // `title` carries NO site suffix: app/layout.jsx sets a title template of
+  // "%s | DeVert Campus", which Next applies to this value, so including the
+  // suffix here rendered "Career Roadmaps | DeVert Campus | DeVert Campus".
+  // openGraph/twitter get the suffixed form explicitly, because a template is
+  // NOT applied to an openGraph.title that is set directly - a social card
+  // titled just "Career Roadmaps" would lose the brand entirely.
+  const title = "Career Roadmaps";
+  const socialTitle = "Career Roadmaps | DeVert Campus";
   const description =
     "Structured, level-by-level career and skill roadmaps for students - software, AI, cloud, cybersecurity, hardware, design, business and more, free on DeVert Campus.";
 
@@ -47,12 +54,12 @@ export function buildRoadmapsIndexMetadata() {
     description,
     alternates: { canonical: url },
     openGraph: {
-      title, description, url,
+      title: socialTitle, description, url,
       siteName: "DeVert Campus",
       type: "website",
       images: [{ url: `${SITE}/logo.png`, alt: "DeVert Campus Roadmaps" }],
     },
-    twitter: { card: "summary_large_image", title, description, images: [`${SITE}/logo.png`] },
+    twitter: { card: "summary_large_image", title: socialTitle, description, images: [`${SITE}/logo.png`] },
     robots: { index: true, follow: true },
   };
 }
@@ -60,7 +67,9 @@ export function buildRoadmapsIndexMetadata() {
 export function buildRoadmapMetadata(roadmap) {
   if (!roadmap) return { title: "Roadmap not found" };
   const url = `${SITE}/roadmaps/${roadmap.slug}`;
-  const title = `${roadmap.title} Roadmap | DeVert Campus`;
+  // Same split as buildRoadmapsIndexMetadata above - see its comment.
+  const title = `${roadmap.title} Roadmap`;
+  const socialTitle = `${roadmap.title} Roadmap | DeVert Campus`;
   const description = roadmap.tagline || `A structured, level-by-level ${roadmap.title} roadmap on DeVert Campus.`;
 
   return {
@@ -68,12 +77,12 @@ export function buildRoadmapMetadata(roadmap) {
     description,
     alternates: { canonical: url },
     openGraph: {
-      title, description, url,
+      title: socialTitle, description, url,
       siteName: "DeVert Campus",
       type: "website",
       images: [{ url: `${SITE}/logo.png`, alt: `${roadmap.title} on DeVert Campus` }],
     },
-    twitter: { card: "summary_large_image", title, description, images: [`${SITE}/logo.png`] },
+    twitter: { card: "summary_large_image", title: socialTitle, description, images: [`${SITE}/logo.png`] },
     robots: { index: true, follow: true },
   };
 }

@@ -575,8 +575,19 @@ service cloud.firestore {
           // way - but "who may grant it" is still an authority question, and the
           // answer is an admin running scripts/set-full-access.mjs, never the
           // account itself.
+          // The ten boundedUserCounterWrite() fields below (followersCount
+          // through profileViews) ALSO join this denylist, for a subtler
+          // reason: selfWriteDeltaSane() returns true when its field isn't in
+          // the diff at all, so a write touching ONLY one of these ten (never
+          // named in the checks above) made this whole owner branch collapse
+          // to plain isOwner(uid) - no bound whatsoever, letting an owner set
+          // e.g. followersCount to any value from devtools. Denying them here
+          // forces such a write down into the isAuth()&&boundedUserCounterWrite
+          // branch below instead, which actually enforces hasOnly([field]) +
+          // a +-1 delta - the owner is auth'd too, so nothing legitimate breaks.
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId', 'fullAccess', 'role']
+            ['institutionId', 'institutionSlug', 'department', 'year', 'section', 'rollNumber', 'campusFullName', 'classroomId', 'fullAccess', 'role',
+             'followersCount', 'pulsePostsCount', 'totalLikesReceived', 'totalCommentsReceived', 'totalSavesReceived', 'totalSharesReceived', 'totalViewsReceived', 'totalRepostsReceived', 'totalRepostsMade', 'profileViews']
           )) || isAdmin()
         // Placements Prep module's staff/admin role field - same shape as the
         // institution-membership branch below (a narrow, field-scoped grant,
@@ -1129,6 +1140,75 @@ service cloud.firestore {
       allow create: if isValidWaitlistSignup();
     }
 
+    // ---- Careers -----------------------------------------------------------
+    //
+    // DeVert own hiring. Two collections, deliberately opposite trust models;
+    // lib/careers.js documents the client half of the same boundary.
+    //
+    // job_openings is WORLD-READABLE, which is unusual in this file and
+    // intentional. A job posting nobody can read without an account is not a job
+    // posting, and app/careers/[slug] builds its Google-indexable JobPosting
+    // structured data from these docs at build time - output: export has no
+    // server and no admin credentials there, so the build reads them as an
+    // anonymous client exactly like a visitor does. Note the consequence: a
+    // DRAFT role is unlisted, not secret. /careers only queries for
+    // status == published, but anyone who guesses the slug can read the doc.
+    // Never put anything confidential in an unpublished posting.
+    match /job_openings/{slug} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Applications people send against those postings. Same trust model as
+    // demo_requests above - read that comment first; only the differences are
+    // noted here.
+    //
+    // UNAUTHENTICATED CREATE, for a sharper reason than the demo form: requiring
+    // a DeVert account before someone may apply for a job would filter out
+    // exactly the experienced candidates who have no reason to have one yet.
+    //
+    // uid is optional and self-asserted-but-verified: absent for a logged-out
+    // applicant, and otherwise required to equal the caller own uid, so nobody
+    // can attribute an application to somebody else. isAuth() is checked first
+    // because request.auth is null for an anonymous write and request.auth.uid
+    // would error rather than simply not match.
+    //
+    // Every URL field is capped, because these are unauthenticated writes and
+    // the admin inbox renders them as links. That panel additionally refuses to
+    // linkify anything that is not http(s) - a length cap stops a storage bomb,
+    // not a javascript: URL.
+    //
+    // NOT A DECISION. status is pinned to new on create and only isAdmin() may
+    // move it, so an applicant can never write themselves into hired, and
+    // nothing downstream should ever treat a doc the applicant created as proof
+    // of anything but interest.
+    function isValidJobApplication() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['jobId', 'jobTitle', 'name', 'email', 'phone',
+              'resumeUrl', 'portfolioUrl', 'githubUrl', 'linkedinUrl',
+              'devertHandle', 'coverNote', 'source', 'uid', 'status', 'createdAt'])
+        && d.keys().hasAll(['jobId', 'name', 'email', 'status', 'createdAt'])
+        && d.jobId is string && d.jobId.size() >= 1 && d.jobId.size() <= 120
+        && d.get('jobTitle', '') is string && d.get('jobTitle', '').size() <= 160
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 80
+        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@]+@[^@]+[.][^@]+$')
+        && d.get('phone', '') is string && d.get('phone', '').size() <= 24
+        && d.get('resumeUrl', '') is string && d.get('resumeUrl', '').size() <= 500
+        && d.get('portfolioUrl', '') is string && d.get('portfolioUrl', '').size() <= 500
+        && d.get('githubUrl', '') is string && d.get('githubUrl', '').size() <= 500
+        && d.get('linkedinUrl', '') is string && d.get('linkedinUrl', '').size() <= 500
+        && d.get('devertHandle', '') is string && d.get('devertHandle', '').size() <= 40
+        && d.get('coverNote', '') is string && d.get('coverNote', '').size() <= 2000
+        && d.get('source', '') is string && d.get('source', '').size() <= 40
+        && (d.get('uid', '') == '' || (isAuth() && d.get('uid', '') == request.auth.uid))
+        && d.status == 'new'
+        && d.createdAt == request.time;
+    }
+    match /job_applications/{applicationId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isValidJobApplication();
+    }
+
     // Hackathon submissions - public read (winners.json / leaderboard). Owner
     // creates/edits their own submission CONTENT only, and only score/rank/
     // winner start null/false/null - once admin scores it (setting any of
@@ -1426,13 +1506,18 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Coin earning/spending ledger - written by whoever triggers the event
-    // (may credit a different uid than the actor, e.g. a liker crediting
-    // the post author), readable only by the owner or admin. Self-logged
-    // entries (task rewards, XP conversion) are free-form since they only
-    // ever affect the writer's own history; entries logged against SOMEONE
-    // ELSE's uid must be a known received-engagement type at the matching
-    // live rate, so a forged ledger entry can't misrepresent what happened.
+    // Coin earning/spending ledger - readable only by the owner or admin.
+    // Self-logged entries (task rewards, XP conversion) are free-form since
+    // they only ever affect the writer's own history. This used to also let
+    // a liker/commenter/saver's client log a 'like_received'/'comment_received'/
+    // 'save_received' entry crediting the POST AUTHOR's own uid, matching the
+    // Pulse engagement-coins feature that existed back then - but that
+    // feature was removed (see user_earnings above: "Pulse engagement no
+    // longer grants coins at all") without removing this now-orphaned
+    // disjunct, which let anyone forge a fake "you got a like" row on a
+    // STRANGER's coin history/Wallet activity feed even though it could no
+    // longer touch their real balance (user_earnings' matching disjunct WAS
+    // removed). Only the owner's own self-logged entries remain valid now.
     match /coin_transactions/{txId} {
       // isAdmin() as a separate top-level disjunct - see payout_requests
       // above for why nesting it inside isAuth() && (...) breaks list().
@@ -1440,12 +1525,7 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.resource.data.amount is number
         && request.resource.data.type is string
-        && (
-          request.resource.data.uid == request.auth.uid
-          || (request.resource.data.type == 'like_received'    && request.resource.data.amount == economyVal('PER_LIKE', 10))
-          || (request.resource.data.type == 'comment_received' && request.resource.data.amount == economyVal('PER_COMMENT', 25))
-          || (request.resource.data.type == 'save_received'    && request.resource.data.amount == economyVal('PER_SAVE', 15))
-        );
+        && request.resource.data.uid == request.auth.uid;
     }
 
     // Central reward ledger (lib/rewards.js) - one immutable doc per
@@ -2162,6 +2242,34 @@ service cloud.firestore {
             isAuth() && request.time > get(/databases/$(database)/documents/contests/$(contestId)).data.contestEnd);
           allow write: if false;
         }
+      }
+
+      // Draft-only attempt state (current answers + which question the
+      // student was on) - see lib/contests.js's saveContestDraft/
+      // fetchContestDraft for why this MUST be its own subcollection rather
+      // than a field on submissions/{uid} (that doc's create-vs-update rule
+      // branches, and fetchMySubmission's "already submitted" check, both
+      // depend on that doc not existing until the real, final submit).
+      match /attemptDrafts/{uid} {
+        // Only the owner (or a platform admin) has any legitimate reason to
+        // see a student's UNSUBMITTED answers - a peer reading them
+        // mid-contest would be a real leak.
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid) && isApprovedForContest(contestId);
+        // Same "the document's existence already proves create passed"
+        // reasoning as proctorSessions/{uid}'s own update rule above - a
+        // draft save fires on every debounced answer change (far more often
+        // than a once-a-minute heartbeat), so re-paying
+        // isApprovedForContest()'s ~4 get()s on every single keystroke-driven
+        // save would be needlessly expensive for a doc only its own owner
+        // could ever read back anyway.
+        allow update: if isOwner(uid);
+        // Owner may clear their own draft after a real submission exists;
+        // admin for the same "reset attempt" cleanup submissions/{uid} above
+        // allows. Not load-bearing either way - a leftover draft is inert
+        // once submissions/{uid} exists, since load() refuses re-entry
+        // before ever reading a draft.
+        allow delete: if isOwner(uid) || isAdmin();
       }
     }
 

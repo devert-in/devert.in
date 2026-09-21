@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   fetchContest, fetchContestQuestions, fetchMyRegistration, fetchMySubmission,
   submitContestAnswers, contestPhase, getContestSettings,
+  fetchContestDraft, saveContestDraft, deleteContestDraft,
 } from "@/lib/contests";
 import { seededShuffle } from "@/lib/quizRandom";
 import { useIsWindowed } from "@/components/window/is-windowed";
@@ -54,8 +55,28 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
   const submittedRef = useRef(false);
   // See the auto-submit guard below - true once the student genuinely had time.
   const clockRanRef = useRef(false);
+  // Same skip-the-echo idiom as campus-daily-learning.jsx's/
+  // campus-contests.jsx's identical skipNextDraftSave - set true right where
+  // the load effect below restores answers/qIndex FROM a saved draft, so
+  // that restore doesn't immediately trigger the autosave effect to write
+  // the exact data it just read straight back.
+  const skipNextDraftSave = useRef(true);
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
+
+  // Debounced draft autosave - same pattern as campus-contests.jsx's
+  // identical effect (see its comment). Fires on every answers/qIndex
+  // change except the one caused by the load effect's own restore.
+  useEffect(() => {
+    if (skipNextDraftSave.current) { skipNextDraftSave.current = false; return; }
+    if (!user || !contest || submitted) return;
+    const t = setTimeout(() => {
+      saveContestDraft(contestId, user.uid, { answers, qIndex })
+        .catch(() => saveContestDraft(contestId, user.uid, { answers, qIndex }).catch(() => {}));
+    }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, qIndex]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -74,6 +95,15 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
       if (!reg) { setBlocked("You're not registered for this contest."); setLoading(false); return; }
       const existingSub = await fetchMySubmission(contestId, user.uid);
       if (existingSub) { setBlocked("You've already submitted your attempt for this contest."); setLoading(false); return; }
+
+      // Restores any unsubmitted answers from a previous session (refresh,
+      // crash, closed tab) - see saveContestDraft above.
+      const draft = await fetchContestDraft(contestId, user.uid).catch(() => null);
+      if (draft) {
+        skipNextDraftSave.current = true;
+        setAnswers(draft.answers || {});
+        if (typeof draft.qIndex === "number") setQIndex(draft.qIndex);
+      }
 
       const qs = await fetchContestQuestions(contestId);
       const shuffled = seededShuffle(qs, `${user.uid}:${contestId}:q`).map(q => ({
@@ -124,6 +154,8 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
       const timeTakenSeconds = Math.round((Date.now() - (startedAtRef.current ?? Date.now())) / 1000);
       const maxScore = questions.reduce((sum, q) => sum + (q.marks || 1), 0);
       await submitContestAnswers(contestId, user.uid, answersRef.current, timeTakenSeconds, maxScore);
+      // Best-effort tidiness, not load-bearing - see deleteContestDraft's own comment.
+      deleteContestDraft(contestId, user.uid).catch(() => {});
       // Releases the camera and drops out of fullscreen. Runs after the answers
       // are safely written - never risk the submission for the sake of tidying
       // up the hardware.

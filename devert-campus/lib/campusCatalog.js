@@ -21,7 +21,7 @@
 // `null`, never 0, and consumers must render null as a placeholder rather than
 // a count: "0 languages" is a factual claim about the product, an unknown count
 // is not.
-import { db, collection, getCountFromServer, query, where } from "@/lib/firebase";
+import { db, collection, getCountFromServer, getDocs, query, where } from "@/lib/firebase";
 import { currentAudiences } from "@/lib/audiences";
 import { fetchLanguages } from "@/lib/programming";
 import { fetchSubjects } from "@/lib/csCore";
@@ -74,10 +74,51 @@ function fetchLearnerCount() {
   return getCountFromServer(collection(db, "users")).then(snap => snap.data().count).catch(() => null);
 }
 
+// Server-side aggregate for the same reason countPublishedProblems is one: the
+// landing page renders only the size of this bank, and the bank is the largest
+// collection Campus has any reason to count.
+//
+// The where() is not optional. firestore.rules gates a gate_pyq on
+// `resource.data.get('status','draft') == 'published'`, and an aggregate query
+// is authorised exactly as analytically as a list() - the rules engine has to
+// be able to prove every matched document is readable, so an unfiltered count
+// is denied outright rather than counting drafts. That is also precisely what
+// keeps UNVERIFIED IMPORTED QUESTIONS OUT OF THIS NUMBER: a PDF-extracted
+// draft awaiting review carries status:"draft" (see scripts/extract-gate-pyqs.mjs),
+// so it is invisible both to this count and to every student-facing query
+// until an admin publishes it. The advertised figure can therefore only ever
+// be questions a human has actually verified.
+function countPublishedPyqs() {
+  return getCountFromServer(query(collection(db, "gate_pyqs"), where("status", "==", "published")))
+    .then(snap => snap.data().count).catch(() => null);
+}
+
+// The published GATE papers, read HERE as a direct query rather than through
+// lib/gate.js's fetchPapers(). The filters are identical (they have to be -
+// see countPublishedProblems above on why an unfiltered read is denied rather
+// than permissive), but importing that module for one four-line query would
+// pull its whole graph - the rewards ledger, content versioning, transaction
+// helpers - into the landing page's bundle, for a page whose only use of GATE
+// is printing two paper names. Every other figure on this page is fetched the
+// same direct way for the same reason.
+//
+// Ordered by the same `order` field fetchPapers() sorts on, so the landing
+// page lists papers in the sequence an admin arranged them rather than by
+// document id.
+function fetchGatePapers() {
+  return getDocs(query(
+    collection(db, "gatePapers"),
+    where("status", "==", "published"),
+    where("audiences", "array-contains-any", currentAudiences()),
+  )).then(snap => snap.docs
+    .map(d => ({ id: d.id, name: d.data().name, order: d.data().order || 0 }))
+    .sort((a, b) => a.order - b.order));
+}
+
 export async function fetchPublicCatalog() {
   const [
     languages, subjects, conceptTracks, aptitudeTopics, seModules, sheets,
-    problemCount, companyCount, learners,
+    problemCount, companyCount, learners, gatePapers, gatePyqCount,
   ] = await Promise.all([
     safe(fetchLanguages(), []),
     safe(fetchSubjects(), []),
@@ -88,6 +129,12 @@ export async function fetchPublicCatalog() {
     countPublishedProblems(),
     countPublishedCompanies(),
     fetchLearnerCount(),
+    // Full docs rather than a count: there are at most a handful of papers
+    // (CS, DA), and the GATE card names them ("GATE CS", "GATE DA") instead of
+    // printing "2 papers", which tells a candidate nothing about whether their
+    // paper is one of them.
+    safe(fetchGatePapers(), []),
+    countPublishedPyqs(),
   ]);
 
   return {
@@ -96,6 +143,6 @@ export async function fetchPublicCatalog() {
     // These are small top-level catalogs - one document per language/subject/
     // sheet, with no per-topic fan-out.
     languages, subjects, conceptTracks, aptitudeTopics, seModules, sheets,
-    problemCount, companyCount, learners,
+    problemCount, companyCount, learners, gatePapers, gatePyqCount,
   };
 }

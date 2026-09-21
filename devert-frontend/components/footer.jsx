@@ -115,6 +115,12 @@ export function Footer() {
           </p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <a href="/about"   className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">About</a>
+            {/* Absolute + cross-origin: Careers is its own app on careers.devert.in
+                (see devert-careers/). A relative "/careers" here would hit the
+                main site, which only 301s to that host anyway - one pointless
+                redirect hop on every click, and the exact stale-relative-URL
+                shape the Campus subdomain cutover kept tripping over. */}
+            <a href="https://careers.devert.in" className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Careers</a>
             <a href="/privacy"   className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Privacy Policy</a>
             <a href="/terms"     className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Terms of Service</a>
             <a href="/workplace" className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Workplace Policy</a>

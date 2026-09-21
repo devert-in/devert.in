@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, Check, Copy, Download, Layers, Pencil,
   Plus, Sigma, Trash2, Upload, Library, Megaphone, ClipboardList, Sparkles,
+  ShieldCheck, Undo2,
 } from "lucide-react";
 import Dropdown from "@/components/dropdown";
+import { useAuth } from "@/context/AuthContext";
 import { LessonConceptField } from "@/components/admin/lesson-concept-field";
 import { StringListField, McqListField } from "@/components/campus/campus-daily-learning-editor";
 import { CODELAB_LANGUAGES } from "@/lib/codelab";
@@ -24,6 +26,7 @@ import {
 import { GATE_SYLLABI, countSyllabusDocs, seedPaper } from "@/lib/gateSyllabus";
 import {
   fetchPyqs, savePyq, deletePyq, importPyqsBatch, GATE_ORGANIZING_INSTITUTES,
+  PYQ_REVIEW_FLAGS, pyqPublishBlockers, verifyAndPublishPyq, sendPyqBackToReview,
 } from "@/lib/gatePyq";
 import {
   fetchTests, saveTest, deleteTest, fetchTestQuestions, addTestQuestion,
@@ -911,8 +914,35 @@ function blankPyqForm() {
   };
 }
 
+// The review queue's own filter. "Needs review" is the default view for a
+// reason: after scripts/import-gate-pyq-drafts.mjs runs there are over a
+// thousand drafts and five hand-authored published questions, so a panel that
+// opened on "everything" would bury the five that are actually live under the
+// import queue.
+const PYQ_VIEWS = [
+  { key: "needsReview", label: "Needs review" },
+  { key: "flagged", label: "Flagged only" },
+  { key: "published", label: "Published" },
+  { key: "all", label: "All" },
+];
+
+// A flag chip. Orange rather than red throughout: a flag is "a human should
+// look at this", not "this is broken" - most flagged questions turn out to be
+// fine once checked against the original paper, and colouring them as errors
+// would train a reviewer to dismiss them.
+function FlagChip({ flag }) {
+  return (
+    <span title={PYQ_REVIEW_FLAGS[flag] || flag}
+      className="font-mono text-[9px] px-1.5 py-0.5 rounded"
+      style={{ background: "rgba(255,149,0,0.12)", color: "#FF9500" }}>
+      {flag}
+    </span>
+  );
+}
+
 export function GatePyqPanel() {
   const { papers, paperId, setPaperId } = usePapers();
+  const { user } = useAuth();
   const [pyqs, setPyqs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -923,6 +953,8 @@ export function GatePyqPanel() {
   const [importResult, setImportResult] = useState(null);
   const [importing, setImporting] = useState(false);
   const [yearFilter, setYearFilter] = useState("");
+  const [view, setView] = useState("needsReview");
+  const [verifyError, setVerifyError] = useState(null);
 
   const load = () => {
     if (!paperId) { setPyqs([]); return; }
@@ -932,7 +964,38 @@ export function GatePyqPanel() {
   useEffect(() => { load();   }, [paperId]);
 
   const years = useMemo(() => [...new Set(pyqs.map(p => p.year).filter(Boolean))].sort((a, b) => b - a), [pyqs]);
-  const shown = yearFilter ? pyqs.filter(p => String(p.year) === yearFilter) : pyqs;
+
+  // `needsReview` is treated as "true unless explicitly false" only for
+  // documents that carry the field at all - the hand-authored questions that
+  // predate the import have no such field and are not drafts, so a bare
+  // truthiness test on a missing field would be wrong in both directions.
+  const counts = useMemo(() => ({
+    needsReview: pyqs.filter(p => p.needsReview === true).length,
+    flagged: pyqs.filter(p => (p.reviewFlags || []).length > 0).length,
+    published: pyqs.filter(p => p.status === "published").length,
+    all: pyqs.length,
+  }), [pyqs]);
+
+  const shown = useMemo(() => {
+    let rows = yearFilter ? pyqs.filter(p => String(p.year) === yearFilter) : pyqs;
+    if (view === "needsReview") rows = rows.filter(p => p.needsReview === true);
+    else if (view === "flagged") rows = rows.filter(p => (p.reviewFlags || []).length > 0);
+    else if (view === "published") rows = rows.filter(p => p.status === "published");
+    return rows;
+  }, [pyqs, yearFilter, view]);
+
+  // Publishing runs the SAME check lib/gatePyq.js enforces, rather than the
+  // panel keeping its own idea of what is publishable - so the button being
+  // enabled and the write succeeding cannot disagree.
+  const verify = async (p) => {
+    setVerifyError(null);
+    try {
+      await verifyAndPublishPyq(p.id, p, user?.uid);
+      load();
+    } catch (e) {
+      setVerifyError({ id: p.id, message: e.message });
+    }
+  };
 
   const startEdit = (p) => {
     setEditingId(p.id); setAdding(false);
@@ -1000,6 +1063,35 @@ export function GatePyqPanel() {
             {years.length > 0 && <Dropdown value={yearFilter} onChange={setYearFilter} className="w-32" options={["", ...years.map(String)]} />}
             <span className="font-mono text-[10px] text-white/30">{pyqs.length} in the bank</span>
           </div>
+
+          {/* The review queue's view switch. Counts sit on the tabs because
+              "how much is left to check" is the single number an admin working
+              through a PDF import actually wants, and putting it anywhere else
+              means opening a tab to find out it is empty. */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {PYQ_VIEWS.map(v => (
+              <button key={v.key} onClick={() => setView(v.key)}
+                className="font-mono text-[10.5px] px-2.5 py-1 rounded transition-colors"
+                style={{
+                  background: view === v.key ? "rgba(0,255,65,0.12)" : "transparent",
+                  color: view === v.key ? "#00FF41" : "rgba(255,255,255,0.35)",
+                  border: `1px solid ${view === v.key ? "rgba(0,255,65,0.35)" : "rgba(255,255,255,0.1)"}`,
+                }}>
+                {v.label} <span className="opacity-60">{counts[v.key]}</span>
+              </button>
+            ))}
+          </div>
+
+          {view === "needsReview" && counts.needsReview > 0 && (
+            <div className="px-3 py-2 rounded" style={{ background: "rgba(255,149,0,0.08)", border: "1px solid rgba(255,149,0,0.2)" }}>
+              <p className="font-mono text-[10.5px] leading-relaxed" style={{ color: "#FF9500" }}>
+                These were extracted from the official question-paper PDFs by
+                scripts/extract-gate-pyqs.mjs. The source papers contain NO answer keys, so
+                every one needs its answer supplied and its text checked against the original
+                before it can be published. Nothing here is visible to a student.
+              </p>
+            </div>
+          )}
 
           {/* bulk import */}
           <FormBox>
@@ -1104,23 +1196,62 @@ export function GatePyqPanel() {
             : shown.length === 0 ? <p className="font-mono text-xs text-white/30">No questions yet.</p>
               : (
                 <div className="space-y-1.5">
-                  {shown.slice(0, 200).map(p => (
-                    <Row key={p.id}>
-                      <span className="font-mono text-[10px] text-white/25 w-10 flex-shrink-0">{p.year || "-"}</span>
-                      <span className="font-mono text-[10px] w-10 flex-shrink-0" style={{ color: "#00FFFF" }}>
-                        {(p.questionType || "").toUpperCase()}
-                      </span>
-                      <span className="font-mono text-[10px] text-white/25 w-6 flex-shrink-0">{p.marks}M</span>
-                      <span className="font-mono text-xs text-white/70 flex-1 min-w-0 truncate">{p.question}</span>
-                      {p.repeatGroup && <span className="font-mono text-[10px]" style={{ color: "#C77DFF" }}>REPEAT</span>}
-                      {!p.solution?.trim() && !p.explanation?.trim() && (
-                        <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO SOLUTION</span>
-                      )}
-                      <StatusPill status={p.status} />
-                      <Btn onClick={() => startEdit(p)} color="#FFD700" icon={Pencil}>Edit</Btn>
-                      <Btn onClick={async () => { if (confirm("Delete this question?")) { await deletePyq(p.id); load(); } }} color="#FF5050" icon={Trash2}>Del</Btn>
-                    </Row>
-                  ))}
+                  {shown.slice(0, 200).map(p => {
+                    const blockers = pyqPublishBlockers(p);
+                    const flags = p.reviewFlags || [];
+                    return (
+                      <div key={p.id}>
+                        <Row>
+                          <span className="font-mono text-[10px] text-white/25 w-10 flex-shrink-0">{p.year || "-"}</span>
+                          {/* Q number and session are what identify a question
+                              against the printed paper a reviewer has open
+                              beside them - without them, checking "is this
+                              really 2024 Q.17" means searching the PDF by text. */}
+                          <span className="font-mono text-[10px] text-white/25 w-14 flex-shrink-0">
+                            {p.questionNumber ? `Q.${p.questionNumber}${p.session ? `/S${p.session}` : ""}` : ""}
+                          </span>
+                          <span className="font-mono text-[10px] w-10 flex-shrink-0" style={{ color: "#00FFFF" }}>
+                            {(p.questionType || "").toUpperCase()}
+                          </span>
+                          <span className="font-mono text-[10px] text-white/25 w-6 flex-shrink-0">{p.marks}M</span>
+                          <span className="font-mono text-xs text-white/70 flex-1 min-w-0 truncate">{p.question}</span>
+                          {p.repeatGroup && <span className="font-mono text-[10px]" style={{ color: "#C77DFF" }}>REPEAT</span>}
+                          {!p.solution?.trim() && !p.explanation?.trim() && (
+                            <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO SOLUTION</span>
+                          )}
+                          <StatusPill status={p.status} />
+                          {/* Verify is offered only where it can succeed. An
+                              always-enabled button that explains afterwards why
+                              it refused is a worse reviewer experience than one
+                              that shows what is still missing up front. */}
+                          {p.status !== "published" && (
+                            blockers.length === 0
+                              ? <Btn onClick={() => verify(p)} color="#00FF41" icon={ShieldCheck}>Verify &amp; publish</Btn>
+                              : <span className="font-mono text-[9.5px] text-white/25" title={blockers.join(" ")}>
+                                  {blockers.length} to fix
+                                </span>
+                          )}
+                          {p.status === "published" && p.reviewedAt && (
+                            <Btn onClick={async () => { await sendPyqBackToReview(p.id, "reopened"); load(); }} color="#FF9500" icon={Undo2}>Reopen</Btn>
+                          )}
+                          <Btn onClick={() => startEdit(p)} color="#FFD700" icon={Pencil}>Edit</Btn>
+                          <Btn onClick={async () => { if (confirm("Delete this question?")) { await deletePyq(p.id); load(); } }} color="#FF5050" icon={Trash2}>Del</Btn>
+                        </Row>
+                        {(flags.length > 0 || blockers.length > 0 || verifyError?.id === p.id) && (
+                          <div className="flex items-center gap-1.5 flex-wrap pl-2 pb-1.5">
+                            {flags.map(f => <FlagChip key={f} flag={f} />)}
+                            {blockers.map((b, i) => (
+                              <span key={i} className="font-mono text-[9px] px-1.5 py-0.5 rounded"
+                                style={{ background: "rgba(255,80,80,0.1)", color: "#FF5050" }}>{b}</span>
+                            ))}
+                            {verifyError?.id === p.id && (
+                              <span className="font-mono text-[9px]" style={{ color: "#FF5050" }}>{verifyError.message}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   {shown.length > 200 && (
                     <p className="font-mono text-[10px] text-white/25">
                       Showing the first 200 of {shown.length} - filter by year to narrow.

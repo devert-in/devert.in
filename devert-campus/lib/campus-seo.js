@@ -15,8 +15,18 @@ import { fetchInstitutions, fetchInstitution } from "@/lib/institutions";
 // give you the real value, Next replaces every export of a "use client"
 // module with an opaque client-reference proxy, which isn't iterable. This
 // file has no "use client" directive, so both sides import the same array.
+// "gate" is here for the same reason "roadmaps" has its own static route: the
+// GATE workspace is GLOBAL, non-institution-scoped content (one syllabus, one
+// PYQ bank, one set of mock tests, identical for every visitor), so its real
+// home is /gate on this origin - never /{college}/gate, which would be N
+// duplicate copies of an identical national-exam catalog titled after each
+// college. It stays reachable inside a workspace as ?tab=gate as well, but
+// that path is gated on the per-classroom `gate` module toggle
+// (campusNavConfig.js) whereas this one deliberately is not: a candidate
+// preparing for GATE is not necessarily anybody's student, and the whole
+// point of a public destination is that it works signed-out.
 export const GLOBAL_SECTIONS = [
-  "contests", "learning", "practice", "campuses", "institutions", "pricing",
+  "contests", "learning", "practice", "gate", "campuses", "institutions", "pricing",
   "daily-learning", "assessments",
 ];
 

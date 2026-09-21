@@ -203,7 +203,13 @@ function SectionCard({ card, index }) {
 /* ──────────────────────────────────── Hub ────────────────────────────────── */
 
 function PrepHub() {
-  const { user, profile, isStaff, isAdmin, loading: authLoading } = useAuth();
+  const { user, profile, isStaff, isAdmin, role, loading: authLoading } = useAuth();
+  // Mirrors firestore.rules' isPrepAdmin() (role == "admin" || isAdmin()), same
+  // fix as components/prep/guards.jsx's RequireAdmin - bare isAdmin missed a
+  // user granted prep-only admin via the Firestore-console bootstrap
+  // PREP_MODULE.md describes, who'd otherwise have no visible link to a panel
+  // they can actually write to.
+  const isPrepAdmin = role === "admin" || isAdmin;
 
   const [announcements, setAnnouncements] = useState([]);
   const [annLoading, setAnnLoading] = useState(true);
@@ -281,9 +287,9 @@ function PrepHub() {
   const cards = useMemo(() => {
     const list = [...BASE_CARDS];
     if (isStaff) list.push(FACULTY_CARD);
-    if (isAdmin) list.push(ADMIN_CARD);
+    if (isPrepAdmin) list.push(ADMIN_CARD);
     return list;
-  }, [isStaff, isAdmin]);
+  }, [isStaff, isPrepAdmin]);
 
   const stats = useMemo(() => {
     const catStats = progress?.categoryStats || {};

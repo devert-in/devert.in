@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { CAMPUS } from "@/lib/campus-theme";
-import { fetchSheets, fetchSheet, fetchSheetSections, buildSheet, nextUnsolved } from "@/lib/dsaSheets";
+import { fetchSheets, fetchSheet, fetchSheetSections, buildSheet, nextUnsolved, sheetProblemOrder } from "@/lib/dsaSheets";
 import { fetchPublishedProblems, fetchUserCodelabProgress } from "@/lib/codelab";
 import { subscribeToProblemNotes } from "@/lib/problemNotes";
 import {
@@ -166,6 +166,18 @@ function SheetView({ sheetId, onBack, onOpenProblem, onOpenConcept, hiddenIds })
     [sections, problems, progress, hiddenIds]);
   const next = useMemo(() => (built ? nextUnsolved(built) : null), [built]);
 
+  const problemOrder = useMemo(() => (built ? sheetProblemOrder(built) : null), [built]);
+  // Wraps onOpenProblem so every caller below (the Continue button and every
+  // row) transparently reports the WHOLE sheet order as a second argument,
+  // without SectionRow/ProblemRow needing to know about `built` at all.
+  // campus-app.jsx's onOpenProblem stores this alongside the opened
+  // problemId so CampusProblemView's own "Next Problem" can keep following
+  // sheet order (not its contextless global-catalog sort) across repeated
+  // clicks, not just the first one.
+  const openProblemWithContext = useCallback((id) => {
+    onOpenProblem?.(id, problemOrder);
+  }, [onOpenProblem, problemOrder]);
+
   const toggle = useCallback((id) => {
     setExpanded(prev => {
       const nextSet = new Set(prev);
@@ -251,7 +263,7 @@ function SheetView({ sheetId, onBack, onOpenProblem, onOpenConcept, hiddenIds })
                 {next.section.title} &middot; {next.subsection.title}
               </span>
             </div>
-            <CampusButton icon={ArrowRight} onClick={() => onOpenProblem?.(next.problem.id)}>Continue</CampusButton>
+            <CampusButton icon={ArrowRight} onClick={() => openProblemWithContext(next.problem.id)}>Continue</CampusButton>
           </div>
         ) : built.total > 0 && (
           <p className="mt-4 pt-4 text-[13px]" style={{ borderTop: `1px solid ${CAMPUS.line}`, color: CAMPUS.good }}>
@@ -264,7 +276,7 @@ function SheetView({ sheetId, onBack, onOpenProblem, onOpenConcept, hiddenIds })
         {built.sections.map(section => (
           <SectionRow key={section.id} section={section}
             open={expanded.has(section.id)} onToggle={() => toggle(section.id)}
-            notes={notes} onOpenProblem={onOpenProblem} onOpenConcept={onOpenConcept} />
+            notes={notes} onOpenProblem={openProblemWithContext} onOpenConcept={onOpenConcept} />
         ))}
       </div>
     </div>

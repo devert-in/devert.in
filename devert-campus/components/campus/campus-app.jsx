@@ -203,8 +203,17 @@ function Centered({ children }) {
 // Contests, all of which are open to them right now without any college
 // approving anything. The nav is the fix, and CampusShell takes it as a slot so
 // the staff login pages can keep the bare version.
+//
+// showFounders={false}: these screens live at /{slug} - real institution
+// URLs - even though they render the PUBLIC bar rather than the workspace
+// chrome. DeVert's founder profiles are kept off every institution-scoped
+// route, so a college-branded page never carries them; this is the one place
+// where "renders CampusPublicNav" and "is a slug page" disagree, and the slug
+// URL wins. Everything else that renders this bar (landing, pricing,
+// campuses, institutions, roadmaps, and the global learning/practice/contests
+// sections) is a general Campus page and keeps the default.
 function CampusGateShell({ children }) {
-  return <CampusShell nav={<CampusPublicNav />}>{children}</CampusShell>;
+  return <CampusShell nav={<CampusPublicNav showFounders={false} />}>{children}</CampusShell>;
 }
 
 // THE LEFT NAV RAIL THAT USED TO LIVE HERE IS GONE, deliberately.
@@ -428,8 +437,13 @@ function CampusGlobalSection({ section }) {
   // Core's subjects, Aptitude's topics, Fundamentals' modules); "courses" is the
   // enrollable catalog and portals nothing, and Contests has no sub-navigation
   // at all. Practice earns the rail only in coding mode, for the progress card.
+  // GATE always earns the rail: CampusGateTab portals its own sixteen-section
+  // GateSidebarNav into the slot (see gate-app.jsx), which on desktop is the
+  // ONLY way to move between its sections - without a slot it renders no
+  // sub-nav at all and the module comes out as a single unnavigable column.
   const showSidebar = (section === "learning" && learnModule !== "courses")
-    || (section === "practice" && practiceMode === "coding");
+    || (section === "practice" && practiceMode === "coding")
+    || section === "gate";
 
   // Both drill-down screens are STAMPED with the mode they were opened under, so
   // changing mode discards them without an effect having to reach in and reset
@@ -492,8 +506,12 @@ function CampusGlobalSection({ section }) {
   // Shared by Sheets, Concepts and the problem list - all three hand a problem
   // id to the same viewer rather than each reimplementing one. Stamped with the
   // mode it was opened from (see practiceScreen above) so it is discarded the
-  // moment the URL moves to a different surface.
-  const openProblem = (id) => setPracticeScreen({ mode: practiceMode, view: "problem", problemId: id });
+  // moment the URL moves to a different surface. `contextOrder` (Sheets/
+  // Concepts only - the flat problem list passes nothing) is the curriculum
+  // order CampusProblemView's "Next Problem" should follow instead of its
+  // own contextless global-catalog sort - see campus-dsa-sheet.jsx's/
+  // campus-dsa-concepts.jsx's identical openProblemWithContext.
+  const openProblem = (id, contextOrder) => setPracticeScreen({ mode: practiceMode, view: "problem", problemId: id, contextOrder: contextOrder || null });
 
   return (
     // No campus-sharp, and the nav is now part of the page rather than
@@ -558,6 +576,16 @@ function CampusGlobalSection({ section }) {
                 : learnModule === "aptitude" ? <CampusAptitudeTab sidebarSlot={sidebarEl} />
                 : <CampusLearningSection />
             )}
+            {/* The SAME component the institution workspace mounts at
+                ?tab=gate - not a public-facing copy of it. It takes no slug and
+                reads only the global gatePapers/gate_pyqs/gate_tests
+                collections, so the one implementation serves a logged-out
+                visitor here and an enrolled student inside a workspace, and a
+                fix to either lands in both. What differs is only the gate: this
+                route is deliberately NOT behind isTabAllowed("gate")'s
+                per-classroom module toggle - see GLOBAL_SECTIONS in
+                lib/campus-seo.js. */}
+            {section === "gate" && <CampusGateTab sidebarSlot={sidebarEl} />}
             {section === "practice" && (
               <>
                 {showPracticeFilters && (
@@ -574,7 +602,7 @@ function CampusGlobalSection({ section }) {
                     "deliberately does NOT switch mode" note below. */}
                 {practiceScreen.view === "problem" ? (
                   <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })}
-                    onSelectProblem={openProblem}
+                    onSelectProblem={openProblem} contextOrder={practiceScreen.contextOrder}
                     backLabel={practiceMode === "sheets" ? "Sheet" : practiceMode === "concepts" ? "Concepts" : "DSA"} />
                 ) : practiceMode === "companyPrep" ? (
                   <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen} />
