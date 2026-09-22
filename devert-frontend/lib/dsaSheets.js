@@ -167,3 +167,14 @@ export function nextUnsolved(builtSheet) {
   }
   return null;
 }
+
+// The full flattened problem-id order for this sheet, same order the UI
+// renders (section by section, subsection by subsection). Exposed whole
+// (not just "the one next id") so CampusProblemView's "Next Problem" can
+// keep following sheet order across repeated clicks - once a problem is
+// open, this sheet's own component is unmounted, so passing only a single
+// next id would correctly fix the FIRST hop and then silently lose context
+// on the second. See campus-dsa-sheet.jsx's openProblemWithContext.
+export function sheetProblemOrder(builtSheet) {
+  return (builtSheet.sections || []).flatMap(s => (s.subsections || []).flatMap(sub => sub.rows.map(r => r.id)));
+}

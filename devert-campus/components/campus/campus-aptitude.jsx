@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Calculator, Brain, MessageSquare, Clock, ChevronDown,
+  Calculator, Brain, MessageSquare, Clock, ChevronDown, Rocket,
   Check, Lightbulb, ListChecks, Target, BookOpen, Trophy,
   AlertTriangle, Sparkles, Coins, Zap, ArrowRight, TrendingUp,
 } from "lucide-react";
@@ -12,12 +12,13 @@ import { useAuth } from "@/context/AuthContext";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
-  CampusSkeleton, CampusProgressBar, RoadmapTimeline,
+  CampusSkeleton, CampusProgressBar, RoadmapTimeline, LessonNavFooter,
   SidebarSectionLabel, SidebarTopicRow, SidebarModuleGroup,
 } from "@/components/campus/campus-ui";
 import {
   APTITUDE_CATEGORIES, fetchAptitudeTopics, fetchAptitudeTopic, fetchTopicQuestions,
   completeAptitudeTopic, aptitudeProgressRef, aptitudeCompletionPayload,
+  markAptitudeTopicOpened, groupTopicsByCategory,
 } from "@/lib/aptitude";
 import { db, doc, getDoc } from "@/lib/firebase";
 import { buildQuizSeedKey } from "@/lib/quizRandom";
@@ -79,7 +80,8 @@ export function CampusAptitudeTab({ sidebarSlot }) {
     return (
       <>
         {sidebar}
-        <AptitudeTopicView topicId={screen.topicId} onBack={() => setScreen({ view: "roadmap" })} />
+        <AptitudeTopicView topicId={screen.topicId} onBack={() => setScreen({ view: "roadmap" })}
+          onOpenTopic={(topicId) => setScreen({ view: "topic", topicId })} />
       </>
     );
   }
@@ -197,6 +199,19 @@ function AptitudeRoadmap({ onOpenTopic }) {
   const total = topics.length;
   const completed = topics.filter(t => completedIds.has(t.id)).length;
 
+  // Same first-incomplete -> last-opened -> start cascade as
+  // campus-cscore.jsx's SubjectRoadmap/campus-programming.jsx's
+  // LanguageRoadmap (see their comments for the allDone guard's reasoning).
+  // Aptitude has no subject/language level above topics, so this lives
+  // directly on the roadmap - and unlike those two, it can jump straight to
+  // the TOPIC rather than an intermediate subject screen. Previously this
+  // module had no resume affordance at all.
+  const allDone = total > 0 && completed === total;
+  const nextTopic = topics.find(t => !completedIds.has(t.id))
+    || topics.find(t => t.id === progress?.lastOpenedTopicId)
+    || (allDone ? null : topics[0]);
+  const started = completed > 0 || !!progress?.lastOpenedTopicId;
+
   return (
     <div>
       <div className="rounded-2xl p-6 sm:p-8 mb-6" style={{ background: CAMPUS.chromeBg }}>
@@ -216,6 +231,28 @@ function AptitudeRoadmap({ onOpenTopic }) {
           </div>
         )}
       </div>
+
+      {nextTopic && (
+        <CampusCard hover className="p-4 mb-6 flex items-center gap-4 cursor-pointer"
+          onClick={() => onOpenTopic(nextTopic.id)}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.tealTint, color: CAMPUS.teal }}>
+            <Rocket size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-mono tracking-widest mb-0.5" style={{ color: CAMPUS.inkFaint }}>
+              {started ? "CONTINUE LEARNING" : "START LEARNING"}
+            </p>
+            <b className="text-[14px]" style={{ color: CAMPUS.ink }}>{nextTopic.name}</b>
+          </div>
+          <ArrowRight size={16} style={{ color: CAMPUS.inkFaint }} />
+        </CampusCard>
+      )}
+      {!nextTopic && allDone && (
+        <CampusCard className="p-4 mb-6 flex items-center gap-3 flex-wrap">
+          <CampusChip color={CAMPUS.good} icon={Check}>APTITUDE COMPLETE</CampusChip>
+          <span className="text-[12.5px]" style={{ color: CAMPUS.inkSoft }}>You've completed every topic - review any of them below.</span>
+        </CampusCard>
+      )}
 
       {total === 0 ? (
         <CampusEmptyState icon={BookOpen} title="Curriculum coming soon" description="Check back soon - your Training & Placement Cell is setting this up." />
@@ -268,10 +305,20 @@ function PracticeQuestionCard({ question, index }) {
   );
 }
 
-function AptitudeTopicView({ topicId, onBack }) {
+function AptitudeTopicView({ topicId, onBack, onOpenTopic }) {
   const { user } = useAuth();
   const [topic, setTopic] = useState(null);
   const [questions, setQuestions] = useState(null);
+  // A second, independent fetch of every published topic (all three
+  // categories), flattened in the SAME category-then-order sequence
+  // AptitudeRoadmap visually displays - so Next/Previous here can never
+  // disagree with what the roadmap shows. Same idea as campus-cscore.jsx's
+  // subjectTopics, just cross-category instead of within one subject since
+  // Aptitude has no subject level to bound it to.
+  const [allTopics, setAllTopics] = useState(null);
+  useEffect(() => {
+    fetchAptitudeTopics().then(setAllTopics).catch(() => setAllTopics([]));
+  }, []);
   const [quizAnswers, setQuizAnswers] = useState({});
   // Server-side attempt record - see lib/quizAttempts.js.
   const [attempt, setAttempt] = useState(null);
@@ -287,6 +334,23 @@ function AptitudeTopicView({ topicId, onBack }) {
 
   const quizSeedKey = buildQuizSeedKey({ uid: user?.uid, scope: `aptitude:${topicId}` });
 
+  // What comes after this topic, so the page offers a way forward without
+  // depending on the sidebar - same fix/reasoning as campus-cscore.jsx's
+  // identical nextTopicInfo. Flattened category-then-order so a student
+  // reading through Quantitative doesn't get jumbled mid-category.
+  const nextTopicInfo = useMemo(() => {
+    if (!allTopics || allTopics.length === 0) return null;
+    const grouped = groupTopicsByCategory(allTopics);
+    const flat = APTITUDE_CATEGORIES.flatMap(cat => grouped[cat] || []);
+    const idx = flat.findIndex(t => t.id === topicId);
+    if (idx === -1) return null;
+    const prev = flat[idx - 1] || null;
+    if (idx === flat.length - 1) return { done: true, prev };
+    const current = flat[idx];
+    const next = flat[idx + 1];
+    return { prev, next, crossesModule: (next.category || "General") !== (current.category || "General") };
+  }, [allTopics, topicId]);
+
   useEffect(() => {
     let cancelled = false;
     setTopic(null);
@@ -301,6 +365,7 @@ function AptitudeTopicView({ topicId, onBack }) {
     fetchAptitudeTopic(topicId).then(t => { if (!cancelled) setTopic(t); }).catch(() => { if (!cancelled) setTopic(null); });
     fetchTopicQuestions(topicId).then(q => { if (!cancelled) setQuestions(q); }).catch(() => { if (!cancelled) setQuestions([]); });
     if (user) {
+      markAptitudeTopicOpened(user.uid, topicId).catch(() => {});
       getDoc(doc(db, "user_aptitude_progress", user.uid))
         .then(snap => { if (!cancelled) setAlreadyDone(!!snap.data()?.completedTopicIds?.includes(topicId)); })
         .catch(() => {});
@@ -498,6 +563,20 @@ function AptitudeTopicView({ topicId, onBack }) {
               Nice work! XP and coins added.
             </p>
           )}
+
+          {/* Same "how do I get to the next topic" fix as campus-cscore.jsx's
+              TopicView - this module never had it at all until now. */}
+          <LessonNavFooter
+            next={nextTopicInfo?.next ? { ...nextTopicInfo.next, title: nextTopicInfo.next.name, groupLabel: nextTopicInfo.next.category } : null}
+            prev={nextTopicInfo?.prev ? { id: nextTopicInfo.prev.id, title: nextTopicInfo.prev.name } : null}
+            crossesModule={nextTopicInfo?.crossesModule}
+            done={!!nextTopicInfo?.done}
+            onOpenTopic={onOpenTopic}
+            onBack={onBack}
+            groupNoun="Category"
+            endTitle="You've reached the end of the Aptitude roadmap"
+            endBody="Head back to the roadmap to review anything, or revisit a topic from another category."
+          />
         </div>
       )}
 

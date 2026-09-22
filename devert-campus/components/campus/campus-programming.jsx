@@ -12,7 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { CAMPUS } from "@/lib/campus-theme";
 import {
   CampusCard, CampusChip, CampusButton, CampusBackButton, CampusEmptyState,
-  CampusSkeleton, CampusProgressBar, RoadmapTimeline,
+  CampusSkeleton, CampusProgressBar, RoadmapTimeline, LessonNavFooter,
   SidebarSectionLabel, SidebarBackLink, SidebarNavRow, SidebarTopicRow, SidebarModuleGroup,
 } from "@/components/campus/campus-ui";
 import {
@@ -92,7 +92,8 @@ export function CampusProgrammingTab({ sidebarSlot }) {
       <>
         {sidebar}
         <TopicView langId={screen.langId} topicId={screen.topicId}
-          onBack={() => setScreen({ view: "roadmap", langId: screen.langId })} />
+          onBack={() => setScreen({ view: "roadmap", langId: screen.langId })}
+          onOpenTopic={(topicId) => setScreen({ view: "topic", langId: screen.langId, topicId })} />
       </>
     );
   }
@@ -408,18 +409,42 @@ function LanguageRoadmap({ langId, onBack, onOpenTopic }) {
   const completed = completedIds.size;
   const total = topics.length;
 
+  // The first unfinished topic, so Continue lands on work rather than on
+  // something already ticked off - falls back to whatever was last opened,
+  // then to the start. Same allDone-guarded cascade as campus-cscore.jsx's
+  // SubjectRoadmap (see its own comment): without the guard, a 100%-complete
+  // student whose lastOpenedTopicId got scrubbed to null (its topic was
+  // deleted) would silently land back on topics[0] instead of the "language
+  // complete" state below. This was previously entirely absent here - the
+  // only resume affordance was the landing page's cross-language hero, with
+  // no way to continue a language once already inside its own roadmap.
+  const allDone = total > 0 && completed === total;
+  const nextTopic = topics.find(t => !completedIds.has(t.id))
+    || topics.find(t => t.id === progress?.lastOpenedTopicId)
+    || (allDone ? null : topics[0]);
+  const started = completed > 0 || !!progress?.lastOpenedTopicId;
+
   return (
     <div>
       <CampusBackButton onClick={onBack} label="Back to Programming" />
       <div className="mt-4 mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
-            <LanguageLogo name={lang.name} size={22} />
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+              <LanguageLogo name={lang.name} size={22} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{lang.name} Roadmap</h1>
+              <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{lang.industryUsage}</span>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: CAMPUS.ink }}>{lang.name} Roadmap</h1>
-            <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{lang.industryUsage}</span>
-          </div>
+          {nextTopic ? (
+            <CampusButton icon={started ? Rocket : Zap} onClick={() => onOpenTopic(nextTopic.id)}>
+              {started ? "Continue" : "Start learning"}
+            </CampusButton>
+          ) : allDone ? (
+            <CampusChip color={CAMPUS.good} icon={Check}>LANGUAGE COMPLETE</CampusChip>
+          ) : null}
         </div>
         {total > 0 && (
           <div className="mt-3">
@@ -441,10 +466,17 @@ function LanguageRoadmap({ langId, onBack, onOpenTopic }) {
 
 // ---------------- Topic view ----------------
 
-function TopicView({ langId, topicId, onBack }) {
+function TopicView({ langId, topicId, onBack, onOpenTopic }) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [topic, setTopic] = useState(null);
+  // A second, independent fetch of this language's topic list, same as
+  // campus-cscore.jsx's TopicView's identical subjectTopics (see its own
+  // comment) - only used to work out what comes after this topic.
+  const [langTopics, setLangTopics] = useState(null);
+  useEffect(() => {
+    fetchTopics(langId).then(setLangTopics).catch(() => setLangTopics([]));
+  }, [langId]);
   const [quizAnswers, setQuizAnswers] = useState({});
   // Server-side attempt record - see lib/quizAttempts.js's header for what the
   // old localStorage flag cost.
@@ -471,6 +503,21 @@ function TopicView({ langId, topicId, onBack }) {
   // nothing to persist.
   const quizSeedKey = buildQuizSeedKey({ uid: user?.uid, scope: `${langId}:${topicId}` });
   const quizScopeId = `${langId}_${topicId}`;
+
+  // What comes after this topic, so the page offers a way forward without
+  // depending on the sidebar - same fix/reasoning as campus-cscore.jsx's
+  // identical nextTopicInfo (a live student report there; this module never
+  // had it at all until now).
+  const nextTopicInfo = useMemo(() => {
+    if (!langTopics || langTopics.length === 0) return null;
+    const idx = langTopics.findIndex(t => t.id === topicId);
+    if (idx === -1) return null;
+    const prev = langTopics[idx - 1] || null;
+    if (idx === langTopics.length - 1) return { done: true, prev };
+    const current = langTopics[idx];
+    const next = langTopics[idx + 1];
+    return { prev, next, crossesModule: (next.module || "General") !== (current.module || "General") };
+  }, [langTopics, topicId]);
 
   // State resets synchronously on topic change and stale async results are
   // dropped - the previous version kept the PREVIOUS topic's content, DONE chip
@@ -723,6 +770,20 @@ function TopicView({ langId, topicId, onBack }) {
               Nice work! XP and coins added.
             </p>
           )}
+
+          {/* Same "how do I get to the next topic" fix as campus-cscore.jsx's
+              TopicView - shown regardless of alreadyDone since this module is
+              attempt-based, not gated. */}
+          <LessonNavFooter
+            next={nextTopicInfo?.next ? { ...nextTopicInfo.next, groupLabel: nextTopicInfo.next.module } : null}
+            prev={nextTopicInfo?.prev ? { id: nextTopicInfo.prev.id, title: nextTopicInfo.prev.title } : null}
+            crossesModule={nextTopicInfo?.crossesModule}
+            done={!!nextTopicInfo?.done}
+            onOpenTopic={onOpenTopic}
+            onBack={onBack}
+            endTitle="You've reached the end of this language's roadmap"
+            endBody="Head back to the roadmap to review anything, or explore another language."
+          />
         </div>
       )}
     </div>

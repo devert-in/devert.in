@@ -25,7 +25,7 @@
 //   - Reward-bearing completion is transaction-wrapped and idempotent, and
 //     grants through the one shared grantRewards() ledger.
 import { db } from "@/lib/firebase";
-import { currentAudiences } from "@/lib/audiences";
+import { currentAudiences, AUDIENCE_PUBLIC, AUDIENCE_LEGACY } from "@/lib/audiences";
 import { withVersionSnapshot } from "@/lib/contentVersioning";
 import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where,
@@ -34,6 +34,19 @@ import {
 import { grantRewards, bumpStreak } from "@/lib/rewards";
 
 export const GATE_DIFFICULTIES = ["Easy", "Moderate", "Hard"];
+
+// Same default as lib/roadmaps.js's defaultAudiences() - contentReadable()
+// in firestore.rules requires a non-empty `audiences` array or the document
+// is invisible to every reader with no error anywhere. Unlike roadmaps.js,
+// this module has no separate createX/saveX split (paper/subject/topic ids
+// are meaningful strings the caller picks, not Firestore auto-IDs), so
+// savePaper/saveSubject/saveTopic below default this only when it's
+// genuinely absent (a real create) and otherwise leave an existing value
+// alone - same "never overwritten on a later update" intent, adapted to a
+// single upsert function instead of two.
+function defaultAudiences() {
+  return [AUDIENCE_PUBLIC, AUDIENCE_LEGACY];
+}
 
 // The paper codes GATE itself uses, so a paper doc's id is the official code
 // lowercased ("cs", "da", "cs-da"). Only the first three are authored today;
@@ -70,7 +83,13 @@ export async function fetchPaper(paperId) {
 }
 
 export async function savePaper(paperId, data) {
-  await setDoc(doc(db, "gatePapers", paperId), { updatedAt: serverTimestamp(), ...data }, { merge: true });
+  const ref = doc(db, "gatePapers", paperId);
+  const existing = (await getDoc(ref)).data();
+  await setDoc(ref, {
+    updatedAt: serverTimestamp(),
+    ...data,
+    audiences: data.audiences || existing?.audiences || defaultAudiences(),
+  }, { merge: true });
 }
 
 // Deletes the paper, every subject and topic under it, and every student's
@@ -146,8 +165,12 @@ export async function fetchSubject(paperId, subjectId) {
 }
 
 export async function saveSubject(paperId, subjectId, data) {
-  await setDoc(doc(db, "gatePapers", paperId, "subjects", subjectId), {
-    updatedAt: serverTimestamp(), ...data,
+  const ref = doc(db, "gatePapers", paperId, "subjects", subjectId);
+  const existing = (await getDoc(ref)).data();
+  await setDoc(ref, {
+    updatedAt: serverTimestamp(),
+    ...data,
+    audiences: data.audiences || existing?.audiences || defaultAudiences(),
   }, { merge: true });
 }
 
@@ -198,6 +221,7 @@ export async function saveTopic(paperId, subjectId, topicId, data) {
     updatedAt: serverTimestamp(),
     ...withVersionSnapshot(existing),
     ...data,
+    audiences: data.audiences || existing?.audiences || defaultAudiences(),
   }, { merge: true });
 }
 

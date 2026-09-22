@@ -91,12 +91,24 @@ export async function saveTopic(langId, topicId, data) {
 // exists on programming_progress; arrayRemove here isn't blocked by that
 // collection's owner-only monotonicity guard, which only applies to the
 // isOwner() branch.
+// Also clears lastOpenedTopicId when it's the deleted topic - without this,
+// a 100%-complete student whose last-opened topic gets deleted (content
+// restructuring) falls through nextTopic's whole fallback chain to
+// topics[0], silently landing them back at the start instead of a real
+// "subject complete" state. Same fix as lib/csCore.js's identical deleteTopic.
 export async function deleteTopic(langId, topicId) {
   const progressSnap = await getDocs(query(collection(db, "programming_progress"), where("langId", "==", langId)));
-  const affected = progressSnap.docs.filter(d => (d.data().completedTopicIds || []).includes(topicId));
-  for (let i = 0; i < affected.length; i += 450) {
+  const ops = [];
+  progressSnap.docs.forEach(d => {
+    const data = d.data();
+    const patch = {};
+    if ((data.completedTopicIds || []).includes(topicId)) patch.completedTopicIds = arrayRemove(topicId);
+    if (data.lastOpenedTopicId === topicId) patch.lastOpenedTopicId = null;
+    if (Object.keys(patch).length) ops.push({ ref: d.ref, patch });
+  });
+  for (let i = 0; i < ops.length; i += 450) {
     const batch = writeBatch(db);
-    affected.slice(i, i + 450).forEach(d => batch.update(d.ref, { completedTopicIds: arrayRemove(topicId) }));
+    ops.slice(i, i + 450).forEach(({ ref, patch }) => batch.update(ref, patch));
     await batch.commit();
   }
   await deleteDoc(doc(db, "programmingLanguages", langId, "topics", topicId));

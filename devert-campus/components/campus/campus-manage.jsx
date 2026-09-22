@@ -191,7 +191,7 @@ function ManageSidebarList({ tabs, active, onSelect }) {
           style={{
             background: active === t.key ? CAMPUS.gradientPrimary : "transparent",
             color: active === t.key ? "#fff" : CAMPUS.inkSoft,
-            boxShadow: active === t.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
+            boxShadow: active === t.key ? CAMPUS.shadow : "none",
           }}>
           {t.label}
         </button>
@@ -1482,7 +1482,7 @@ function StudentsViewToggle({ studentsView, setStudentsView }) {
           style={{
             background: studentsView === o.key ? CAMPUS.gradientPrimary : "transparent",
             color: studentsView === o.key ? "#fff" : CAMPUS.inkFaint,
-            boxShadow: studentsView === o.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
+            boxShadow: studentsView === o.key ? CAMPUS.shadow : "none",
           }}>
           {o.label}
         </button>

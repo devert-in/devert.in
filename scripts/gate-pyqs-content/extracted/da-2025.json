@@ -1,0 +1,2905 @@
+[
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 1,
+    "paperSection": null,
+    "order": 1,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Courage : Bravery :: Yearning : __________\n\n            Select the most appropriate option to complete the analogy.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Longing"
+      },
+      {
+        "id": "b",
+        "text": "Yelling"
+      },
+      {
+        "id": "c",
+        "text": "Yawning"
+      },
+      {
+        "id": "d",
+        "text": "Glaring"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.559Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 2,
+    "paperSection": null,
+    "order": 2,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "We __________ tennis in the lawn when it suddenly started to rain.\n            Select the most appropriate option to complete the above sentence.",
+    "options": [
+      {
+        "id": "a",
+        "text": "have been playing"
+      },
+      {
+        "id": "b",
+        "text": "had been playing"
+      },
+      {
+        "id": "c",
+        "text": "would have been playing"
+      },
+      {
+        "id": "d",
+        "text": "could be playing"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 3,
+    "paperSection": null,
+    "order": 3,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "A 4 � 4 digital image has pixel intensities () as shown in the figure. The number of\n\n       pixels with   4 is:",
+    "options": [
+      {
+        "id": "a",
+        "text": "3"
+      },
+      {
+        "id": "b",
+        "text": "8"
+      },
+      {
+        "id": "c",
+        "text": "11"
+      },
+      {
+        "id": "d",
+        "text": "9"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 4,
+    "paperSection": null,
+    "order": 4,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "In the given figure, the numbers associated with the rectangle, triangle, and ellipse\n          are 1, 2, and 3, respectively. Which one among the given options is the most\n          appropriate combination of P, Q, and R ?\n\n                                                          2\n                                                       R\n\n                                      4                      Q\n\n                                   1     P\n\n                                                       3",
+    "options": [
+      {
+        "id": "a",
+        "text": "P = 6; Q = 5; R = 3"
+      },
+      {
+        "id": "b",
+        "text": "P = 5; Q = 6; R = 3"
+      },
+      {
+        "id": "c",
+        "text": "P = 3; Q = 6; R = 6"
+      },
+      {
+        "id": "d",
+        "text": "P = 5; Q = 3; R = 6"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 5,
+    "paperSection": null,
+    "order": 5,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "A rectangle has a length L and a width W, where L > W. If the width, W, is increased\n          by 10%, which one of the following statements is correct for all values of L and W?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Perimeter increases by 10%."
+      },
+      {
+        "id": "b",
+        "text": "Length of the diagonals increases by 10%."
+      },
+      {
+        "id": "c",
+        "text": "Area increases by 10%."
+      },
+      {
+        "id": "d",
+        "text": "The rectangle becomes a square. Q.6 � Q.10 Carry TWO marks Each"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 6,
+    "paperSection": null,
+    "order": 6,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Column-I has statements made by Shanthala; and, Column-II has responses given\n            by Kanishk.\n\n                                   Column-I                      Column-II\n\nP. This house is in a mess.                                1. Alright, I won't bring it up during\n                                                               our conversations.\n\nQ. I am not happy with the marks 2. Well, you can easily look it up.\n     given to me.\n\nR. Politics is a subject I avoid talking 3. No problem, let me clear it up for\n\nabout.                                                     you.\n\nS. I don't know what this word 4. Don't worry, I will take it up with\n\nmeans.                                                     your teacher.\n\nIdentify the option that has the correct match between Column-I and Column-II.",
+    "options": [
+      {
+        "id": "a",
+        "text": "P � 2; Q � 3; R � 1; S � 4"
+      },
+      {
+        "id": "b",
+        "text": "P � 3; Q � 4; R � 1; S � 2"
+      },
+      {
+        "id": "c",
+        "text": "P � 4; Q � 1; R � 2; S � 3"
+      },
+      {
+        "id": "d",
+        "text": "P � 1; Q � 2; R � 4; S � 3"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 7,
+    "paperSection": null,
+    "order": 7,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Weight of a person can be expressed as a function of their age. The function usually\n          varies from person to person. Suppose this function is identical for two brothers,\n          and it monotonically increases till the age of 50 years and then it monotonically\n          decreases. Let 1 and 2 (in years) denote the ages of the brothers and 1 < 2.\n          Which one of the following statements is correct about their age on the day when\n          they attain the same weight?",
+    "options": [
+      {
+        "id": "a",
+        "text": "1 < 2 < 50"
+      },
+      {
+        "id": "b",
+        "text": "1 < 50 < 2"
+      },
+      {
+        "id": "c",
+        "text": "50 < 1 < 2"
+      },
+      {
+        "id": "d",
+        "text": "Either 1 = 50 or 2 = 50"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 8,
+    "paperSection": null,
+    "order": 8,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "A regular dodecagon (12-sided regular polygon) is inscribed in a circle of radius r\n\n          cm as shown in the figure. The side of the dodecagon is d cm. All the triangles\n          (numbered 1 to 12) in the figure are used to form squares of side r cm and each\n          numbered triangle is used only once to form a square.\n          The number of squares that can be formed and the number of triangles required to\n          form each square, respectively, are:\n          Note: The figure shown is representative.",
+    "options": [
+      {
+        "id": "a",
+        "text": "3; 4"
+      },
+      {
+        "id": "b",
+        "text": "4; 3"
+      },
+      {
+        "id": "c",
+        "text": "3; 3"
+      },
+      {
+        "id": "d",
+        "text": "3; 2"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 9,
+    "paperSection": null,
+    "order": 9,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "If a real variable  satisfies 32     27 � 9, then the value of   22\n                                                                     (2)2\n                                       =                                   is:",
+    "options": [
+      {
+        "id": "a",
+        "text": "2-1"
+      },
+      {
+        "id": "b",
+        "text": "20"
+      },
+      {
+        "id": "c",
+        "text": "23"
+      },
+      {
+        "id": "d",
+        "text": "215"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 10,
+    "paperSection": null,
+    "order": 10,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "The number of patients per shift () consulting Dr. Gita in her past 100 shifts is\n          shown in the figure. If the amount she earns is  1000( - 0.2), what is the average\n          amount (in ) she has earned per shift in the past 100 shifts?\n\n          Note: The figure shown is representative.\n\nNumber of shifts  50\n\n                                                   40\n                  40\n\n                                                                      30\n                  30\n\n                                20\n                  20\n\n                                                                                         10\n                  10\n\n                  0\n\n                                   5  6             7                   8\n\n                                      Number of patients per shift (X)",
+    "options": [
+      {
+        "id": "a",
+        "text": "6,100"
+      },
+      {
+        "id": "b",
+        "text": "6,300"
+      },
+      {
+        "id": "c",
+        "text": "6,000"
+      },
+      {
+        "id": "d",
+        "text": "6,500 Q. 11 � Q. 35 carry one mark each."
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "general-aptitude",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 11,
+    "paperSection": null,
+    "order": 11,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Suppose X and Y are random variables. The conditional expectation of X given Y is\n       denoted by E[X|Y ]. Then E[E[X|Y ]] equals",
+    "options": [
+      {
+        "id": "a",
+        "text": "E[X|Y ] E [X ]"
+      },
+      {
+        "id": "b",
+        "text": "E[Y ]"
+      },
+      {
+        "id": "c",
+        "text": "E[X]"
+      },
+      {
+        "id": "d",
+        "text": "E[Y ]"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 12,
+    "paperSection": null,
+    "order": 12,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "The number of additions and multiplications involved in performing Gaussian elimina-\n       tion on any n � n upper triangular matrix is of the order",
+    "options": [
+      {
+        "id": "a",
+        "text": "O(n)"
+      },
+      {
+        "id": "b",
+        "text": "O(n2)"
+      },
+      {
+        "id": "c",
+        "text": "O(n3)"
+      },
+      {
+        "id": "d",
+        "text": "O(n4)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 13,
+    "paperSection": null,
+    "order": 13,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "The sum of the elements in each row of A  Rn�n is 1. If B = A3 - 2A2 + A, which\n       one of the following statements is correct (for x  Rn)?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The equation Bx = 0 has no solution"
+      },
+      {
+        "id": "b",
+        "text": "The equation Bx = 0 has exactly two solutions"
+      },
+      {
+        "id": "c",
+        "text": "The equation Bx = 0 has infinitely many solutions"
+      },
+      {
+        "id": "d",
+        "text": "The equation Bx = 0 has a unique solution"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 14,
+    "paperSection": null,
+    "order": 14,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Let  f (x)  =  ex  - e-x        R.  Let  f (k)(a)  denote  the  kth  derivative  of  f  evaluated  at  a.\n                                 ,x\n\n                           2\n\n       What is the value of f (10)(0)? (Note: ! denotes factorial)",
+    "options": [
+      {
+        "id": "a",
+        "text": "0"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "option-count"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 15,
+    "paperSection": null,
+    "order": 15,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "(B) 1\n                 1\n\n       (C)\n               10!\n                 2\n\n       (D)\n                10!\n\n       Let p and q be any two propositions. Consider the following propositional statements.\n       S1 : p  q, S2 : �p  q, S3 : �p  q, S4 : �p  �q,\n       where  denotes conjunction (AND operation),  denotes disjunction (OR operation),\n       and � denotes negation (NOT operation). Which one of the following options is correct?\n       (Note:  denotes logical equivalence)",
+    "options": [
+      {
+        "id": "a",
+        "text": "S1  S3"
+      },
+      {
+        "id": "b",
+        "text": "S2  S3"
+      },
+      {
+        "id": "c",
+        "text": "S2  S4"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss",
+      "option-count"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 16,
+    "paperSection": null,
+    "order": 16,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "(D) S1  S4\n\n       If a relational decomposition is not dependency-preserving, which one of the following\n       relational operators will be executed more frequently in order to maintain the depen-\n       dencies?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Selection"
+      },
+      {
+        "id": "b",
+        "text": "Projection"
+      },
+      {
+        "id": "c",
+        "text": "Join"
+      },
+      {
+        "id": "d",
+        "text": "Set union"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.560Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 17,
+    "paperSection": null,
+    "order": 17,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the following three relations:\n                Car (model, year, serial, color)\n                Make (maker, model)\n                Own (owner, serial)\n\n       A tuple in Car represents a specific car of a given model, made in a given year, with\n       a serial number and a color. A tuple in Make specifies that a maker company\n       makes cars of a certain model. A tuple in Own specifies that an owner owns the car\n       with a given serial number. Keys are underlined; (owner, serial) together\n       form key for Own. ( denotes natural join)\n\n                owner(Own (color=\"red\"(Car (maker=\"ABC\"Make))))\n       Which one of the following options describes what the above expression computes?",
+    "options": [
+      {
+        "id": "a",
+        "text": "All owners of a red car, a car made by ABC, or a red car made by ABC"
+      },
+      {
+        "id": "b",
+        "text": "All owners of more than one car, where at least one car is red and made by ABC"
+      },
+      {
+        "id": "c",
+        "text": "All owners of a red car made by ABC"
+      },
+      {
+        "id": "d",
+        "text": "All red cars made by ABC"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 18,
+    "paperSection": null,
+    "order": 18,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider a hash table of size 10 with indices {0, 1, . . . , 9}, with the hash function\n\n                                   h(x) = 3x (mod 10),\n\n       where linear probing is used to handle collisions. The hash table is initially empty and\n       then the following sequence of keys is inserted into the hash table: 1, 4, 5, 6, 14, 15. The\n       indices where the keys 14 and 15 are stored are, respectively",
+    "options": [
+      {
+        "id": "a",
+        "text": "2 and 5"
+      },
+      {
+        "id": "b",
+        "text": "2 and 6"
+      },
+      {
+        "id": "c",
+        "text": "4 and 5"
+      },
+      {
+        "id": "d",
+        "text": "4 and 6"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 19,
+    "paperSection": null,
+    "order": 19,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Let X be a continuous random variable whose cumulative distribution function (CDF)\n\n       FX(x), for some t, is given as follows:\n\n                                   0                   xt\n                                                     tx4\n\n                                                x-t    x4\n\n                                   FX(x) =      4-t\n\n                                                1\n\n       If the median of X is 3, then what is the value of t?",
+    "options": [
+      {
+        "id": "a",
+        "text": "2"
+      },
+      {
+        "id": "b",
+        "text": "1"
+      },
+      {
+        "id": "c",
+        "text": "-1"
+      },
+      {
+        "id": "d",
+        "text": "0"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 20,
+    "paperSection": null,
+    "order": 20,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Let X = aZ + b, where Z is a standard normal random variable, and a, b are two\n       unknown constants. It is given that\n\n               E[X] = 1, E[(X - E[X])Z] = -2, E[(X - E[X])2] = 4,\n\n       where E[X] denotes the expectation of random variable X. The values of a, b are:",
+    "options": [
+      {
+        "id": "a",
+        "text": "a = -2, b = 1"
+      },
+      {
+        "id": "b",
+        "text": "a = 2, b = -1"
+      },
+      {
+        "id": "c",
+        "text": "a = -2, b = -1"
+      },
+      {
+        "id": "d",
+        "text": "a = 1, b = 1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 21,
+    "paperSection": null,
+    "order": 21,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "It is given that P (X  2) = 0.25 for an exponentially distributed random variable X\n                        1\n\n       with E[X] = , where E[X] denotes the expectation of X. What is the value of ?\n\n       (ln denotes natural logarithm)",
+    "options": [
+      {
+        "id": "a",
+        "text": "ln 2"
+      },
+      {
+        "id": "b",
+        "text": "ln 4"
+      },
+      {
+        "id": "c",
+        "text": "ln 3"
+      },
+      {
+        "id": "d",
+        "text": "ln 0.25"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 22,
+    "paperSection": null,
+    "order": 22,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider designing a linear classifier\n\n                                   y = sign(f (x; w, b)), f (x; w, b) = w x + b\n\n       on a dataset D = {(x1, y1), (x2, y2), . . . , (xN , yN )}, xi  Rd, yi  {+1, -1}, i =\n       1, 2, . . . , N . Recall that the sign function outputs +1 if the argument is positive, and -1\n       if the argument is non-positive. The parameters w and b are updated as per the following\n       training algorithm:\n\n                                   wnew = wold + ynxn, bnew = bold + yn\n\n       whenever sign(f (xn; wold, bold)) = yn. In other words, whenever the classifier wrongly\n       predicts a sample (xn, yn) from the dataset, wold gets updated to wnew, and likewise bold\n       gets updated to bnew. Consider the case (xn, +1), f (xn; wold, bold) < 0. Then",
+    "options": [
+      {
+        "id": "a",
+        "text": "f (xn; wnew, bnew) > f (xn; wold, bold)"
+      },
+      {
+        "id": "b",
+        "text": "f (xn; wnew, bnew) < f (xn; wold, bold)"
+      },
+      {
+        "id": "c",
+        "text": "f (xn; wnew, bnew) = f (xn; wold, bold)"
+      },
+      {
+        "id": "d",
+        "text": "ynf (xn; wold, bold) > 1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 23,
+    "paperSection": null,
+    "order": 23,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider the following Python declarations of two lists.\n       A=[1,2,3]\n       B=[4,5,6]\n       Which one of the following statements results in A= [1, 2, 3, 4, 5, 6]?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A.extend(B)"
+      },
+      {
+        "id": "b",
+        "text": "A.append(B)"
+      },
+      {
+        "id": "c",
+        "text": "A.update(B)"
+      },
+      {
+        "id": "d",
+        "text": "A.insert(B)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 24,
+    "paperSection": null,
+    "order": 24,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Consider two functions f : R  R and g : R  (1, ). Both functions are differen-\n       tiable at a point c. Which of the following functions is/are ALWAYS differentiable at\n       c? The symbol � denotes product and the symbol  denotes composition of functions.",
+    "options": [
+      {
+        "id": "a",
+        "text": "f � g"
+      },
+      {
+        "id": "b",
+        "text": "f � g f"
+      },
+      {
+        "id": "c",
+        "text": "g"
+      },
+      {
+        "id": "d",
+        "text": "f  g + g  f"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 25,
+    "paperSection": null,
+    "order": 25,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Which of the following statements is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rn has a unique set of orthonormal basis vectors"
+      },
+      {
+        "id": "b",
+        "text": "Rn does not have a unique set of orthonormal basis vectors"
+      },
+      {
+        "id": "c",
+        "text": "Linearly independent vectors in Rn are orthonormal"
+      },
+      {
+        "id": "d",
+        "text": "Orthonormal vectors Rn are linearly independent"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 26,
+    "paperSection": null,
+    "order": 26,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Which of the following statements is/are correct in a Bayesian network?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Variable elimination is an approximate inference algorithm"
+      },
+      {
+        "id": "b",
+        "text": "Gibbs sampling is an exact inference algorithm"
+      },
+      {
+        "id": "c",
+        "text": "Variable elimination is used to determine conditional probabilities"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "option-count"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 27,
+    "paperSection": null,
+    "order": 27,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "(D) Rejection sampling is an approximate inference algorithm\n\n       For which of the following inputs does binary search take time O(log n) in the worst\n       case?",
+    "options": [
+      {
+        "id": "a",
+        "text": "An array of n integers in any order"
+      },
+      {
+        "id": "b",
+        "text": "A linked list of n integers in any order"
+      },
+      {
+        "id": "c",
+        "text": "An array of n integers in increasing order"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "option-count"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 28,
+    "paperSection": null,
+    "order": 28,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "(D) A linked list of n integers in increasing order\n       Let A = In + xx , where In is the n � n identity matrix and x  Rn, x x = 1. Which\n       of the following options is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rank of A is n"
+      },
+      {
+        "id": "b",
+        "text": "A is invertible"
+      },
+      {
+        "id": "c",
+        "text": "0 is an eigenvalue of A"
+      },
+      {
+        "id": "d",
+        "text": "A-1 has a negative eigenvalue"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 29,
+    "paperSection": null,
+    "order": 29,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Suppose that insertion sort is applied to the array [1, 3, 5, 7, 9, 11, x, 15, 13] and it takes\n       exactly two swaps to sort the array. Select all possible values of x.",
+    "options": [
+      {
+        "id": "a",
+        "text": "10"
+      },
+      {
+        "id": "b",
+        "text": "12"
+      },
+      {
+        "id": "c",
+        "text": "14"
+      },
+      {
+        "id": "d",
+        "text": "16"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 30,
+    "paperSection": null,
+    "order": 30,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "mcq",
+    "negativeMark": -0.3333333333333333,
+    "question": "Let C1 and C2 be two sets of objects. Let D(x, y) be a measure of dissimilarity between\n       two objects x and y. Consider the following definitions of dissimilarity between C1 and\n       C2.\n\n                                      DIS-1(C1, C2) = max D(x, y)\n\n                                                                                       xC1, yC2\n\n                                      DIS-2(C1, C2) = min D(x, y)\n\n                                                                                       xC1, yC2\n\n       Which of the following statements is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Single Linkage Clustering uses DIS-1"
+      },
+      {
+        "id": "b",
+        "text": "Single Linkage Clustering uses DIS-2"
+      },
+      {
+        "id": "c",
+        "text": "Complete Linkage Clustering uses DIS-2"
+      },
+      {
+        "id": "d",
+        "text": "Complete Linkage Clustering uses DIS-1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 31,
+    "paperSection": null,
+    "order": 31,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "There are three boxes containing white balls and black balls.\n\n           Box-1 contains 2 black and 1 white balls.\n           Box-2 contains 1 black and 2 white balls.\n           Box-3 contains 3 black and 3 white balls.\n\n       In a random experiment, one of these boxes is selected, where the probability of choos-\n\n           1                       1     1\n       ing Box-1 is 2, Box-2 is 6, and Box-3 is 3. A ball is drawn at random from the selected\n\n       box. Given that the ball drawn is white, the probability that it is drawn from Box-2 is\n\n              (Round off to two decimal places)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 32,
+    "paperSection": null,
+    "order": 32,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "lim t2 + t - t =\n\n       t+\n\n       (Round off to one decimal place)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 33,
+    "paperSection": null,
+    "order": 33,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "On a relation named Loan of a bank:\n\n                                                  Loan\n\n                                   loan number branch name amount\n\n                                        L11       Banjara Hills 90000\n\n                                        L14       Kondapur 50000\n\n                                        L15       SR Nagar 40000\n\n                                        L22       SR Nagar 25000\n\n                                        L23       Balanagar 80000\n\n                                        L25       Kondapur 70000\n\n                                        L19       SR Nagar 65000\n\n       the following SQL query is executed.\n\n       SELECT L1.loan number\n\n       FROM Loan L1\n\n       WHERE L1.amount > (SELECT MAX (L2.amount)\n\n                                        FROM Loan L2\n\n                                        WHERE L2.branch name = 'SR Nagar');\n\n       The number of rows returned by the query is                               (Answer in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 34,
+    "paperSection": null,
+    "order": 34,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Given data {(-1, 1), (2, -5), (3, 5)} of the form (x, y), we fit a model y = wx using\n       linear least-squares regression. The optimal value of w is\n       (Round off to three decimal places)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 35,
+    "paperSection": null,
+    "order": 35,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 1,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "The naive Bayes classifier is used to solve a two-class classification problem with class-\n\n       labels  y1,  y2.  Suppose   the  prior  probabilities  are  P (y1)  =  1  and  P (y2)  =  2\n                                                                                                  .  Assuming\n                                                                              3                  3\n\n       a discrete feature space with\n\n                                               3                                 1\n                                        P (x|y1) = 4 and P (x|y2) = 4\n\n       for a specific feature vector x. The probability of misclassifying x is\n       (Round off to two decimal places)\n\nQ. 36 � Q. 65 carry two marks each.",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.561Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 36,
+    "paperSection": null,
+    "order": 36,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let Y  = Z2, Z              =  X -�\n                                              , where X is a normal random variable with mean � and\n\n       variance 2. The variance of Y is",
+    "options": [
+      {
+        "id": "a",
+        "text": "1"
+      },
+      {
+        "id": "b",
+        "text": "2"
+      },
+      {
+        "id": "c",
+        "text": "3"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss",
+      "option-count"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 37,
+    "paperSection": null,
+    "order": 37,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "(D) 4\n\n       Let A  Rn�n be such that A3 = A. Which one of the following statements is ALWAYS\n       correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A is invertible"
+      },
+      {
+        "id": "b",
+        "text": "Determinant of A is 0"
+      },
+      {
+        "id": "c",
+        "text": "The sum of the diagonal elements of A is 1"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss",
+      "option-count"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 38,
+    "paperSection": null,
+    "order": 38,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "(D) A and A2 have the same rank\n\n       Let {x1, x2, . . . , xn} be a set of linearly independent vectors in Rn. Let the (i, j)-th\n       element of matrix A  Rn�n be given by Aij = xi xj, 1  i, j  n. Which one of the\n       following statements is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A is invertible"
+      },
+      {
+        "id": "b",
+        "text": "0 is a singular value of A"
+      },
+      {
+        "id": "c",
+        "text": "Determinant of A is 0"
+      },
+      {
+        "id": "d",
+        "text": "z Az = 0 for some non-zero z  Rn"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 39,
+    "paperSection": null,
+    "order": 39,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the cumulative distribution function (CDF) of a random variable X:\n\n                                                        x  -1\n                                                        -1  x  1\n                                              0         x1\n\n                                   FX(x) =  1 (x + 1)2\n                                              4\n\n                                              1\n\n       The value of P (X2  0.25) is",
+    "options": [
+      {
+        "id": "a",
+        "text": "0.625"
+      },
+      {
+        "id": "b",
+        "text": "0.25"
+      },
+      {
+        "id": "c",
+        "text": "0.5"
+      },
+      {
+        "id": "d",
+        "text": "0.5625"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 40,
+    "paperSection": null,
+    "order": 40,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "A random variable X is said to be distributed as Bernoulli(), denoted by X\n\n       Bernoulli(), if\n\n                                   P (X = 1) = , P (X = 0) = 1 -\n\n                                                           300\n\n       for 0 <  < 1. Let Y = Xi, where Xi  Bernoulli(), i = 1, 2, . . . , 300 be\n\n                                                           i=1\n\n       independent and identically distributed random variables with  = 0.25. The value of\n\n       P (60  Y  90), after approximation through Central Limit Theorem, is given by\n\n       Recall that (x) = 1         x        t2\n                                            2\n                                        e-      dt\n                                   2 -",
+    "options": [
+      {
+        "id": "a",
+        "text": "(2) - (-2)"
+      },
+      {
+        "id": "b",
+        "text": "(1) - (-1)"
+      },
+      {
+        "id": "c",
+        "text": "(3) - (-3)"
+      },
+      {
+        "id": "d",
+        "text": "(90) - (60)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 41,
+    "paperSection": null,
+    "order": 41,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "For x  R, the floor function is denoted by f (x) = x and defined as follows\n                                                  x = k, k  x < k + 1,\n\n            where k is an integer. Let Y = X , where X is an exponentially distributed random\n                                       1\n\n            variable with mean , where ln denotes natural logarithm. For any positive integer\n                                     ln 10\n\n              , one can write the probability of the event Y = as follows\n\n                                                   P (Y = ) = q (1 - q)\n\n            The value of q is",
+    "options": [
+      {
+        "id": "a",
+        "text": "0.1"
+      },
+      {
+        "id": "b",
+        "text": "0.01"
+      },
+      {
+        "id": "c",
+        "text": "0.5"
+      },
+      {
+        "id": "d",
+        "text": "0.434"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 42,
+    "paperSection": null,
+    "order": 42,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the neural network shown in the figure with\n       inputs: u, v\n       weights: a, b, c, d, e, f\n       output: y\n       R denotes the ReLU function, R(x) = max(0, x).\n\n                                   u  a        R\n\n                                         b              e\n\n                                         c                   R  y\n\n                                   v  d        R        f\n\n       Given u = 2, v = 3,\n\n       a = 1, b = 1, c = 1, d = -1, e = 4, f = -1,\n\n       which one of the following is correct?\n\n            y y",
+    "options": [
+      {
+        "id": "a",
+        "text": "= 8, = 0 a f y y"
+      },
+      {
+        "id": "b",
+        "text": "= 1, = 0 a f y y"
+      },
+      {
+        "id": "c",
+        "text": "= 1, = -1 a f y y"
+      },
+      {
+        "id": "d",
+        "text": "= 2, = -1 a f"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 43,
+    "paperSection": null,
+    "order": 43,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider game trees Tree-1 and Tree-2 as shown. The first level is a MAX agent and\n       the second level is a MIN agent. The value in the square node is the output of the utility\n       function.\n\n           MAX                     A                         C\n\n           MIN 2                           B              D              E\n\n                                   x          1           5y2\n                                                                 Tree-2\n                                   Tree-1\n\n       For what ranges of x and y, the right child of node B and the right child of node E will\n       be pruned by alpha-beta pruning algorithm?",
+    "options": [
+      {
+        "id": "a",
+        "text": "x  [1, ) and y  (-, 2]"
+      },
+      {
+        "id": "b",
+        "text": "x  (-, 2] and y  (-, 5]"
+      },
+      {
+        "id": "c",
+        "text": "x  (-, 2] and y  [2, )"
+      },
+      {
+        "id": "d",
+        "text": "x  [1, ) and y  (-, 5]"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 44,
+    "paperSection": null,
+    "order": 44,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "The state graph shows the action cost along the edges and the heuristic function h asso-\n       ciated with each state.\n\n                                      h=2     h=2            h=6\n\n                                           2       2\n\n                                   4  A       B              C    3 h=2\n\n                                                                            h=0\n\n                                              2                          3\n\n           S                          E                           D         G\n\n                                   1\n\n                                      h=6\n\n       Suppose A algorithm is applied on this state graph using priority queue to store the\n       frontier. In what sequence are the nodes expanded?",
+    "options": [
+      {
+        "id": "a",
+        "text": "S,A,E,C,B,D,G"
+      },
+      {
+        "id": "b",
+        "text": "S,E,A,C,B,D,G"
+      },
+      {
+        "id": "c",
+        "text": "S,A,E,B,C,D,G"
+      },
+      {
+        "id": "d",
+        "text": "S,A,B,E,C,D,G"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 45,
+    "paperSection": null,
+    "order": 45,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "A random experiment consists of throwing 100 fair dice, each die having six faces\n       numbered 1 to 6. An event A represents the set of all outcomes where at least one of\n       the dice shows a 1. Then, P (A) =",
+    "options": [
+      {
+        "id": "a",
+        "text": "0"
+      },
+      {
+        "id": "b",
+        "text": "1 5 100"
+      },
+      {
+        "id": "c",
+        "text": "1 - 6 5 100"
+      },
+      {
+        "id": "d",
+        "text": "6"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 46,
+    "paperSection": null,
+    "order": 46,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a fact table in an OLAP application: Facts(D1, D2, val), where D1\n       and D2 are its dimension attributes and val is a dependent attribute. Suppose attribute\n       D1 takes 3 values and D2 takes 2 values, and all combinations of these values are present\n       in the table Facts. How many tuples are there in the result of the following query?\n\n                 SELECT D1, D2, sum(val)\n                 FROM Facts\n                 GROUP BY CUBE (D1, D2);",
+    "options": [
+      {
+        "id": "a",
+        "text": "1"
+      },
+      {
+        "id": "b",
+        "text": "6"
+      },
+      {
+        "id": "c",
+        "text": "9"
+      },
+      {
+        "id": "d",
+        "text": "12"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 47,
+    "paperSection": null,
+    "order": 47,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the following Python code snippet.\n       A={\"this\",\"that\"}\n       B={\"that\",\"other\"}\n       C={\"other\",\"this\"}\n       while \"other\" in C:\n\n             if \"this\" in A:\n                 A,B,C=A-B,B-C,C-A\n\n             if \"that\" in B:\n                 A,B,C=C|A,A|B,B|C\n\n       When the above program is executed, at the end, which of the following sets contains\n       \"this\"?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Only A"
+      },
+      {
+        "id": "b",
+        "text": "Only B"
+      },
+      {
+        "id": "c",
+        "text": "Only C"
+      },
+      {
+        "id": "d",
+        "text": "A, C"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 48,
+    "paperSection": null,
+    "order": 48,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Which of the following statements is/are correct about the rectified linear unit (ReLU)\n       activation function defined as ReLU(x) = max(x, 0), where x  R?",
+    "options": [
+      {
+        "id": "a",
+        "text": "ReLU is continuous everywhere"
+      },
+      {
+        "id": "b",
+        "text": "ReLU is differentiable everywhere"
+      },
+      {
+        "id": "c",
+        "text": "ReLU is not differentiable at x = 0"
+      },
+      {
+        "id": "d",
+        "text": "ReLU(x) = ReLU(ax), for all a  R"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 49,
+    "paperSection": null,
+    "order": 49,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the function f (x)  =  x3    +  7 x2  +  10 x  +  133    x    [-8, 0].  Which of the\n                                                                      ,\n                                       32                         2\n\n       following statements is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The maximum value of f is attained at x = -5"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "option-count"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.562Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 50,
+    "paperSection": null,
+    "order": 50,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "(B) The minimum value of f is attained at x = -2\n                                                  133\n\n       (C) The maximum value of f is\n                                                   2\n                                                                                         7\n\n       (D) The minimum value of the derivative of f is attained at x = -2\n       Let x1, x2, x3, x4, x5 be a system of orthonormal vectors in R10. Consider the matrix\n       A = x1x1 + . . . + x5x5 . Which of the following statements is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Singular values of A are also its eigenvalues"
+      },
+      {
+        "id": "b",
+        "text": "Singular values of A are either 0 or 1"
+      },
+      {
+        "id": "c",
+        "text": "Determinant of A is 1"
+      },
+      {
+        "id": "d",
+        "text": "A is invertible"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 51,
+    "paperSection": null,
+    "order": 51,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let f : R  R be a twice-differentiable function and suppose its second derivative\n       satisfies f (x) > 0 for all x  R. Which of the following statements is/are ALWAYS\n       correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "f has a local minima"
+      },
+      {
+        "id": "b",
+        "text": "There does not exist x and y, x = y, such that f (x) = f (y) = 0"
+      },
+      {
+        "id": "c",
+        "text": "f has at most one global minimum"
+      },
+      {
+        "id": "d",
+        "text": "f has at most one local minimum"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 52,
+    "paperSection": null,
+    "order": 52,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "An n � n matrix A with real entries satisfies the property: Ax 2 = x 2, for all\n       x  Rn, where � denotes the Euclidean norm. Which of the following statements\n       is/are ALWAYS correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A must be orthogonal"
+      },
+      {
+        "id": "b",
+        "text": "A = I, where I denotes the identity matrix, is the only solution"
+      },
+      {
+        "id": "c",
+        "text": "The eigenvalues of A are either +1 or -1"
+      },
+      {
+        "id": "d",
+        "text": "A has full rank"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 53,
+    "paperSection": null,
+    "order": 53,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider designing a linear binary classifier f (x) = sign(w x + b), x  R2 on the\n       following training data:\n\n                                   2  0              2  0\n           Class-1:   ,   ,   , Class-2:\n\n                                   0  2              2  0\n\n       Hard-margin support vector machine (SVM) formulation is solved to obtain w and b.\n\n       Which of the following options is/are correct?\n\n                         4",
+    "options": [
+      {
+        "id": "a",
+        "text": "w =   and b = 1 4"
+      },
+      {
+        "id": "b",
+        "text": "The number of support vectors is 3"
+      },
+      {
+        "id": "c",
+        "text": "The margin is 2"
+      },
+      {
+        "id": "d",
+        "text": "Training accuracy is 98%"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 54,
+    "paperSection": null,
+    "order": 54,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a coin-toss experiment where the probability of head showing up is p. In the\n\n       ith coin toss, let Xi = 1 if head appears, and Xi = 0 if tail appears. Consider\n\n                                        1n\n                                        p=             Xi\n                                             n\n                                                i=1\n\n       where n is the total number of independent coin tosses.\n\n       Which of the following statements is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "E[ p ] = p p"
+      },
+      {
+        "id": "b",
+        "text": "E[ p ] = n"
+      },
+      {
+        "id": "c",
+        "text": "As n increases, variance of p decreases"
+      },
+      {
+        "id": "d",
+        "text": "Variance of p does not depend on n"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 55,
+    "paperSection": null,
+    "order": 55,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a two-class problem in Rd with class labels red and green. Let �red and\n       �green be the means of the two classes. Given test sample x  Rd, a classifier calculates\n       the squared Euclidean distance (denoted by � 2) between x and the means of the two\n\n       classes and assigns the class label that the sample x is closest to. That is, the classifier\n\n       computes\n\n                                   f (x) = �red - x 2 - �green - x 2\n\n       and assigns the label red to x if f (x) < 0, and green otherwise. Which of the following\n\n       statements is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The sample x = 0 is assigned the label green if �red < �green"
+      },
+      {
+        "id": "b",
+        "text": "f is a linear function of x"
+      },
+      {
+        "id": "c",
+        "text": "f (x) = w x + b, where w and b are functions of �red and �green"
+      },
+      {
+        "id": "d",
+        "text": "f is a quadratic polynomial in x"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 56,
+    "paperSection": null,
+    "order": 56,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider the following two relations, named Customer and Person, in a database:\n       Person (\n\n                 aadhaar CHAR(12) PRIMARY KEY,\n                 name VARCHAR(32));\n       Customer (\n                 name VARCHAR(32),\n                 email VARCHAR(32) PRIMARY KEY,\n                 phone CHAR(10),\n                 aadhaar CHAR(12),\n\n                      FOREIGN KEY (aadhaar) REFERENCES Person(aadhaar));\n       Which of the following statements is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "aadhaar is a candidate key in the Customer relation"
+      },
+      {
+        "id": "b",
+        "text": "phone can be NULL in the Customer relation"
+      },
+      {
+        "id": "c",
+        "text": "aadhaar is a candidate key in the Person relation"
+      },
+      {
+        "id": "d",
+        "text": "aadhaar can be NULL in the Person relation"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 57,
+    "paperSection": null,
+    "order": 57,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Consider a database relation R with attributes ABCDEFG, and having the following\n\n       functional dependencies:\n\n           A  BCEF                    E  DG          BC  A\n\n       Which of the following statements is/are correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A is the only candidate key of R"
+      },
+      {
+        "id": "b",
+        "text": "A, BC are the candidate keys of R"
+      },
+      {
+        "id": "c",
+        "text": "A, BC, E are the candidate keys of R"
+      },
+      {
+        "id": "d",
+        "text": "Relation R is not in Boyce-Codd Normal Form (BCNF)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 58,
+    "paperSection": null,
+    "order": 58,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "mcq",
+    "negativeMark": -0.6666666666666666,
+    "question": "Let G be a simple, unweighted, and undirected graph. A subset of the vertices and\n       edges of G are shown below.\n\n                                   a  b              c      d\n\n                                   e  f              g      h\n\n       It is given that a - b - c - d is a shortest path between a and d; e - f - g - h is a\n       shortest path between e and h; a - f - c - h is a shortest path between a and h. Which\n       of the following is/are NOT the edges of G?",
+    "options": [
+      {
+        "id": "a",
+        "text": "(b, d)"
+      },
+      {
+        "id": "b",
+        "text": "(b, g)"
+      },
+      {
+        "id": "c",
+        "text": "(b, h)"
+      },
+      {
+        "id": "d",
+        "text": "(e, g)"
+      }
+    ],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "figure-reference"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 59,
+    "paperSection": null,
+    "order": 59,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Let f : R  R be such that |f (x) - f (y)|  (x - y)2 for all x, y  R. Then\n\n       f (1) - f (0) =                (Answer in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 60,
+    "paperSection": null,
+    "order": 60,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Let D = {x(1), . . . , x(n)} be a dataset of n observations where each x(i)  R100. It\n\n                                 n\n\n       is given that x(i) = 0. The covariance matrix computed from D has eigenvalues\n\n                               i=1\n\n       i = 1002-i, 1  i  100. Let u  R100 be the direction of maximum variance with\n\n       u u = 1.\n\n       The value of                1 n u x(i) 2 =\n       (Answer in integer)         n\n\n                                       i=1",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 61,
+    "paperSection": null,
+    "order": 61,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "A bag contains 5 white balls and 10 black balls. In a random experiment, n balls are\n       drawn from the bag one at a time with replacement. Let Sn denote the total number of\n       black balls drawn in the experiment.\n       The expectation of S100 denoted by E[S100] =\n       (Round off to one decimal place)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 62,
+    "paperSection": null,
+    "order": 62,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider the following tables, Loan and Borrower, of a bank.\n\n                                                        Borrower\n\n                                   Loan                 customer name loan num\n\n           loan num branch name amount                  Anand       L11\n\n           L11 Banjara Hills 90000                      Karteek     L11\n\n           L14                     Kondapur 50000       Karteek     L14\n\n           L15                     SR Nagar 40000       Ankita      L15\n\n           L22                     SR Nagar 25000       Gopal       L19\n\n           L23                     Balanagar 80000      Karteek     L22\n\n           L25                     Kondapur 70000       Karteek     L23\n\n           L19                     SR Nagar 65000       Sunil       L23\n\n                                                        Sunil       L25\n\n       Query: branch name, customer name(Loan Borrower) � branch name(Loan)\n       where denotes natural join.\n       The number of tuples returned by the above relational algebra query is\n       (Answer in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key",
+      "symbol-loss"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 63,
+    "paperSection": null,
+    "order": 63,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider the following Python code snippet.\n           def f(a,b):\n                 if (a==0):                         (Answer in integer)\n                          return b\n                 if (a%2==1):\n                          return 2*f((a-1)/2,b)\n                 return b+f(a-1,b)\n           print(f(15,10))\n\n       The value printed by the code snippet is",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 64,
+    "paperSection": null,
+    "order": 64,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider the following pseudocode.\n           Create empty stack S\n           Set x=0, flag=0, sum=0\n           Push x onto S\n           while (S is not empty){\n                if (flag equals 0){\n                    Set x = x+1\n                    Push x onto S}\n                if (x equals 8):\n                    Set flag=1\n                if (flag equals 1){\n                    x = Pop(S)\n                    if (x is odd):\n                        Pop(S)\n                    Set sum = sum + x}\n             }\n             Output sum\n\n       The value of sum output by a program executing the above pseudocode is\n       (Answer in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.563Z"
+  },
+  {
+    "year": 2025,
+    "paperId": "da",
+    "paperCode": "DA",
+    "session": null,
+    "questionNumber": 65,
+    "paperSection": null,
+    "order": 65,
+    "sourceFile": "DA/DA2025.pdf",
+    "organizingInstitute": "IIT Roorkee",
+    "marks": 2,
+    "questionType": "nat",
+    "negativeMark": 0,
+    "question": "Consider a directed graph G = (V, E), where V = {0, 1, 2, . . . , 100} and\n       E = {(i, j) : 0 < j - i  2, for all i, j  V }. Suppose the adjacency list of each\n       vertex is in decreasing order of vertex number, and depth-first search (DFS) is per-\n       formed at vertex 0. The number of vertices that will be discovered after vertex 50 is\n\n                         (Answer in integer)",
+    "options": [],
+    "correctOptionIds": [],
+    "natMin": null,
+    "natMax": null,
+    "solution": "",
+    "explanation": "",
+    "subjectId": "",
+    "topicId": "",
+    "difficulty": "",
+    "status": "draft",
+    "reviewFlags": [
+      "no-answer-key"
+    ],
+    "marksReadFromPaper": true,
+    "typeReadFromPaper": false,
+    "extractedAt": "2026-09-20T19:41:25.564Z"
+  }
+]

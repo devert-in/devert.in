@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   DeVert Careers - a THIRD design system in this repo, and deliberately not
+   either of the other two.
+
+   devert.in is the neon-terminal identity (near-black, #00FF41, font-mono
+   chrome). campus.devert.in is premium-SaaS (indigo/violet on deep navy,
+   glassmorphism). Neither is right for a hiring site: a candidate deciding
+   whether to send a resume is not a user being sold a product, and the
+   terminal aesthetic in particular reads as a toy to the senior engineers this
+   site exists to reach. So this one is light-first, quiet, and typographic -
+   closer to a corporate careers page than to anything else DeVert ships.
+
+   Do NOT backport the neon palette here, and do not carry these tokens back
+   into the other two apps. The divergence is the point.
+
+   No @source directive (unlike devert-campus/app/globals.css, which needs one
+   because it renders devert-frontend JSX by source). Every component this app
+   renders is native to devert-careers; it borrows only lib/careers.js and
+   lib/firebase.js, which contain no class names. If a devert-frontend
+   COMPONENT is ever imported here, add `@source "../../devert-frontend";` or
+   its utility classes will silently compile to nothing.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* Brand - one confident blue, used sparingly. The accent carries the CTA and
+     little else; everything structural is neutral. */
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dbe6fe;
+  --color-brand-200: #bfd3fe;
+  --color-brand-300: #93b4fd;
+  --color-brand-400: #608bfa;
+  --color-brand-500: #3b6df6;
+  --color-brand-600: #1a56db;
+  --color-brand-700: #1e429f;
+  --color-brand-800: #1e3a8a;
+  --color-brand-900: #1e3163;
+
+  /* Neutrals - warm-leaning slate, so large light surfaces don't read clinical. */
+  --color-ink-50: #f8fafc;
+  --color-ink-100: #f1f5f9;
+  --color-ink-200: #e2e8f0;
+  --color-ink-300: #cbd5e1;
+  --color-ink-400: #94a3b8;
+  --color-ink-500: #64748b;
+  --color-ink-600: #475569;
+  --color-ink-700: #334155;
+  --color-ink-800: #1e293b;
+  --color-ink-900: #0f172a;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Slightly tighter than Tailwind's defaults at display sizes - large type
+     set at default tracking looks unfinished. */
+  --tracking-display: -0.032em;
+}
+
+:root {
+  --surface: #ffffff;
+  --surface-muted: var(--color-ink-50);
+  --hairline: var(--color-ink-200);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--surface);
+  color: var(--color-ink-800);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Anchored sections must clear the 64px sticky header, or a jump lands the
+   heading flush underneath it. */
+[id] {
+  scroll-margin-top: 88px;
+}
+
+/* One shared focus treatment. Keyboard navigation on a job application is not
+   an edge case - screen-reader and keyboard users apply for jobs too, and a
+   missing focus ring on a form this long is genuinely disabling. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect a reduced-motion preference: every entrance animation in this app is
+   decorative, so there is nothing lost by dropping them. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Shared hero plate ------------------------------------------------------
+   public/devert-hero-bg.jpg is the logo's own backing art with the chevrons
+   removed - brushed metal and faint circuit tracery. Used as the hero
+   backdrop on devert.in, campus.devert.in and careers.devert.in so the three
+   sites open on the same surface.
+
+   Duplicated into each app's globals.css + public/ on purpose: each Next app
+   builds its own CSS and serves its own public/, and the jsconfig @/* source
+   sharing covers neither.
+
+   The photo rides on ::before, not on the element's own background, so the
+   scrim composites with it as one layer BEHIND the content instead of
+   tinting the content itself. isolation:isolate scopes the negative z-index
+   to this element so it cannot paint through anything else on the page. The
+   scrim is heavy and deepens downward - the plate's top-right carries bright
+   circuit detail that a headline cannot compete with. */
+.devert-hero-bg { position: relative; isolation: isolate; background-color: #0A0E17; }
+.devert-hero-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(10,14,23,0.62), rgba(10,14,23,0.82)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  z-index: -1;
+  pointer-events: none;
+}

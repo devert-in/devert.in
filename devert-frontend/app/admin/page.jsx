@@ -51,6 +51,8 @@ import { StringListField, McqListField } from "@/components/campus/campus-daily-
 import { SeModulesPanel } from "@/components/admin/se-panel";
 import { AmbassadorPanel } from "@/components/admin/ambassador-panel";
 import { DemoRequestsPanel } from "@/components/admin/demo-requests-panel";
+import { CareersPanel } from "@/components/admin/careers-panel";
+import { JobApplicationsPanel } from "@/components/admin/job-applications-panel";
 import {
   GatePapersPanel, GateSubjectsPanel, GatePyqPanel, GateTestsPanel,
   GateFormulaPanel, GateResourcesPanel, GateLessonImportPanel,
@@ -3686,7 +3688,14 @@ function ProgrammingTopicsPanel({ langId, langName, onBack }) {
       await saveTopic(langId, id, { ...form, practiceProblemIds });
       // Keep the language doc's topicCount denormalized so the landing grid's
       // progress bar never needs an N-topic subcollection read per language.
-      await saveLanguage(langId, { topicCount: (await fetchTopics(langId, { includeUnpublished: true })).length });
+      // Recomputed PUBLISHED-only (default includeUnpublished:false) - this
+      // field's only real consumer is that same progress bar's denominator
+      // (LanguageCard, LanguageRoadmap, Student Analytics Dashboard), all of
+      // which only ever see published topics; counting drafts here used to
+      // silently inflate the denominator relative to what a student could
+      // ever complete, understating their % on the landing card versus the
+      // roadmap screen for the same language.
+      await saveLanguage(langId, { topicCount: (await fetchTopics(langId)).length });
       setEditingId(null); setAdding(false); setForm(blankProgrammingTopicForm());
       load();
     } finally {
@@ -3697,7 +3706,10 @@ function ProgrammingTopicsPanel({ langId, langName, onBack }) {
   const handleDelete = async (id) => {
     if (!confirm("Delete this topic?")) return;
     await deleteTopic(langId, id);
-    await saveLanguage(langId, { topicCount: Math.max(0, (topics.length - 1)) });
+    // Re-fetched rather than derived from this admin panel's own draft-inclusive
+    // `topics` state (fetched with includeUnpublished:true above) - same
+    // published-only reasoning as handleSave.
+    await saveLanguage(langId, { topicCount: (await fetchTopics(langId)).length });
     load();
   };
 
@@ -4007,7 +4019,12 @@ function CsCoreTopicsPanel({ subjectId, subjectName, onBack }) {
       const id = editingId || form.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
       const practiceProblemIds = practiceIdsText.split(",").map(s => s.trim()).filter(Boolean);
       await saveCsCoreTopic(subjectId, id, { ...form, practiceProblemIds });
-      await saveSubject(subjectId, { topicCount: (await fetchCsCoreTopics(subjectId, { includeUnpublished: true })).length });
+      // Recomputed PUBLISHED-only (default includeUnpublished:false) - same
+      // fix/reasoning as ProgrammingTopicsPanel's identical handleSave above:
+      // this field's only real consumer is SubjectCard/SubjectRoadmap/Student
+      // Analytics's progress-bar denominator, which only ever sees published
+      // topics.
+      await saveSubject(subjectId, { topicCount: (await fetchCsCoreTopics(subjectId)).length });
       setEditingId(null); setAdding(false); setForm(blankCsCoreTopicForm());
       load();
     } finally {
@@ -4018,7 +4035,9 @@ function CsCoreTopicsPanel({ subjectId, subjectName, onBack }) {
   const handleDelete = async (id) => {
     if (!confirm("Delete this topic?")) return;
     await deleteCsCoreTopic(subjectId, id);
-    await saveSubject(subjectId, { topicCount: Math.max(0, (topics.length - 1)) });
+    // Re-fetched rather than derived from this admin panel's own draft-inclusive
+    // `topics` state - same published-only reasoning as handleSave above.
+    await saveSubject(subjectId, { topicCount: (await fetchCsCoreTopics(subjectId)).length });
     load();
   };
 
@@ -7394,6 +7413,13 @@ function AdminPageInner() {
                 <Section title="CAMPUS AMBASSADORS" icon={Building2} color="#00FFFF">
                   <AmbassadorPanel />
                 </Section>
+                {/* Third of the three inboxes, grouped with them rather than with
+                    the job-posting editor in CONTENT: working a queue of people
+                    is the same job as the two above it, and nothing like
+                    authoring a posting. */}
+                <Section title="JOB APPLICATIONS" icon={Inbox} color="#FF9500">
+                  <JobApplicationsPanel />
+                </Section>
                 <Section title="SHIPYARD MODERATION" icon={Anchor} color="#00FFFF">
                   <ShipyardPanel />
                 </Section>
@@ -7425,6 +7451,14 @@ function AdminPageInner() {
                 </Section>
                 <Section title="COMPANY PREP" icon={Briefcase} color="#FF9500">
                   <CompanyPrepPanel />
+                </Section>
+                {/* DeVert own hiring, not a Campus learning module. It sits in
+                    CONTENT because a job posting IS authored content, and inside
+                    an existing tab rather than a new top-level one, per
+                    CLAUDE.md. Its applications inbox lives in COMMUNITY with the
+                    other queues. */}
+                <Section title="CAREERS - JOB OPENINGS" icon={Briefcase} color="#00FF41">
+                  <CareersPanel />
                 </Section>
                 <Section title="PROGRAMMING LANGUAGES" icon={CodeXml} color="#00FFFF">
                   <ProgrammingLanguagesPanel />

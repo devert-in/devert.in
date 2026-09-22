@@ -26,6 +26,34 @@ no application server in the request path.
   staff-account admin actions on campus.devert.in without touching
   devert-frontend at all, since Next.js inlines `NEXT_PUBLIC_*` per app at
   build time.
+- `devert-careers/` — DeVert Careers, a third standalone Next.js app (same
+  `output: 'export'`), deployed to its own Firebase Hosting target/site
+  (`careers` → `devert-careers`, see `.firebaserc`) at careers.devert.in.
+  **Not** a route inside devert-frontend — `/careers/**` on devert.in is a
+  301 redirect straight to careers.devert.in (`firebase.json`'s `main`
+  target), so any link should point at `https://careers.devert.in` directly.
+  Routes are domain-root: the listing is `/` and a role is `/{slug}`, NOT
+  `/careers/{slug}` — the same reshaping Campus went through, and the same
+  place its bugs came from.
+  It borrows only two files from devert-frontend by source via
+  `devert-careers/jsconfig.json`'s `@/*` fallback — `lib/careers.js` (the
+  shared data layer, which devert-frontend's admin panels also use) and
+  `lib/firebase.js`. Everything else, including every component, is native
+  here. Two consequences worth knowing:
+  - It mounts **no `AuthProvider`** and calls no backend, so unlike
+    devert-campus its CI build needs no `NEXT_PUBLIC_*` vars. Firebase Auth
+    does not span subdomains on its own (that is what
+    `devert-frontend/lib/sharedSession.js` exists for), and a hiring site
+    needs no signed-in user: the application form is anonymous by design.
+    Adding either a signed-in experience or a backend call here means wiring
+    that bridge AND adding the env vars to the "Build careers" step.
+  - `app/globals.css` has **no `@source` directive**, unlike devert-campus's,
+    because no devert-frontend JSX is rendered here. If a devert-frontend
+    component is ever imported, add `@source "../../devert-frontend";` or its
+    utility classes silently compile to nothing.
+  Job postings are authored from devert.in's admin console (CONTENT tab),
+  not here — this app is read-only over `job_openings` plus an anonymous
+  create into `job_applications`.
 - `devert-backend/` — a small Spring Boot service that does ONLY things a
   browser can't safely do. Deployed on Google Cloud Run (`asia-south1`/Mumbai
   — see `NEXT_PUBLIC_API_URL` in `.github/workflows/deploy-prod.yml` and
@@ -36,15 +64,16 @@ no application server in the request path.
     using SMTP credentials that must stay server-side. The frontend calls
     this via `NEXT_PUBLIC_API_URL` and no-ops silently if that's unset, so
     its absence never breaks a real feature.
-  - CodeLab's code execution/grading: proxies Judge0 CE calls (`Judge0Service`,
-    hosted on RapidAPI — the API key must never reach the browser) and grades
+  - CodeLab's code execution/grading: proxies OnlineCompiler.io calls
+    (`CodeExecutionService` — migrated off Judge0 CE/RapidAPI for a far
+    higher free quota; the API key must never reach the browser) and grades
     submissions against hidden test cases, which it reads server-side via
     `firebase-admin` — the ONLY code path that ever sees them, since Firestore
     rules block every client read of `problems/{id}/hiddenTests`.
     `FirebaseConfig`'s Firestore bean fails soft (returns null, logs a
-    warning) if `FIREBASE_SERVICE_ACCOUNT_JSON`/`JUDGE0_API_KEY` aren't set,
-    so a missing secret degrades CodeLab's endpoints only — it never takes
-    down email.
+    warning) if `FIREBASE_SERVICE_ACCOUNT_JSON`/`ONLINECOMPILER_API_KEY`
+    aren't set, so a missing secret degrades CodeLab's endpoints only — it
+    never takes down email.
 - `scripts/` — one-off Node admin scripts using `firebase-admin` +
   `scripts/service-account.json` (gitignored, never commit it). Includes
   `set-admin-claim.mjs` for granting/revoking admin access.
@@ -87,18 +116,107 @@ that needs a trusted server path (reward granting, paid-API proxying, audio
 caching) can now use a Cloud Function rather than being designed around its
 absence.
 
+**GATE is a global Campus section, not an institution feature.** The module
+itself is large and already built — `lib/gate.js` (three-level
+`gatePapers/{id}/subjects/{id}/topics/{id}` catalog), `lib/gatePyq.js` (the
+flat `gate_pyqs` bank, attempts, bookmarks, mistakes notebook), `lib/gateTests.js`,
+and a sixteen-section workspace in `devert-campus/components/campus/gate/`
+driven by `gate-app.jsx`'s `GATE_SECTIONS`. It mounts in **two** places from
+that one implementation: inside an institution workspace as `?tab=gate` (gated
+on the per-classroom `gate` module toggle in `lib/campusNavConfig.js`), and at
+the public **`campus.devert.in/gate`**, which is in `GLOBAL_SECTIONS`
+(`lib/campus-seo.js`) and deliberately carries no module gate — a GATE
+candidate need not be any college's student. Same precedent as `/roadmaps`:
+one national syllabus and one PYQ bank, so a per-college URL would be N copies
+of identical content. Don't add a second GATE surface or a per-institution
+`/{college}/gate` segment.
+
+**PYQ content comes from PDFs and is never auto-published.** The official
+question papers live in `GATE/` and are turned into drafts by
+`scripts/extract-gate-pyqs.mjs` → `scripts/import-gate-pyq-drafts.mjs`. Three
+facts about that source drive the whole design and are not going to change:
+the papers contain **no answer keys**, extraction **drops mathematical symbols**
+(a formula's variables vanish — the parser detects this, it cannot repair it),
+and **figures are absent from the text layer entirely**. So every imported
+question lands as `status:"draft"` with `needsReview:true` and a `reviewFlags`
+array, is invisible to students (`firestore.rules` + every `fetchPyqs()` carries
+`where("status","==","published")`), and is excluded from the count the landing
+page advertises. `pyqPublishBlockers()` in `lib/gatePyq.js` is the one gate to
+publishing and refuses anything with no answer or no subject — publishing an
+unanswered question would mark a correct student wrong and file it into their
+mistakes notebook. The extractor self-checks against GATE's **100-mark
+invariant** (65 questions, 30 × 1 mark + 35 × 2), which is what catches
+question-splitting and mark-band bugs; keep that check passing.
+
 ## Design system
+
+**There are three design systems in this repo, and the divergence is
+deliberate.** The main site is neon-terminal (below). DeVert Campus is
+premium-SaaS. **DeVert Careers (`devert-careers/`) is a third: light-first,
+quiet and typographic** — a neutral slate scale with a single blue accent
+(`--color-brand-*`), Inter, generous whitespace, no glassmorphism. Its tokens
+live in `devert-careers/app/globals.css`'s `@theme` block. The reasoning: a
+candidate deciding whether to send a resume is not a user being sold a
+product, and the terminal aesthetic in particular reads as a toy to the
+senior engineers that site exists to reach.
+
+**One shared surface cuts across all three: the hero plate.**
+`public/devert-hero-bg.jpg` — the logo's own brushed-metal circuit backing
+with the chevrons removed — is the hero backdrop on devert.in,
+campus.devert.in and careers.devert.in, so the three sites open the same way.
+It is applied through a `.devert-hero-bg` class duplicated into each app's
+`globals.css`, with the JPEG duplicated into each app's `public/` (each Next
+app builds its own CSS and serves its own `public/`; the jsconfig `@/*`
+source sharing covers neither). On Campus the same treatment is baked into
+`.vs-canvas::before` instead, since that hero is CSS-only.
+
+On Careers this makes the hero **the one dark band on an otherwise
+light-first site** — a deliberate, explicitly-requested exception, not a
+drift back toward neon. Everything below that fold stays light and
+typographic. Every type colour inside that hero is restated against the
+plate rather than inherited, because the `ink-*` scale is tuned for white
+paper and is unreadable on `#0A0E17`.
+
+Other than that shared plate, do not backport the three into each other.
 
 **This section describes the main site** (landing page, Arena, Shipyard,
 Pulse, Grind, etc.) — the neon-terminal identity below. **DeVert Campus has
-its own, deliberately different design system** (a premium-SaaS look:
-Indigo/Violet/Cyan on deep navy, glassmorphism, Inter typography, gradient
-buttons, dark-first theming) — see `lib/campus-theme.js`'s `CAMPUS` tokens
-and `globals.css`'s `.campus-theme` block for the actual values, and
+its own design system**: Inter typography, glass surfaces, light/dark via
+`data-theme`, and — as of the 2026-09-22 repaint — **the brand's own green and
+cyan, taken from `public/Logo.png`**, replacing three earlier accent pivots
+(Indigo → Purple → warm orange/amber). See `lib/campus-theme.js`'s `CAMPUS`
+tokens and `globals.css`'s `.campus-theme` block for the actual values, and
 `components/campus/campus-ui.jsx` for the shared primitives (`CampusCard`,
-`CampusButton`, `CampusStat`, etc.) every Campus screen builds from. Campus
-was the neon-terminal look before; that was a deliberate full pivot, not an
-oversight — don't backport it to the main site or vice versa.
+`CampusButton`, `CampusStat`, etc.) every Campus screen builds from.
+
+Four rules came with that repaint, all asked for directly:
+- **Flat fills, no gradients.** `--campus-gradient-primary`/`-hero` keep their
+  names (every call site already references them) but hold a **solid colour**.
+  Don't put a `linear-gradient()` back into either.
+- **No glows.** No coloured `box-shadow` bleeding off a control — use
+  `CAMPUS.shadow`/`shadowHover`/`shadowLg`, which are neutral. The tinted
+  active-tab glow that had been copy-pasted into nine files is gone from all
+  nine.
+- **No decorative backdrop.** `campusPhotoBg()` returns a **flat canvas**. It
+  used to serve a photographic hanging-bulb JPEG — which is the only reason
+  the warm orange accent ever existed — and briefly a green/cyan radial mesh;
+  both were rejected for competing with content. A student's own uploaded
+  `campusBgUrl` still gets the photo treatment; that path is untouched.
+- **No terminal-window chrome.** `.terminal-window` and friends stay main-site
+  only.
+
+The primary token is `#15803D` (light) / `#22C55E` (dark), **not** the logo's
+literal neon: `CampusButton`'s primary variant and `CampusTabs`' active tab
+paint white text straight onto it, and white on neon green measures ~1.5:1.
+The neon is for icons, borders and the mark itself — things nothing sits on
+top of. `CampusBadge` renders the single `Logo.png` mark, downscaled to 192px
+into *each* app's own `public/` (the `@/*` source-sharing that lets Campus
+import the component does not cover static assets); the old two-variant
+dark/light badge swap is gone.
+
+Campus was the neon-terminal look before all of this; that was a deliberate
+full pivot, not an oversight. Campus and the main site now share a *palette*
+but NOT a design language — don't backport the terminal chrome either way.
 
 - **Palette:** near-black background, neon accents — green `#00FF41`
   (primary/positive), cyan `#00FFFF` (secondary/info), orange `#FF9500`,
@@ -136,16 +254,24 @@ oversight — don't backport it to the main site or vice versa.
     improvement.
   - The Pulse feed stays a narrow single column by design (like any
     social feed) — don't stretch it to match the dashboard pages.
-- **Navbar** is a single floating bottom dock component (`navbar.jsx`) used
-  at every breakpoint — icon-only and compact on mobile, icon+label and
-  larger on `lg:`. Don't add a second, separate top-nav component for
-  desktop; extend this one.
+- **Navbar** is a floating bottom dock component (`navbar.jsx`) — icon-only
+  and compact on mobile, icon+label and larger on `lg:`. `top-navbar.jsx` is
+  a deliberate, explicit exception to this (a separate desktop-only floating
+  top pill with grouped dropdowns, mirroring the split DeVert Campus already
+  uses) — asked for directly, not a default pattern to reach for again; don't
+  add a third nav surface without being asked the same way. The two intentionally
+  show *different* scopes (the dock is a curated "used every session" set,
+  the pill affords a fuller categorized sitemap), not the same items twice,
+  so both read from one shared route registry, `lib/navConfig.js`, rather
+  than keeping their own lists in sync by hand — add a new nav-eligible
+  route there, once.
 - **Admin console extends existing tabs**, it never grows a second
   top-level admin surface. A new admin capability belongs inside
   Overview/Content/Community/Challenges/Moderation, not a new tab family.
 
 ## Before recommending a "let's add X page/nav item"
 
-Check `components/navbar.jsx`'s `NAV_ITEMS` first — new features integrate
+Check `lib/navConfig.js`'s `NAV_ROUTES` first (the shared registry both
+`navbar.jsx` and `top-navbar.jsx` render from) — new features integrate
 into an existing route/tab rather than adding new top-level navigation,
 unless a human explicitly asks for a new nav entry.

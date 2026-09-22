@@ -8,9 +8,12 @@ import {
   X as CloseIcon, Menu, CodeXml, BrainCircuit, Calculator, Layers, Sparkles,
   GraduationCap, BookOpen, Code2, ListChecks, Briefcase, Trophy, Building2,
   Users, ClipboardCheck, LayoutDashboard, LineChart,
+  FileQuestion, ClipboardList, AlertTriangle, BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { DEVERT_URL } from "@/lib/campusUrl";
+// Via devert-campus/jsconfig.json's @/* fallback to ../devert-frontend/* -
+// the same shared registry devert-frontend's and devert-careers' navs read.
 import { CAMPUS } from "@/lib/campus-theme";
 import { useCampusTheme } from "@/components/campus/campus-theme-provider";
 import { CampusBadge, CampusCard, CampusGoogleButton } from "@/components/campus/campus-ui";
@@ -80,6 +83,46 @@ const NAV_MENUS = [
   // lib/roadmaps.js's header), so /campus/roadmaps is its real, permanent
   // home - never a per-college URL.
   { label: "Roadmaps", href: "/roadmaps" },
+  // GATE sits at the top level, immediately after Roadmaps, because it is a
+  // distinct EXAM vertical rather than another subject inside Learn - a GATE
+  // candidate is preparing for one specific national paper with its own
+  // syllabus, its own marking scheme and its own two-year clock, and filing
+  // that under a "Tracks" column beside Aptitude would misrepresent what it
+  // is. It earns a mega-menu rather than a plain link (unlike Roadmaps and
+  // Contests) purely on size: the module has sixteen sections, and a bare
+  // link would drop a first-time visitor into Overview with no idea that the
+  // PYQ bank, the mock tests or the mistakes notebook exist.
+  //
+  // Every href here is the ONE global /gate route plus the section the module
+  // already routes on itself (?section=, owned by CampusGateTab's own URL
+  // sync - see gate-app.jsx), never a per-institution /{college}?tab=gate URL.
+  {
+    label: "GATE",
+    columns: [
+      {
+        title: "Prepare",
+        links: [
+          { label: "Syllabus", href: "/gate?section=syllabus", icon: ListChecks, hint: "Official, subject by subject" },
+          { label: "Subjects", href: "/gate?section=subjects", icon: Layers, hint: "Topic-wise lessons and notes" },
+          { label: "Daily GATE", href: "/gate?section=daily", icon: ClipboardCheck, hint: "A plan for today, every day" },
+        ],
+      },
+      {
+        title: "Practise & test",
+        links: [
+          { label: "Previous Year Questions", href: "/gate?section=pyq", icon: FileQuestion, hint: "By year, subject and topic" },
+          { label: "Mock Tests", href: "/gate?section=mocks", icon: ClipboardList, hint: "Real timing and marking" },
+          { label: "Mistakes Notebook", href: "/gate?section=mistakes", icon: AlertTriangle, hint: "Every wrong answer, filed" },
+          { label: "Analytics", href: "/gate?section=analytics", icon: BarChart3, hint: "Where the marks are leaking" },
+        ],
+      },
+    ],
+    featured: {
+      title: "Built for the paper, not for a quiz",
+      body: "One syllabus tree, the previous-year bank sliced by year, subject and topic, and tests marked the way GATE actually marks them.",
+      href: "/gate", cta: "Open GATE",
+    },
+  },
   {
     label: "Practice",
     columns: [
@@ -186,6 +229,11 @@ function MenuRow({ link, onNavigate, onDemo }) {
   if (link.action === "demo") {
     return <button className={className} onClick={() => { onNavigate(); onDemo(); }}>{body}</button>;
   }
+  // Cross-origin (devert.in) - a real navigation off this origin, so a plain
+  // <a>, never next/link - see this file's header on the Campus cutover bug.
+  if (link.external) {
+    return <a href={link.href} onClick={onNavigate} className={className}>{body}</a>;
+  }
   return <Link href={link.href} onClick={onNavigate} className={className}>{body}</Link>;
 }
 
@@ -220,6 +268,8 @@ export function CampusPublicNav() {
 
   const closeAll = () => { setOpenMenu(null); setMobileOpen(false); setOpenGroup(null); };
 
+  const menus = NAV_MENUS;
+
   return (
     <>
       {/* The horizontal padding lives on the inner row, NOT on <nav> itself: an
@@ -241,7 +291,7 @@ export function CampusPublicNav() {
           </Link>
 
           <div className="hidden lg:flex items-center gap-0.5 flex-1 justify-center">
-            {NAV_MENUS.map(m => {
+            {menus.map(m => {
               if (!m.columns) return (
                 <Link key={m.label} href={m.href} onClick={closeAll}
                   className="text-[14px] font-medium px-3 py-2" style={{ color: CAMPUS.ink }}>{m.label}</Link>
@@ -310,7 +360,7 @@ export function CampusPublicNav() {
         {openMenu && (
           <div className="hidden lg:block absolute left-0 right-0 top-full campus-overlay-shadow"
             style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
-            {NAV_MENUS.filter(m => m.label === openMenu).map(m => (
+            {menus.filter(m => m.label === openMenu).map(m => (
               <div key={m.label} className="max-w-6xl mx-auto px-6 sm:px-10 py-9 flex gap-12 flex-wrap">
                 {m.columns.map(col => (
                   <div key={col.title} className="min-w-[190px]">
@@ -340,7 +390,7 @@ export function CampusPublicNav() {
         {mobileOpen && (
           <div className="lg:hidden absolute left-0 right-0 top-full flex flex-col max-h-[75vh] overflow-y-auto campus-overlay-shadow"
             style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
-            {NAV_MENUS.map(m => {
+            {menus.map(m => {
               if (!m.columns) return (
                 <Link key={m.label} href={m.href} onClick={closeAll}
                   className="px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
@@ -416,6 +466,7 @@ function ProfileFlyout({ open, onClose }) {
     { icon: Code2, label: "DSA problem set", href: "/practice" },
     { icon: Briefcase, label: "Company Vault", href: "/practice?mode=companyPrep" },
     { icon: Calculator, label: "Aptitude practice", href: "/learning?tab=aptitude" },
+    { icon: GraduationCap, label: "GATE preparation", href: "/gate" },
   ];
 
   return (

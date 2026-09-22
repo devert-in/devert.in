@@ -154,6 +154,10 @@ scripts/contest-classwise-results-*.csv
 scripts/contest-classwise-report-*.html
 scripts/results-*.csv
 scripts/results-*.html
+# Plaintext hackathon team passwords, written by
+# scripts/generate-hackathon-teams.mjs for organizers to hand out - only a
+# scrypt hash of each ever reaches Firestore.
+scripts/hackathon-team-credentials*.csv
 
 # Unrelated third-party template, not part of the DeVert product.
 /Portfolio-white-theme-main/

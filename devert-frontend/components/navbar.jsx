@@ -3,28 +3,31 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Swords, Radio, Target, Tv2, Flame, LogIn, Command, User, LogOut, Activity, Wallet, GraduationCap, ClipboardCheck } from "lucide-react";
+import { LogIn, Command, User, LogOut, Wallet, Globe } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notification-bell";
-import { CAMPUS_URL } from "@/lib/campusUrl";
+import { NAV_ROUTES } from "@/lib/navConfig";
 
 // Mobile-only now (lg:hidden on the root <nav> below) - components/top-navbar.jsx
 // is the desktop nav, a floating top pill with grouped dropdowns, mirroring
 // the exact split Campus already uses (CampusTopBar/CampusBottomNav). This
 // dock used to be the ONE nav at every breakpoint; that changed on explicit
-// request, not as a default pattern to reach for elsewhere. Keep both files'
-// route lists in sync by hand - there's no shared source of truth between them.
+// request, not as a default pattern to reach for elsewhere. Both files now
+// read from the shared lib/navConfig.js instead of keeping their own route
+// lists in sync by hand - see that file's header for why it isn't just one
+// identical list both render (the dock deliberately shows a narrower set).
 //
 // Shipyard, Ranks, and Logs deliberately live only in the Home dashboard's quick
 // actions (components/quick-actions-grid.jsx), not here - keeps this dock
-// to the modules used every session. CodeLab (app/codelab/), Fundamentals
-// (app/fundamentals/) and Grind (app/grind/) are all real, standalone routes -
-// Arena still hosts Solo Challenges + Contests - but none of the three are in
-// this dock: student-facing learning/practice content is Campus's surface to
-// own, not core DeVert's, so all three stay reachable by direct link/search
-// but aren't advertised in the main nav.
+// to the modules used every session. Fundamentals (app/fundamentals/) and
+// Grind (app/grind/) are real, standalone routes - Arena still hosts Solo
+// Challenges + Contests - but neither is in this dock: student-facing
+// learning/practice content is Campus's surface to own, not core DeVert's,
+// so both stay reachable by direct link/search but aren't advertised in the
+// main nav. (CodeLab used to be a third example here - it was removed from
+// the main site entirely in favor of Campus-only, see commit c0383c3.)
 //
 // EVERY item is a plain route. Core DeVert used to open most of these as floating
 // Builder's OS windows (`windowApp`), so clicking Intel from the dock spawned a
@@ -37,28 +40,18 @@ import { CAMPUS_URL } from "@/lib/campusUrl";
 // intact but unmounted - see components/window/window-layer.jsx - so a
 // specialised surface (an AI workspace, a multi-file editor) can opt back into it
 // later without this dock being involved.
-const NAV_ITEMS = [
-  { icon: Home,           label: "Home",      href: "/"             },
-  { icon: Activity,       label: "Pulse",     href: "/pulse"        },
-  { icon: Swords,         label: "Arena",     href: "/arena"        },
-  { icon: Radio,          label: "Intel",     href: "/intel"        },
-  { icon: GraduationCap,  label: "Campus",    href: CAMPUS_URL      },
-  { icon: Tv2,            label: "Broadcast", href: "/broadcast"    },
-  { icon: Flame,          label: "Events",    href: "/events"       },
-  { icon: Target,         label: "Missions",  href: "/missions"     },
-  { icon: ClipboardCheck, label: "Prep",      href: "/prep"         },
-];
+const NAV_ITEMS = NAV_ROUTES.filter(r => r.mobile);
 
 export function Navbar() {
   const pathname = usePathname();
   const { hasShownIntro } = useIntro();
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
   const navRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
-
   useEffect(() => { setProfileOpen(false); setConfirmLogout(false); }, [pathname]);
+
 
   // The intro splash only ever plays for a logged-out visitor (app/page.jsx
   // sends a logged-in user straight to HomeDashboard, bypassing it entirely),
@@ -136,6 +129,16 @@ export function Navbar() {
                 <Wallet size={12} /> Wallet
               </div>
             </Link>
+            {/* Global Super Admin only - same link/gate as top-navbar.jsx's
+                ProfileMenu, which had this on desktop only; a super-admin on
+                a narrow viewport had no in-UI path to it at all. */}
+            {isSuperAdmin && (
+              <Link href="/manage" onClick={() => setProfileOpen(false)}>
+                <div className="flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-white/55 hover:text-neon-green hover:bg-white/3 transition-colors cursor-pointer">
+                  <Globe size={12} /> Manage
+                </div>
+              </Link>
+            )}
             <div className="h-px bg-white/6 mx-3" />
             {confirmLogout ? (
               <div className="px-4 py-3">

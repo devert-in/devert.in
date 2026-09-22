@@ -233,14 +233,24 @@ export function CampusGateTab({ sidebarSlot }) {
     };
   });
 
+  // Mounted from two places, and the URL it owns differs between them. Inside
+  // an institution workspace (/{college}) GATE is one tab among many, so
+  // ?tab=gate is load-bearing - drop it and a refresh lands on the Dashboard.
+  // On the global /gate route (see GLOBAL_SECTIONS in lib/campus-seo.js) the
+  // path itself already says which module this is, so emitting ?tab=gate there
+  // would just be permanent noise in every shared link and, worse, imply a
+  // workspace tab that route has no concept of.
+  const isGlobalRoute = slug === "gate";
+
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const params = new URLSearchParams({ tab: "gate", section: screen.section });
+    const params = new URLSearchParams(isGlobalRoute ? {} : { tab: "gate" });
+    params.set("section", screen.section);
     if (screen.subjectId) params.set("subject", screen.subjectId);
     if (screen.topicId) params.set("topic", screen.topicId);
     if (screen.testId) params.set("test", screen.testId);
     window.history.replaceState(null, "", `/${slug}?${params.toString()}`);
-  }, [screen, slug]);
+  }, [screen, slug, isGlobalRoute]);
 
   const go = useCallback((section, params = {}) => {
     setScreen({ section, subjectId: null, topicId: null, testId: null, ...params });

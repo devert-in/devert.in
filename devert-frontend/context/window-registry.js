@@ -46,16 +46,6 @@ export const WINDOW_REGISTRY = {
     exportName: "ArenaApp",
     defaultSize: { w: 1040, h: 820 },
   },
-  codelab: {
-    id: "codelab",
-    title: "codelab — practice.exe",
-    route: "/codelab",
-    accent: "#00FF41",
-    icon: "Code2",
-    load: () => import("@/components/codelab/codelab-app"),
-    exportName: "CodeLabApp",
-    defaultSize: { w: 1040, h: 820 },
-  },
   grind: {
     id: "grind",
     title: "grind — practice.sh",
@@ -99,7 +89,7 @@ export const WINDOW_REGISTRY = {
   hackathons: {
     id: "hackathons",
     title: "hackathons.log",
-    route: "/hackathons",
+    route: "/events",
     accent: "#FF6430",
     icon: "Flame",
     load: () => import("@/components/hackathons/hackathons-app"),

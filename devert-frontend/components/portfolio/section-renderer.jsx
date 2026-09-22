@@ -9,6 +9,7 @@ import AchievementsSection from "./achievements-section";
 import PulseSection from "./pulse-section";
 import TimelineSection from "./timeline-section";
 import ContactSection from "./contact-section";
+import { formatSystemAchievement } from "@/lib/achievements";
 
 // section-key -> component, driven by lib/portfolio-sections.js's
 // effectiveSections(). Every key in ALL_SECTION_KEYS must have an entry here.
@@ -19,7 +20,15 @@ export function renderSection(key, data) {
     case "experience":     return <ExperienceSection key={key} experience={data.profile.experience} />;
     case "education":      return <EducationSection key={key} education={data.profile.education} />;
     case "certifications": return <CertificationsSection key={key} certifications={data.profile.certifications} />;
-    case "achievements":   return <AchievementsSection key={key} achievements={data.profile.achievements} />;
+    // System-granted achievements (streak milestones, etc. - see
+    // functions/index.js's grantStreakAchievementOnUpdate) shown first,
+    // ahead of the self-reported list - they're a verified fact rather
+    // than a claim, and previously had no UI surface at all.
+    case "achievements":
+      return <AchievementsSection key={key} achievements={[
+        ...(data.systemAchievements || []).map(formatSystemAchievement),
+        ...(data.profile.achievements || []),
+      ]} />;
     case "pulse":          return <PulseSection key={key} posts={data.pulsePosts} />;
     case "timeline":
       return (

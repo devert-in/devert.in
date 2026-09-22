@@ -1,0 +1,360 @@
+{
+  "parsed": [
+    {
+      "file": "CS/2012_CS.pdf",
+      "output": "cs-2012.json",
+      "questions": 65,
+      "flagged": 52,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 63,
+        "nat": 2
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2013_CS.pdf",
+      "output": "cs-2013.json",
+      "questions": 65,
+      "flagged": 57,
+      "sets": 1,
+      "duplicateBooklets": 3,
+      "byType": {
+        "mcq": 63,
+        "nat": 2
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2014_CS.pdf",
+      "output": "cs-2014.json",
+      "questions": 168,
+      "flagged": 106,
+      "sets": 3,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 75,
+        "nat": 93
+      },
+      "marksUnread": 23,
+      "incomplete": "168 of ~195 expected",
+      "totalMarks": 227,
+      "marksPerSet": 75.66666666666667,
+      "marksOk": null
+    },
+    {
+      "file": "CS/2015_CS.pdf",
+      "output": "cs-2015.json",
+      "questions": 6,
+      "flagged": 0,
+      "sets": 3,
+      "duplicateBooklets": 0,
+      "byType": {
+        "nat": 6
+      },
+      "marksUnread": 0,
+      "incomplete": "6 of ~195 expected",
+      "totalMarks": 6,
+      "marksPerSet": 2,
+      "marksOk": null
+    },
+    {
+      "file": "CS/2016_CS.pdf",
+      "output": "cs-2016.json",
+      "questions": 130,
+      "flagged": 45,
+      "sets": 2,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 77,
+        "nat": 53
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 200,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2018_CS.pdf",
+      "output": "cs-2018.json",
+      "questions": 65,
+      "flagged": 41,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 41,
+        "nat": 24
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2022_CS.pdf",
+      "output": "cs-2022.json",
+      "questions": 65,
+      "flagged": 17,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 32,
+        "msq": 15,
+        "nat": 18
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2023_CS.pdf",
+      "output": "cs-2023.json",
+      "questions": 65,
+      "flagged": 18,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 45,
+        "msq": 4,
+        "nat": 16
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2024_CS1.pdf",
+      "output": "cs-2024-s1.json",
+      "questions": 65,
+      "flagged": 26,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 49,
+        "nat": 16
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2024_CS2.pdf",
+      "output": "cs-2024-s2.json",
+      "questions": 65,
+      "flagged": 26,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 49,
+        "msq": 1,
+        "nat": 15
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2025_CS1.pdf",
+      "output": "cs-2025-s1.json",
+      "questions": 65,
+      "flagged": 33,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 43,
+        "nat": 22
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2025_CS2.pdf",
+      "output": "cs-2025-s2.json",
+      "questions": 65,
+      "flagged": 27,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 46,
+        "nat": 15,
+        "msq": 4
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2026_CS1.pdf",
+      "output": "cs-2026-s1.json",
+      "questions": 65,
+      "flagged": 31,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 52,
+        "nat": 13
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "CS/2026_CS2.pdf",
+      "output": "cs-2026-s2.json",
+      "questions": 65,
+      "flagged": 30,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 46,
+        "nat": 19
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "DA/DA2024.pdf",
+      "output": "da-2024.json",
+      "questions": 65,
+      "flagged": 32,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 48,
+        "nat": 17
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "DA/DA2025.pdf",
+      "output": "da-2025.json",
+      "questions": 65,
+      "flagged": 26,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 53,
+        "nat": 12
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    },
+    {
+      "file": "DA/DA2026.pdf",
+      "output": "da-2026.json",
+      "questions": 65,
+      "flagged": 30,
+      "sets": 1,
+      "duplicateBooklets": 0,
+      "byType": {
+        "mcq": 47,
+        "nat": 18
+      },
+      "marksUnread": 0,
+      "incomplete": null,
+      "totalMarks": 100,
+      "marksPerSet": 100,
+      "marksOk": true
+    }
+  ],
+  "skipped": [
+    {
+      "file": "CS/2007_CS.pdf",
+      "reason": "no text layer (scanned) - needs OCR, not attempted",
+      "bytes": 0
+    },
+    {
+      "file": "CS/2008_CS.pdf",
+      "reason": "no text layer (scanned) - needs OCR, not attempted",
+      "bytes": 0
+    },
+    {
+      "file": "CS/2009_CS.pdf",
+      "reason": "no text layer (scanned) - needs OCR, not attempted",
+      "bytes": 0
+    },
+    {
+      "file": "CS/2010_CS.pdf",
+      "reason": "no text layer (scanned) - needs OCR, not attempted",
+      "bytes": 0
+    },
+    {
+      "file": "CS/2011_CS.pdf",
+      "reason": "no text layer (scanned) - needs OCR, not attempted",
+      "bytes": 0
+    },
+    {
+      "file": "CS/2017_CS1.pdf",
+      "reason": "text layer present but no Q.n markers matched",
+      "bytes": 3402
+    },
+    {
+      "file": "CS/2017_CS2.pdf",
+      "reason": "text layer present but no Q.n markers matched",
+      "bytes": 6131
+    },
+    {
+      "file": "CS/2019_CS.pdf",
+      "reason": "no text layer (scanned) - needs OCR, not attempted",
+      "bytes": 0
+    },
+    {
+      "file": "CS/2020_CS.pdf",
+      "reason": "text layer present but no Q.n markers matched",
+      "bytes": 8560
+    },
+    {
+      "file": "CS/2021_CS.pdf",
+      "reason": "no text layer (scanned) - needs OCR, not attempted",
+      "bytes": 68
+    }
+  ],
+  "totals": {
+    "questions": 1214,
+    "flagged": 597,
+    "byFlag": {
+      "no-answer-key": 1214,
+      "truncated-stem": 41,
+      "option-count": 204,
+      "symbol-loss": 352,
+      "figure-reference": 95,
+      "empty-option": 21
+    }
+  }
+}

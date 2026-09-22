@@ -705,10 +705,11 @@ function RoadmapTopicView({ roadmapId, roadmapSlug, topicId, onBack, onOpenTopic
     const flat = tree.flatMap((m) => m.topics.map((t) => ({ topic: t, module: m })));
     const idx = flat.findIndex((x) => x.topic.id === topicId);
     if (idx === -1) return null;
-    if (idx === flat.length - 1) return { done: true };
+    const prev = flat[idx - 1]?.topic || null;
+    if (idx === flat.length - 1) return { done: true, prev };
     const current = flat[idx];
     const next = flat[idx + 1];
-    return { next: next.topic, crossesModule: next.module.id !== current.module.id, nextModuleTitle: next.module.title };
+    return { prev, next: next.topic, crossesModule: next.module.id !== current.module.id, nextModuleTitle: next.module.title };
   }, [tree, topicId]);
 
   if (!topic) {
@@ -804,6 +805,7 @@ function RoadmapTopicView({ roadmapId, roadmapSlug, topicId, onBack, onOpenTopic
 
         <LessonNavFooter
           next={nextTopicInfo?.next ? { ...nextTopicInfo.next, groupLabel: nextTopicInfo.nextModuleTitle } : null}
+          prev={nextTopicInfo?.prev ? { id: nextTopicInfo.prev.id, title: nextTopicInfo.prev.title } : null}
           crossesModule={nextTopicInfo?.crossesModule}
           done={!!nextTopicInfo?.done}
           onOpenTopic={onOpenTopic}

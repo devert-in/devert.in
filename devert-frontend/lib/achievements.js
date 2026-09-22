@@ -17,3 +17,24 @@ export async function fetchUserAchievements(uid) {
   ));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
+
+// Palette colors from CLAUDE.md's fixed accent set, not invented ones -
+// bronze has no real slot in that palette, so it takes the closest existing
+// accent (orange) rather than a new hex value.
+const TIER_COLOR = { bronze: "#FF9500", silver: "#00FFFF", gold: "#FFD700", platinum: "#C77DFF" };
+
+// Maps a raw achievements/{id} doc onto AchievementsSection's existing
+// {id, title, org, description, date, color} card shape, so a real,
+// server-granted achievement can render through the exact same component
+// self-reported profile.achievements entries already use, with no separate
+// "system achievement card" variant to build and keep visually in sync.
+export function formatSystemAchievement(a) {
+  return {
+    id: a.id,
+    title: a.title,
+    org: a.tier ? `${a.tier.charAt(0).toUpperCase()}${a.tier.slice(1)} Tier` : "DeVert",
+    description: a.description,
+    date: a.awardedAt?.toDate?.()?.toLocaleDateString("en-US", { month: "short", year: "numeric" }) || "",
+    color: TIER_COLOR[a.tier] || "#FFD700",
+  };
+}

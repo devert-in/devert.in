@@ -1029,3 +1029,289 @@ exports.grantStreakAchievementOnUpdate = onDocumentUpdated(
     }
   }
 );
+
+// ============================================================================
+// AI GATEWAY - DeVert-A-Thon'26 team AI credits (added 2026-09-11, event day)
+// ============================================================================
+// An OpenAI-compatible /chat/completions endpoint so any team can point an
+// existing AI SDK (openai-python, openai-node, LangChain, Vercel AI SDK, a
+// bare fetch/curl call, ...) at this function's URL with apiKey set to
+// "<teamId>:<password>" instead of a real provider key. No team ever sees a
+// real Groq/OpenRouter/Anthropic key - this is the only thing that ever
+// calls those providers directly.
+//
+// Provider order is a waterfall, free first, Claude last as the paid
+// emergency backup only - Groq, then Gemini (via Google's own OpenAI-
+// compatibility endpoint, generativelanguage.googleapis.com/.../openai/ -
+// a real, independent free quota, not just whatever's free on OpenRouter),
+// then every model listed in OPENROUTER_MODELS (comma-separated), then
+// Anthropic. Each secret is read directly off
+// process.env with NO defineSecret() binding at deploy time - same
+// reasoning as RAZORPAY_KEY_SECRET above: a provider key that doesn't
+// exist yet must degrade only this endpoint, never fail the deploy and
+// take Hosting/every other function down with it on the one day that
+// cannot afford that. Bind real secret NAMES in `secrets: [...]` below only
+// once `firebase functions:secrets:set <NAME>` has actually created them -
+// binding a name Secret Manager has never heard of fails deploy outright.
+//
+// Team auth + budget: hackathon_teams/{teamId} holds a scrypt password hash
+// (+ its salt) - never a plaintext password - and a tokensUsed counter
+// capped at tokensLimit (default 10000, see PLANS-style config below).
+// Nothing in firestore.rules grants any client read/write on this
+// collection, deliberately: the only writer is this function via
+// firebase-admin, which security rules never apply to. See
+// scripts/generate-hackathon-teams.mjs for how teams are provisioned - it
+// writes this same shape directly.
+
+function hashTeamPassword(password, salt) {
+  return crypto.scryptSync(password, salt, 64).toString("hex");
+}
+
+function verifyTeamPassword(password, salt, expectedHash) {
+  const candidate = Buffer.from(hashTeamPassword(password, salt), "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  if (candidate.length !== expected.length) return false;
+  return crypto.timingSafeEqual(candidate, expected);
+}
+
+function aiGatewayError(code, message) {
+  return { error: { code, message } };
+}
+
+// Accepts three auth styles on purpose - teams are students under event-day
+// time pressure, some will use a real SDK (Authorization: Bearer), some
+// will hand-roll a fetch/curl call (x-team-id/x-team-password are easier to
+// remember than colon-packing a Bearer value), a few will just post JSON.
+function parseTeamAuth(req) {
+  const authHeader = String(req.headers["authorization"] || "");
+  const bearerMatch = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
+  if (bearerMatch) {
+    const raw = bearerMatch[1];
+    const sep = raw.indexOf(":");
+    if (sep > 0) return { teamId: raw.slice(0, sep), password: raw.slice(sep + 1) };
+  }
+  const hId = req.headers["x-team-id"];
+  const hPw = req.headers["x-team-password"];
+  if (hId && hPw) return { teamId: String(hId), password: String(hPw) };
+  const body = req.body || {};
+  if (body.teamId && body.password) return { teamId: String(body.teamId), password: String(body.password) };
+  return null;
+}
+
+// One shared shape for both OpenAI-compatible providers (Groq, OpenRouter) -
+// both speak the exact same /chat/completions request/response contract.
+async function callOpenAICompatible({ baseUrl, apiKey, model, provider, messages, maxTokens, temperature, extraHeaders }) {
+  const resp = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      ...(extraHeaders || {}),
+    },
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`${provider} HTTP ${resp.status}: ${text.slice(0, 300)}`);
+  }
+  const data = await resp.json();
+  const text = data.choices?.[0]?.message?.content || "";
+  if (!text) throw new Error(`${provider} returned an empty completion`);
+  const usage = data.usage || {};
+  const promptTokens = usage.prompt_tokens || 0;
+  const completionTokens = usage.completion_tokens || 0;
+  return {
+    text,
+    model: data.model || model,
+    provider,
+    usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: usage.total_tokens || (promptTokens + completionTokens) },
+  };
+}
+
+// Anthropic's Messages API is its own shape, not OpenAI-compatible: no
+// "system" role inside `messages` (folded into one top-level `system`
+// string instead), content comes back as an array of typed blocks rather
+// than a single string, and usage counts input_tokens/output_tokens rather
+// than prompt/completion.
+async function callAnthropic({ apiKey, model, messages, maxTokens }) {
+  const systemText = messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
+  const rest = messages.filter(m => m.role !== "system").map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model, max_tokens: maxTokens, ...(systemText ? { system: systemText } : {}), messages: rest }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`anthropic HTTP ${resp.status}: ${text.slice(0, 300)}`);
+  }
+  const data = await resp.json();
+  const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  if (!text) throw new Error("anthropic returned an empty completion");
+  const usage = data.usage || {};
+  return {
+    text,
+    model: data.model || model,
+    provider: "anthropic",
+    usage: { prompt_tokens: usage.input_tokens || 0, completion_tokens: usage.output_tokens || 0, total_tokens: (usage.input_tokens || 0) + (usage.output_tokens || 0) },
+  };
+}
+
+// Each provider secret may hold ONE key or a comma-separated LIST of keys -
+// 900 participants sharing a single Groq key would rate-limit almost
+// immediately, so every provider picks a random key from its list per call,
+// spreading load across however many keys were pasted in. Adding more keys
+// later (`firebase functions:secrets:set GROQ_API_KEY`, comma-joined) needs
+// no redeploy - envKeyList() re-reads process.env on every request.
+function envKeyList(name) {
+  return (process.env[name] || "").split(",").map(s => s.trim()).filter(Boolean);
+}
+function pickRandom(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+// Built fresh per request (not module load) so a secret rotated via
+// `firebase functions:secrets:set` takes effect on the next cold start
+// with no redeploy - same property the Razorpay secrets rely on above.
+function buildProviderChain() {
+  const chain = [];
+
+  const groqKeys = envKeyList("GROQ_API_KEY");
+  if (groqKeys.length) {
+    // Confirmed live against the account's actual /v1/models list on
+    // 2026-09-11 (event day) - Groq's catalog moves, llama-3.3-70b-versatile
+    // from an earlier draft of this file had already been retired.
+    chain.push({ name: "groq", call: (args) => callOpenAICompatible({ ...args, baseUrl: "https://api.groq.com/openai/v1", apiKey: pickRandom(groqKeys), model: process.env.GROQ_MODEL || "openai/gpt-oss-120b", provider: "groq" }) });
+  }
+
+  const geminiKeys = envKeyList("GEMINI_API_KEY");
+  if (geminiKeys.length) {
+    chain.push({
+      name: "gemini",
+      call: (args) => callOpenAICompatible({
+        ...args, baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", apiKey: pickRandom(geminiKeys),
+        // gemini-2.0-flash from an earlier draft had been retired by event
+        // day (2026-09-11) - confirmed gemini-3.6-flash live against the
+        // real API instead.
+        model: process.env.GEMINI_MODEL || "gemini-3.6-flash", provider: "gemini",
+      }),
+    });
+  }
+
+  const openrouterKeys = envKeyList("OPENROUTER_API_KEY");
+  if (openrouterKeys.length) {
+    // Verify these model slugs at openrouter.ai/models before the event -
+    // OpenRouter's free-tier catalog changes over time and this list may
+    // have drifted since it was written.
+    const models = (process.env.OPENROUTER_MODELS || "meta-llama/llama-3.1-8b-instruct:free,google/gemini-2.0-flash-exp:free")
+      .split(",").map(s => s.trim()).filter(Boolean);
+    for (const model of models) {
+      chain.push({
+        name: `openrouter:${model}`,
+        call: (args) => callOpenAICompatible({
+          ...args, baseUrl: "https://openrouter.ai/api/v1", apiKey: pickRandom(openrouterKeys), model, provider: `openrouter:${model}`,
+          extraHeaders: { "HTTP-Referer": "https://devert.in", "X-Title": "DeVert-A-Thon26" },
+        }),
+      });
+    }
+  }
+
+  const anthropicKeys = envKeyList("ANTHROPIC_API_KEY");
+  if (anthropicKeys.length) {
+    // Haiku, not Sonnet/Opus - this tier is the paid emergency backup only,
+    // so it defaults to the cheapest Claude model. Override via
+    // ANTHROPIC_MODEL if that's ever the wrong call.
+    chain.push({ name: "anthropic", call: (args) => callAnthropic({ ...args, apiKey: pickRandom(anthropicKeys), model: process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001" }) });
+  }
+
+  return chain;
+}
+
+exports.aiGateway = onRequest(
+  // Bind only secrets that actually exist in Secret Manager - binding a name
+  // Secret Manager has never heard of fails deploy outright (see the long
+  // comment at the top of this section). OPENROUTER_API_KEY/ANTHROPIC_API_KEY
+  // get added here once `firebase functions:secrets:set` has created them.
+  { region: "asia-south1", maxInstances: 20, secrets: ["GROQ_API_KEY", "GEMINI_API_KEY"] },
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-team-id, x-team-password");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    if (req.method === "GET") {
+      res.status(200).json({
+        ok: true,
+        name: "DeVert-A-Thon'26 AI Gateway",
+        usage: "POST { messages: [{ role, content }] } with Authorization: Bearer <teamId>:<password>",
+      });
+      return;
+    }
+    if (req.method !== "POST") { res.status(405).json(aiGatewayError("method_not_allowed", "Use POST.")); return; }
+
+    const auth = parseTeamAuth(req);
+    if (!auth) { res.status(401).json(aiGatewayError("missing_credentials", "Provide Authorization: Bearer <teamId>:<password>.")); return; }
+
+    const teamRef = admin.firestore().doc(`hackathon_teams/${auth.teamId}`);
+    const teamSnap = await teamRef.get();
+    if (!teamSnap.exists) { res.status(401).json(aiGatewayError("invalid_team", "Unknown team ID.")); return; }
+    const team = teamSnap.data();
+    if (team.disabled) { res.status(403).json(aiGatewayError("team_disabled", "This team has been disabled.")); return; }
+    if (!verifyTeamPassword(auth.password, team.salt, team.passwordHash)) {
+      res.status(401).json(aiGatewayError("invalid_password", "Wrong password.")); return;
+    }
+
+    const tokensLimit = team.tokensLimit ?? 10000;
+    const tokensUsedSoFar = team.tokensUsed ?? 0;
+    if (tokensUsedSoFar >= tokensLimit) {
+      res.status(429).json(aiGatewayError("budget_exhausted", `Team ${auth.teamId} has used its ${tokensLimit}-token budget for this hackathon.`));
+      return;
+    }
+
+    const body = req.body || {};
+    const messages = Array.isArray(body.messages) ? body.messages : null;
+    if (!messages || messages.length === 0) {
+      res.status(400).json(aiGatewayError("invalid_request", "Body must include a non-empty messages array.")); return;
+    }
+    const maxTokens = Math.min(Number(body.max_tokens) || 800, 2000);
+    const temperature = typeof body.temperature === "number" ? body.temperature : 0.7;
+
+    const providers = buildProviderChain();
+    if (providers.length === 0) {
+      res.status(503).json(aiGatewayError("no_provider_configured", "No AI provider is configured on the server yet.")); return;
+    }
+
+    let result = null, lastError = null;
+    for (const provider of providers) {
+      try {
+        result = await provider.call({ messages, maxTokens, temperature });
+        if (result) break;
+      } catch (err) {
+        lastError = err;
+        logger.warn(`aiGateway: provider ${provider.name} failed`, { team: auth.teamId, error: String(err?.message || err) });
+      }
+    }
+
+    if (!result) {
+      logger.error("aiGateway: all providers failed", { team: auth.teamId, lastError: String(lastError?.message || lastError) });
+      res.status(502).json(aiGatewayError("all_providers_failed", "Every configured AI provider failed. Try again shortly.")); return;
+    }
+
+    await teamRef.update({
+      tokensUsed: admin.firestore.FieldValue.increment(result.usage.total_tokens),
+      lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastProvider: result.provider,
+    }).catch((err) => logger.error("aiGateway: failed to record usage", { team: auth.teamId, error: String(err) }));
+
+    res.status(200).json({
+      id: `dvai_${Date.now().toString(36)}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1000),
+      model: result.model,
+      provider: result.provider,
+      choices: [{ index: 0, message: { role: "assistant", content: result.text }, finish_reason: "stop" }],
+      usage: result.usage,
+      team: { id: auth.teamId, tokensUsed: tokensUsedSoFar + result.usage.total_tokens, tokensLimit },
+    });
+  }
+);

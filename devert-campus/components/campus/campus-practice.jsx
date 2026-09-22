@@ -1032,7 +1032,7 @@ function RewardChip({ icon: Icon, label, value, color }) {
 // button. There's no "View Solution" here: no problem doc in this schema
 // carries reference-solution content, so a button promising one would just
 // be decoration - see this file's own scope note further down.
-function CodeLabSuccessDialog({ verdict, problemTitle, hasNext, onNext, onBackToList, onClose }) {
+function CodeLabSuccessDialog({ verdict, problemTitle, hasNext, onNext, onBackToList, backLabel = "Problems", onClose }) {
   return (
     <AnimatePresence>
       {verdict && (
@@ -1069,7 +1069,7 @@ function CodeLabSuccessDialog({ verdict, problemTitle, hasNext, onNext, onBackTo
                   </button>
                 )}
                 <button onClick={onBackToList} className="text-[12.5px] font-medium py-2.5 rounded-lg" style={{ border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
-                  Back to Problems
+                  Back to {backLabel}
                 </button>
               </div>
             </div>
@@ -1116,7 +1116,7 @@ function CodeLabFailDialog({ verdict, onViewFailed, onRetry }) {
   );
 }
 
-export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabel = "Problems", suppressReward = false }) {
+export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabel = "Problems", suppressReward = false, contextOrder = null }) {
   const { user } = useAuth();
 
   // Opening a problem is a navigation, so it starts at the top of the problem.
@@ -1287,7 +1287,23 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
     fetchPublishedProblems().then(setAllProblems).catch(() => {});
   }, []);
 
+  // When opened from the DSA Sheet or a Concept's related-problems list,
+  // `contextOrder` carries that curriculum's own full id order (see
+  // campus-app.jsx's openProblem/campus-dsa-sheet.jsx's/
+  // campus-dsa-concepts.jsx's openProblemWithContext) - "Next Problem"
+  // follows THAT instead of the plain category/number sort below, which is
+  // otherwise blind to what the student was actually working through and
+  // could drop them into an unrelated category (or one they already solved).
+  // Falls through to the global sort if contextOrder doesn't contain this
+  // problem (shouldn't normally happen) so a stale/mismatched order degrades
+  // to today's behavior rather than showing no next problem at all.
   const nextProblem = useMemo(() => {
+    if (contextOrder && contextOrder.length > 0) {
+      const idx = contextOrder.indexOf(problemId);
+      if (idx !== -1) {
+        return idx < contextOrder.length - 1 ? (allProblems.find(p => p.id === contextOrder[idx + 1]) || null) : null;
+      }
+    }
     if (!problem || allProblems.length === 0) return null;
     const sorted = [...allProblems].sort((a, b) =>
       (a.category || "").localeCompare(b.category || "") ||
@@ -1295,7 +1311,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
       (a.title || "").localeCompare(b.title || ""));
     const idx = sorted.findIndex(p => p.id === problemId);
     return idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
-  }, [problem, allProblems, problemId]);
+  }, [problem, allProblems, problemId, contextOrder]);
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
@@ -1369,7 +1385,10 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
 
   const goToNextProblem = () => {
     setSuccessVerdict(null);
-    if (nextProblem && onSelectProblem) onSelectProblem(nextProblem.id);
+    // contextOrder carries forward unchanged - the sheet/concept's own order
+    // doesn't change as the student moves through it, only their position
+    // in it does (recomputed above from the new problemId next render).
+    if (nextProblem && onSelectProblem) onSelectProblem(nextProblem.id, contextOrder);
     else onBack();
   };
 
@@ -1683,7 +1702,7 @@ export function CampusProblemView({ problemId, onBack, onSelectProblem, backLabe
 
       <CodeLabSuccessDialog
         verdict={successVerdict} problemTitle={problem.title} hasNext={!!nextProblem}
-        onNext={goToNextProblem} onBackToList={onBack} onClose={() => setSuccessVerdict(null)}
+        onNext={goToNextProblem} onBackToList={onBack} backLabel={backLabel} onClose={() => setSuccessVerdict(null)}
       />
       <CodeLabFailDialog
         verdict={failVerdict}

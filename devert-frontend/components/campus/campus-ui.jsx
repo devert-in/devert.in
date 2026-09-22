@@ -56,29 +56,36 @@ export function CampusCard({ children, className = "", hover = false, glass = tr
   );
 }
 
-// The DeVert Campus mark, replacing the mono "D" placeholder badge. Two <img>
-// variants ship together and CSS shows one per theme - see the .campus-badge-*
-// rules in globals.css for why that beats reading the theme context here (and
-// why this file still needs no theme import at all).
+// THE product mark - public/Logo.png, the same asset devert.in ships under.
 //
-// The 96px source assets are trimmed-and-downscaled from the 1254px, ~1MB
-// originals still in public/ (devert_campus_logo1/2.png): a 30px badge has no
-// use for a megabyte, and `images: { unoptimized: true }` in next.config means
-// Next will never resize them for us.
+// ONE image, not the two theme variants this used to swap between via the
+// .campus-badge-dark/.campus-badge-light CSS pair (both now deleted from
+// globals.css, along with the trimmed devert-campus-badge-dark/light.png
+// assets they selected). The logo carries its own near-black plate behind the
+// green/cyan chevrons, so it reads correctly on a white card and on a #0A0E17
+// one alike - there is nothing left for a theme to choose between.
 //
-// alt="" on both, not "DeVert Campus": every call site pairs this with the
-// visible wordmark text, so a real alt would make a screen reader announce the
-// name twice.
+// The served file is downscaled to 192px from the 1254px, ~1.7MB original in
+// the repo-root public/Logo.png: a 30px badge has no use for a megabyte, and
+// `images: { unoptimized: true }` in next.config means Next will never resize
+// it for us. 192 rather than 96 so it stays sharp at 2x on the largest call
+// site (CampusPublicNav's 34px wordmark lockup).
+//
+// Each app serves its OWN public/ dir, so this file is duplicated into
+// devert-frontend/public and devert-campus/public deliberately - the jsconfig
+// @/* source-sharing that lets campus import this component does not extend to
+// static assets.
+//
+// alt="", not "DeVert Campus": every call site pairs this with the visible
+// wordmark text, so a real alt would make a screen reader announce the name
+// twice.
 export function CampusBadge({ size = 30, className = "", rounded = "rounded-lg" }) {
   const box = { width: size, height: size };
   return (
     <span className={`relative flex-shrink-0 ${className}`} style={box}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/devert-campus-badge-dark.png" alt="" width={size} height={size}
-        className={`campus-badge-dark ${rounded}`} style={box} />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/devert-campus-badge-light.png" alt="" width={size} height={size}
-        className={`campus-badge-light ${rounded}`} style={box} />
+      <img src="/devert-campus-badge.png" alt="" width={size} height={size}
+        className={rounded} style={box} />
     </span>
   );
 }
@@ -707,27 +714,49 @@ export function RoadmapTimeline({
 // `next.groupLabel` is only rendered when `crossesModule` is true, so a
 // caller whose "next" object has no such field (nothing crossed) simply
 // omits it.
+//
+// `prev` is optional and purely additive: a caller that passes none renders
+// exactly the single full-width next card this component always rendered.
+// Pass both and they sit side by side above the sm: breakpoint. Both go
+// through the SAME onOpenTopic callback, so a caller needs no second handler.
 export function LessonNavFooter({
-  next, crossesModule, done, onOpenTopic, onBack,
+  next, prev, crossesModule, done, onOpenTopic, onBack,
   groupNoun = "Module", endTitle, endBody, endButtonLabel = "Back to Roadmap",
 }) {
   return (
     <>
-      {next && (
-        <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
-              {crossesModule ? `NEXT ${groupNoun.toUpperCase()}` : "NEXT TOPIC"}
-            </p>
-            <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{next.title}</p>
-            {crossesModule && next.groupLabel && (
-              <p className="text-[11px] mt-0.5 truncate" style={{ color: CAMPUS.inkFaint }}>{next.groupLabel}</p>
-            )}
-          </div>
-          <CampusButton icon={ArrowRight} onClick={() => onOpenTopic(next.id)}>
-            {crossesModule ? `Next ${groupNoun}` : "Next Topic"}
-          </CampusButton>
-        </CampusCard>
+      {(prev || next) && (
+        <div className={prev && next ? "grid sm:grid-cols-2 gap-3" : ""}>
+          {prev && (
+            <CampusCard className="p-4 flex items-center gap-3">
+              <CampusButton variant="secondary" icon={ArrowLeft} onClick={() => onOpenTopic(prev.id)}>
+                Previous
+              </CampusButton>
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
+                  PREVIOUS TOPIC
+                </p>
+                <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{prev.title}</p>
+              </div>
+            </CampusCard>
+          )}
+          {next && (
+            <CampusCard className="p-4 flex items-center justify-between flex-wrap gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>
+                  {crossesModule ? `NEXT ${groupNoun.toUpperCase()}` : "NEXT TOPIC"}
+                </p>
+                <p className="text-[13.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>{next.title}</p>
+                {crossesModule && next.groupLabel && (
+                  <p className="text-[11px] mt-0.5 truncate" style={{ color: CAMPUS.inkFaint }}>{next.groupLabel}</p>
+                )}
+              </div>
+              <CampusButton icon={ArrowRight} onClick={() => onOpenTopic(next.id)}>
+                {crossesModule ? `Next ${groupNoun}` : "Next Topic"}
+              </CampusButton>
+            </CampusCard>
+          )}
+        </div>
       )}
 
       {done && (

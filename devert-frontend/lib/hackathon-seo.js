@@ -112,7 +112,7 @@ export function hackathonJsonLd(hackathon, slug) {
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Home", item: `${SITE}/` },
-      { "@type": "ListItem", position: 2, name: "Events", item: `${SITE}/hackathons` },
+      { "@type": "ListItem", position: 2, name: "Events", item: `${SITE}/events` },
       { "@type": "ListItem", position: 3, name: hackathon.title, item: url },
     ],
   };

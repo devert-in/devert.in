@@ -59,6 +59,18 @@ export function aptitudeProgressRef(uid) {
   return doc(db, "user_aptitude_progress", uid);
 }
 
+// Same shape as lib/csCore.js's markTopicOpened - writes lastOpenedTopicId/
+// lastOpenedAt on every open, not just on completion. Without this, this
+// module had no way to resume a topic a student started but hasn't finished
+// yet (lastOpenedTopicId only ever got set as a side effect of completing
+// one), so AptitudeRoadmap's Continue button below always fell straight to
+// the first incomplete topic instead of wherever the student actually left off.
+export async function markAptitudeTopicOpened(uid, topicId) {
+  await setDoc(doc(db, "user_aptitude_progress", uid), {
+    lastOpenedTopicId: topicId, lastOpenedAt: serverTimestamp(), startedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
 export function aptitudeCompletionPayload(topicId) {
   return {
     completedTopicIds: arrayUnion(topicId),

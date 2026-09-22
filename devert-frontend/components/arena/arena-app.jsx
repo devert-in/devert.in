@@ -28,7 +28,8 @@ const TIER_COLORS = { LEGEND: "#FFD700", ELITE: "#FF6B35", ARCHITECT: "#00FFFF",
 // Arena hosts two different kinds of competition - the heading/tagline should describe
 // whichever one is active instead of always saying "Code Combat" (accurate only for
 // Solo Challenges; Contests can be Aptitude/SQL/CS-fundamentals, not just code). CodeLab
-// used to be a third tab here but now lives at its own top-level /codelab route.
+// used to be a third tab here; it was removed from the main site entirely in favor of
+// Campus-only (see commit c0383c3), not moved to a top-level route.
 const ARENA_TAB_META = {
   solo:     { breadcrumb: "code_combat.exe", tagline: "Head-to-head. Timed. Brutal. No mercy." },
   contests: { breadcrumb: "contests.db",     tagline: "Scheduled contests across Aptitude, Programming, and CS fundamentals." },

@@ -3,6 +3,14 @@
 import { motion } from "framer-motion";
 import { GitCommit, Terminal, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { FOUNDERS } from "@/lib/founders";
+
+// Names/handles/roles come from the shared registry the navbars also read, so
+// this page and every nav surface cannot disagree about who the founders are.
+// `tagline` and the commit logs below stay local - they are this component's
+// own voice, not founder identity.
+const BHANU = FOUNDERS.find(f => f.key === "bhanu");
+const SAMUEL = FOUNDERS.find(f => f.key === "samuel");
 
 const BHANU_LOG = [
   { hash: "b1f9a3c", msg: "feat: distributed auth service with zero-trust model",  time: "1h ago",   type: "feat"     },
@@ -40,7 +48,13 @@ const TYPE_BG = {
   style:    "rgba(199,125,255,0.06)",
 };
 
-function CommitLog({ name, handle, role, tagline, commits, accent, align }) {
+// `handle` is COSMETIC - the short "@bhanu"/"@sammyyy" the terminal chrome
+// prints. `profileHandle` is the real users-collection handle the link
+// actually resolves to, and the two differ for Bhanu: "@bhanu" is the
+// established display text here but no account has ever held that handle, so
+// this component shipped a live 404 on "view @bhanu" until the two were split
+// apart. Never build a URL from `handle`.
+function CommitLog({ name, handle, profileHandle, role, tagline, commits, accent, align }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -123,7 +137,7 @@ function CommitLog({ name, handle, role, tagline, commits, accent, align }) {
         </div>
 
         {/* Profile link */}
-        <Link href={`/u/${handle}`}
+        <Link href={`/u/${profileHandle}`}
           className="mt-4 flex items-center gap-1.5 font-mono text-[10px] transition-colors group"
           style={{ color: "rgba(255,255,255,0.2)" }}
         >
@@ -180,18 +194,20 @@ export function DuoTerminal() {
 
         <div className="flex flex-col md:flex-row gap-4">
           <CommitLog
-            name="Vengaladas Bhanu Prasad"
-            handle="bhanu"
-            role="Backend · Systems · Architecture"
+            name={BHANU.name}
+            handle={BHANU.displayHandle}
+            profileHandle={BHANU.handle}
+            role={BHANU.focus}
             tagline="Turns caffeine into distributed systems. If it doesn't scale, it doesn't ship."
             commits={BHANU_LOG}
             accent="#00FFFF"
             align="left"
           />
           <CommitLog
-            name="Adari Samuel Prasad"
-            handle="sammyyy"
-            role="Frontend · Product · Deploy"
+            name={SAMUEL.name}
+            handle={SAMUEL.displayHandle}
+            profileHandle={SAMUEL.handle}
+            role={SAMUEL.focus}
             tagline="Pixel-perfect at 2 AM. Breaks prod, fixes prod, ships anyway."
             commits={SAMUEL_LOG}
             accent="#00FF41"

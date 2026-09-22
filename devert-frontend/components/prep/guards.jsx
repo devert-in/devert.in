@@ -127,10 +127,17 @@ export function RequireStaff({ children }) {
   return children;
 }
 
-/** Requires admin (or the bootstrap admin@devert.in email). Renders a lock screen otherwise. */
+/** Requires a Prep admin - either the platform isAdmin claim, or this
+    module's own prep-scoped role: "admin" (see firestore.rules' isPrepAdmin(),
+    role == "admin" || isAdmin()). Previously checked bare isAdmin only, unlike
+    RequireStaff's already-OR'd isStaff below - a user granted prep-only admin
+    via the Firestore-console bootstrap PREP_MODULE.md describes would pass
+    the server rule for every actual write but get wrongly locked out of this
+    screen by the client gate before ever reaching it. */
 export function RequireAdmin({ children }) {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, role, loading } = useAuth();
   const router = useRouter();
+  const isPrepAdmin = role === "admin" || isAdmin;
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -138,7 +145,7 @@ export function RequireAdmin({ children }) {
 
   if (loading) return <LoadingScreen />;
   if (!user) return <LoadingScreen />;
-  if (!isAdmin) {
+  if (!isPrepAdmin) {
     return (
       <LockScreen
         icon={ShieldAlert}

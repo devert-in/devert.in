@@ -4,15 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronDown, GraduationCap, Flame, Radio, Anchor, Hammer, Zap, Swords,
-  Users, Tv2, GitFork, FlaskConical, Newspaper, Building2, Target,
-  Command, LogIn, User, LogOut, Wallet, Globe,
-} from "lucide-react";
+import { Command, LogIn, User, LogOut, Wallet, Globe, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useIntro } from "@/context/IntroContext";
 import { NotificationBell } from "@/components/notification-bell";
-import { CAMPUS_URL } from "@/lib/campusUrl";
+import { NAV_ROUTES, DESKTOP_GROUPS } from "@/lib/navConfig";
 
 // This pill intentionally breaks from the site's neon-terminal design system
 // (white surface, Google Material shadow/menu conventions, gray-on-white
@@ -27,42 +23,13 @@ import { CAMPUS_URL } from "@/lib/campusUrl";
 // into a phone-width bar. This is a deliberate, explicit exception to this
 // file's own "one dock, every breakpoint" rule from before - asked for
 // directly, not a default any new feature should reach for.
-const GROUPS = [
-  {
-    key: "explore", label: "Explore",
-    items: [
-      { icon: GraduationCap, label: "Campus",       href: CAMPUS_URL, desc: "Learn, practice, prepare" },
-      { icon: Flame,         label: "Events",       href: "/events",       desc: "Hackathons, workshops, meetups" },
-      { icon: Radio,         label: "Opportunities", href: "/opportunities", desc: "Internships, jobs, programs" },
-    ],
-  },
-  {
-    key: "build", label: "Build",
-    items: [
-      { icon: Anchor, label: "Showcase", href: "/showcase", desc: "Dock projects, get judged" },
-      { icon: Hammer, label: "Build",    href: "/build",    desc: "Challenges & sprints" },
-      { icon: Zap,    label: "Grind",    href: "/grind",    desc: "Daily coding reps" },
-      { icon: Swords, label: "Arena",    href: "/arena",    desc: "Timed coding battles" },
-    ],
-  },
-  {
-    key: "connect", label: "Connect",
-    items: [
-      { icon: Users,    label: "Community", href: "/community", desc: "Join dev communities" },
-      { icon: Tv2,      label: "Broadcast", href: "/broadcast", desc: "Live build sessions" },
-      { icon: Target,   label: "Missions",  href: "/missions",  desc: "Community bounties & tasks" },
-    ],
-  },
-  {
-    key: "more", label: "More",
-    items: [
-      { icon: GitFork,      label: "Open Source",   href: "/open-source",   desc: "Coming soon" },
-      { icon: FlaskConical, label: "Labs",          href: "/labs",          desc: "Coming soon" },
-      { icon: Newspaper,    label: "Stories",       href: "/stories",       desc: "Coming soon" },
-      { icon: Building2,    label: "Organizations", href: "/organizations", desc: "Coming soon" },
-    ],
-  },
-];
+//
+// GROUPS/PULSE_ITEM are derived from the shared lib/navConfig.js rather than
+// each holding its own copy - see that file's header for why this and
+// navbar.jsx's dock intentionally show different SCOPES (this pill's fuller
+// sitemap vs. the dock's curated subset), not the same list twice.
+const GROUPS = DESKTOP_GROUPS.map(g => ({ ...g, items: NAV_ROUTES.filter(r => r.desktop === g.key) }));
+const PULSE_ITEM = NAV_ROUTES.find(r => r.desktop === "standalone");
 
 function NavGroup({ group, pathname }) {
   const [open, setOpen] = useState(false);
@@ -86,23 +53,23 @@ function NavGroup({ group, pathname }) {
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full transition-colors"
-        style={{ color: isActiveGroup || open ? "#202124" : "#5F6368", background: isActiveGroup || open ? "#F1F3F4" : "transparent" }}>
+        style={{ color: isActiveGroup || open ? "#F2F6FA" : "rgba(255,255,255,0.58)", background: isActiveGroup || open ? "rgba(255,255,255,0.10)" : "transparent" }}>
         {group.label}
-        <ChevronDown size={16} strokeWidth={2} style={{ color: "#5F6368", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+        <ChevronDown size={16} strokeWidth={2} style={{ color: "rgba(255,255,255,0.58)", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
       </button>
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 top-full mt-2 rounded-xl overflow-hidden p-2"
-            style={{ width: 300, background: "#FFFFFF", boxShadow: "0 2px 6px 2px rgba(60,64,67,0.15), 0 1px 2px rgba(60,64,67,0.3)" }}>
+            className="devert-surface absolute left-0 top-full mt-2 rounded-xl overflow-hidden p-2"
+            style={{ width: 300, boxShadow: "0 8px 24px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.4)" }}>
             {group.items.map(item => (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
-                className="flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-[#F1F3F4]">
+                className="flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-white/10">
                 <item.icon size={18} strokeWidth={1.7} className="mt-0.5 flex-shrink-0" style={{ color: "#00FF41" }} />
                 <div className="min-w-0">
-                  <p className="font-sans text-[13.5px] font-medium" style={{ color: "#202124" }}>{item.label}</p>
-                  <p className="font-mono text-[11px] leading-snug" style={{ color: "#5F6368" }}>{item.desc}</p>
+                  <p className="font-sans text-[13.5px] font-medium" style={{ color: "#F2F6FA" }}>{item.label}</p>
+                  <p className="font-mono text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.58)" }}>{item.desc}</p>
                 </div>
               </Link>
             ))}
@@ -127,21 +94,21 @@ function ProfileMenu({ logout, isSuperAdmin }) {
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)}
         className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-        style={{ background: open ? "#E8EAED" : "#F1F3F4" }}>
-        <User size={16} style={{ color: "#5F6368" }} />
+        style={{ background: open ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.10)" }}>
+        <User size={16} style={{ color: "rgba(255,255,255,0.58)" }} />
       </button>
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 top-full mt-2 rounded-xl overflow-hidden p-2"
-            style={{ width: 180, background: "#FFFFFF", boxShadow: "0 2px 6px 2px rgba(60,64,67,0.15), 0 1px 2px rgba(60,64,67,0.3)" }}>
+            className="devert-surface absolute right-0 top-full mt-2 rounded-xl overflow-hidden p-2"
+            style={{ width: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.4)" }}>
             <Link href="/profile" onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-[#F1F3F4]" style={{ color: "#202124" }}>
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-white/10" style={{ color: "#F2F6FA" }}>
               <User size={13} style={{ color: "#00FF41" }} /> Dev Card
             </Link>
             <Link href="/wallet" onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-[#F1F3F4]" style={{ color: "#202124" }}>
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-white/10" style={{ color: "#F2F6FA" }}>
               <Wallet size={13} style={{ color: "#00FF41" }} /> Wallet
             </Link>
             {/* Global Super Admin only - the whole-ecosystem control center,
@@ -149,11 +116,11 @@ function ProfileMenu({ logout, isSuperAdmin }) {
                 any nav today, reached by URL only). */}
             {isSuperAdmin && (
               <Link href="/manage" onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-[#F1F3F4]" style={{ color: "#202124" }}>
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-white/10" style={{ color: "#F2F6FA" }}>
                 <Globe size={13} style={{ color: "#00FF41" }} /> Manage
               </Link>
             )}
-            <div className="h-px my-1 mx-1" style={{ background: "rgba(60,64,67,0.12)" }} />
+            <div className="h-px my-1 mx-1" style={{ background: "rgba(255,255,255,0.12)" }} />
             <button onClick={() => { logout(); setOpen(false); }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-[rgba(255,80,80,0.08)]" style={{ color: "#FF5050" }}>
               <LogOut size={13} /> Logout
@@ -179,32 +146,31 @@ export function TopNavbar() {
 
   return (
     <>
-      <nav className="hidden lg:flex fixed top-4 left-1/2 -translate-x-1/2 z-40 items-center gap-0.5 px-2 py-1.5 rounded-full"
+      <nav className="devert-surface hidden lg:flex fixed top-4 left-1/2 -translate-x-1/2 z-40 items-center gap-0.5 px-2 py-1.5 rounded-full"
         style={{
-          background: "#FFFFFF",
-          boxShadow: "0 1px 6px 0 rgba(32,33,36,0.28), 0 16px 40px rgba(0,0,0,0.4)",
+          boxShadow: "0 1px 6px 0 rgba(0,0,0,0.5), 0 16px 40px rgba(0,0,0,0.55)",
         }}>
         <Link href="/" className="flex items-center pl-4 pr-4">
-          <span className="font-sans font-bold text-base" style={{ color: "#202124" }}>De<span style={{ color: "#00FF41" }}>Vert</span></span>
+          <span className="font-sans font-bold text-base" style={{ color: "#F2F6FA" }}>De<span style={{ color: "#00FF41" }}>Vert</span></span>
         </Link>
 
         {/* A standalone link, not a dropdown group - Pulse is one destination,
             not a set of them, and asked to sit at the same level as
             Explore/Build/Connect/More rather than buried inside Connect. */}
-        <Link href="/pulse"
+        <Link href={PULSE_ITEM.href}
           className="flex items-center gap-1 text-sm font-medium px-4 py-2.5 rounded-full transition-colors"
           style={{
-            color: pathname === "/pulse" || pathname.startsWith("/pulse/") ? "#202124" : "#5F6368",
-            background: pathname === "/pulse" || pathname.startsWith("/pulse/") ? "#F1F3F4" : "transparent",
+            color: pathname === PULSE_ITEM.href || pathname.startsWith(PULSE_ITEM.href + "/") ? "#F2F6FA" : "rgba(255,255,255,0.58)",
+            background: pathname === PULSE_ITEM.href || pathname.startsWith(PULSE_ITEM.href + "/") ? "rgba(255,255,255,0.10)" : "transparent",
           }}>
-          Pulse
+          {PULSE_ITEM.label}
         </Link>
 
         {GROUPS.map(group => <NavGroup key={group.key} group={group} pathname={pathname} />)}
 
-        <div className="flex items-center gap-1 pl-2 ml-1" style={{ borderLeft: "1px solid rgba(60,64,67,0.16)" }}>
+        <div className="flex items-center gap-1 pl-2 ml-1" style={{ borderLeft: "1px solid rgba(255,255,255,0.14)" }}>
           <button onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
-            className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-[#F1F3F4]" style={{ color: "#5F6368" }}>
+            className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/10" style={{ color: "rgba(255,255,255,0.58)" }}>
             <Command size={17} strokeWidth={1.8} />
           </button>
           {user ? (

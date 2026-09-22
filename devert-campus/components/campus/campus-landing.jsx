@@ -12,6 +12,7 @@ import {
   CodeXml, BrainCircuit, Calculator, Layers, Sparkles,
   Lock, Check, ListChecks, Mic, LineChart, Flame, Plus, Minus, Crown,
   CalendarClock, BarChart3, CheckCircle2, Target, Radar,
+  FileQuestion, ClipboardList, AlertTriangle,
 } from "lucide-react";
 import { fetchInstitutions, DEPARTMENTS } from "@/lib/institutions";
 import { fetchPublishedContests, bucketContests, contestPhase } from "@/lib/contests";
@@ -23,6 +24,9 @@ import { CampusPublicNav, SUPPORT_EMAIL } from "@/components/campus/campus-publi
 import { DemoRequestDialog } from "@/components/campus/campus-demo-request";
 import { WaitlistDialog } from "@/components/campus/campus-waitlist";
 import { PAYMENTS_LIVE } from "@/lib/payments";
+// Shared with devert-frontend and devert-careers through this app jsconfig
+// @/* fallback - see lib/founders.js. Footer only, never the nav bar.
+import { FOUNDERS } from "@/lib/founders";
 import { RazorpayCheckoutButton } from "@/components/payments/razorpay-checkout-button";
 import { FreeTrialButton } from "@/components/payments/free-trial-button";
 import {
@@ -849,7 +853,7 @@ function BringToCampusBanner() {
       <section className="vs-section tight">
         <div className="vs-shell">
           <div className="relative overflow-hidden rounded-2xl p-7 sm:p-9"
-            style={{ background: CAMPUS.gradientPrimary, boxShadow: `0 18px 44px ${tint(CAMPUS.teal, 30)}` }}>
+            style={{ background: CAMPUS.gradientPrimary, boxShadow: CAMPUS.shadowLg }}>
             <div className="absolute -right-10 -top-16 w-56 h-56 rounded-full pointer-events-none"
               style={{ background: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
             <div className="absolute right-24 -bottom-16 w-36 h-36 rounded-full pointer-events-none"
@@ -877,6 +881,136 @@ function BringToCampusBanner() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ---------------- GATE band ----------------
+
+// GATE gets a band of its own rather than an eighth row in LearnExplorer,
+// because it is not another subject track - it is a separate national exam
+// with its own syllabus, its own marking scheme and its own two-year clock,
+// and a candidate preparing for it is doing something categorically different
+// from a student working through the placement curriculum. Sharing the Learn
+// explorer would have meant describing it in the one sentence a rail row
+// affords, next to "Aptitude".
+//
+// Gold, matching GateHeader's own GRADUATION CAP + gold treatment inside the
+// module (gate-app.jsx) - so the card a visitor clicks and the screen they
+// land on are visibly the same product. No new accent was invented for it;
+// `gold` is already in the CAMPUS token set.
+const GATE_ENTRY_POINTS = [
+  { label: "Syllabus", hint: "Official, subject by subject", href: "/gate?section=syllabus", icon: ListChecks },
+  { label: "Previous Year Questions", hint: "Year, subject and topic", href: "/gate?section=pyq", icon: FileQuestion },
+  { label: "Mock Tests", hint: "Real timing and marking", href: "/gate?section=mocks", icon: ClipboardList },
+  { label: "Mistakes Notebook", hint: "Every wrong answer, filed", href: "/gate?section=mistakes", icon: AlertTriangle },
+];
+
+// A count of null is "we could not read it", NOT zero - same policy
+// lib/campusCatalog.js's header sets out. It renders as a dash, because
+// "0 previous year questions" is a factual claim about the product and an
+// unknown count is not. Loading renders the dash too rather than a skeleton
+// that reflows the row the instant it resolves.
+function GateStat({ label, value }) {
+  return (
+    <div className="min-w-0">
+      <b className="block text-[22px] sm:text-[26px] font-bold leading-none tabular-nums" style={{ color: CAMPUS.ink }}>
+        {value == null ? "—" : value.toLocaleString("en-IN")}
+      </b>
+      <span className="block text-[11px] mt-1.5" style={{ color: CAMPUS.inkFaint }}>{label}</span>
+    </div>
+  );
+}
+
+function GateBand({ catalog }) {
+  const papers = catalog?.gatePapers ?? [];
+
+  return (
+    <div className={`vs-scope ${vistaDisplay.variable} ${vistaBody.variable}`}>
+      <section className="vs-section tight">
+        <div className="vs-shell">
+          <VistaReveal>
+            <CampusCard className="p-7 sm:p-9 relative overflow-hidden">
+              {/* Purely decorative wash, behind everything and inert to the
+                  pointer - aria-hidden so it is never announced. */}
+              <div className="absolute -right-16 -top-20 w-64 h-64 rounded-full pointer-events-none"
+                style={{ background: tint(CAMPUS.gold, 14) }} aria-hidden="true" />
+
+              <div className="relative flex gap-8 flex-col lg:flex-row lg:items-start">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-3">
+                    <GraduationCap size={15} style={{ color: CAMPUS.gold }} aria-hidden="true" />
+                    <span className="text-[10px] font-mono tracking-[0.18em] uppercase" style={{ color: CAMPUS.gold }}>
+                      GATE preparation
+                    </span>
+                  </div>
+
+                  <h2 className="text-[24px] sm:text-[30px] font-bold leading-[1.15] mb-3" style={{ color: CAMPUS.ink }}>
+                    Previous year questions,<br className="hidden sm:block" /> sliced the way you actually revise.
+                  </h2>
+                  <p className="text-[13.5px] leading-relaxed max-w-[56ch] mb-6" style={{ color: CAMPUS.inkSoft }}>
+                    The whole syllabus subject by subject, the previous-year bank filtered by year,
+                    subject or topic, and mock tests marked the way GATE marks them &mdash; negative
+                    marking, NAT ranges and all. Every wrong answer files itself into a mistakes
+                    notebook you can practise from later.
+                  </p>
+
+                  <div className="flex items-center gap-7 sm:gap-10 mb-7 flex-wrap">
+                    <GateStat label="Verified PYQs in the bank" value={catalog?.gatePyqCount ?? null} />
+                    {/* Papers are NAMED, not counted - "2 papers" tells a
+                        candidate nothing about whether theirs is one of them. */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {papers.length === 0 ? (
+                          <b className="block text-[22px] sm:text-[26px] font-bold leading-none" style={{ color: CAMPUS.ink }}>—</b>
+                        ) : papers.map(p => (
+                          <span key={p.id} className="text-[12px] font-mono font-semibold px-2.5 py-1 rounded-md"
+                            style={{ background: tint(CAMPUS.gold, 16), color: CAMPUS.ink }}>
+                            {p.name}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="block text-[11px] mt-1.5" style={{ color: CAMPUS.inkFaint }}>Papers covered</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <Link href="/gate"
+                      className="campus-btn campus-btn-glow text-[13.5px] font-semibold px-5 py-2.5 rounded-lg inline-flex items-center gap-2"
+                      style={{ background: CAMPUS.gradientPrimary, color: "#fff" }}>
+                      Start practising <ArrowRight size={15} aria-hidden="true" />
+                    </Link>
+                    <span className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>
+                      Free, and open without a college account.
+                    </span>
+                  </div>
+                </div>
+
+                {/* The four destinations a candidate is actually looking for,
+                    linked directly - the module has sixteen sections and
+                    dropping someone on Overview to find these themselves is
+                    the discoverability problem this band exists to solve. */}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-2 lg:w-[290px] flex-shrink-0">
+                  {GATE_ENTRY_POINTS.map(e => {
+                    const Icon = e.icon;
+                    return (
+                      <Link key={e.label} href={e.href}
+                        className="flex items-start gap-3 p-3.5 rounded-xl transition-colors"
+                        style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
+                        <Icon size={16} style={{ color: CAMPUS.gold, marginTop: 1, flexShrink: 0 }} aria-hidden="true" />
+                        <span className="min-w-0">
+                          <span className="block text-[13px] font-semibold leading-tight" style={{ color: CAMPUS.ink }}>{e.label}</span>
+                          <span className="block text-[11px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>{e.hint}</span>
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </CampusCard>
+          </VistaReveal>
         </div>
       </section>
     </div>
@@ -1803,6 +1937,23 @@ function LandingFooter() {
           </p>
           <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[12.5px] font-medium" style={{ color: CAMPUS.teal }}>{SUPPORT_EMAIL}</a>
         </div>
+
+        {/* Founder credit. Footer, not the nav - a Founders dropdown briefly
+            shipped in CampusPublicNav and was reverted; see lib/founders.js.
+            Absolute LinkedIn URLs, so none of the cross-origin /u/{handle}
+            trap that founderUrl() exists to solve applies here. */}
+        <p className="text-[12px] mt-5" style={{ color: CAMPUS.inkFaint }}>
+          Built by{" "}
+          {FOUNDERS.map((f, i) => (
+            <span key={f.key}>
+              {i > 0 && " & "}
+              <a href={f.linkedin} target="_blank" rel="noopener noreferrer"
+                className="font-medium hover:underline" style={{ color: CAMPUS.inkSoft }}>
+                {f.name}
+              </a>
+            </span>
+          ))}
+        </p>
       </div>
     </footer>
   );
@@ -2068,14 +2219,22 @@ export function CampusLanding() {
   // CAMPUS tokens, not literal hex - these repaint with the theme toggle now
   // that the hero itself does.
   //
-  // Six, matching the hero's stats bar. EVERY ONE IS A REAL COUNT of a real
-  // query (lib/campusCatalog.js) or of a list this page already fetched - none
-  // is a round marketing figure, and a failed fetch stays `null` so the bar
-  // renders a dash rather than claiming zero.
+  // EVERY ONE IS A REAL COUNT of a real query (lib/campusCatalog.js) or of a
+  // list this page already fetched - none is a round marketing figure, and a
+  // failed fetch stays `null` so the bar renders a dash rather than claiming
+  // zero.
+  //
+  // "GATE PYQs" counts only PUBLISHED questions, which is the point: a
+  // PDF-extracted draft awaiting human review is status:"draft" and cannot
+  // reach this number (see countPublishedPyqs). So the figure a visitor reads
+  // here is always the verified bank, never the import queue - it will climb
+  // as review lands rather than starting at the raw extraction total and
+  // quietly including questions nobody has checked.
   const heroStats = [
     { label: "DSA problems", value: catalog?.problemCount ?? null, icon: Code2, color: CAMPUS.cyan },
     { label: "Programming languages", value: catalog ? catalog.languages.length : null, icon: CodeXml, color: CAMPUS.teal },
     { label: "CS Core subjects", value: catalog ? catalog.subjects.length : null, icon: BrainCircuit, color: CAMPUS.purple },
+    { label: "GATE PYQs", value: catalog?.gatePyqCount ?? null, icon: GraduationCap, color: CAMPUS.gold },
     { label: "Registered learners", value: catalog?.learners ?? null, icon: Users, color: CAMPUS.blue },
     { label: "Open contests", value: activeContestCount, icon: Trophy, color: CAMPUS.gold },
     { label: "Partner colleges", value: instLoading ? null : institutions.length, icon: Building2, color: CAMPUS.good },
@@ -2093,6 +2252,11 @@ export function CampusLanding() {
       <VistaHero stats={heroStats} />
       <VistaPlanPanel />
       <VistaFeaturesPanel />
+      {/* Above BringToCampusBanner deliberately: everything from that banner
+          down addresses COLLEGES (bring us to your campus, licence pricing),
+          and GATE is aimed at the individual candidate, who may well have no
+          college on the platform at all. */}
+      <GateBand catalog={catalog} />
       <BringToCampusBanner />
 
       <PricingBand />

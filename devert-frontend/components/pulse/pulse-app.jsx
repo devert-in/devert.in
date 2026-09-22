@@ -16,7 +16,7 @@ import {
   collection, query, orderBy, where, getDocs, getDoc,
   doc, setDoc, addDoc, deleteDoc, updateDoc, onSnapshot, startAfter,
   increment, arrayUnion, arrayRemove,
-  serverTimestamp, writeBatch, limit,
+  serverTimestamp, writeBatch, limit, documentId,
 } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "@/context/AuthContext";
@@ -1199,6 +1199,35 @@ export function PulseApp({ initialTab = "feed" } = {}) {
   const [deletingId,  setDeletingId]  = useState(null);
   const [guestPromptOpen, setGuestPromptOpen] = useState(false);
 
+  // Saved posts view - a toggle within the feed itself, not a separate
+  // route/nav entry like feed vs communities above: pulse_saves/{uid} (see
+  // handleSave below) was write-only until now, with nowhere a student could
+  // ever see their own saved posts again. Fetched only once actually opened.
+  const [showSaved, setShowSaved] = useState(false);
+  const [savedPosts, setSavedPosts] = useState([]);
+  const [savedPostsLoading, setSavedPostsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!showSaved || !user) return;
+    setSavedPostsLoading(true);
+    const ids = [...savedIds];
+    if (ids.length === 0) { setSavedPosts([]); setSavedPostsLoading(false); return; }
+    // documentId() 'in' queries cap at 30 - chunked and merged.
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+    Promise.all(chunks.map(chunk =>
+      getDocs(query(collection(db, "pulse_posts"), where(documentId(), "in", chunk)))
+    )).then(snaps => {
+      const byId = new Map();
+      snaps.forEach(snap => snap.docs.forEach(d => byId.set(d.id, { id: d.id, ...d.data() })));
+      // pulse_saves stores a bare id array (no per-save timestamp), so this
+      // can't sort by "when saved" - it matches the array's own append
+      // order instead (arrayUnion appends), reversed so the most recently
+      // saved post shows first.
+      setSavedPosts(ids.slice().reverse().map(id => byId.get(id)).filter(Boolean));
+    }).catch(() => setSavedPosts([])).finally(() => setSavedPostsLoading(false));
+  }, [showSaved, user, savedIds]);
+
   // Fixed for the lifetime of the page, not switchable in-page - Pulse and
   // Community are separate top-nav destinations now (see top-navbar.jsx), so
   // an in-page toggle between them here would just be a redundant second way
@@ -1613,11 +1642,22 @@ export function PulseApp({ initialTab = "feed" } = {}) {
                 </p>
                 <h1 className="font-sans font-bold tracking-tighter text-white leading-none"
                   style={{ fontSize: "clamp(2.2rem,7vw,4rem)" }}>
-                  {view === "communities" ? <>DEV <span className="text-neon-green">COMMUNITIES</span></> : <>TECH <span className="text-neon-green">PULSE</span></>}
+                  {view === "communities" ? <>DEV <span className="text-neon-green">COMMUNITIES</span></>
+                    : showSaved ? <>SAVED <span className="text-neon-green">POSTS</span></>
+                    : <>TECH <span className="text-neon-green">PULSE</span></>}
                 </h1>
               </div>
               {user && (
                 <div className="flex gap-2">
+                  {view === "feed" && (
+                    <button onClick={() => setShowSaved(s => !s)}
+                      className="font-mono text-[10px] px-3 py-1.5 rounded-full border transition-all inline-flex items-center gap-1.5"
+                      style={showSaved
+                        ? { borderColor: "rgba(0,255,65,0.4)", color: "#00FF41", background: "rgba(0,255,65,0.08)" }
+                        : { borderColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)" }}>
+                      {showSaved ? <BookmarkCheck size={11} /> : <Bookmark size={11} />} Saved
+                    </button>
+                  )}
                   <a href="/wallet" className="font-mono text-[10px] px-3 py-1.5 rounded-full border border-white/12 text-white/40 hover:text-neon-green hover:border-neon-green/30 transition-all inline-flex items-center gap-1.5">
                     <Wallet size={11} /> Wallet
                   </a>
@@ -1625,7 +1665,9 @@ export function PulseApp({ initialTab = "feed" } = {}) {
               )}
             </div>
             <p className="font-mono text-sm text-white/35 mt-2">
-              {view === "communities" ? "Find your people. Join communities built around what you're building." : "Dev content. Real conversations. Community-built."}
+              {view === "communities" ? "Find your people. Join communities built around what you're building."
+                : showSaved ? "Everything you've bookmarked, in one place."
+                : "Dev content. Real conversations. Community-built."}
             </p>
           </motion.div>
 
@@ -1738,8 +1780,57 @@ export function PulseApp({ initialTab = "feed" } = {}) {
             </div>
           )}
 
+          {/* Saved posts */}
+          {view === "feed" && showSaved && (savedPostsLoading ? (
+            <div className="space-y-4">
+              {[1, 2].map(i => (
+                <div key={i} className="terminal-window p-5 animate-pulse space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-white/5" />
+                    <div className="h-3 bg-white/5 rounded w-24" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-white/5 rounded w-full" />
+                    <div className="h-3 bg-white/5 rounded w-3/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : savedPosts.length === 0 ? (
+            <div className="flex flex-col items-center gap-4 py-24">
+              <Bookmark size={48} className="text-white/8" />
+              <p className="font-mono text-sm text-white/20">nothing saved yet - tap the bookmark icon on any post</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {savedPosts.map(post => (
+                <PostCard key={post.id}
+                  post={post}
+                  user={user}
+                  userData={userData}
+                  liked={likedIds.has(post.id)}
+                  likeBusy={likeBusyId === post.id}
+                  saved={savedIds.has(post.id)}
+                  saveBusy={saveBusyId === post.id}
+                  isFollowing={followingIds.has(post.uid)}
+                  followBusy={followBusyId === post.uid}
+                  isReposted={repostedIds.has(post.id)}
+                  repostBusy={repostBusyId === post.id}
+                  onLike={handleLike}
+                  onSave={handleSave}
+                  onComment={() => {}}
+                  onToggleFollow={handleToggleFollow}
+                  onToggleRepost={handleToggleRepost}
+                  onEdit={setEditingPost}
+                  onDelete={handleDeletePost}
+                  onGuestAction={() => setGuestPromptOpen(true)}
+                />
+              ))}
+            </div>
+          ))}
+
           {/* Feed */}
-          {view === "feed" && (loading ? (
+          {view === "feed" && !showSaved && (loading ? (
             <div className="space-y-4">
               {[1,2,3].map(i => (
                 <div key={i} className="terminal-window p-5 animate-pulse space-y-3">

@@ -19,8 +19,13 @@ export default async function sitemap() {
   // institutions/pricing) are real static pages too (see
   // app/[slug]/page.jsx's generateStaticParams) and get the same priority
   // tiers the old devert.in/campus/* entries used.
-  const sectionPriority = { contests: 0.8, learning: 0.8, practice: 0.8, campuses: 0.7, institutions: 0.7, pricing: 0.7 };
-  const sectionFrequency = { contests: "daily" };
+  // GATE is a top-priority destination alongside learning/practice/contests,
+  // not a 0.7 marketing page: it is a full module with its own nav entry and
+  // the query candidates actually search for ("GATE CSE previous year
+  // questions"). monthly, because the syllabus and the PYQ bank change on the
+  // exam's annual cycle rather than week to week.
+  const sectionPriority = { contests: 0.8, learning: 0.8, practice: 0.8, gate: 0.8, campuses: 0.7, institutions: 0.7, pricing: 0.7 };
+  const sectionFrequency = { contests: "daily", gate: "monthly" };
   const staticRoutes = [
     { url: SITE, changeFrequency: "weekly", priority: 0.8 },
     ...GLOBAL_SECTIONS.map((section) => ({

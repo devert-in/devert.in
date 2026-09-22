@@ -82,20 +82,29 @@ select option {
   --campus-ink: #14172B;
   --campus-ink-soft: #5B6178;
   --campus-ink-faint: #8D93A8;
-  /* Warm orange/amber - third pivot of this token (was Indigo, then Purple/
-     Pink/Orange). --campus-teal keeps its name for the same reason the
-     comment above the .campus-theme block already gives: hundreds of shipped
-     components key their primary accent off it. #C2410C (orange-700) rather
-     than --campus-orange's own #EA580C - a touch deeper, so the primary
-     reads as its own shade rather than a duplicate of the decorative token
-     it sits right next to on stat rows/chips. */
-  --campus-teal: #C2410C;
-  --campus-teal-tint: rgba(194,65,12,0.1);
+  /* BRAND GREEN - fourth pivot, and unlike the last three not an aesthetic
+     one: this is the green from public/Logo.png, so Campus's primary finally
+     matches the mark the product ships under. (Was Indigo, then Purple, then
+     warm orange/amber - and that last one existed only to agree with a
+     photographic hanging-bulb backdrop that campusPhotoBg() has since
+     replaced with a flat canvas, which left the orange agreeing with
+     nothing.) --campus-teal keeps its NAME for the reason the comment above
+     the .campus-theme block already gives: hundreds of shipped components key
+     their primary accent off it.
+     #15803D (green-700), NOT the logo's literal neon: CampusButton's primary
+     variant and CampusTabs' active tab both paint white text directly on this
+     token (see campus-ui.jsx), and white on neon green measures ~1.5:1.
+     green-700 carries white at 4.6:1. The neon belongs on dark surfaces only
+     - see the dark block's own --campus-teal. */
+  --campus-teal: #15803D;
+  --campus-teal-tint: rgba(21,128,61,0.10);
   --campus-pink: #DB2777;
   --campus-pink-tint: rgba(219,39,119,0.1);
   --campus-orange: #EA580C;
   --campus-orange-tint: rgba(234,88,12,0.1);
-  --campus-cyan: #0891B2;
+  /* Deepened from #0891B2 so the logo's second colour is also safe to put
+     white text on (4.8:1) where it is used as a fill, not only as an icon. */
+  --campus-cyan: #0E7490;
   --campus-cyan-tint: #E1F6FA;
   --campus-gold: #A16207;
   --campus-gold-tint: #FEF3D6;
@@ -109,17 +118,19 @@ select option {
   --campus-blue-tint: #E9EFFD;
   --campus-purple: #9333EA;
   --campus-purple-tint: #F3E8FE;
-  /* Dialed back down to 0.48 (was 0.88, then 0.62) for an explicit "more
-     liquid glass" look on cards/top bar/sidebar - needed a second drop past
-     0.62 because a white fill over a light photo reads as far less
-     transparent than the same relative drop does in dark theme (low
-     background/fill contrast hides it). Paired with .campus-glass's higher
-     blur/saturate and top-sheen layer below so the busy photo backdrop still
-     doesn't fight with card text the way a plain low-alpha fill would. */
-  --campus-glass-bg: rgba(255,255,255,0.48);
+  /* Raised back to 0.72 (was 0.48). The 0.48 existed so a busy photographic
+     backdrop could read THROUGH the cards; against campusPhotoBg()'s flat
+     canvas there is no detail to show through, so a fill that low only washed
+     the cards out and cost their text contrast for nothing. */
+  --campus-glass-bg: rgba(255,255,255,0.72);
   --campus-glass-border: rgba(20,23,43,0.22);
-  --campus-gradient-primary: linear-gradient(135deg, #F97316, #C2410C);
-  --campus-gradient-hero: linear-gradient(135deg, #F3E8FF 0%, #FCE7F3 55%, #FFEDD5 100%);
+  /* FLAT, despite the token names. Both are consumed as `background` values
+     (CampusButton's primary variant, hero banners), so a solid colour is a
+     valid value and renders as a solid block - no gradient. The names stay
+     because every call site already references them; repointing the value is
+     a one-line change, renaming the token is not. */
+  --campus-gradient-primary: #15803D;
+  --campus-gradient-hero: #ECFDF5;
   /* Fixed dark chrome for "always dark, always white text" surfaces (primary
      buttons, hero banners, the sidebar logo badge) - deliberately NOT tied to
      --campus-ink (a foreground token that inverts to near-white in dark
@@ -158,11 +169,12 @@ select option {
      surface and ~7.5:1 against paper - comfortably legible without reading
      as full-emphasis text the way --campus-ink-soft does. */
   --campus-ink-faint: #94A3B8;
-  /* #F97316 (orange-500) - distinct from --campus-orange's own #FB923C
-     (orange-400, lighter/yellower) below, same reasoning as the light block
-     above: primary and decorative must not read as the same swatch. */
-  --campus-teal: #F97316;
-  --campus-teal-tint: rgba(249,115,22,0.18);
+  /* #22C55E (green-500) - the logo green, as bright as it can go while a
+     solid fill of it still carries the white text CampusButton/CampusTabs put
+     on this token. The literal neon (#00FF41) stays reserved for glows,
+     borders and icons, where nothing has to sit on top of it. */
+  --campus-teal: #22C55E;
+  --campus-teal-tint: rgba(34,197,94,0.18);
   --campus-pink: #F472B6;
   --campus-pink-tint: rgba(244,114,182,0.18);
   --campus-orange: #FB923C;
@@ -181,14 +193,14 @@ select option {
   --campus-blue-tint: rgba(96,165,250,0.14);
   --campus-purple: #C084FC;
   --campus-purple-tint: rgba(192,132,252,0.16);
-  /* Dialed back down to 0.52 (was 0.8) for the same "more liquid glass" ask
-     as the light theme above - the border goes up as the fill goes down, so
-     the card's edge stays legible against the photo once the fill itself is
-     this see-through. */
-  --campus-glass-bg: rgba(19,24,38,0.52);
+  /* Raised back to 0.76 (was 0.52) for the same reason as the light theme
+     above: that fill was compensating for a photographic backdrop which no
+     longer exists. */
+  --campus-glass-bg: rgba(19,24,38,0.76);
   --campus-glass-border: rgba(255,255,255,0.22);
-  --campus-gradient-primary: linear-gradient(135deg, #FDBA74, #F97316);
-  --campus-gradient-hero: linear-gradient(135deg, #0A0E17 0%, #3B0764 55%, #831843 100%);
+  /* Flat, same reasoning as the light block above. */
+  --campus-gradient-primary: #22C55E;
+  --campus-gradient-hero: #0A0E17;
   --campus-chrome-bg: #0A0E17;
   --campus-chrome-fg: #FFFFFF;
   --campus-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.34);
@@ -292,10 +304,12 @@ select option {
    disabled button never visually reacts to a hover it can't act on. */
 .campus-btn:not(:disabled):hover { transform: translateY(-1px); }
 .campus-btn:not(:disabled):active { transform: translateY(0); }
+/* The coloured glow this used to cast was explicitly rejected - no neon
+   light bleeding off controls. The hover lift above is the whole affordance
+   now; a plain neutral shadow keeps the button from looking inert without
+   tinting the light. */
 .campus-btn-glow:not(:disabled):hover {
-  box-shadow:
-    0 4px 14px color-mix(in srgb, var(--campus-teal) 34%, transparent),
-    0 1px 3px color-mix(in srgb, var(--campus-teal) 20%, transparent);
+  box-shadow: var(--campus-shadow-hover);
 }
 /* Sidebar nav item - inactive items get a soft surface lift on hover;
    the active item's gradient + glow is set inline (it's data-driven, not a
@@ -323,9 +337,9 @@ select option {
    pair is ~11KB total, so shipping both costs less than that flash.
    Default-hidden is the LIGHT variant, matching the provider's own dark
    default, so exactly one badge is visible even with no data-theme ancestor. */
-.campus-badge-light { display: none; }
-.campus-theme[data-theme="light"] .campus-badge-light { display: block; }
-.campus-theme[data-theme="light"] .campus-badge-dark { display: none; }
+/* The .campus-badge-dark/.campus-badge-light theme swap lived here. Gone:
+   CampusBadge now renders the single public/Logo.png mark, which carries its
+   own dark plate and needs no per-theme variant. */
 @media (prefers-reduced-motion: reduce) {
   .campus-theme * { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
 }
@@ -389,12 +403,46 @@ select option {
   100% { background-position: 0% 50%; }
 }
 
+/* THE PLATE, PLATFORM-WIDE.
+
+   public/DeVert Logo bg.png (the logo's brushed-metal circuit backing with
+   the chevrons removed), served as devert-hero-bg.jpg, sits behind EVERY
+   screen on devert.in.
+
+   IT IS body's OWN background-image, not a body::before layer. The ::before
+   version silently did nothing, and the reason is worth keeping written
+   down: `html` above sets an opaque background: #050505. That stops body's
+   background propagating to the canvas, so body paints its own background
+   box instead - and in CSS painting order a stacking context paints its
+   non-positioned descendants (step 3, body's background) AFTER its negative
+   z-index descendants (step 2, body::before). Body's black therefore
+   covered the plate on every page. Putting the image on body itself removes
+   the ordering dependency completely.
+
+   background-attachment: fixed anchors it to the viewport, so on a page many
+   screens tall the texture keeps its proportions instead of stretching down
+   the whole scroll height, and content scrolls over a stationary plate. It
+   also means .devert-surface (the top nav and its dropdowns) exposes the
+   same region of the same image, so that chrome reads as a cut-out in one
+   continuous surface. iOS Safari ignores `fixed` and falls back to `scroll`,
+   which degrades fine - the plate just travels with the page there.
+
+   background-color stays as the base under the JPEG and as the fallback if
+   the image ever 404s. The scrim is the one knob worth tuning: too opaque
+   and the plate reads as plain black (an earlier pass at 0.88-0.94 did
+   exactly that), too sheer and the circuit tracery fights small mono text. */
 body {
-  background: #050505;
+  background-color: #050505;
+  background-image: linear-gradient(rgba(5,7,12,0.62), rgba(5,7,12,0.80)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
 }
+
 
 ::selection {
   background: #00FF41;
@@ -696,3 +744,86 @@ html.proctor-active :is(img, svg, canvas, video) {
 html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-editor *) {
   -webkit-touch-callout: none;
 }
+
+/* Shared hero plate ------------------------------------------------------
+   public/devert-hero-bg.jpg is the logo's own backing art with the chevrons
+   removed - brushed metal and faint circuit tracery. Used as the hero
+   backdrop on devert.in, campus.devert.in and careers.devert.in so the three
+   sites open on the same surface.
+
+   Duplicated into each app's globals.css + public/ on purpose: each Next app
+   builds its own CSS and serves its own public/, and the jsconfig @/* source
+   sharing covers neither.
+
+   The photo rides on ::before, not on the element's own background, so the
+   scrim composites with it as one layer BEHIND the content instead of
+   tinting the content itself. isolation:isolate scopes the negative z-index
+   to this element so it cannot paint through anything else on the page. The
+   scrim is heavy and deepens downward - the plate's top-right carries bright
+   circuit detail that a headline cannot compete with. */
+.devert-hero-bg { position: relative; isolation: isolate; background-color: #0A0E17; }
+.devert-hero-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(10,14,23,0.62), rgba(10,14,23,0.82)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Full-page variant of .devert-hero-bg, for long scrolling pages (the
+   signed-in HomeDashboard).
+
+   position:fixed, NOT absolute like the hero variant. On a page several
+   viewports tall, inset:0 on an absolutely-positioned layer stretches the
+   plate across the entire scroll height and the texture smears into bands.
+   Fixed pins it to the viewport, so the plate keeps its real proportions and
+   the content scrolls over it - the same reason .campus-photo-bg::before is
+   fixed.
+
+   The scrim still deepens downward, but it is deliberately light enough
+   plate's circuit tracery competes with small mono text far more than it
+   plate's circuit tracery competes with small mono text far more than it
+   does with a 4rem masthead. */
+.devert-page-bg { position: relative; isolation: isolate; background-color: #05070C; }
+.devert-page-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(rgba(5,7,12,0.58), rgba(5,7,12,0.76)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  z-index: -1;
+  pointer-events: none;
+}
+
+
+
+/* Floating chrome cut from the same plate as the page.
+
+   The desktop top pill and its dropdowns were a white Google-Material
+   surface - a deliberate one-off at the time, and badly out of place once
+   the whole platform moved onto the dark plate: two white slabs floating on
+   brushed metal.
+
+   background-attachment: fixed is what makes this work rather than just
+   being 'a dark panel'. The plate is positioned against the VIEWPORT, not
+   against each element, so the pill and every dropdown expose the same
+   region of the same image that body::before is painting behind them - they
+   read as cut-outs in one continuous surface instead of as separate tiles
+   each showing their own crop of the texture.
+
+   The scrim is heavier here than on body::before: this sits directly under
+   13px nav labels, which need more separation from the circuit tracery than
+   page content sitting inside its own cards does. */
+.devert-surface {
+  background-image: linear-gradient(rgba(8,11,18,0.88), rgba(8,11,18,0.93)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+

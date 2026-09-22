@@ -88,20 +88,29 @@ body {
   --campus-ink: #14172B;
   --campus-ink-soft: #5B6178;
   --campus-ink-faint: #8D93A8;
-  /* Warm orange/amber - third pivot of this token (was Indigo, then Purple/
-     Pink/Orange). --campus-teal keeps its name for the same reason the
-     comment above the .campus-theme block already gives: hundreds of shipped
-     components key their primary accent off it. #C2410C (orange-700) rather
-     than --campus-orange's own #EA580C - a touch deeper, so the primary
-     reads as its own shade rather than a duplicate of the decorative token
-     it sits right next to on stat rows/chips. */
-  --campus-teal: #C2410C;
-  --campus-teal-tint: rgba(194,65,12,0.1);
+  /* BRAND GREEN - fourth pivot, and unlike the last three not an aesthetic
+     one: this is the green from public/Logo.png, so Campus's primary finally
+     matches the mark the product ships under. (Was Indigo, then Purple, then
+     warm orange/amber - and that last one existed only to agree with a
+     photographic hanging-bulb backdrop that campusPhotoBg() has since
+     replaced with a flat canvas, which left the orange agreeing with
+     nothing.) --campus-teal keeps its NAME for the reason the comment above
+     the .campus-theme block already gives: hundreds of shipped components key
+     their primary accent off it.
+     #15803D (green-700), NOT the logo's literal neon: CampusButton's primary
+     variant and CampusTabs' active tab both paint white text directly on this
+     token (see campus-ui.jsx), and white on neon green measures ~1.5:1.
+     green-700 carries white at 4.6:1. The neon belongs on dark surfaces only
+     - see the dark block's own --campus-teal. */
+  --campus-teal: #15803D;
+  --campus-teal-tint: rgba(21,128,61,0.10);
   --campus-pink: #DB2777;
   --campus-pink-tint: rgba(219,39,119,0.1);
   --campus-orange: #EA580C;
   --campus-orange-tint: rgba(234,88,12,0.1);
-  --campus-cyan: #0891B2;
+  /* Deepened from #0891B2 so the logo's second colour is also safe to put
+     white text on (4.8:1) where it is used as a fill, not only as an icon. */
+  --campus-cyan: #0E7490;
   --campus-cyan-tint: #E1F6FA;
   --campus-gold: #A16207;
   --campus-gold-tint: #FEF3D6;
@@ -115,17 +124,19 @@ body {
   --campus-blue-tint: #E9EFFD;
   --campus-purple: #9333EA;
   --campus-purple-tint: #F3E8FE;
-  /* Dialed back down to 0.48 (was 0.88, then 0.62) for an explicit "more
-     liquid glass" look on cards/top bar/sidebar - needed a second drop past
-     0.62 because a white fill over a light photo reads as far less
-     transparent than the same relative drop does in dark theme (low
-     background/fill contrast hides it). Paired with .campus-glass's higher
-     blur/saturate and top-sheen layer below so the busy photo backdrop still
-     doesn't fight with card text the way a plain low-alpha fill would. */
-  --campus-glass-bg: rgba(255,255,255,0.48);
+  /* Raised back to 0.72 (was 0.48). The 0.48 existed so a busy photographic
+     backdrop could read THROUGH the cards; against campusPhotoBg()'s flat
+     canvas there is no detail to show through, so a fill that low only washed
+     the cards out and cost their text contrast for nothing. */
+  --campus-glass-bg: rgba(255,255,255,0.72);
   --campus-glass-border: rgba(20,23,43,0.22);
-  --campus-gradient-primary: linear-gradient(135deg, #F97316, #C2410C);
-  --campus-gradient-hero: linear-gradient(135deg, #F3E8FF 0%, #FCE7F3 55%, #FFEDD5 100%);
+  /* FLAT, despite the token names. Both are consumed as `background` values
+     (CampusButton's primary variant, hero banners), so a solid colour is a
+     valid value and renders as a solid block - no gradient. The names stay
+     because every call site already references them; repointing the value is
+     a one-line change, renaming the token is not. */
+  --campus-gradient-primary: #15803D;
+  --campus-gradient-hero: #ECFDF5;
   /* Fixed dark chrome for "always dark, always white text" surfaces (primary
      buttons, hero banners, the sidebar logo badge) - deliberately NOT tied to
      --campus-ink (a foreground token that inverts to near-white in dark
@@ -164,11 +175,12 @@ body {
      surface and ~7.5:1 against paper - comfortably legible without reading
      as full-emphasis text the way --campus-ink-soft does. */
   --campus-ink-faint: #94A3B8;
-  /* #F97316 (orange-500) - distinct from --campus-orange's own #FB923C
-     (orange-400, lighter/yellower) below, same reasoning as the light block
-     above: primary and decorative must not read as the same swatch. */
-  --campus-teal: #F97316;
-  --campus-teal-tint: rgba(249,115,22,0.18);
+  /* #22C55E (green-500) - the logo green, as bright as it can go while a
+     solid fill of it still carries the white text CampusButton/CampusTabs put
+     on this token. The literal neon (#00FF41) stays reserved for glows,
+     borders and icons, where nothing has to sit on top of it. */
+  --campus-teal: #22C55E;
+  --campus-teal-tint: rgba(34,197,94,0.18);
   --campus-pink: #F472B6;
   --campus-pink-tint: rgba(244,114,182,0.18);
   --campus-orange: #FB923C;
@@ -187,14 +199,14 @@ body {
   --campus-blue-tint: rgba(96,165,250,0.14);
   --campus-purple: #C084FC;
   --campus-purple-tint: rgba(192,132,252,0.16);
-  /* Dialed back down to 0.52 (was 0.8) for the same "more liquid glass" ask
-     as the light theme above - the border goes up as the fill goes down, so
-     the card's edge stays legible against the photo once the fill itself is
-     this see-through. */
-  --campus-glass-bg: rgba(19,24,38,0.52);
+  /* Raised back to 0.76 (was 0.52) for the same reason as the light theme
+     above: that fill was compensating for a photographic backdrop which no
+     longer exists. */
+  --campus-glass-bg: rgba(19,24,38,0.76);
   --campus-glass-border: rgba(255,255,255,0.22);
-  --campus-gradient-primary: linear-gradient(135deg, #FDBA74, #F97316);
-  --campus-gradient-hero: linear-gradient(135deg, #0A0E17 0%, #3B0764 55%, #831843 100%);
+  /* Flat, same reasoning as the light block above. */
+  --campus-gradient-primary: #22C55E;
+  --campus-gradient-hero: #0A0E17;
   --campus-chrome-bg: #0A0E17;
   --campus-chrome-fg: #FFFFFF;
   --campus-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.34);
@@ -298,10 +310,12 @@ body {
    disabled button never visually reacts to a hover it can't act on. */
 .campus-btn:not(:disabled):hover { transform: translateY(-1px); }
 .campus-btn:not(:disabled):active { transform: translateY(0); }
+/* The coloured glow this used to cast was explicitly rejected - no neon
+   light bleeding off controls. The hover lift above is the whole affordance
+   now; a plain neutral shadow keeps the button from looking inert without
+   tinting the light. */
 .campus-btn-glow:not(:disabled):hover {
-  box-shadow:
-    0 4px 14px color-mix(in srgb, var(--campus-teal) 34%, transparent),
-    0 1px 3px color-mix(in srgb, var(--campus-teal) 20%, transparent);
+  box-shadow: var(--campus-shadow-hover);
 }
 /* Sidebar nav item - inactive items get a soft surface lift on hover;
    the active item's gradient + glow is set inline (it's data-driven, not a
@@ -329,9 +343,9 @@ body {
    pair is ~11KB total, so shipping both costs less than that flash.
    Default-hidden is the LIGHT variant, matching the provider's own dark
    default, so exactly one badge is visible even with no data-theme ancestor. */
-.campus-badge-light { display: none; }
-.campus-theme[data-theme="light"] .campus-badge-light { display: block; }
-.campus-theme[data-theme="light"] .campus-badge-dark { display: none; }
+/* The .campus-badge-dark/.campus-badge-light theme swap lived here. Gone:
+   CampusBadge now renders the single public/Logo.png mark, which carries its
+   own dark plate and needs no per-theme variant. */
 @media (prefers-reduced-motion: reduce) {
   .campus-theme * { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
 }
@@ -457,9 +471,19 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
    wholesale) - only one design lives here at a time.
    ------------------------------------------------------------------- */
 .vs-scope {
-  --vs-bg: #dcc6a3; --vs-ink: #17140f; --vs-ink-soft: #5b5142; --vs-ink-faint: #8a7f6c;
-  --vs-panel: #12131b; --vs-panel-2: #333a4d; --vs-line: rgba(23,20,15,0.14);
-  --vs-line-dark: rgba(255,255,255,0.1); --vs-cream: #f4efe3;
+  /* THE TAN LIVED HERE. --vs-bg was #dcc6a3 and --vs-cream #f4efe3: a warm
+     sand canvas with cream-on-charcoal panels. This "Vista" scope is its own
+     mini design system layered over the Campus tokens for the landing page's
+     pitch bands only, which is why repainting --campus-* alone left the
+     homepage still looking like coffee.
+     Now the logo's own palette: near-black canvas, neutral-cool foregrounds,
+     and the green/cyan as the only accents. */
+  --vs-bg: #0A0E17; --vs-ink: #F2F6FA; --vs-ink-soft: #A7B2C4; --vs-ink-faint: #76829A;
+  --vs-panel: #121826; --vs-panel-2: #1B2333; --vs-line: rgba(255,255,255,0.14);
+  --vs-line-dark: rgba(255,255,255,0.1); --vs-cream: #F2F6FA;
+  /* Straight from public/Logo.png. --vs-on-accent is the only thing that may
+     sit ON them: white on neon green is ~1.5:1, near-black is ~14:1. */
+  --vs-accent: #00FF41; --vs-accent-2: #00D8FF; --vs-on-accent: #05080F;
   font-family: var(--vs-body), ui-sans-serif, system-ui, sans-serif;
   color: var(--vs-ink); background: var(--vs-bg); -webkit-font-smoothing: antialiased;
 }
@@ -468,13 +492,30 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 .vs-scope a { text-decoration: none; }
 .vs-shell { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
 
-.vs-canvas { padding: 64px 0 60px; }
+/* The brushed-metal circuit plate behind the hero (public/devert-hero-bg.jpg,
+   the logo's own backing art with the chevrons removed). ::before rather than a
+   background on .vs-canvas itself so the scrim and the photo compose as one
+   layer behind the content without tinting it; isolation:isolate keeps the
+   negative z-index scoped here instead of punching through the page. The scrim
+   is heavy and gets heavier downward - the plate's top-right corner carries
+   bright circuit tracery that headline text cannot compete with. */
+.vs-canvas { padding: 64px 0 60px; position: relative; isolation: isolate; }
+.vs-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(10,14,23,0.62), rgba(10,14,23,0.82)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  z-index: -1;
+  pointer-events: none;
+}
 .vs-hero-copy { max-width: 760px; margin: 0 auto; text-align: center; }
 .vs-hero-copy h1 { font-size: clamp(2.1rem, 4.6vw, 3.1rem); font-weight: 800; line-height: 1.14; margin-bottom: 22px; text-wrap: balance; }
-.vs-pill { display: inline-block; background: var(--vs-ink); color: var(--vs-cream); padding: 2px 16px 6px; border-radius: 999px; }
+.vs-pill { display: inline-block; background: var(--vs-accent); color: var(--vs-on-accent); padding: 2px 16px 6px; border-radius: 999px; }
 .vs-hero-copy p { font-size: 15.5px; color: var(--vs-ink-soft); max-width: 56ch; margin: 0 auto 30px; line-height: 1.6; }
 .vs-hero-actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 48px; }
-.vs-btn { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; padding: 11px 20px; border-radius: 999px; background: var(--vs-ink); color: var(--vs-cream); border: 1px solid var(--vs-ink); transition: opacity 120ms ease; }
+.vs-btn { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; padding: 11px 20px; border-radius: 999px; background: var(--vs-accent); color: var(--vs-on-accent); border: 1px solid var(--vs-accent); transition: opacity 120ms ease; }
 .vs-btn:hover { opacity: 0.85; }
 .vs-btn.outline { background: transparent; color: var(--vs-ink); border-color: var(--vs-line); }
 .vs-btn.outline.light { color: var(--vs-cream); border-color: var(--vs-line-dark); }
@@ -483,12 +524,12 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 .vs-dash-wrap { max-width: 420px; margin: 0 auto; }
 .vs-dash { background: var(--vs-panel); border-radius: 20px; padding: 22px 24px; box-shadow: 0 30px 60px -24px rgba(17,15,10,0.45); }
 .vs-dash-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-.vs-dash-star { width: 26px; height: 26px; border-radius: 50%; background: var(--vs-cream); color: var(--vs-panel); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.vs-dash-star { width: 26px; height: 26px; border-radius: 50%; background: var(--vs-accent); color: var(--vs-on-accent); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
 .vs-dash-title { color: var(--vs-cream); font-weight: 700; font-size: 15px; }
 .vs-stat-list { display: flex; flex-direction: column; }
 .vs-stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--vs-line-dark); font-size: 13.5px; }
 .vs-stat-row:first-child { border-top: none; }
-.vs-stat-row span { color: rgba(244,239,227,0.65); }
+.vs-stat-row span { color: rgba(242,246,250,0.65); }
 .vs-stat-row b { color: var(--vs-cream); font-size: 17px; font-variant-numeric: tabular-nums; }
 
 .vs-section { padding: 20px 0 44px; }
@@ -497,40 +538,40 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 .vs-panel { background: var(--vs-panel); border-radius: 28px; padding: 40px 40px 44px; color: var(--vs-cream); }
 .vs-panel-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 28px; }
 .vs-panel-head h2 { color: #fff; font-size: clamp(1.5rem, 2.8vw, 1.9rem); font-weight: 700; line-height: 1.2; margin-bottom: 10px; max-width: 22ch; text-wrap: balance; }
-.vs-panel-head p { color: rgba(244,239,227,0.62); font-size: 13.5px; line-height: 1.6; max-width: 46ch; margin: 0; }
-.vs-live-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: rgba(244,239,227,0.72); white-space: nowrap; }
+.vs-panel-head p { color: rgba(242,246,250,0.62); font-size: 13.5px; line-height: 1.6; max-width: 46ch; margin: 0; }
+.vs-live-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: rgba(242,246,250,0.72); white-space: nowrap; }
 .vs-live-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: #6fd18a; }
 
 .vs-plan-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
 @media (max-width: 860px) { .vs-plan-grid { grid-template-columns: 1fr; } }
-.vs-plan-card, .vs-pick-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 24px; border: 1px solid rgba(244,239,227,0.1); }
+.vs-plan-card, .vs-pick-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 24px; border: 1px solid rgba(242,246,250,0.1); }
 .vs-plan-route { display: flex; align-items: center; gap: 14px; font-size: 14px; margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--vs-line-dark); }
 .vs-plan-route b { display: block; font-size: 15px; }
-.vs-plan-route small { display: block; color: rgba(244,239,227,0.5); font-size: 11px; margin-top: 2px; }
-.vs-plan-route .arrow { color: rgba(244,239,227,0.4); }
+.vs-plan-route small { display: block; color: rgba(242,246,250,0.5); font-size: 11px; margin-top: 2px; }
+.vs-plan-route .arrow { color: rgba(242,246,250,0.4); }
 .vs-plan-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-bottom: 18px; }
-.vs-plan-fields label { display: block; font-size: 10px; letter-spacing: 0.06em; color: rgba(244,239,227,0.45); }
+.vs-plan-fields label { display: block; font-size: 10px; letter-spacing: 0.06em; color: rgba(242,246,250,0.45); }
 .vs-plan-fields label span { display: block; font-size: 13.5px; color: var(--vs-cream); font-weight: 500; margin-top: 5px; }
 .vs-plan-checks { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
-.vs-plan-checks span { font-size: 11.5px; color: rgba(244,239,227,0.45); background: rgba(244,239,227,0.06); padding: 5px 11px; border-radius: 999px; }
-.vs-plan-checks span.on { color: var(--vs-panel); background: var(--vs-cream); }
+.vs-plan-checks span { font-size: 11.5px; color: rgba(242,246,250,0.45); background: rgba(242,246,250,0.06); padding: 5px 11px; border-radius: 999px; }
+.vs-plan-checks span.on { color: var(--vs-on-accent); background: var(--vs-accent); }
 .vs-plan-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.vs-plan-foot span { font-size: 11.5px; color: rgba(244,239,227,0.45); }
+.vs-plan-foot span { font-size: 11.5px; color: rgba(242,246,250,0.45); }
 
-.vs-pick-tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; background: rgba(244,239,227,0.1); padding: 4px 10px; border-radius: 999px; margin-bottom: 14px; }
+.vs-pick-tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; background: rgba(242,246,250,0.1); padding: 4px 10px; border-radius: 999px; margin-bottom: 14px; }
 .vs-pick-card h3 { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
-.vs-pick-card p { font-size: 12.5px; line-height: 1.6; color: rgba(244,239,227,0.6); margin-bottom: 16px; }
+.vs-pick-card p { font-size: 12.5px; line-height: 1.6; color: rgba(242,246,250,0.6); margin-bottom: 16px; }
 .vs-pick-stats { display: flex; gap: 8px; flex-wrap: wrap; }
-.vs-pick-stats span { font-size: 11px; color: rgba(244,239,227,0.7); border: 1px solid var(--vs-line-dark); padding: 4px 10px; border-radius: 999px; }
+.vs-pick-stats span { font-size: 11px; color: rgba(242,246,250,0.7); border: 1px solid var(--vs-line-dark); padding: 4px 10px; border-radius: 999px; }
 
 .vs-panel.dark { background: var(--vs-panel); }
 .vs-feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-.vs-feature-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 22px; border: 1px solid rgba(244,239,227,0.1); }
-.vs-feature-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: rgba(244,239,227,0.08); font-size: 15px; margin-bottom: 16px; }
+.vs-feature-card { background: var(--vs-panel-2); border-radius: 18px; padding: 22px 22px; border: 1px solid rgba(242,246,250,0.1); }
+.vs-feature-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: rgba(242,246,250,0.08); font-size: 15px; margin-bottom: 16px; }
 .vs-feature-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-.vs-feature-card p { font-size: 12.5px; line-height: 1.6; color: rgba(244,239,227,0.6); }
+.vs-feature-card p { font-size: 12.5px; line-height: 1.6; color: rgba(242,246,250,0.6); }
 .vs-track-list { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
-.vs-track-list span { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(244,239,227,0.75); }
+.vs-track-list span { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(242,246,250,0.75); }
 .vs-track-list i { width: 5px; height: 5px; border-radius: 50%; background: #6fd18a; display: inline-block; font-style: normal; }
 
 /* Pricing/FAQ (PricingBand/FaqBand) - same dark-panel-on-tan language as the
@@ -548,43 +589,43 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 .vs-pricing-note { text-align: center; font-size: 13px; color: var(--vs-ink-soft); max-width: 60ch; margin: 0 auto 30px; }
 
 .vs-plan-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
-.vs-plan-tile { background: var(--vs-panel-2); border-radius: 16px; padding: 18px 18px; display: flex; flex-direction: column; border: 1px solid rgba(244,239,227,0.1); }
-.vs-plan-tile.featured { border-color: rgba(244,239,227,0.35); }
+.vs-plan-tile { background: var(--vs-panel-2); border-radius: 16px; padding: 18px 18px; display: flex; flex-direction: column; border: 1px solid rgba(242,246,250,0.1); }
+.vs-plan-tile.featured { border-color: rgba(242,246,250,0.35); }
 .vs-plan-tile-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; min-height: 20px; }
 .vs-plan-tile-top span:first-child { font-size: 12.5px; font-weight: 700; color: var(--vs-cream); }
-.vs-plan-tile-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; background: rgba(244,239,227,0.12); color: var(--vs-cream); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.vs-plan-tile-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; background: rgba(242,246,250,0.12); color: var(--vs-cream); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
 .vs-plan-tile-price { display: flex; align-items: baseline; gap: 5px; margin-bottom: 4px; }
 .vs-plan-tile-price b { font-size: 24px; font-weight: 800; color: #fff; }
-.vs-plan-tile-price span { font-size: 11px; color: rgba(244,239,227,0.45); }
+.vs-plan-tile-price span { font-size: 11px; color: rgba(242,246,250,0.45); }
 .vs-plan-tile-save { font-size: 10.5px; color: #8fd9a3; min-height: 14px; margin-bottom: 8px; }
-.vs-plan-tile-blurb { font-size: 11.5px; color: rgba(244,239,227,0.5); line-height: 1.5; margin-bottom: 14px; flex: 1; }
+.vs-plan-tile-blurb { font-size: 11.5px; color: rgba(242,246,250,0.5); line-height: 1.5; margin-bottom: 14px; flex: 1; }
 
 .vs-lifetime-card { background: var(--vs-panel-2); border-radius: 18px; padding: 24px 26px; display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; border: 1px solid rgba(255,215,0,0.2); }
 .vs-lifetime-icon { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,215,0,0.12); color: #ffd700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .vs-lifetime-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
-.vs-lifetime-meta { font-size: 11.5px; color: rgba(244,239,227,0.5); margin-bottom: 14px; }
+.vs-lifetime-meta { font-size: 11.5px; color: rgba(242,246,250,0.5); margin-bottom: 14px; }
 .vs-lifetime-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px; }
 .vs-lifetime-price b { font-size: 26px; font-weight: 800; color: #fff; }
 .vs-lifetime-perks { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 20px; }
-.vs-lifetime-perks span { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: rgba(244,239,227,0.7); }
+.vs-lifetime-perks span { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: rgba(242,246,250,0.7); }
 
 .vs-compare-wrap { overflow-x: auto; margin-bottom: 20px; border-radius: 18px; background: var(--vs-panel-2); }
 .vs-compare { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 480px; }
-.vs-compare th { text-align: left; font-weight: 600; padding: 14px 18px; color: rgba(244,239,227,0.45); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 1px solid var(--vs-line-dark); }
-.vs-compare td { padding: 11px 18px; border-bottom: 1px solid var(--vs-line-dark); color: rgba(244,239,227,0.8); }
+.vs-compare th { text-align: left; font-weight: 600; padding: 14px 18px; color: rgba(242,246,250,0.45); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 1px solid var(--vs-line-dark); }
+.vs-compare td { padding: 11px 18px; border-bottom: 1px solid var(--vs-line-dark); color: rgba(242,246,250,0.8); }
 .vs-compare tr:last-child td { border-bottom: none; }
 .vs-compare td:first-child { color: var(--vs-cream); font-weight: 500; }
-.vs-compare td.dash { color: rgba(244,239,227,0.3); }
+.vs-compare td.dash { color: rgba(242,246,250,0.3); }
 
 .vs-licence-card { background: var(--vs-panel-2); border-radius: 18px; padding: 24px 26px; display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
-.vs-licence-icon { width: 42px; height: 42px; border-radius: 12px; background: rgba(244,239,227,0.08); color: var(--vs-cream); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.vs-licence-icon { width: 42px; height: 42px; border-radius: 12px; background: rgba(242,246,250,0.08); color: var(--vs-cream); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .vs-licence-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-.vs-licence-meta { font-size: 11.5px; color: rgba(244,239,227,0.5); margin-bottom: 10px; }
-.vs-licence-card p { font-size: 13px; color: rgba(244,239,227,0.6); line-height: 1.6; max-width: 60ch; }
+.vs-licence-meta { font-size: 11.5px; color: rgba(242,246,250,0.5); margin-bottom: 10px; }
+.vs-licence-card p { font-size: 13px; color: rgba(242,246,250,0.6); line-height: 1.6; max-width: 60ch; }
 
 .vs-faq-list { border-top: 1px solid var(--vs-line-dark); }
 .vs-faq-row { border-bottom: 1px solid var(--vs-line-dark); }
 .vs-faq-q { width: 100%; display: flex; align-items: center; gap: 16px; text-align: left; padding: 18px 4px; background: none; border: none; cursor: pointer; color: var(--vs-cream); font-size: 14.5px; font-weight: 500; }
-.vs-faq-q .ico { margin-left: auto; color: rgba(244,239,227,0.4); flex-shrink: 0; }
-.vs-faq-a { font-size: 13.5px; line-height: 1.65; color: rgba(244,239,227,0.6); padding: 0 4px 22px; max-width: 76ch; }
+.vs-faq-q .ico { margin-left: auto; color: rgba(242,246,250,0.4); flex-shrink: 0; }
+.vs-faq-a { font-size: 13.5px; line-height: 1.65; color: rgba(242,246,250,0.6); padding: 0 4px 22px; max-width: 76ch; }
 

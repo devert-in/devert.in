@@ -39,8 +39,9 @@ export const STARTER_CODE = {
   c: "#include <stdio.h>\n\nint main() {\n    \n    return 0;\n}\n",
 };
 
-// Phase 1: five languages, kept in sync with Judge0Service's LANGUAGE_IDS map on
-// devert-backend - adding a language means updating both places.
+// Phase 1: five languages, kept in sync with CodeExecutionService's
+// COMPILER_IDS map on devert-backend - adding a language means updating both
+// places.
 export const CODELAB_LANGUAGES = [
   { id: "java",       label: "Java",       monacoId: "java" },
   { id: "python",     label: "Python",     monacoId: "python" },
@@ -209,8 +210,8 @@ export async function fetchTopSolvers(topN = 20) {
 }
 
 // Runs code against arbitrary stdin (Playground) or a problem's sample tests (Run in
-// Problem view) - no grading, no XP, proxied through devert-backend so the Judge0 key
-// never reaches the browser.
+// Problem view) - no grading, no XP, proxied through devert-backend so the
+// OnlineCompiler.io key never reaches the browser.
 export async function runCode({ language, code, stdin }) {
   const base = apiUrl();
   if (!base) throw new Error("Code execution isn't configured yet (NEXT_PUBLIC_API_URL is unset).");

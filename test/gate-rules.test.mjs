@@ -19,13 +19,14 @@
 //
 // Run with: npm test   (or `node --test test/` against a running emulator)
 import test from "node:test";
+import assert from "node:assert/strict";
 import { readFileSync } from "fs";
 import {
   initializeTestEnvironment,
   assertSucceeds,
   assertFails,
 } from "@firebase/rules-unit-testing";
-import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs, getCountFromServer } from "firebase/firestore";
 
 let testEnv;
 
@@ -72,6 +73,72 @@ test("a student reads published GATE content but never drafts", async () => {
   await assertFails(db.doc("gatePapers/cs/subjects/algorithms/topics/unfinished").get());
   await assertSucceeds(db.doc("gate_pyqs/pyq1").get());
   await assertFails(db.doc("gate_pyqs/pyq-draft").get());
+});
+
+// ── the PDF-extracted draft bank ────────────────────────────────────────────
+//
+// scripts/extract-gate-pyqs.mjs imports over a thousand questions pulled out of
+// the official question-paper PDFs, every one as status:"draft" because the
+// source papers carry NO answer keys and the extraction loses mathematical
+// symbols. The single property that makes that import safe is that a draft is
+// unreachable from every student-facing path - not just from a direct get(),
+// which is all the test above proves, but from the LIST and COUNT queries the
+// product actually issues. Those are separately provable in firestore.rules and
+// have their own failure modes, so they get their own tests.
+
+test("fetchPyqs' real query shape is permitted, and returns no drafts", async () => {
+  const student = testEnv.authenticatedContext("student-uid");
+  const db = student.firestore();
+  // Exactly the query lib/gatePyq.js's fetchPyqs() builds for a non-admin.
+  const snap = await assertSucceeds(getDocs(query(
+    collection(db, "gate_pyqs"),
+    where("paperId", "==", "cs"),
+    where("status", "==", "published"),
+  )));
+  assert.deepEqual(snap.docs.map(d => d.id), ["pyq1"]);
+});
+
+test("dropping the status filter denies the whole PYQ list rather than leaking drafts", async () => {
+  const student = testEnv.authenticatedContext("student-uid");
+  const db = student.firestore();
+  // The trap lib/programming.js's fetchLanguages comment warns about: an
+  // unfiltered list is DENIED outright, it does not quietly return the
+  // published subset. So "filter client-side instead" is not an option a
+  // future change can accidentally take.
+  await assertFails(getDocs(query(collection(db, "gate_pyqs"), where("paperId", "==", "cs"))));
+  await assertFails(getDocs(collection(db, "gate_pyqs")));
+});
+
+test("the landing page's PYQ count works signed-out and excludes drafts", async () => {
+  // lib/campusCatalog.js's countPublishedPyqs(), issued by an anonymous
+  // visitor on campus.devert.in. Two ways this breaks silently and both are
+  // covered here: if rules denied it the landing page would show a dash
+  // forever, and if the filter were dropped the advertised figure would
+  // include every unreviewed PDF extraction.
+  const visitor = testEnv.unauthenticatedContext();
+  const snap = await assertSucceeds(getCountFromServer(query(
+    collection(visitor.firestore(), "gate_pyqs"),
+    where("status", "==", "published"),
+  )));
+  assert.equal(snap.data().count, 1);
+});
+
+test("an unfiltered PYQ count is denied, so drafts can never be counted", async () => {
+  const visitor = testEnv.unauthenticatedContext();
+  await assertFails(getCountFromServer(collection(visitor.firestore(), "gate_pyqs")));
+});
+
+test("the landing page's GATE paper query works signed-out", async () => {
+  // lib/campusCatalog.js's fetchGatePapers(). Same filters lib/gate.js's
+  // fetchPapers() uses; pinned here because the landing page is the one caller
+  // that issues it with no signed-in user at all.
+  const visitor = testEnv.unauthenticatedContext();
+  const snap = await assertSucceeds(getDocs(query(
+    collection(visitor.firestore(), "gatePapers"),
+    where("status", "==", "published"),
+    where("audiences", "array-contains-any", ["public", "legacy"]),
+  )));
+  assert.deepEqual(snap.docs.map(d => d.id), ["cs"]);
 });
 
 test("a student can never write GATE catalog content", async () => {

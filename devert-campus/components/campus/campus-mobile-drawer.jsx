@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X, ChevronRight, ChevronDown } from "lucide-react";
-import { CAMPUS, tint } from "@/lib/campus-theme";
+import { CAMPUS } from "@/lib/campus-theme";
 import { NAV_ITEMS, GROUP_ORDER, NAV_GROUP_LABELS } from "@/lib/campusNavConfig";
 import { MANAGE_TABS } from "@/components/campus/campus-manage";
 import { TRACK_CATALOG } from "@/lib/dailyLearning";
@@ -162,7 +162,7 @@ export function CampusMobileDrawer({
   const rowStyle = (active) => ({
     background: active ? CAMPUS.gradientPrimary : "transparent",
     color: active ? "#fff" : CAMPUS.ink,
-    boxShadow: active ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
+    boxShadow: active ? CAMPUS.shadow : "none",
   });
 
   return (

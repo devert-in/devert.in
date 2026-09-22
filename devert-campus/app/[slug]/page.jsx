@@ -30,17 +30,24 @@ export async function generateStaticParams() {
 // is actually reachable there rather than the single surface each route started
 // life as.
 const GLOBAL_SECTION_METADATA = {
-  contests: { title: "Contests | DeVert Campus", description: "Compete in open coding contests - real submissions and ranks, no college required." },
-  learning: { title: "Learn | DeVert Campus", description: "Programming languages, CS Core subjects, software engineering fundamentals and aptitude - one central curriculum, open to anyone." },
-  practice: { title: "Practice | DeVert Campus", description: "DSA problems graded against real test cases, curated sheets, concept roadmaps and company-wise interview prep." },
+  contests: { title: "Contests", description: "Compete in open coding contests - real submissions and ranks, no college required." },
+  learning: { title: "Learn", description: "Programming languages, CS Core subjects, software engineering fundamentals and aptitude - one central curriculum, open to anyone." },
+  practice: { title: "Practice", description: "DSA problems graded against real test cases, curated sheets, concept roadmaps and company-wise interview prep." },
+  // Titled for what candidates actually search - "GATE CSE previous year
+  // questions" - rather than for the internal module name, and naming the
+  // paper codes (CS/DA) because that is how the exam itself is referred to.
+  gate: {
+    title: "GATE CSE Preparation & Previous Year Questions",
+    description: "Prepare for GATE CS & DA - the full syllabus subject by subject, previous year questions sliced by year, subject and topic, mock tests, a mistakes notebook and per-topic analytics. Free and open to everyone.",
+  },
   // The three former landing-page sections, now real pages (see
   // LANDING_PAGE_SECTIONS) - each with its own title/description precisely so
   // it can rank and be shared as itself rather than as a fragment of /campus.
-  campuses: { title: "Campuses | DeVert Campus", description: "Every college running DeVert Campus. Find yours and request access - your Training & Placement Cell approves it." },
-  institutions: { title: "For institutions | DeVert Campus", description: "Daily Learning scheduling, assessments, contests, leaderboards and role-based dashboards for principals, HODs, faculty and placement cells." },
-  pricing: { title: "Pricing | DeVert Campus", description: "Free to learn. Individual Premium is ₹29 a month per learner, down to ₹19.1 a month on the yearly plan, with an 11-day free trial; a campus licence is quoted per institution." },
-  "daily-learning": { title: "Daily Learning for institutions | DeVert Campus", description: "Schedule structured weekly learning plans for every batch, track classroom and department progress, and turn daily learning into a campus-wide habit." },
-  assessments: { title: "Assessments & Contests for institutions | DeVert Campus", description: "Create assessments and coding contests, auto-evaluate submissions, rank performance, and surface placement readiness for your students." },
+  campuses: { title: "Campuses", description: "Every college running DeVert Campus. Find yours and request access - your Training & Placement Cell approves it." },
+  institutions: { title: "For institutions", description: "Daily Learning scheduling, assessments, contests, leaderboards and role-based dashboards for principals, HODs, faculty and placement cells." },
+  pricing: { title: "Pricing", description: "Free to learn. Individual Premium is ₹29 a month per learner, down to ₹19.1 a month on the yearly plan, with an 11-day free trial; a campus licence is quoted per institution." },
+  "daily-learning": { title: "Daily Learning for institutions", description: "Schedule structured weekly learning plans for every batch, track classroom and department progress, and turn daily learning into a campus-wide habit." },
+  assessments: { title: "Assessments & Contests for institutions", description: "Create assessments and coding contests, auto-evaluate submissions, rank performance, and surface placement readiness for your students." },
 };
 
 export async function generateMetadata({ params }) {

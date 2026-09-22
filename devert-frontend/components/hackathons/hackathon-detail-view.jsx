@@ -288,7 +288,7 @@ export function HackathonDetailView({ slug, onBack }) {
   // selectedSlug without navigating). The standalone /h/[slug] route
   // (app/h/[slug]/page.jsx, a real server component now - see hackathon-seo.js)
   // renders this with no onBack at all, so it needs a real navigation instead.
-  const handleBack = onBack || (() => router.push("/hackathons"));
+  const handleBack = onBack || (() => router.push("/events"));
 
   const [hackathon,  setHackathon]  = useState(null);
   const [loading,    setLoading]    = useState(true);
@@ -1025,8 +1025,14 @@ export function HackathonDetailView({ slug, onBack }) {
             {/* ── Right (1/3): prizes + dates + actions ── */}
             <div className="space-y-5">
 
-              {/* Prizes (hackathons only) */}
-              {isHack && hackathon.prizes?.length > 0 && (
+              {/* Prizes (hackathons only) - gated on at least one prize
+                  actually having a reward filled in, not just the array
+                  being non-empty. A seed script can create the three
+                  1st/2nd/3rd placeholder rows before amounts are finalized
+                  (reward: ""), and rendering those unconditionally showed a
+                  Prizes panel with visibly blank amounts instead of staying
+                  hidden until real data exists. */}
+              {isHack && hackathon.prizes?.some(p => p.reward?.trim()) && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="terminal-window">
                   <div className="terminal-header">
@@ -1037,7 +1043,7 @@ export function HackathonDetailView({ slug, onBack }) {
                     <span className="font-mono text-[10px] text-white/25 ml-1">prizes.json</span>
                   </div>
                   <div className="p-5 space-y-3">
-                    {hackathon.prizes.map((p, i) => (
+                    {hackathon.prizes.filter(p => p.reward?.trim()).map((p, i) => (
                       <div key={i} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
                         <Award size={16} className="flex-shrink-0" style={{ color: PLACE_COLORS[p.place] || "rgba(255,255,255,0.3)" }} />
                         <div className="flex-1 min-w-0">

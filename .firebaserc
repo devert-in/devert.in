@@ -11,6 +11,9 @@
         ],
         "campus": [
           "devert-campus"
+        ],
+        "careers": [
+          "devert-careers"
         ]
       }
     }

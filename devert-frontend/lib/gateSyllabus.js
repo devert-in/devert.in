@@ -35,9 +35,33 @@
 
 import { db } from "@/lib/firebase";
 import { doc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { AUDIENCE_PUBLIC, AUDIENCE_LEGACY } from "@/lib/audiences";
 
+// "+" is stripped away by the general non-alphanumeric collapse below like
+// any other punctuation, which used to silently collide "Indexing: B Trees"
+// and "Indexing: B+ Trees" (Databases) onto the identical id
+// "indexing-b-trees" - the second write in seedPaper()'s batch overwrote the
+// first, permanently missing one official syllabus topic. Transliterating
+// "+" to "plus" first keeps it a real, distinguishing part of the slug
+// instead of vanishing. "B+ Trees" is the only "+"-bearing title in this
+// file today, so this can't retroactively change (and orphan) any other
+// already-seeded topic's id.
 function slug(text) {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return text.toLowerCase().replace(/\+/g, "-plus")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+// Same default as lib/roadmaps.js's defaultAudiences() - contentReadable()
+// in firestore.rules requires a non-empty `audiences` array or the document
+// is invisible to every reader with no error anywhere (see doc section 6a).
+// This was the one content-seeding path that never set it: seedPaper() wrote
+// papers/subjects/topics with no `audiences` field at all, silently masked
+// for the papers seeded so far only because a one-off backfill script
+// happened to run shortly after. Any future re-seed or new paper (GATE
+// EC/EE, already anticipated in GATE_PAPER_CATALOG) would otherwise ship
+// invisible.
+function defaultAudiences() {
+  return [AUDIENCE_PUBLIC, AUDIENCE_LEGACY];
 }
 
 // ---------------- General Aptitude (common to every GATE paper) ----------------
@@ -950,6 +974,7 @@ export async function seedPaper(paperId, { onProgress } = {}) {
       status: "published",
       totalMarks: 100, durationMinutes: 180, questionCount: 65,
       syllabusVersion: "GATE 2027",
+      audiences: defaultAudiences(),
       seededAt: serverTimestamp(), updatedAt: serverTimestamp(),
     },
   });
@@ -963,6 +988,7 @@ export async function seedPaper(paperId, { onProgress } = {}) {
         weightageMarks: subject.weightageMarks, estimatedHours: subject.estimatedHours,
         description: subject.description, topicCount,
         daOnly: !!subject.daOnly,
+        audiences: defaultAudiences(),
         updatedAt: serverTimestamp(),
       },
     });
@@ -977,6 +1003,7 @@ export async function seedPaper(paperId, { onProgress } = {}) {
             title, module: mod.module, order: topicIndex * 10, status: "published",
             difficulty: "Moderate", estimatedMinutes: 30,
             xpReward: 25, coinReward: 10,
+            audiences: defaultAudiences(),
             updatedAt: serverTimestamp(),
           },
         });

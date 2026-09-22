@@ -604,6 +604,37 @@ export async function submitContestAnswers(contestId, uid, answers, timeTakenSec
   });
 }
 
+// Draft-only attempt state (current answers + which question the student was
+// on), saved on every change so a mid-attempt refresh/crash doesn't discard
+// unsubmitted work - previously nothing persisted this at all, unlike Daily
+// Learning's saveDraftProgress, so a reload wiped every unsubmitted MCQ
+// selection and the student restarted blank on the same clock (already-
+// submitted coding answers were never at risk - see codingResults' own
+// comment above). Deliberately its own subcollection
+// (contests/{id}/attemptDrafts/{uid}), NEVER contests/{id}/submissions/{uid}:
+// fetchMySubmission()'s "already submitted" check keys off that OTHER doc's
+// mere existence, and submitContestAnswers()'s final setDoc above relies on
+// that doc not existing yet to be evaluated as a Firestore `create` rather
+// than an `update` - a draft written to the same path would break both re-
+// entry and the final submit itself.
+export async function fetchContestDraft(contestId, uid) {
+  const snap = await getDoc(doc(db, "contests", contestId, "attemptDrafts", uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+export async function saveContestDraft(contestId, uid, { answers, qIndex }) {
+  await setDoc(doc(db, "contests", contestId, "attemptDrafts", uid), {
+    answers, qIndex, updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+// Best-effort tidiness after a real submission exists - not load-bearing
+// either way, since load() refuses re-entry (and so never reads a draft)
+// once submissions/{uid} exists regardless of whether this ran.
+export async function deleteContestDraft(contestId, uid) {
+  await deleteDoc(doc(db, "contests", contestId, "attemptDrafts", uid));
+}
+
 // Pure scoring - no Firestore reads/writes. Correctness is always keyed by stable
 // question.id / option.id, never array index, so client-side shuffling can never
 // affect grading.

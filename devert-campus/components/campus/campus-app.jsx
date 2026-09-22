@@ -428,8 +428,13 @@ function CampusGlobalSection({ section }) {
   // Core's subjects, Aptitude's topics, Fundamentals' modules); "courses" is the
   // enrollable catalog and portals nothing, and Contests has no sub-navigation
   // at all. Practice earns the rail only in coding mode, for the progress card.
+  // GATE always earns the rail: CampusGateTab portals its own sixteen-section
+  // GateSidebarNav into the slot (see gate-app.jsx), which on desktop is the
+  // ONLY way to move between its sections - without a slot it renders no
+  // sub-nav at all and the module comes out as a single unnavigable column.
   const showSidebar = (section === "learning" && learnModule !== "courses")
-    || (section === "practice" && practiceMode === "coding");
+    || (section === "practice" && practiceMode === "coding")
+    || section === "gate";
 
   // Both drill-down screens are STAMPED with the mode they were opened under, so
   // changing mode discards them without an effect having to reach in and reset
@@ -484,16 +489,30 @@ function CampusGlobalSection({ section }) {
   // there too is exactly the stacked-back-button pattern the comment above
   // describes getting rid of. The rail's own "DeVert Campus" link is the
   // always-available exit instead.
+  // GATE is excluded for the SAME reason the Learn modules above are, and was
+  // simply missed when it was added: gate-app.jsx registers its own
+  // useCampusBackHandler at depths 2 and 3 and its rail is the way back to
+  // Overview, so a section-level button on top of that is the stacked-back
+  // pattern this comment describes removing. Worse here than there, though -
+  // without this, GATE fell through to practiceAtTop, which is true whenever
+  // Practice is in its default coding/list state, so /gate rendered the button
+  // unconditionally and router.back() on a directly-opened /gate (a shared
+  // link, a bookmark, an SEO landing) leaves the site entirely.
   const atTop = section === "learning" ? learnModule === "courses"
     : section === "contests" ? contestScreen.view === "list"
+    : section === "gate" ? false
     : practiceAtTop;
   const showPracticeFilters = practiceMode === "coding" && practiceScreen.view === "list";
 
   // Shared by Sheets, Concepts and the problem list - all three hand a problem
   // id to the same viewer rather than each reimplementing one. Stamped with the
   // mode it was opened from (see practiceScreen above) so it is discarded the
-  // moment the URL moves to a different surface.
-  const openProblem = (id) => setPracticeScreen({ mode: practiceMode, view: "problem", problemId: id });
+  // moment the URL moves to a different surface. `contextOrder` (Sheets/
+  // Concepts only - the flat problem list passes nothing) is the curriculum
+  // order CampusProblemView's "Next Problem" should follow instead of its
+  // own contextless global-catalog sort - see campus-dsa-sheet.jsx's/
+  // campus-dsa-concepts.jsx's identical openProblemWithContext.
+  const openProblem = (id, contextOrder) => setPracticeScreen({ mode: practiceMode, view: "problem", problemId: id, contextOrder: contextOrder || null });
 
   return (
     // No campus-sharp, and the nav is now part of the page rather than
@@ -558,6 +577,16 @@ function CampusGlobalSection({ section }) {
                 : learnModule === "aptitude" ? <CampusAptitudeTab sidebarSlot={sidebarEl} />
                 : <CampusLearningSection />
             )}
+            {/* The SAME component the institution workspace mounts at
+                ?tab=gate - not a public-facing copy of it. It takes no slug and
+                reads only the global gatePapers/gate_pyqs/gate_tests
+                collections, so the one implementation serves a logged-out
+                visitor here and an enrolled student inside a workspace, and a
+                fix to either lands in both. What differs is only the gate: this
+                route is deliberately NOT behind isTabAllowed("gate")'s
+                per-classroom module toggle - see GLOBAL_SECTIONS in
+                lib/campus-seo.js. */}
+            {section === "gate" && <CampusGateTab sidebarSlot={sidebarEl} />}
             {section === "practice" && (
               <>
                 {showPracticeFilters && (
@@ -574,7 +603,7 @@ function CampusGlobalSection({ section }) {
                     "deliberately does NOT switch mode" note below. */}
                 {practiceScreen.view === "problem" ? (
                   <CampusProblemView problemId={practiceScreen.problemId} onBack={() => setPracticeScreen({ view: "list" })}
-                    onSelectProblem={openProblem}
+                    onSelectProblem={openProblem} contextOrder={practiceScreen.contextOrder}
                     backLabel={practiceMode === "sheets" ? "Sheet" : practiceMode === "concepts" ? "Concepts" : "DSA"} />
                 ) : practiceMode === "companyPrep" ? (
                   <CampusCompanyPrepFlow screen={companyPrepScreen} setScreen={setCompanyPrepScreen} />
@@ -1708,7 +1737,7 @@ function CompanySidebarList({ activeCompanyId, onSelect }) {
           style={{
             background: activeCompanyId === c.id ? CAMPUS.gradientPrimary : "transparent",
             color: activeCompanyId === c.id ? "#fff" : CAMPUS.inkSoft,
-            boxShadow: activeCompanyId === c.id ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
+            boxShadow: activeCompanyId === c.id ? CAMPUS.shadow : "none",
           }}>
           <span className="text-[13px] font-medium truncate">{c.name}</span>
         </button>
@@ -1786,7 +1815,7 @@ function SidebarNavButton({ item, active, collapsed, onClick }) {
           button already use (no new color introduced). */}
       <span className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0 transition-all"
         style={active
-          ? { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: `0 6px 16px ${tint(CAMPUS.teal, 38)}` }
+          ? { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: CAMPUS.shadowHover }
           : { background: "transparent", color: "inherit" }}>
         <Icon size={15} />
       </span>
@@ -1845,7 +1874,7 @@ function CampusContextSidebar({
         <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
           style={institution?.logoUrl
             ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }
-            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: `0 4px 14px ${tint(CAMPUS.teal, 32)}` }}>
+            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: CAMPUS.shadow }}>
           {institution?.logoUrl
             ? <img src={institution.logoUrl} alt="" className="w-full h-full object-cover" />
             : institution?.name?.slice(0, 2).toUpperCase()}
@@ -2711,7 +2740,7 @@ function ContestsSidebarList({ counts, active, onSelect }) {
           style={{
             background: active === f.key ? CAMPUS.gradientPrimary : "transparent",
             color: active === f.key ? "#fff" : CAMPUS.inkSoft,
-            boxShadow: active === f.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
+            boxShadow: active === f.key ? CAMPUS.shadow : "none",
           }}>
           <span className="text-[13px] font-medium">{f.label}</span>
           <span className="text-[10.5px] font-mono flex-shrink-0" style={{ color: active === f.key ? "rgba(255,255,255,0.8)" : CAMPUS.inkFaint }}>

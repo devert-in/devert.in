@@ -13,6 +13,7 @@ import {
   fetchContestCodingResults, submitContestCodingAnswer,
   fetchContestQuestionSampleTests, submitContestDryRun, fetchMyContestReviewer,
   fetchContestRegistrations,
+  fetchContestDraft, saveContestDraft, deleteContestDraft,
 } from "@/lib/contests";
 import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
 import { resolveRollNumber } from "@/lib/proctoring";
@@ -530,6 +531,11 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   // times a student revisits a question, not just first-visit duration.
   const timingsRef = useRef({});
   const questionEnteredAtRef = useRef(null);
+  // Same skip-the-echo idiom as campus-daily-learning.jsx's identical
+  // skipNextDraftSave - set true right where load() restores answers/qIndex
+  // FROM a saved draft, so that restore doesn't immediately trigger the
+  // autosave effect below to write the exact data it just read straight back.
+  const skipNextDraftSave = useRef(true);
 
   const recordElapsed = () => {
     if (questionEnteredAtRef.current == null) return;
@@ -545,6 +551,25 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
   };
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
+
+  // Debounced draft autosave - same pattern as campus-daily-learning.jsx's
+  // identical effect. Fires on every answers/qIndex change except the one
+  // caused by load()'s own restore (skipNextDraftSave), so opening a
+  // contest that already had a draft never immediately re-writes back the
+  // exact data it just read. Skipped for a dry run (see load()'s comment),
+  // once submitted (nothing left to draft), or before the contest doc/
+  // clock have even loaded (dryRun aside, `contest` is only set once the
+  // registration/submission/draft-restore gates above already passed).
+  useEffect(() => {
+    if (skipNextDraftSave.current) { skipNextDraftSave.current = false; return; }
+    if (dryRun || !user || !contest || submitted) return;
+    const t = setTimeout(() => {
+      saveContestDraft(contestId, user.uid, { answers, qIndex })
+        .catch(() => saveContestDraft(contestId, user.uid, { answers, qIndex }).catch(() => {}));
+    }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, qIndex]);
 
   // Lazy-init a coding question's editor state (+ fetch its client-visible
   // sample tests) the first time it's actually visited, not for every
@@ -620,6 +645,18 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
         if (!reg) { setBlocked("You're not registered for this contest."); setLoading(false); return; }
         const existingSub = await fetchMySubmission(contestId, user.uid);
         if (existingSub) { setBlocked("You've already submitted your attempt for this contest."); setLoading(false); return; }
+
+        // Restores any unsubmitted answers from a previous session (refresh,
+        // crash, closed tab) - see saveContestDraft below. Skipped for a dry
+        // run: those are unregistered/unapproved reviewer sessions kept off
+        // the real submissions collection entirely, and attemptDrafts'
+        // create rule requires isApprovedForContest() same as a real attempt.
+        const draft = await fetchContestDraft(contestId, user.uid).catch(() => null);
+        if (draft) {
+          skipNextDraftSave.current = true;
+          setAnswers(draft.answers || {});
+          if (typeof draft.qIndex === "number") setQIndex(draft.qIndex);
+        }
       }
 
       const qs = await fetchContestQuestions(contestId);
@@ -700,6 +737,9 @@ export function CampusContestAttempt({ contestId, onBack, onViewResults, dryRun 
         });
       } else {
         await submitContestAnswers(contestId, user.uid, answersRef.current, timeTakenSeconds, maxScore, timingsRef.current);
+        // Best-effort tidiness, not load-bearing - see deleteContestDraft's
+        // own comment.
+        deleteContestDraft(contestId, user.uid).catch(() => {});
       }
       // Releases the camera and leaves fullscreen, only after the answers are
       // safely written - never risk the submission to tidy up hardware.
