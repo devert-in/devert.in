@@ -6,8 +6,9 @@
 
 import { ArrowUpRight } from "lucide-react";
 // Cross-origin by necessity: /u/{handle} is a devert.in route, not one of
-// ours. founderUrl() returns an absolute URL for exactly that reason.
-import { FOUNDERS, founderUrl } from "@/lib/founders";
+// ours. Founder names link to LinkedIn, which is absolute by definition, so
+// the cross-origin trap that founderUrl() exists to solve never applies here.
+import { FOUNDERS } from "@/lib/founders";
 
 const DEVERT_URL = "https://devert.in";
 const CAMPUS_URL = "https://campus.devert.in";
@@ -67,9 +68,9 @@ export function SiteFooter() {
               {FOUNDERS.map((f, i) => (
                 <span key={f.key}>
                   {i > 0 && " and "}
-                  <a href={founderUrl(f)}
+                  <a href={f.linkedin} target="_blank" rel="noopener noreferrer"
                     className="font-medium text-ink-700 underline-offset-2 transition-colors hover:text-brand-600 hover:underline">
-                    {f.shortName}
+                    {f.name}
                   </a>
                 </span>
               ))}

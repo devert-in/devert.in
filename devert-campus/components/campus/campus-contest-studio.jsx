@@ -885,7 +885,7 @@ function ContestQuestionsStep({ institutionId, contestId, questions, setQuestion
               style={{
                 background: addMode === m.key ? CAMPUS.gradientPrimary : "transparent",
                 color: addMode === m.key ? "#fff" : CAMPUS.inkSoft,
-                boxShadow: addMode === m.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
+                boxShadow: addMode === m.key ? CAMPUS.shadow : "none",
               }}>
               {m.label}
             </button>

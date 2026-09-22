@@ -203,17 +203,8 @@ function Centered({ children }) {
 // Contests, all of which are open to them right now without any college
 // approving anything. The nav is the fix, and CampusShell takes it as a slot so
 // the staff login pages can keep the bare version.
-//
-// showFounders={false}: these screens live at /{slug} - real institution
-// URLs - even though they render the PUBLIC bar rather than the workspace
-// chrome. DeVert's founder profiles are kept off every institution-scoped
-// route, so a college-branded page never carries them; this is the one place
-// where "renders CampusPublicNav" and "is a slug page" disagree, and the slug
-// URL wins. Everything else that renders this bar (landing, pricing,
-// campuses, institutions, roadmaps, and the global learning/practice/contests
-// sections) is a general Campus page and keeps the default.
 function CampusGateShell({ children }) {
-  return <CampusShell nav={<CampusPublicNav showFounders={false} />}>{children}</CampusShell>;
+  return <CampusShell nav={<CampusPublicNav />}>{children}</CampusShell>;
 }
 
 // THE LEFT NAV RAIL THAT USED TO LIVE HERE IS GONE, deliberately.
@@ -498,8 +489,18 @@ function CampusGlobalSection({ section }) {
   // there too is exactly the stacked-back-button pattern the comment above
   // describes getting rid of. The rail's own "DeVert Campus" link is the
   // always-available exit instead.
+  // GATE is excluded for the SAME reason the Learn modules above are, and was
+  // simply missed when it was added: gate-app.jsx registers its own
+  // useCampusBackHandler at depths 2 and 3 and its rail is the way back to
+  // Overview, so a section-level button on top of that is the stacked-back
+  // pattern this comment describes removing. Worse here than there, though -
+  // without this, GATE fell through to practiceAtTop, which is true whenever
+  // Practice is in its default coding/list state, so /gate rendered the button
+  // unconditionally and router.back() on a directly-opened /gate (a shared
+  // link, a bookmark, an SEO landing) leaves the site entirely.
   const atTop = section === "learning" ? learnModule === "courses"
     : section === "contests" ? contestScreen.view === "list"
+    : section === "gate" ? false
     : practiceAtTop;
   const showPracticeFilters = practiceMode === "coding" && practiceScreen.view === "list";
 
@@ -1736,7 +1737,7 @@ function CompanySidebarList({ activeCompanyId, onSelect }) {
           style={{
             background: activeCompanyId === c.id ? CAMPUS.gradientPrimary : "transparent",
             color: activeCompanyId === c.id ? "#fff" : CAMPUS.inkSoft,
-            boxShadow: activeCompanyId === c.id ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
+            boxShadow: activeCompanyId === c.id ? CAMPUS.shadow : "none",
           }}>
           <span className="text-[13px] font-medium truncate">{c.name}</span>
         </button>
@@ -1814,7 +1815,7 @@ function SidebarNavButton({ item, active, collapsed, onClick }) {
           button already use (no new color introduced). */}
       <span className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0 transition-all"
         style={active
-          ? { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: `0 6px 16px ${tint(CAMPUS.teal, 38)}` }
+          ? { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: CAMPUS.shadowHover }
           : { background: "transparent", color: "inherit" }}>
         <Icon size={15} />
       </span>
@@ -1873,7 +1874,7 @@ function CampusContextSidebar({
         <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 overflow-hidden"
           style={institution?.logoUrl
             ? { background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }
-            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: `0 4px 14px ${tint(CAMPUS.teal, 32)}` }}>
+            : { background: CAMPUS.gradientPrimary, color: "#fff", boxShadow: CAMPUS.shadow }}>
           {institution?.logoUrl
             ? <img src={institution.logoUrl} alt="" className="w-full h-full object-cover" />
             : institution?.name?.slice(0, 2).toUpperCase()}
@@ -2739,7 +2740,7 @@ function ContestsSidebarList({ counts, active, onSelect }) {
           style={{
             background: active === f.key ? CAMPUS.gradientPrimary : "transparent",
             color: active === f.key ? "#fff" : CAMPUS.inkSoft,
-            boxShadow: active === f.key ? `0 3px 10px ${tint(CAMPUS.teal, 28)}` : "none",
+            boxShadow: active === f.key ? CAMPUS.shadow : "none",
           }}>
           <span className="text-[13px] font-medium">{f.label}</span>
           <span className="text-[10.5px] font-mono flex-shrink-0" style={{ color: active === f.key ? "rgba(255,255,255,0.8)" : CAMPUS.inkFaint }}>

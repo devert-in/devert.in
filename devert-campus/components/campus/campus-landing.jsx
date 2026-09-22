@@ -24,6 +24,9 @@ import { CampusPublicNav, SUPPORT_EMAIL } from "@/components/campus/campus-publi
 import { DemoRequestDialog } from "@/components/campus/campus-demo-request";
 import { WaitlistDialog } from "@/components/campus/campus-waitlist";
 import { PAYMENTS_LIVE } from "@/lib/payments";
+// Shared with devert-frontend and devert-careers through this app jsconfig
+// @/* fallback - see lib/founders.js. Footer only, never the nav bar.
+import { FOUNDERS } from "@/lib/founders";
 import { RazorpayCheckoutButton } from "@/components/payments/razorpay-checkout-button";
 import { FreeTrialButton } from "@/components/payments/free-trial-button";
 import {
@@ -850,7 +853,7 @@ function BringToCampusBanner() {
       <section className="vs-section tight">
         <div className="vs-shell">
           <div className="relative overflow-hidden rounded-2xl p-7 sm:p-9"
-            style={{ background: CAMPUS.gradientPrimary, boxShadow: `0 18px 44px ${tint(CAMPUS.teal, 30)}` }}>
+            style={{ background: CAMPUS.gradientPrimary, boxShadow: CAMPUS.shadowLg }}>
             <div className="absolute -right-10 -top-16 w-56 h-56 rounded-full pointer-events-none"
               style={{ background: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
             <div className="absolute right-24 -bottom-16 w-36 h-36 rounded-full pointer-events-none"
@@ -1934,6 +1937,23 @@ function LandingFooter() {
           </p>
           <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[12.5px] font-medium" style={{ color: CAMPUS.teal }}>{SUPPORT_EMAIL}</a>
         </div>
+
+        {/* Founder credit. Footer, not the nav - a Founders dropdown briefly
+            shipped in CampusPublicNav and was reverted; see lib/founders.js.
+            Absolute LinkedIn URLs, so none of the cross-origin /u/{handle}
+            trap that founderUrl() exists to solve applies here. */}
+        <p className="text-[12px] mt-5" style={{ color: CAMPUS.inkFaint }}>
+          Built by{" "}
+          {FOUNDERS.map((f, i) => (
+            <span key={f.key}>
+              {i > 0 && " & "}
+              <a href={f.linkedin} target="_blank" rel="noopener noreferrer"
+                className="font-medium hover:underline" style={{ color: CAMPUS.inkSoft }}>
+                {f.name}
+              </a>
+            </span>
+          ))}
+        </p>
       </div>
     </footer>
   );

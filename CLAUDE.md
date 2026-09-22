@@ -154,23 +154,69 @@ question-splitting and mark-band bugs; keep that check passing.
 deliberate.** The main site is neon-terminal (below). DeVert Campus is
 premium-SaaS. **DeVert Careers (`devert-careers/`) is a third: light-first,
 quiet and typographic** — a neutral slate scale with a single blue accent
-(`--color-brand-*`), Inter, generous whitespace, no neon and no
-glassmorphism. Its tokens live in `devert-careers/app/globals.css`'s
-`@theme` block. The reasoning: a candidate deciding whether to send a resume
-is not a user being sold a product, and the terminal aesthetic in particular
-reads as a toy to the senior engineers that site exists to reach. Do not
-backport any of the three into the others.
+(`--color-brand-*`), Inter, generous whitespace, no glassmorphism. Its tokens
+live in `devert-careers/app/globals.css`'s `@theme` block. The reasoning: a
+candidate deciding whether to send a resume is not a user being sold a
+product, and the terminal aesthetic in particular reads as a toy to the
+senior engineers that site exists to reach.
+
+**One shared surface cuts across all three: the hero plate.**
+`public/devert-hero-bg.jpg` — the logo's own brushed-metal circuit backing
+with the chevrons removed — is the hero backdrop on devert.in,
+campus.devert.in and careers.devert.in, so the three sites open the same way.
+It is applied through a `.devert-hero-bg` class duplicated into each app's
+`globals.css`, with the JPEG duplicated into each app's `public/` (each Next
+app builds its own CSS and serves its own `public/`; the jsconfig `@/*`
+source sharing covers neither). On Campus the same treatment is baked into
+`.vs-canvas::before` instead, since that hero is CSS-only.
+
+On Careers this makes the hero **the one dark band on an otherwise
+light-first site** — a deliberate, explicitly-requested exception, not a
+drift back toward neon. Everything below that fold stays light and
+typographic. Every type colour inside that hero is restated against the
+plate rather than inherited, because the `ink-*` scale is tuned for white
+paper and is unreadable on `#0A0E17`.
+
+Other than that shared plate, do not backport the three into each other.
 
 **This section describes the main site** (landing page, Arena, Shipyard,
 Pulse, Grind, etc.) — the neon-terminal identity below. **DeVert Campus has
-its own, deliberately different design system** (a premium-SaaS look:
-Indigo/Violet/Cyan on deep navy, glassmorphism, Inter typography, gradient
-buttons, dark-first theming) — see `lib/campus-theme.js`'s `CAMPUS` tokens
-and `globals.css`'s `.campus-theme` block for the actual values, and
+its own design system**: Inter typography, glass surfaces, light/dark via
+`data-theme`, and — as of the 2026-09-22 repaint — **the brand's own green and
+cyan, taken from `public/Logo.png`**, replacing three earlier accent pivots
+(Indigo → Purple → warm orange/amber). See `lib/campus-theme.js`'s `CAMPUS`
+tokens and `globals.css`'s `.campus-theme` block for the actual values, and
 `components/campus/campus-ui.jsx` for the shared primitives (`CampusCard`,
-`CampusButton`, `CampusStat`, etc.) every Campus screen builds from. Campus
-was the neon-terminal look before; that was a deliberate full pivot, not an
-oversight — don't backport it to the main site or vice versa.
+`CampusButton`, `CampusStat`, etc.) every Campus screen builds from.
+
+Four rules came with that repaint, all asked for directly:
+- **Flat fills, no gradients.** `--campus-gradient-primary`/`-hero` keep their
+  names (every call site already references them) but hold a **solid colour**.
+  Don't put a `linear-gradient()` back into either.
+- **No glows.** No coloured `box-shadow` bleeding off a control — use
+  `CAMPUS.shadow`/`shadowHover`/`shadowLg`, which are neutral. The tinted
+  active-tab glow that had been copy-pasted into nine files is gone from all
+  nine.
+- **No decorative backdrop.** `campusPhotoBg()` returns a **flat canvas**. It
+  used to serve a photographic hanging-bulb JPEG — which is the only reason
+  the warm orange accent ever existed — and briefly a green/cyan radial mesh;
+  both were rejected for competing with content. A student's own uploaded
+  `campusBgUrl` still gets the photo treatment; that path is untouched.
+- **No terminal-window chrome.** `.terminal-window` and friends stay main-site
+  only.
+
+The primary token is `#15803D` (light) / `#22C55E` (dark), **not** the logo's
+literal neon: `CampusButton`'s primary variant and `CampusTabs`' active tab
+paint white text straight onto it, and white on neon green measures ~1.5:1.
+The neon is for icons, borders and the mark itself — things nothing sits on
+top of. `CampusBadge` renders the single `Logo.png` mark, downscaled to 192px
+into *each* app's own `public/` (the `@/*` source-sharing that lets Campus
+import the component does not cover static assets); the old two-variant
+dark/light badge swap is gone.
+
+Campus was the neon-terminal look before all of this; that was a deliberate
+full pivot, not an oversight. Campus and the main site now share a *palette*
+but NOT a design language — don't backport the terminal chrome either way.
 
 - **Palette:** near-black background, neon accents — green `#00FF41`
   (primary/positive), cyan `#00FFFF` (secondary/info), orange `#FF9500`,

@@ -10,8 +10,12 @@ import {
 import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
-import { HackathonSpotlight } from "@/components/hackathon-spotlight";
-import { CampusSpotlight } from "@/components/campus-spotlight";
+// HackathonSpotlight/CampusSpotlight are deliberately NOT imported here.
+// They used to sit above the auth panel and pushed the actual sign-in
+// control below the fold - someone who clicked "Enter HQ" landed on two
+// marketing cards and had to scroll to reach the thing they came for.
+// Both still render on the Hero and on the signed-in dashboard, which is
+// where promoting a hackathon belongs. A sign-in page has one job.
 
 const BOOT_LINES = [
   "Connecting to devert.in...",
@@ -164,22 +168,13 @@ function LoginContent() {
         onLoad={() => setGsiReady(true)}
         onError={() => setGsiReady(false)}
       />
-      <div className="absolute inset-0 grid-bg opacity-40 pointer-events-none" />
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,255,65,0.03) 0%, transparent 70%)" }}
-      />
+      {/* No local backdrop: body::before (globals.css) paints the plate on
+          every route. The grid overlay and green radial glow that used to sit
+          here layered on top of it and muddied the texture. */}
 
       <div className="w-full max-w-5xl relative z-10 flex items-center justify-center">
         <EcosystemPanel />
         <div className="w-full max-w-md flex-shrink-0">
-          {/* Hackathon card renders nothing without an active/upcoming
-              hackathon - same component as the Hero and the signed-in HQ
-              dashboard, so anyone landing straight on /login (a bookmark, a
-              shared link) sees it too instead of it being reachable only
-              post-login. Campus card stacks below it - column is too narrow
-              (max-w-md) for side-by-side. */}
-          <HackathonSpotlight />
-          <CampusSpotlight />
           <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -82,20 +82,20 @@ export function Hero() {
       variants={container}
       className="relative min-h-screen lg:min-h-[calc(100vh-5rem)] flex flex-col justify-center pt-8 pb-20 px-6 overflow-hidden"
     >
-      {/* Grid bg */}
-      <div className="absolute inset-0 grid-bg opacity-50 pointer-events-none" />
-      {/* Synthwave horizon - animated sun + scrolling perspective grid,
-          see .synth-scene in globals.css */}
-      <div className="synth-scene opacity-70">
-        <div className="synth-sun" />
-        <div className="synth-horizon-line" />
-        <div className="synth-grid-floor" />
-      </div>
-      {/* Radial glow, ties the scene into the rest of the section */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 60% 50% at 50% 60%, rgba(0,255,255,0.04) 0%, transparent 70%)" }}
-      />
+      {/* No backdrop of its own, deliberately. The brushed-metal plate is
+          applied once at the ROUTE level by app/page.jsx's .devert-page-bg,
+          which is position:fixed and therefore spans the whole viewport -
+          including the strip behind the floating top nav, which a plate
+          scoped to this <section> left as a bare black band. Putting this
+          section's own .devert-hero-bg back on top of that would stack two
+          scrims and come out near-black.
+
+          What used to sit here - a grid overlay, an animated synthwave sun
+          with a scrolling perspective grid floor, and a cyan radial glow over
+          both - was REMOVED rather than layered under the plate: those are
+          the decorative background lights that were called out, and stacking
+          them on a photographic plate would fight it for the same pixels.
+          The .synth-* rules stay in globals.css, now unused by this page. */}
 
       <div className="relative max-w-6xl mx-auto w-full">
         {/* Status bar */}

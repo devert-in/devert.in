@@ -99,27 +99,36 @@ export default function CareersHome() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
       {/* Hero */}
-      <section className="border-b border-ink-200 bg-gradient-to-b from-brand-50/60 to-white">
+      {/* THE ONE DARK BAND ON THIS SITE. Everything below the fold stays
+          light-first and typographic, which is what this site is for - a
+          candidate reading it is not being sold a product. The hero alone
+          carries the shared plate, so all three DeVert surfaces open the same
+          way. Every type colour inside is restated against the plate rather
+          than inherited: the ink-* scale is tuned for white paper and is
+          unreadable on #0A0E17. */}
+      <section className="devert-hero-bg border-b border-white/10">
         <div className="mx-auto max-w-5xl px-5 py-20 sm:px-8 sm:py-28">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-brand-600">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#00D8FF]">
             Careers at DeVert
           </p>
-          <h1 className="mt-4 max-w-3xl text-[38px] font-semibold leading-[1.08] tracking-display text-ink-900 sm:text-[56px]">
+          <h1 className="mt-4 max-w-3xl text-[38px] font-semibold leading-[1.08] tracking-display text-white sm:text-[56px]">
             Build the platform developers actually use.
           </h1>
-          <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-ink-600 sm:text-[18px]">
+          <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-white/70 sm:text-[18px]">
             DeVert is a developer operating system, and a learning platform used by college
             cohorts across India. We are a small team that ships — and we hire people who
             have built something they can talk about.
           </p>
 
           <div className="mt-9 flex flex-wrap items-center gap-3">
+            {/* Near-black on the logo green, never white: white on #00FF41
+                measures ~1.5:1 and fails outright. */}
             <a href="#open-roles"
-              className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-brand-700">
+              className="inline-flex items-center gap-2 rounded-full bg-[#00FF41] px-6 py-3 text-[15px] font-semibold text-[#05080F] transition-colors hover:bg-[#4DFF7E]">
               See open roles <ArrowRight size={16} />
             </a>
             <a href={DEVERT_URL}
-              className="inline-flex items-center gap-2 rounded-full border border-ink-300 bg-white px-6 py-3 text-[15px] font-semibold text-ink-700 transition-colors hover:border-ink-400 hover:text-ink-900">
+              className="inline-flex items-center gap-2 rounded-full border border-white/25 px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:border-white/50">
               Explore the product
             </a>
           </div>
@@ -127,10 +136,10 @@ export default function CareersHome() {
           <dl className="mt-14 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-3">
             {FACTS.map((f) => (
               <div key={f.label} className="flex items-start gap-3">
-                <f.icon size={17} className="mt-0.5 shrink-0 text-brand-600" />
+                <f.icon size={17} className="mt-0.5 shrink-0 text-[#00D8FF]" />
                 <div>
-                  <dt className="text-[12px] font-medium uppercase tracking-wider text-ink-400">{f.label}</dt>
-                  <dd className="mt-0.5 text-[15px] font-semibold text-ink-900">{f.value}</dd>
+                  <dt className="text-[12px] font-medium uppercase tracking-wider text-white/50">{f.label}</dt>
+                  <dd className="mt-0.5 text-[15px] font-semibold text-white">{f.value}</dd>
                 </div>
               </div>
             ))}

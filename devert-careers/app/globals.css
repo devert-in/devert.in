@@ -101,3 +101,31 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Shared hero plate ------------------------------------------------------
+   public/devert-hero-bg.jpg is the logo's own backing art with the chevrons
+   removed - brushed metal and faint circuit tracery. Used as the hero
+   backdrop on devert.in, campus.devert.in and careers.devert.in so the three
+   sites open on the same surface.
+
+   Duplicated into each app's globals.css + public/ on purpose: each Next app
+   builds its own CSS and serves its own public/, and the jsconfig @/* source
+   sharing covers neither.
+
+   The photo rides on ::before, not on the element's own background, so the
+   scrim composites with it as one layer BEHIND the content instead of
+   tinting the content itself. isolation:isolate scopes the negative z-index
+   to this element so it cannot paint through anything else on the page. The
+   scrim is heavy and deepens downward - the plate's top-right carries bright
+   circuit detail that a headline cannot compete with. */
+.devert-hero-bg { position: relative; isolation: isolate; background-color: #0A0E17; }
+.devert-hero-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(10,14,23,0.62), rgba(10,14,23,0.82)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  z-index: -1;
+  pointer-events: none;
+}

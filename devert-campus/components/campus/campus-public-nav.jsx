@@ -14,7 +14,6 @@ import { useAuth } from "@/context/AuthContext";
 import { DEVERT_URL } from "@/lib/campusUrl";
 // Via devert-campus/jsconfig.json's @/* fallback to ../devert-frontend/* -
 // the same shared registry devert-frontend's and devert-careers' navs read.
-import { FOUNDERS, founderUrl } from "@/lib/founders";
 import { CAMPUS } from "@/lib/campus-theme";
 import { useCampusTheme } from "@/components/campus/campus-theme-provider";
 import { CampusBadge, CampusCard, CampusGoogleButton } from "@/components/campus/campus-ui";
@@ -212,32 +211,6 @@ const NAV_MENUS = [
   { label: "Pricing", href: "/pricing" },
 ];
 
-// Founder profiles, shaped as one more NAV_MENUS entry so it renders through
-// the exact same mega-menu machinery as Learn/Practice/Platform instead of
-// introducing a second dropdown idiom into this bar.
-//
-// Every link here is `external`: /u/{handle} is a devert.in route, and a
-// relative href on campus.devert.in would resolve against THIS origin and
-// 404. That is the precise bug this file's own header warns about (the
-// "Return to DeVert" arrow shipped it during the Campus cutover), so these go
-// through founderUrl(), which returns an absolute URL, and MenuRow renders
-// them as a plain <a>.
-const FOUNDERS_MENU = {
-  label: "Founders",
-  columns: [
-    {
-      title: "Founders",
-      links: FOUNDERS.map((f) => ({
-        label: f.shortName,
-        href: founderUrl(f),
-        hint: `${f.role} · ${f.focus}`,
-        icon: Users,
-        external: true,
-      })),
-    },
-  ],
-};
-
 // One row of a mega-menu column. A link and a dialog trigger have to look
 // identical here - the visitor is picking a destination, not a control type -
 // so both render through this and only the element differs.
@@ -257,22 +230,14 @@ function MenuRow({ link, onNavigate, onDemo }) {
     return <button className={className} onClick={() => { onNavigate(); onDemo(); }}>{body}</button>;
   }
   // Cross-origin (devert.in) - a real navigation off this origin, so a plain
-  // <a>, never next/link. See FOUNDERS_MENU above.
+  // <a>, never next/link - see this file's header on the Campus cutover bug.
   if (link.external) {
     return <a href={link.href} onClick={onNavigate} className={className}>{body}</a>;
   }
   return <Link href={link.href} onClick={onNavigate} className={className}>{body}</Link>;
 }
 
-// showFounders=false is used by exactly one caller: CampusGateShell in
-// campus-app.jsx, which renders this same public bar on the INSTITUTION SLUG
-// gate screens (/{slug} while signed out, pending, rejected or not-found).
-// Those are /{slug} URLs, and founder profiles are deliberately kept off every
-// institution-scoped route - see campus-app.jsx's CampusGateShell for the full
-// reasoning. Every other public surface (landing, pricing, campuses,
-// institutions, roadmaps, and the global learning/practice/contests sections)
-// gets the default.
-export function CampusPublicNav({ showFounders = true }) {
+export function CampusPublicNav() {
   const { theme, toggleTheme } = useCampusTheme();
   const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -303,10 +268,7 @@ export function CampusPublicNav({ showFounders = true }) {
 
   const closeAll = () => { setOpenMenu(null); setMobileOpen(false); setOpenGroup(null); };
 
-  // One list, consumed by the desktop bar, the desktop mega-panel and the
-  // mobile accordion below - so Founders can never appear on one of the three
-  // and be missing from the others.
-  const menus = showFounders ? [...NAV_MENUS, FOUNDERS_MENU] : NAV_MENUS;
+  const menus = NAV_MENUS;
 
   return (
     <>

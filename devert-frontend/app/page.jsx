@@ -30,7 +30,7 @@ export default function Home() {
   // Avoid a flash of the marketing page while auth resolves for a
   // returning, already-logged-in member.
   if (loading) {
-    return <main className="min-h-screen bg-background text-foreground" />;
+    return <main className="min-h-screen text-foreground" />;
   }
 
   if (user) {
@@ -38,7 +38,10 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    // No background class at all: the plate is painted once by body::before
+    // (globals.css) for every route, so anything here would only stack a
+    // second scrim over it. bg-background is gone for the same reason.
+    <main className="min-h-screen text-foreground">
       <UiEffects />
       <AnimatePresence mode="wait">
         {!showContent && (

@@ -83,7 +83,7 @@ export function tint(color, pct = 12) {
   return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 }
 
-// The photographic hanging-bulb backdrop behind EVERY Campus surface (the
+// The backdrop behind EVERY Campus surface (the
 // authenticated workspace's every tab, the public landing/info pages, the
 // pre-auth gate screens) - not just the student Dashboard the redesign
 // started on. One function so every page reads the same two files and
@@ -105,11 +105,35 @@ export function tint(color, pct = 12) {
 // must add the "campus-photo-bg" class alongside this style spread - see
 // its call sites (CampusWorkspace, CampusLanding, CampusShell, etc).
 export function campusPhotoBg(theme, customUrl) {
-  const url = customUrl || (theme === "dark" ? "/campus-bg-dark-theme.jpg" : "/campus-bg-light-theme.jpg");
-  const scrim = theme === "dark" ? "rgba(10,14,23,0.62)" : "rgba(248,249,250,0.55)";
-  return {
-    "--campus-bg-image": `linear-gradient(${scrim}, ${scrim}), url(${url})`,
-  };
+  // A student's own uploaded photo still gets the original photographic
+  // treatment - scrim on top, blurred by the ::before layer. Only the DEFAULT
+  // backdrop changed.
+  if (customUrl) {
+    const scrim = theme === "dark" ? "rgba(10,14,23,0.62)" : "rgba(248,249,250,0.55)";
+    return { "--campus-bg-image": `linear-gradient(${scrim}, ${scrim}), url(${customUrl})` };
+  }
+
+  // Default: a FLAT canvas. No mesh, no glow, no photograph.
+  //
+  // The two hanging-bulb JPEGs this used to load were what made every Campus
+  // surface read warm/tan regardless of the tokens on top of them, and the
+  // accent palette had been pivoted to warm orange specifically to stop
+  // fighting them. Replacing the backdrop is what let --campus-teal go back to
+  // the logo's green (see globals.css's .campus-theme block).
+  //
+  // Colour blocks sit ON the page as solid fills; the page itself stays out of
+  // the way. An earlier pass put a green/cyan radial mesh here and it was
+  // rejected for the same reason the photo was - a backdrop that glows is
+  // still a backdrop competing with content.
+  //
+  // Expressed as a same-colour linear-gradient rather than `none` because this
+  // value is consumed as a background-image on .campus-photo-bg's ::before
+  // layer (globals.css): `none` would make that layer transparent and leave
+  // the canvas to whatever the element behind it happens to paint, which is
+  // not guaranteed on every Campus surface. A two-stop gradient between one
+  // colour IS a flat fill - nothing renders as a gradient.
+  const canvas = theme === "dark" ? "#0A0E17" : "#F8F9FA";
+  return { "--campus-bg-image": `linear-gradient(${canvas}, ${canvas})` };
 }
 
 // Fixed literal hex, deliberately NOT CAMPUS.* var() references - an

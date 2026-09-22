@@ -690,7 +690,7 @@ export function ContestCtaBanner({ onExplore, contestCount = 0, rank, xp }) {
       whileHover={reduce ? undefined : { y: -2 }}
       transition={{ duration: 0.2 }}
       className="relative overflow-hidden rounded-2xl p-6"
-      style={{ background: CAMPUS.gradientPrimary, boxShadow: `0 14px 38px ${tint(CAMPUS.teal, 28)}` }}
+      style={{ background: CAMPUS.gradientPrimary, boxShadow: CAMPUS.shadowLg }}
     >
       <div className="absolute -right-8 -top-10 w-48 h-48 rounded-full pointer-events-none"
         style={{ background: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
@@ -927,7 +927,7 @@ export function StaffDashboardHero({ icon: Icon, title, subtitle, meta, actions,
         <div className="flex items-start gap-3.5 min-w-0">
           {Icon && (
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: CAMPUS.gradientPrimary, boxShadow: `0 10px 26px ${tint(CAMPUS.teal, 28)}` }}>
+              style={{ background: CAMPUS.gradientPrimary, boxShadow: CAMPUS.shadowHover }}>
               <Icon size={22} color="#fff" strokeWidth={1.8} />
             </div>
           )}

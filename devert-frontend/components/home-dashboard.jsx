@@ -15,7 +15,10 @@ import { UpcomingContestsCard } from "@/components/upcoming-contests-card";
 export function HomeDashboard() {
   return (
     <main className="min-h-screen pt-10 pb-32 px-4 relative">
-      <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
+      {/* No backdrop here: body::before (globals.css) paints the plate for
+          every route. The grid-bg overlay that used to sit here is gone
+          too - a wireframe grid on top of circuit tracery is two textures
+          competing for the same pixels. */}
       <div className="relative max-w-xl lg:max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <p className="font-mono text-xs text-neon-green/55 mb-2 tracking-wider">// / - command_center.home</p>

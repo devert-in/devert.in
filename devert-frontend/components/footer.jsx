@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
+import { FOUNDERS } from "@/lib/founders";
 
 const SOCIAL_LINKS = [
   { label: "instagram", href: "https://www.instagram.com/devert.in" },
@@ -124,7 +125,25 @@ export function Footer() {
             <a href="/privacy"   className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Privacy Policy</a>
             <a href="/terms"     className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Terms of Service</a>
             <a href="/workplace" className="font-mono text-xs text-white/35 hover:text-neon-cyan transition-colors">Workplace Policy</a>
-            <p className="font-mono text-xs text-white/15">Built by The Duo // v2.0</p>
+            {/* Founder credit. The footer is the ONLY place founder names
+                belong - they were briefly shipped as a navbar dropdown and
+                that was reverted; see lib/founders.js. Links go to LinkedIn,
+                not /u/{handle}: someone reading a footer credit is checking
+                who is behind the product, and LinkedIn is where that check
+                actually lands. */}
+            <p className="font-mono text-xs text-white/15">
+              Built by{" "}
+              {FOUNDERS.map((f, i) => (
+                <span key={f.key}>
+                  {i > 0 && " & "}
+                  <a href={f.linkedin} target="_blank" rel="noopener noreferrer"
+                    className="text-white/35 hover:text-neon-cyan transition-colors">
+                    {f.name}
+                  </a>
+                </span>
+              ))}
+              {" "}// v2.0
+            </p>
           </div>
         </div>
       </div>

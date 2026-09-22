@@ -14,12 +14,14 @@
 //    light professional surface is exactly the cross-contamination
 //    CLAUDE.md's design-system section warns against. The avatars use the
 //    neutral/brand scale instead.
-// 2. Links go through founderUrl(), not founderPath(). A relative /u/{handle}
-//    would resolve against careers.devert.in and 404 - the single most
-//    repeated bug of the Campus subdomain cutover.
+// 2. Links go to each founder's LinkedIn profile, not the on-platform
+//    /u/{handle} page. A relative /u/... here would resolve against
+//    careers.devert.in and 404 - the single most repeated bug of the Campus
+//    subdomain cutover - and a candidate sizing up who they would work with
+//    is checking LinkedIn anyway.
 
 import { ArrowUpRight } from "lucide-react";
-import { FOUNDERS, founderUrl } from "@/lib/founders";
+import { FOUNDERS } from "@/lib/founders";
 
 export function Founders() {
   return (
@@ -35,7 +37,7 @@ export function Founders() {
 
       <div className="mt-10 grid gap-5 sm:grid-cols-2">
         {FOUNDERS.map((f) => (
-          <a key={f.key} href={founderUrl(f)}
+          <a key={f.key} href={f.linkedin} target="_blank" rel="noopener noreferrer"
             className="group flex items-start gap-4 rounded-xl border border-ink-200 bg-white p-6 transition-all hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)]">
             {/* Initials, not a headshot: no founder photo is committed to any of
                 the three apps' public/ dirs, and the real ones live behind
@@ -63,7 +65,7 @@ export function Founders() {
 
               <p className="mt-3 text-[13.5px] text-ink-500">{f.focus}</p>
               <p className="mt-3 text-[13px] text-ink-400 group-hover:text-ink-600">
-                View profile on devert.in
+                View LinkedIn profile
               </p>
             </div>
           </a>
