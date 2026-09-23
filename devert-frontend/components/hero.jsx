@@ -141,7 +141,7 @@ export function Hero() {
             signed-in HQ dashboard, so a signed-out visitor sees it too
             instead of it being buried behind a login. Campus card sits
             beside it so both first-impression cards land together. */}
-        <motion.div variants={item} className="max-w-4xl grid sm:grid-cols-2 gap-4 mb-6 md:mb-0">
+        <motion.div variants={item} className="max-w-4xl flex flex-col sm:flex-row gap-4 mb-6 md:mb-0">
           <HackathonSpotlight />
           <CampusSpotlight />
         </motion.div>

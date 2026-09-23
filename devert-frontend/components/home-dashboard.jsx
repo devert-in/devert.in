@@ -41,7 +41,7 @@ export function HomeDashboard() {
             {/* Resume before promote: what you were in the middle of outranks
                 anything we want to show you. */}
             <TodayTaskCard />
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <HackathonSpotlight />
               <CampusSpotlight />
             </div>
