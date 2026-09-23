@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext } from "react";
 import Link from "next/link";
-import { ArrowLeft, Moon, Sun } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { CAMPUS, campusPhotoBg } from "@/lib/campus-theme";
 
 // Extracted out of campus-app.jsx into its own file so OTHER top-level
@@ -26,60 +26,24 @@ export function useCampusTheme() {
 }
 
 export function CampusThemeProvider({ children }) {
-  // Lazy initializer, not a mount effect - localStorage (and matchMedia) are
-  // already synchronously available the first time this ever renders (this
-  // component only lives inside the client-only Campus workspace tree). A
-  // first-time visitor with no saved preference gets whatever their OS is
-  // set to, light or dark, rather than a hardcoded default - explicitly
-  // toggling below is what opts them into a fixed choice of their own.
-  const [theme, setTheme] = useState(() => {
-    // DARK is the server fallback, not light. These apps are static exports:
-    // whatever this returns during prerender is the HTML the browser paints
-    // BEFORE hydration reads localStorage. Returning light meant every visitor
-    // - including one whose saved preference is dark - got a white navbar for
-    // a frame, then a flip. Dark is the platform default everywhere else now,
-    // so it is the right thing to paint first; a visitor who has explicitly
-    // chosen light still gets one frame of dark, but that is the rarer case
-    // and it is the same single frame, not a regression.
-    if (typeof window === "undefined") return "dark";
-    const saved = localStorage.getItem("campus-theme");
-    if (saved === "dark" || saved === "light") return saved;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  });
-
-  // Keeps following the OS setting live for as long as the visitor hasn't
-  // made an explicit choice - toggleTheme persists to localStorage the
-  // moment they do, which permanently hands control to their own pick
-  // instead (this effect checks localStorage fresh each time rather than
-  // once, so it stops reacting the instant that happens).
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const syncToSystem = (e) => {
-      if (localStorage.getItem("campus-theme")) return;
-      setTheme(e.matches ? "dark" : "light");
-    };
-    mq.addEventListener("change", syncToSystem);
-    return () => mq.removeEventListener("change", syncToSystem);
-  }, []);
-
-  const toggleTheme = () => setTheme(t => {
-    const next = t === "light" ? "dark" : "light";
-    localStorage.setItem("campus-theme", next);
-    return next;
-  });
+  // DARK, ALWAYS. Campus was the only surface on the platform with a light
+  // theme, and also the only one that could not carry the brand plate - the
+  // plate is dark artwork, so light mode had to fall back to a flat canvas
+  // and drifted further from the other two sites with every change.
+  //
+  // The stored "campus-theme" key is ignored rather than migrated: someone who
+  // once chose light simply gets the same product as everyone else. No
+  // localStorage read, no matchMedia listener, no toggle.
+  const theme = "dark";
+  // No-op, kept so any caller that still invokes it does not throw.
+  const toggleTheme = () => {};
   return <CampusThemeContext.Provider value={{ theme, toggleTheme }}>{children}</CampusThemeContext.Provider>;
 }
 
-export function CampusThemeToggle({ className = "" }) {
-  const { theme, toggleTheme } = useCampusTheme();
-  return (
-    <button onClick={toggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${className}`}
-      style={{ color: CAMPUS.inkSoft }}>
-      {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-    </button>
-  );
+// Renders nothing. The export stays so no import has to change; every visible
+// usage has been removed from the navs.
+export function CampusThemeToggle() {
+  return null;
 }
 
 // Every pre-workspace/pre-auth Campus screen (checking/not-found/signed-out/
@@ -112,7 +76,6 @@ export function CampusShell({ children, nav = null }) {
           <ArrowLeft size={14} /> Back to Campus
         </Link>
       )}
-      {!nav && <div className="absolute top-5 right-5"><CampusThemeToggle /></div>}
       {nav ? (
         <div className="flex-1 flex items-center justify-center px-6 py-12">{children}</div>
       ) : children}

@@ -134,6 +134,13 @@ export function campusPhotoBg(theme, customUrl) {
   // is consumed as a background-image on .campus-photo-bg's ::before layer,
   // and `none` would make that layer transparent and leave the canvas to
   // whatever the element behind it happens to paint.
+  // Empty by default: body paints the plate now (campus globals.css), and this
+  // layer exists only for a student's uploaded background above. It used to
+  // return the plate itself, which put it on a z-index:-1 pseudo-element that
+  // any opaque descendant could cover - and repeatedly did.
+  return { "--campus-bg-image": "none", "--campus-bg-blur": "0px", "--campus-bg-inset": "0px" };
+
+  // eslint-disable-next-line no-unreachable
   if (theme === "dark") {
     return {
       "--campus-bg-image": "linear-gradient(rgba(5,7,12,0.66), rgba(5,7,12,0.82)), url(/devert-hero-bg.jpg)",

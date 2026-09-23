@@ -598,7 +598,7 @@ export function CampusPracticeList({ onSelect, initialCategory, category: contro
     <div className={hideFilters ? "" : "flex gap-6 flex-col lg:flex-row"}>
       {!hideFilters && (
         <aside className="lg:w-52 flex-shrink-0">
-          <div className="flex flex-row lg:flex-col gap-5 lg:gap-6 lg:sticky lg:top-6">
+          <div className="flex flex-row lg:flex-col gap-5 lg:gap-6 lg:sticky lg:top-[88px] lg:max-h-[calc(100vh-108px)] lg:overflow-y-auto lg:pr-1">
             <CategoryFilterList value={category} onChange={setCategoryState} />
             <SidebarFilterGroup label="DIFFICULTY" options={["All", ...CODELAB_DIFFICULTIES]} value={difficulty} onChange={setDifficultyState} />
             <CompanyFilterList value={company} onChange={setCompanyState} />

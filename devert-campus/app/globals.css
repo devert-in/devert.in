@@ -43,8 +43,19 @@
   --foreground: #e8ecff;
 }
 
+/* The plate, on body's own background-image - the same rule devert.in and
+   careers use. Campus is dark-only now, so there is no per-theme swap to do.
+   This replaces the ::before approach, which is the one that kept getting
+   covered by opaque descendants (.vs-scope, and a landing <main> that carried
+   no plate class at all). .campus-photo-bg's ::before survives for a
+   student's uploaded background only. */
 body {
-  background: var(--background);
+  background-color: #05070c;
+  background-image: linear-gradient(rgba(5,7,12,0.66), rgba(5,7,12,0.82)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--foreground);
 }
 
@@ -758,4 +769,5 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.10);
 }
+
 

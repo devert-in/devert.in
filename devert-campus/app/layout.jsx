@@ -73,7 +73,7 @@ export default function RootLayout({ children }) {
             loads. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var s=localStorage.getItem("campus-theme");var d=s==="dark"||(s!=="light"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.querySelectorAll(".campus-theme").forEach(function(el){el.setAttribute("data-theme","dark");el.style.colorScheme="dark";el.style.setProperty("--campus-bg-image","linear-gradient(rgba(5,7,12,0.66), rgba(5,7,12,0.82)), url(/devert-hero-bg.jpg)");el.style.setProperty("--campus-bg-blur","0px");el.style.setProperty("--campus-bg-inset","0px");});}}catch(e){}`,
+            __html: `try{document.querySelectorAll(".campus-theme").forEach(function(el){el.setAttribute("data-theme","dark");el.style.colorScheme="dark";});}catch(e){}`,
           }}
         />
       </body>

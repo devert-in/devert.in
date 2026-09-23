@@ -551,7 +551,9 @@ function CampusGlobalSection({ section }) {
             practice's coding mode has the progress card below. */}
         <div className="flex gap-8 flex-col lg:flex-row">
           <aside className="lg:w-60 flex-shrink-0" hidden={!showSidebar}>
-            <div className="flex flex-col gap-5 lg:sticky lg:top-6">
+            {/* max-h + overflow so the rail scrolls inside itself: a sticky
+                element taller than the viewport still loses its top edge. */}
+            <div className="flex flex-col gap-5 lg:sticky lg:top-[88px] lg:max-h-[calc(100vh-108px)] lg:overflow-y-auto lg:pr-1">
               <div ref={setSidebarEl} />
               {section === "practice" && practiceMode === "coding" && (
                 <PracticeProgressCard user={user} stats={codelabStats} />
@@ -1376,7 +1378,6 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
         hiddenTabKeys={hiddenTabKeys} onJumpToManage={jumpToManage} onJumpToTrack={jumpToTrack}
         onJumpToDsaCategory={jumpToDsaCategory} onJumpToCompany={jumpToCompany} onJumpToContestPhase={jumpToContestPhase}
         onJumpToAssessment={jumpToAssessment} onSearchSelect={handleSearchSelect} onRequestExit={exitGuard.requestExit}
-        themeToggle={<CampusThemeToggle />}
         onSignOut={async () => { await logout(); router.push("/"); }} />
       {/* Every tab: CampusTopBar used to have the rest of the workspace's
           content scroll underneath it by design (see CampusTopBar's own
@@ -2188,7 +2189,6 @@ function CampusTopBar({ institution, userData, setTab, slug, uid, membership, on
         <Zap size={13} />
         <span className="text-[12px] font-bold tabular-nums">{(userData?.xp ?? 0).toLocaleString()} XP</span>
       </div>
-      <CampusThemeToggle />
       <CampusProfileMenu institution={institution} slug={slug} userData={userData} uid={uid} membership={membership} setTab={setTab} onRequestExit={onRequestExit} />
     </header>
   );

@@ -173,23 +173,27 @@ must go lighter, so `brand-700` is brighter than `brand-600`.
 
 **Green fills always carry dark text.** `bg-brand-600` (`#3ce86f`) with
 `text-white` measures ~1.5:1. Every CTA on Careers uses `text-[#05080F]`,
-and the same rule holds on Campus (`--campus-teal` is `#15803D` in light /
-`#22C55E` in dark precisely so it CAN carry white) and on devert.in's
+and the same rule holds on Campus (`--campus-teal` is `#22C55E` precisely so
+it CAN carry white) and on devert.in's
 `Enter HQ` button.
 
 **One shared surface cuts across all three: the hero plate.**
 `public/devert-hero-bg.jpg` - the logo's own brushed-metal circuit backing
 with the chevrons removed - is the hero backdrop on devert.in,
 campus.devert.in and careers.devert.in, so the three sites open the same way.
-It is applied through a `.devert-hero-bg` class duplicated into each app's
-`globals.css`, with the JPEG duplicated into each app's `public/` (each Next
-app builds its own CSS and serves its own `public/`; the jsconfig `@/*`
-source sharing covers neither). On Campus the same treatment is baked into
-`.vs-canvas::before` instead, since that hero is CSS-only.
+**All three now carry it site-wide on `body`**, not just in the hero. The
+JPEG is duplicated into each app's `public/` (each Next app serves its own;
+the jsconfig `@/*` source sharing does not cover static assets), at one
+config everywhere: `#05070c` base, `rgba(5,7,12,.66/.82)` scrim, `cover`,
+`center`, `background-attachment: fixed`.
 
-Careers now carries the plate site-wide on `body`, not just in the hero, so
-`.devert-hero-bg` there only deepens the hero band slightly against the page
-behind it.
+Campus got there last and only once it went dark-only. Its plate used to
+ride a `::before` so it could swap per theme, and that layer was covered by
+an opaque descendant three separate times (`.vs-scope`'s fill, a landing
+`<main>` carrying no plate class at all, and `.vs-canvas::before` stacking a
+second scrolling copy on the fixed one). `campusPhotoBg()` now returns
+`none` by default and that `::before` survives only for a student's uploaded
+`campusBgUrl`.
 
 **The plate goes on `body`'s own `background-image`, never a `body::before`
 layer.** Both devert.in and Careers set an opaque background on `html`, which
@@ -201,8 +205,10 @@ version is in its `globals.css`.
 
 **This section describes the main site** (landing page, Arena, Shipyard,
 Pulse, Grind, etc.) - the neon-terminal identity below. **DeVert Campus has
-its own design system**: Inter typography, glass surfaces, light/dark via
-`data-theme`, and - as of the 2026-09-22 repaint - **the brand's own green and
+its own design system**: Inter typography, glass surfaces, **dark-only**
+(the light theme and its toggle were removed on 2026-09-23 - it was the one
+surface that could not carry the dark plate), and - as of the 2026-09-22
+repaint - **the brand's own green and
 cyan, taken from `public/Logo.png`**, replacing three earlier accent pivots
 (Indigo → Purple → warm orange/amber). See `lib/campus-theme.js`'s `CAMPUS`
 tokens and `globals.css`'s `.campus-theme` block for the actual values, and
@@ -217,7 +223,8 @@ Four rules came with that repaint, all asked for directly:
   `CAMPUS.shadow`/`shadowHover`/`shadowLg`, which are neutral. The tinted
   active-tab glow that had been copy-pasted into nine files is gone from all
   nine.
-- **No decorative backdrop.** `campusPhotoBg()` returns a **flat canvas**. It
+- **No decorative backdrop.** `campusPhotoBg()` returns **`none`** - `body`
+  paints the plate instead. It
   used to serve a photographic hanging-bulb JPEG - which is the only reason
   the warm orange accent ever existed - and briefly a green/cyan radial mesh;
   both were rejected for competing with content. A student's own uploaded
@@ -225,7 +232,7 @@ Four rules came with that repaint, all asked for directly:
 - **No terminal-window chrome.** `.terminal-window` and friends stay main-site
   only.
 
-The primary token is `#15803D` (light) / `#22C55E` (dark), **not** the logo's
+The primary token is `#22C55E`, **not** the logo's
 literal neon: `CampusButton`'s primary variant and `CampusTabs`' active tab
 paint white text straight onto it, and white on neon green measures ~1.5:1.
 The neon is for icons, borders and the mark itself - things nothing sits on
@@ -258,10 +265,14 @@ but NOT a design language - don't backport the terminal chrome either way.
     to a plain Lucide glyph from the same file, per its own comments. This is
     the only sanctioned emoji-adjacent exception - everything else in the UI
     stays Lucide-only.
-- **Chrome:** the `.terminal-window` / `.terminal-header` / `.terminal-dot`
-  classes (globals.css) are the standard card/panel treatment across the
-  entire app - three colored dots, a mono label, content below. Reach for
-  this before inventing a new container style.
+- **Chrome:** `.terminal-window` / `.terminal-header` are the standard
+  card/panel treatment across the app. **They are PLAIN CARDS now** - a dark
+  fill on the plate, a hairline, a quiet header strip. The fake macOS title
+  bar is gone: 330 `.terminal-dot` elements were removed from 58 files and
+  the class is no longer defined, so one reappearing in markup renders as
+  nothing. The names were kept because they are used 541 times across 80
+  files and the look lives in CSS, not the name - read `.terminal-window` as
+  `.card`. Reach for it before inventing a new container style.
 - **Page width is a deliberate choice, not an oversight:**
   - Dashboard/list/grid pages (Home, Arena, Grind, Shipyard, Intel, Missions,
     Ranks, Broadcast, Hackathons, Wallet, admin) go wide on desktop - `lg:max-w-5xl` to `lg:max-w-6xl`, reflowing into multi-column grids or a
@@ -274,15 +285,25 @@ but NOT a design language - don't backport the terminal chrome either way.
     social feed) - don't stretch it to match the dashboard pages.
 - **Navbar** is a floating bottom dock component (`navbar.jsx`) - icon-only
   and compact on mobile, icon+label and larger on `lg:`. `top-navbar.jsx` is
-  a deliberate, explicit exception to this (a separate desktop-only floating
-  top pill with grouped dropdowns, mirroring the split DeVert Campus already
-  uses) - asked for directly, not a default pattern to reach for again; don't
-  add a third nav surface without being asked the same way. The two intentionally
+  the desktop top bar with grouped dropdowns; don't add a third nav surface
+  without being asked directly. The two intentionally
   show *different* scopes (the dock is a curated "used every session" set,
   the pill affords a fuller categorized sitemap), not the same items twice,
   so both read from one shared route registry, `lib/navConfig.js`, rather
   than keeping their own lists in sync by hand - add a new nav-eligible
   route there, once.
+- **The top bar is adaptive, and shared by all three apps.** Transparent at
+  the top of a page so the plate reads unbroken, plate surface once scrolled,
+  and forced solid whenever a menu is open (a transparent bar over an opaque
+  dropdown reads as a bug). Driven by `lib/useScrolled.js`, which campus and
+  careers reach through their `@/*` fallback - safe to share despite the
+  no-`@source` rule because it has no JSX and no class names. The surface is
+  `.devert-navbar` / `.is-solid` / `.devert-navbar-panel`, duplicated per app.
+  A gradient scrim sits under the transparent state: the plate's top-left
+  carries legible code text that otherwise runs straight through the labels.
+  devert.in's floating pill is gone, and so is the 80px spacer that existed
+  only because the pill was `position: fixed`.
+
 - **Admin console extends existing tabs**, it never grows a second
   top-level admin surface. A new admin capability belongs inside
   Overview/Content/Community/Challenges/Moderation, not a new tab family.

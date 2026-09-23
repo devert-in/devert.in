@@ -325,9 +325,6 @@ export function CampusPublicNav() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-auto">
-            <button onClick={toggleTheme} title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} style={{ color: CAMPUS.ink }}>
-              {theme === "light" ? <Moon size={19} /> : <Sun size={19} />}
-            </button>
             {/* Absolute, cross-origin - "/" is Campus's OWN home on this
                 origin (campus.devert.in) now, not devert.in's, so a relative
                 href here would just loop back to the Campus landing page
