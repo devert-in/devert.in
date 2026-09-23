@@ -167,6 +167,33 @@ body {
   border-bottom: 1px solid transparent;
   transition: background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
 }
+
+/* Scrim for the TRANSPARENT state.
+
+   Transparent-at-rest assumed a smooth texture behind the bar. The plate is
+   not smooth: its top-left corner carries legible code text (`services/`,
+   `utils/`, `data/`), which ran straight through the nav labels and made both
+   unreadable.
+
+   A solid bar would fix it and lose the point of the adaptive design. This
+   instead lays a gradient that is strongest behind the labels and gone by the
+   bottom edge - so the labels get a ground, while the bar still has no visible
+   edge and the plate still reads across the hero.
+
+   It fades out in the solid state: the real surface takes over there, and
+   stacking both would make the scrolled bar noticeably darker than the panels
+   hanging off it. */
+.devert-navbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(5,7,12,0.92) 0%, rgba(5,7,12,0.72) 55%, rgba(5,7,12,0) 100%);
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+.devert-navbar.is-solid::before { opacity: 0; }
+/* The bar's own content has to sit above that layer. */
+.devert-navbar > * { position: relative; z-index: 1; }
 .devert-navbar.is-solid {
   background-image: linear-gradient(rgba(8,11,18,0.90), rgba(8,11,18,0.94)), url(/devert-hero-bg.jpg);
   background-size: cover;
