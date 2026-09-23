@@ -1,6 +1,6 @@
 "use client";
 
-// Admin — role manager (design §2 + §3). Email lookup → set role with
+// Admin - role manager (design §2 + §3). Email lookup → set role with
 // confirmation; staff correction of a student's roll number/branch/class
 // group; list of current staff.
 
@@ -62,7 +62,7 @@ export default function RolesPanel() {
     try {
       const user = await findUserByEmail(email.trim());
       if (!user) {
-        setLookupError("No user found with that email — they must sign in at least once first.");
+        setLookupError("No user found with that email - they must sign in at least once first.");
         return;
       }
       setFound(user);

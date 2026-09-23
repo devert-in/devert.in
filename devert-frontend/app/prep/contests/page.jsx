@@ -1,6 +1,6 @@
 "use client";
 
-// /prep/contests — list of published coding contests (design §2). Status
+// /prep/contests - list of published coding contests (design §2). Status
 // chips (UPCOMING/LIVE/ENDED) derive purely from startsAt/endsAt vs the
 // client clock; ENTER_CONTEST only routes through when a contest is live.
 // Gated the same way weekend exams are (RequireOnboarded): a roll number is
@@ -73,10 +73,10 @@ function ContestsInner() {
 
   return (
     <PrepShell
-      kicker="// /prep/contests — coding_contests.sh"
+      kicker="// /prep/contests - coding_contests.sh"
       title="CODING"
       accent="CONTESTS"
-      subtitle="Timed, multi-question judge runs. Enter while LIVE — every RUN_TESTS result is auto-saved."
+      subtitle="Timed, multi-question judge runs. Enter while LIVE - every RUN_TESTS result is auto-saved."
     >
       {exams === null && !err && <LoadingRows rows={4} />}
 
@@ -92,7 +92,7 @@ function ContestsInner() {
       {exams !== null && !err && rows.length === 0 && (
         <EmptyState
           title="no contests scheduled"
-          message="Check back later — staff schedule coding contests from the admin panel."
+          message="Check back later - staff schedule coding contests from the admin panel."
         />
       )}
 

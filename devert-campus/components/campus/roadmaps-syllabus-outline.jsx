@@ -23,7 +23,7 @@ export async function RoadmapsSyllabusOutline({ catalog, roadmap, mode }) {
         <ul>
           {catalog.map((r) => (
             <li key={r.id}>
-              <a href={`/roadmaps/${r.slug}`}>{r.title}</a> — {r.tagline}
+              <a href={`/roadmaps/${r.slug}`}>{r.title}</a> - {r.tagline}
             </li>
           ))}
         </ul>

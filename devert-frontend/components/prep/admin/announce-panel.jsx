@@ -1,6 +1,6 @@
 "use client";
 
-// Admin — announcements editor (design §2). CRUD prepAnnouncements, shown as
+// Admin - announcements editor (design §2). CRUD prepAnnouncements, shown as
 // a ticker on /prep.
 
 import { useState, useEffect, useCallback } from "react";
@@ -118,7 +118,7 @@ export default function AnnouncePanel() {
                       <Link2 size={11} /> open
                     </a>
                   ) : (
-                    <span className="text-white/20">—</span>
+                    <span className="text-white/20">-</span>
                   ),
               },
               {

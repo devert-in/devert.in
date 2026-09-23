@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "programming-and-data-structures",
-  title: "Programming & Data Structures — Subject Test",
+  title: "Programming & Data Structures - Subject Test",
   description: "8 questions covering C programming, recursion, and linear/tree/graph data structures.",
   testType: "subject",
   durationMinutes: 45,

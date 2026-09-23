@@ -56,7 +56,7 @@ export default function IdentityTab({
         <div className="grid gap-4 sm:grid-cols-2 mb-4">
           <Field label="FULL NAME" value={form.displayName} onChange={v => patch({ displayName: v })} placeholder="Your name" maxLength={40} />
           <Field label="USERNAME" value={form.handle} onChange={v => patch({ handle: v.toLowerCase() })} placeholder="your_handle" maxLength={20}
-            hint="3–20 chars · lowercase, numbers, underscores" prefix="@" />
+            hint="3-20 chars · lowercase, numbers, underscores" prefix="@" />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 mb-4">
           <Field label="HEADLINE" value={form.headline} onChange={v => patch({ headline: v })} placeholder="AI/ML Developer | Python & Java" maxLength={80} />

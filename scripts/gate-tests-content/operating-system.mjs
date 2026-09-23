@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "operating-system",
-  title: "Operating System — Subject Test",
+  title: "Operating System - Subject Test",
   description: "8 questions covering processes, concurrency, deadlock, scheduling, memory management, and file systems.",
   testType: "subject",
   durationMinutes: 45,

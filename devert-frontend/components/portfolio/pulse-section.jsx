@@ -37,7 +37,6 @@ export default function PulseSection({ posts = [] }) {
       <SectionHeading comment="pulse.feed" title="Recent Activity" lastWordColor="#00FF41" subtitle="What I'm building and sharing on Pulse" />
       <div className="terminal-window">
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
           <Radio size={10} className="ml-2 text-white/25" />
           <span className="font-mono text-[10px] text-white/25 ml-1.5">pulse_feed.log</span>
           <Link href="/pulse" className="ml-auto font-mono text-[10px] text-white/25 hover:text-neon-green transition-colors">view on pulse →</Link>

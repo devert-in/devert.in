@@ -67,13 +67,18 @@ export function QuickStatsRow() {
     }, () => setTotalCoins(0));
   }, [user?.uid]);
 
-  if (!userData) return null;
+  // Renders for any signed-in user, including one whose profile doc has not
+  // loaded yet or carries no counters at all. It used to bail to null, which
+  // is how a brand-new account got a dashboard with no stats block at all -
+  // a zero is information ("you have not started"), an absent widget is not.
+  if (!user) return null;
+  const d = userData || {};
 
-  const streak = userData.streak || 0;
+  const streak = d.streak || 0;
 
   // progression: the always-on gamification currencies, earned everywhere.
   const progressionStats = [
-    { key: "xp", label: "Experience", val: (userData.xp || 0).toLocaleString(), icon: Zap, color: "#00FFFF",
+    { key: "xp", label: "Experience", val: (d.xp || 0).toLocaleString(), icon: Zap, color: "#00FFFF",
       desc: "Earned across Campus, Grind, and Contests." },
     { key: "coins", label: "Coins", val: (totalCoins || 0).toLocaleString(), icon: Coins, color: "#FFD700",
       desc: "Convertible to real payouts from your Wallet." },
@@ -83,10 +88,10 @@ export function QuickStatsRow() {
 
   // build: what this builder has actually shipped or solved.
   const buildStats = [
-    { key: "ships", label: "Ships Docked", val: userData.ships || 0, icon: Anchor, color: "#00FF41",
+    { key: "ships", label: "Ships Docked", val: d.ships || 0, icon: Anchor, color: "#00FF41",
       desc: "Projects docked to your Shipyard." },
-    ...(userData.problemsSolvedCount ? [
-      { key: "problems", label: "Problems Solved", val: userData.problemsSolvedCount, icon: Code2, color: "#C77DFF",
+    ...(d.problemsSolvedCount ? [
+      { key: "problems", label: "Problems Solved", val: d.problemsSolvedCount, icon: Code2, color: "#C77DFF",
         desc: "Across CodeLab and Daily Learning." },
     ] : []),
   ];
@@ -94,23 +99,23 @@ export function QuickStatsRow() {
   // compete: only shown once a student has actually entered something -
   // an unearned "0 wins" section is noise, not a stat worth its own header.
   const competeStats = [
-    ...(userData.arenaWins ? [
-      { key: "arenaWins", label: "Arena Wins", val: userData.arenaWins, icon: Swords, color: "#FF9500",
+    ...(d.arenaWins ? [
+      { key: "arenaWins", label: "Arena Wins", val: d.arenaWins, icon: Swords, color: "#FF9500",
         desc: "Timed coding battles won in the Arena." },
     ] : []),
-    ...(userData.contestsParticipated ? [
-      { key: "contestXp", label: "Contest XP", val: (userData.contestXp || 0).toLocaleString(), icon: Trophy, color: "#C77DFF",
+    ...(d.contestsParticipated ? [
+      { key: "contestXp", label: "Contest XP", val: (d.contestXp || 0).toLocaleString(), icon: Trophy, color: "#C77DFF",
         desc: "Earned from hackathon & contest results." },
-      { key: "contestCoins", label: "Contest Coins", val: (userData.contestCoins || 0).toLocaleString(), icon: Trophy, color: "#FFD700",
+      { key: "contestCoins", label: "Contest Coins", val: (d.contestCoins || 0).toLocaleString(), icon: Trophy, color: "#FFD700",
         desc: "Coin payouts from contest placements." },
     ] : []),
   ];
 
   const pulseStats = [
-    { label: "posts",    val: userData.pulsePostsCount || 0 },
-    { label: "followers", val: userData.followersCount || 0 },
-    { label: "likes",    val: userData.totalLikesReceived || 0 },
-    { label: "comments", val: userData.totalCommentsReceived || 0 },
+    { label: "posts",    val: d.pulsePostsCount || 0 },
+    { label: "followers", val: d.followersCount || 0 },
+    { label: "likes",    val: d.totalLikesReceived || 0 },
+    { label: "comments", val: d.totalCommentsReceived || 0 },
   ];
 
   return (

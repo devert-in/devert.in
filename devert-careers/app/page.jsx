@@ -34,7 +34,7 @@ const VALUES = [
   {
     icon: Users,
     title: "Your users are developers",
-    body: "Everyone here builds for people who can read the source. That raises the bar on craft and kills a lot of the usual product theatre — our users notice, and they tell us.",
+    body: "Everyone here builds for people who can read the source. That raises the bar on craft and kills a lot of the usual product theatre - our users notice, and they tell us.",
   },
   {
     icon: Blocks,
@@ -44,7 +44,7 @@ const VALUES = [
   {
     icon: GraduationCap,
     title: "The work reaches students",
-    body: "DeVert Campus runs inside colleges — scheduled learning, proctored contests, placement prep. What you build lands in front of entire cohorts, not an anonymous funnel.",
+    body: "DeVert Campus runs inside colleges - scheduled learning, proctored contests, placement prep. What you build lands in front of entire cohorts, not an anonymous funnel.",
   },
 ];
 
@@ -57,10 +57,10 @@ const HIRING = [
 
 const FAQS = [
   { q: "Do I need a degree to apply?", a: "No. We look at what you have built and how you think about it. A repository, a shipped side project, or a DeVert profile with real work on it tells us more than a transcript does." },
-  { q: "Are these roles remote?", a: "DeVert runs a flexible hybrid model — remote collaboration, with in-person time for planning, events and the work that genuinely benefits from a room. Each role states its own expectation, and the full Workplace Policy is on devert.in." },
+  { q: "Are these roles remote?", a: "DeVert runs a flexible hybrid model - remote collaboration, with in-person time for planning, events and the work that genuinely benefits from a room. Each role states its own expectation, and the full Workplace Policy is on devert.in." },
   { q: "Do you hire students or interns?", a: "Yes. When an internship is open it is listed here like any other role. We do not run an unpaid programme, and interns own real work rather than shadowing someone who does." },
   { q: "What if nothing listed fits me?", a: "Send a general application anyway. We keep them, and a strong one has opened a role more than once. Tell us what you would want to own here." },
-  { q: "How long does the process take?", a: "Usually one to two weeks end to end. If we are slower than that on your application, chase us — we would rather be chased than leave you guessing." },
+  { q: "How long does the process take?", a: "Usually one to two weeks end to end. If we are slower than that on your application, chase us - we would rather be chased than leave you guessing." },
   { q: "Will I hear back if it is a no?", a: "Yes. Every application that reaches the intro call gets a decision and a reason. We do not ghost." },
 ];
 
@@ -98,16 +98,19 @@ export default function CareersHome() {
       <script type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
-      {/* Hero */}
-      {/* THE ONE DARK BAND ON THIS SITE. Everything below the fold stays
-          light-first and typographic, which is what this site is for - a
-          candidate reading it is not being sold a product. The hero alone
-          carries the shared plate, so all three DeVert surfaces open the same
-          way. Every type colour inside is restated against the plate rather
-          than inherited: the ink-* scale is tuned for white paper and is
-          unreadable on #0A0E17. */}
-      <section className="devert-hero-bg border-b border-white/10">
-        <div className="mx-auto max-w-5xl px-5 py-20 sm:px-8 sm:py-28">
+      {/* Hero.
+
+          Padding is ASYMMETRIC on purpose. It was py-20 sm:py-28 - even
+          112px top and bottom - which was right when this was a light page
+          and the hero was a distinct band: whitespace above a headline read
+          as deliberate framing. Once the plate moved to body and the band
+          lost its own background, that top padding stopped separating
+          anything from anything and just read as a gap under the sticky
+          header. The header (h-16, plus its own bottom border) already does
+          that job, so the top is roughly halved and the bottom kept generous
+          - the space below the CTAs is still doing real work. */}
+      <section className="border-b border-white/10">
+        <div className="mx-auto max-w-5xl px-5 pt-10 pb-20 sm:px-8 sm:pt-14 sm:pb-28">
           <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#00D8FF]">
             Careers at DeVert
           </p>
@@ -116,7 +119,7 @@ export default function CareersHome() {
           </h1>
           <p className="mt-6 max-w-2xl text-[17px] leading-relaxed text-white/70 sm:text-[18px]">
             DeVert is a developer operating system, and a learning platform used by college
-            cohorts across India. We are a small team that ships — and we hire people who
+            cohorts across India. We are a small team that ships - and we hire people who
             have built something they can talk about.
           </p>
 
@@ -172,8 +175,8 @@ export default function CareersHome() {
         <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-ink-200 bg-ink-50 px-6 py-5">
           <ScrollText size={18} className="shrink-0 text-ink-400" />
           <p className="flex-1 text-[14.5px] leading-relaxed text-ink-600">
-            Our full hybrid-working policy — how we split remote and in-person, and what we
-            expect of each other — is published openly.
+            Our full hybrid-working policy - how we split remote and in-person, and what we
+            expect of each other - is published openly.
           </p>
           <a href={`${DEVERT_URL}/workplace`}
             className="text-[14px] font-semibold text-brand-600 transition-colors hover:text-brand-700">
@@ -203,7 +206,7 @@ export default function CareersHome() {
           {HIRING.map((s, i) => (
             <li key={s.title}>
               <div className="flex items-center gap-3">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink-200 bg-white text-[13px] font-semibold text-ink-500">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink-200 bg-ink-100 text-[13px] font-semibold text-ink-500">
                   {i + 1}
                 </span>
                 <s.icon size={17} className="text-brand-600" />
@@ -227,22 +230,22 @@ export default function CareersHome() {
 
       {/* Closing */}
       <section className="mx-auto max-w-5xl px-5 pb-8 sm:px-8">
-        <div className="rounded-2xl bg-ink-900 px-8 py-12 text-center sm:px-12 sm:py-16">
-          <Rocket size={22} className="mx-auto text-brand-300" />
+        <div className="rounded-2xl border border-ink-200 bg-ink-100 px-8 py-12 text-center sm:px-12 sm:py-16">
+          <Rocket size={22} className="mx-auto text-brand-600" />
           <h2 className="mx-auto mt-5 max-w-xl text-[26px] font-semibold tracking-[-0.025em] text-white sm:text-[32px]">
             Come build the thing you wish existed.
           </h2>
-          <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-ink-300">
+          <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-ink-700">
             Every one of us was a developer frustrated with the tools before we were
             building these ones.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a href="#open-roles"
-              className="rounded-full bg-white px-6 py-3 text-[14.5px] font-semibold text-ink-900 transition-colors hover:bg-ink-100">
+              className="rounded-full bg-brand-600 px-6 py-3 text-[14.5px] font-semibold text-[#05080F] transition-colors hover:bg-brand-700">
               See open roles
             </a>
             <a href={CAMPUS_URL}
-              className="rounded-full border border-ink-700 px-6 py-3 text-[14.5px] font-semibold text-ink-200 transition-colors hover:border-ink-500 hover:text-white">
+              className="rounded-full border border-ink-300 px-6 py-3 text-[14.5px] font-semibold text-ink-800 transition-colors hover:border-ink-500 hover:text-ink-900">
               Visit DeVert Campus
             </a>
           </div>

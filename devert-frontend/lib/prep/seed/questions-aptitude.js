@@ -1,4 +1,4 @@
-// Seed aptitude MCQs — every answer key recomputed and verified by hand.
+// Seed aptitude MCQs - every answer key recomputed and verified by hand.
 // Shape matches prepQuestions (design §4); `id` is the deterministic doc id used at install time.
 
 export const aptitudeQuestions = [
@@ -40,7 +40,7 @@ export const aptitudeQuestions = [
     options: ["36", "48", "60", "72"],
     correctIndex: 2,
     explanation:
-      "The ratio has 3 + 5 = 8 parts, so one part = 96 ÷ 8 = 12. The larger number is 5 parts = 5 × 12 = 60. Always find the value of one part first — everything else follows.",
+      "The ratio has 3 + 5 = 8 parts, so one part = 96 ÷ 8 = 12. The larger number is 5 parts = 5 × 12 = 60. Always find the value of one part first - everything else follows.",
     tags: ["ratios", "basics"],
   },
   {
@@ -54,7 +54,7 @@ export const aptitudeQuestions = [
     options: ["108", "126", "144", "168"],
     correctIndex: 1,
     explanation:
-      "Let the counts be 5x, 6x and 8x. Their value in rupees is 5x(1) + 6x(0.50) + 8x(0.25) = 5x + 3x + 2x = 10x = 210, so x = 21. The number of 50-paise coins = 6x = 126. The trap is mixing coin counts with coin values — convert everything to one money unit before adding.",
+      "Let the counts be 5x, 6x and 8x. Their value in rupees is 5x(1) + 6x(0.50) + 8x(0.25) = 5x + 3x + 2x = 10x = 210, so x = 21. The number of 50-paise coins = 6x = 126. The trap is mixing coin counts with coin values - convert everything to one money unit before adding.",
     tags: ["ratios", "coins", "cognizant"],
   },
   {
@@ -67,7 +67,7 @@ export const aptitudeQuestions = [
     options: ["60 km/h", "66 km/h", "72 km/h", "80 km/h"],
     correctIndex: 2,
     explanation:
-      "Crossing a pole means the train covers exactly its own length: speed = 240 m ÷ 12 s = 20 m/s. Convert m/s to km/h by multiplying by 18/5: 20 × 18/5 = 72 km/h. Memorise the 5/18 and 18/5 conversion factors — they appear in almost every train question.",
+      "Crossing a pole means the train covers exactly its own length: speed = 240 m ÷ 12 s = 20 m/s. Convert m/s to km/h by multiplying by 18/5: 20 × 18/5 = 72 km/h. Memorise the 5/18 and 18/5 conversion factors - they appear in almost every train question.",
     tags: ["trains", "unit-conversion", "tcs-nqt"],
   },
   {
@@ -122,7 +122,7 @@ export const aptitudeQuestions = [
     options: ["8%", "10%", "12%", "20%"],
     correctIndex: 2,
     explanation:
-      "Take CP = 100. Marked price = 140, and after a 20% discount the selling price = 140 × 0.80 = 112, i.e. a 12% profit. Markup and discount never simply subtract (40 − 20 ≠ 20) because they act on different bases — chain the multipliers instead: 1.40 × 0.80 = 1.12.",
+      "Take CP = 100. Marked price = 140, and after a 20% discount the selling price = 140 × 0.80 = 112, i.e. a 12% profit. Markup and discount never simply subtract (40 − 20 ≠ 20) because they act on different bases - chain the multipliers instead: 1.40 × 0.80 = 1.12.",
     tags: ["profit-loss", "discount", "multipliers"],
   },
   {
@@ -136,7 +136,7 @@ export const aptitudeQuestions = [
     options: ["₹650", "₹680", "₹700", "₹720"],
     correctIndex: 2,
     explanation:
-      "Equal profit % and loss % on the same cost C means (840 − C)/C = (C − 560)/C, so 840 − C = C − 560 and C = ₹700. Shortcut worth memorising: when profit % equals loss %, the cost price is simply the average of the two selling prices — (840 + 560)/2 = 700.",
+      "Equal profit % and loss % on the same cost C means (840 − C)/C = (C − 560)/C, so 840 − C = C − 560 and C = ₹700. Shortcut worth memorising: when profit % equals loss %, the cost price is simply the average of the two selling prices - (840 + 560)/2 = 700.",
     tags: ["profit-loss", "shortcut"],
   },
   {
@@ -163,7 +163,7 @@ export const aptitudeQuestions = [
     options: ["₹2,000", "₹2,200", "₹2,100", "₹2,400"],
     correctIndex: 2,
     explanation:
-      "Amount = 10000 × (1.10)² = ₹12,100, so CI = ₹2,100. Simple interest for the same setup would be ₹2,000; the extra ₹100 is interest-on-interest — 10% earned on the first year's ₹1,000 interest. For 2 years, CI − SI = P(R/100)².",
+      "Amount = 10000 × (1.10)² = ₹12,100, so CI = ₹2,100. Simple interest for the same setup would be ₹2,000; the extra ₹100 is interest-on-interest - 10% earned on the first year's ₹1,000 interest. For 2 years, CI − SI = P(R/100)².",
     tags: ["compound-interest", "ci-vs-si"],
   },
   {
@@ -177,7 +177,7 @@ export const aptitudeQuestions = [
     options: ["7.5 days", "6 days", "7.2 days", "8 days"],
     correctIndex: 2,
     explanation:
-      "Rates add: 1/12 + 1/18 = 3/36 + 2/36 = 5/36 of the work per day, so together they need 36/5 = 7.2 days. LCM method: take the work as 36 units — A does 3 units/day, B does 2, together 5 units/day → 36 ÷ 5 = 7.2 days.",
+      "Rates add: 1/12 + 1/18 = 3/36 + 2/36 = 5/36 of the work per day, so together they need 36/5 = 7.2 days. LCM method: take the work as 36 units - A does 3 units/day, B does 2, together 5 units/day → 36 ÷ 5 = 7.2 days.",
     tags: ["time-and-work", "lcm-method"],
   },
   {
@@ -204,7 +204,7 @@ export const aptitudeQuestions = [
     options: ["1/6", "1/12", "5/36", "1/9"],
     correctIndex: 3,
     explanation:
-      "The favourable ordered pairs are (3,6), (4,5), (5,4) and (6,3) — 4 outcomes out of 36 equally likely pairs, giving 4/36 = 1/9. Count ordered pairs because the two dice are distinct objects; treating (4,5) and (5,4) as one outcome is the classic mistake.",
+      "The favourable ordered pairs are (3,6), (4,5), (5,4) and (6,3) - 4 outcomes out of 36 equally likely pairs, giving 4/36 = 1/9. Count ordered pairs because the two dice are distinct objects; treating (4,5) and (5,4) as one outcome is the classic mistake.",
     tags: ["probability", "dice"],
   },
   {

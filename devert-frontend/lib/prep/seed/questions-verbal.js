@@ -1,4 +1,4 @@
-// Seed verbal ability MCQs — standard placement English: vocabulary, grammar, usage.
+// Seed verbal ability MCQs - standard placement English: vocabulary, grammar, usage.
 
 export const verbalQuestions = [
   {
@@ -11,7 +11,7 @@ export const verbalQuestions = [
     options: ["Secretive", "Frank", "Devious", "Timid"],
     correctIndex: 1,
     explanation:
-      "Candid means honest and direct — frank is the closest synonym. Think of \"candid feedback\": open and truthful, holding nothing back. Secretive and devious are near-opposites, which is why they appear as traps.",
+      "Candid means honest and direct - frank is the closest synonym. Think of \"candid feedback\": open and truthful, holding nothing back. Secretive and devious are near-opposites, which is why they appear as traps.",
     tags: ["vocabulary", "synonyms"],
   },
   {
@@ -24,7 +24,7 @@ export const verbalQuestions = [
     options: ["Thrifty", "Miserly", "Extravagant", "Economical"],
     correctIndex: 2,
     explanation:
-      "Frugal means careful and sparing with money; its opposite is extravagant — spending freely and wastefully. Thrifty, economical and miserly are all near-synonyms of frugal, which is exactly why antonym questions pack the options with synonyms of the given word.",
+      "Frugal means careful and sparing with money; its opposite is extravagant - spending freely and wastefully. Thrifty, economical and miserly are all near-synonyms of frugal, which is exactly why antonym questions pack the options with synonyms of the given word.",
     tags: ["vocabulary", "antonyms"],
   },
   {
@@ -37,7 +37,7 @@ export const verbalQuestions = [
     options: ["are", "is", "were", "have been"],
     correctIndex: 1,
     explanation:
-      "\"Neither\" is grammatically singular even when followed by \"of the two candidates\", so it takes the singular verb \"is\". The plural noun sitting right before the blank is the classic trap — the true subject is \"neither\", not \"candidates\". The same rule applies to \"either\", \"each\" and \"every one\".",
+      "\"Neither\" is grammatically singular even when followed by \"of the two candidates\", so it takes the singular verb \"is\". The plural noun sitting right before the blank is the classic trap - the true subject is \"neither\", not \"candidates\". The same rule applies to \"either\", \"each\" and \"every one\".",
     tags: ["grammar", "agreement"],
   },
   {
@@ -73,7 +73,7 @@ export const verbalQuestions = [
     ],
     correctIndex: 1,
     explanation:
-      "To bite the bullet means to force yourself to endure something painful or unpleasant that cannot be avoided. The phrase comes from the era before anaesthesia, when soldiers bit on a bullet during battlefield surgery. Idiom meanings are rarely literal — learn them as whole units.",
+      "To bite the bullet means to force yourself to endure something painful or unpleasant that cannot be avoided. The phrase comes from the era before anaesthesia, when soldiers bit on a bullet during battlefield surgery. Idiom meanings are rarely literal - learn them as whole units.",
     tags: ["idioms", "usage"],
   },
   {
@@ -86,7 +86,7 @@ export const verbalQuestions = [
     options: ["Linguist", "Bilingual", "Polyglot", "Orator"],
     correctIndex: 2,
     explanation:
-      "A polyglot speaks several languages. A linguist studies language scientifically (and may speak only one), bilingual means exactly two languages, and an orator is a skilled public speaker. One-word-substitution questions reward precision — eliminate options that are close but not exact.",
+      "A polyglot speaks several languages. A linguist studies language scientifically (and may speak only one), bilingual means exactly two languages, and an orator is a skilled public speaker. One-word-substitution questions reward precision - eliminate options that are close but not exact.",
     tags: ["vocabulary", "one-word-substitution"],
   },
   {
@@ -100,7 +100,7 @@ export const verbalQuestions = [
     options: ["PQRS", "QPRS", "QRPS", "PRQS"],
     correctIndex: 1,
     explanation:
-      "Q is the natural opener — a general statement introducing the topic. P then gives the origin (1969, ARPANET), R traces the growth over the following decades, and S lands in the present day. The reliable pattern is: general introduction → origin → development → current state; time markers like \"1969\", \"over the following decades\" and \"today\" fix the order.",
+      "Q is the natural opener - a general statement introducing the topic. P then gives the origin (1969, ARPANET), R traces the growth over the following decades, and S lands in the present day. The reliable pattern is: general introduction → origin → development → current state; time markers like \"1969\", \"over the following decades\" and \"today\" fix the order.",
     tags: ["para-jumbles", "reading"],
   },
   {

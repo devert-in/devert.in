@@ -1,4 +1,4 @@
-// Seed Java MCQs — core language semantics, verified against the JLS and standard library behaviour.
+// Seed Java MCQs - core language semantics, verified against the JLS and standard library behaviour.
 
 export const javaQuestions = [
   {
@@ -8,10 +8,10 @@ export const javaQuestions = [
     topic: "data-types",
     difficulty: "easy",
     prompt: "What is the default value of an instance variable of type `int` in a Java class (if not explicitly initialized)?",
-    options: ["null", "0", "Undefined — compile error", "A garbage value, as in C"],
+    options: ["null", "0", "Undefined - compile error", "A garbage value, as in C"],
     correctIndex: 1,
     explanation:
-      "Java always zero-initializes instance (and static) fields: numeric types default to 0 / 0.0, boolean to false, and object references to null. This is unlike C, where an uninitialized local variable holds garbage — Java guarantees this only for fields, NOT for local variables, which must be assigned before use or the compiler rejects the code.",
+      "Java always zero-initializes instance (and static) fields: numeric types default to 0 / 0.0, boolean to false, and object references to null. This is unlike C, where an uninitialized local variable holds garbage - Java guarantees this only for fields, NOT for local variables, which must be assigned before use or the compiler rejects the code.",
     tags: ["fields", "defaults"],
   },
   {
@@ -24,7 +24,7 @@ export const javaQuestions = [
     options: ["static", "final", "private", "abstract"],
     correctIndex: 1,
     explanation:
-      "Marking a class `final` (e.g. `public final class Utils`) stops any other class from `extends`-ing it — attempting to do so is a compile error. `abstract` is the opposite (it FORCES subclassing, since an abstract class can't be instantiated directly), and `static`/`private` apply to members, not top-level classes, in this sense. `String` and the wrapper classes like `Integer` are all `final` for exactly this reason.",
+      "Marking a class `final` (e.g. `public final class Utils`) stops any other class from `extends`-ing it - attempting to do so is a compile error. `abstract` is the opposite (it FORCES subclassing, since an abstract class can't be instantiated directly), and `static`/`private` apply to members, not top-level classes, in this sense. `String` and the wrapper classes like `Integer` are all `final` for exactly this reason.",
     tags: ["inheritance", "final"],
   },
   {
@@ -37,7 +37,7 @@ export const javaQuestions = [
     options: ["NullPointerException", "ArrayIndexOutOfBoundsException", "IOException", "ArithmeticException"],
     correctIndex: 2,
     explanation:
-      "`IOException` extends `Exception` directly and is checked — the compiler forces you to either catch it or declare `throws IOException`. The other three all extend `RuntimeException`, which is unchecked — the compiler never forces you to handle them, even though they can still be caught. The rule of thumb: RuntimeException subclasses signal programmer bugs, checked exceptions signal recoverable external conditions like a missing file.",
+      "`IOException` extends `Exception` directly and is checked - the compiler forces you to either catch it or declare `throws IOException`. The other three all extend `RuntimeException`, which is unchecked - the compiler never forces you to handle them, even though they can still be caught. The rule of thumb: RuntimeException subclasses signal programmer bugs, checked exceptions signal recoverable external conditions like a missing file.",
     tags: ["exceptions", "checked-vs-unchecked"],
   },
   {
@@ -63,7 +63,7 @@ export const javaQuestions = [
     options: ["==", ".equals()", ".hashCode()", ".length()"],
     correctIndex: 1,
     explanation:
-      "`==` on objects compares REFERENCES (are these the same object in memory?), not contents. `.equals()` is overridden by `String` to compare character-by-character content, which is almost always what you actually want. `new String(\"hi\") == \"hi\"` is famously `false` even though `.equals()` on the same pair returns `true` — a very common interview gotcha.",
+      "`==` on objects compares REFERENCES (are these the same object in memory?), not contents. `.equals()` is overridden by `String` to compare character-by-character content, which is almost always what you actually want. `new String(\"hi\") == \"hi\"` is famously `false` even though `.equals()` on the same pair returns `true` - a very common interview gotcha.",
     tags: ["strings", "equality"],
   },
   {
@@ -76,7 +76,7 @@ export const javaQuestions = [
     options: ["Method overriding", "Method overloading", "Dynamic method dispatch", "Interface implementation with @Override"],
     correctIndex: 1,
     explanation:
-      "Method overloading — multiple methods in the same class sharing a name but differing in parameter list — is resolved by the COMPILER based on the declared argument types, hence \"static\"/compile-time polymorphism. Overriding (and the dynamic dispatch that implements it) is resolved at RUNTIME based on the object's actual class, which is why it's called runtime/dynamic polymorphism instead.",
+      "Method overloading - multiple methods in the same class sharing a name but differing in parameter list - is resolved by the COMPILER based on the declared argument types, hence \"static\"/compile-time polymorphism. Overriding (and the dynamic dispatch that implements it) is resolved at RUNTIME based on the object's actual class, which is why it's called runtime/dynamic polymorphism instead.",
     tags: ["polymorphism", "overloading-vs-overriding"],
   },
   {
@@ -89,7 +89,7 @@ export const javaQuestions = [
     options: ["Stack", "Heap", "Metaspace", "Program Counter register"],
     correctIndex: 1,
     explanation:
-      "All objects (and arrays) live on the Heap, which is shared across all threads and managed by the garbage collector. The Stack holds per-thread method call frames and LOCAL variables — including reference variables that merely POINT AT objects on the heap. Metaspace stores class metadata (replacing PermGen since Java 8), not object instances.",
+      "All objects (and arrays) live on the Heap, which is shared across all threads and managed by the garbage collector. The Stack holds per-thread method call frames and LOCAL variables - including reference variables that merely POINT AT objects on the heap. Metaspace stores class metadata (replacing PermGen since Java 8), not object instances.",
     tags: ["jvm", "memory"],
   },
   {
@@ -102,7 +102,7 @@ export const javaQuestions = [
     options: ["public", "protected", "private", "default (no modifier)"],
     correctIndex: 2,
     explanation:
-      "`private` is the strictest modifier — not even subclasses or other classes in the same package can see the member. `default` (package-private) allows access from the same package, `protected` additionally allows subclasses in other packages, and `public` allows access from anywhere. This is the standard basis of encapsulation: keep fields `private` and expose behaviour through public getters/setters or methods.",
+      "`private` is the strictest modifier - not even subclasses or other classes in the same package can see the member. `default` (package-private) allows access from the same package, `protected` additionally allows subclasses in other packages, and `public` allows access from anywhere. This is the standard basis of encapsulation: keep fields `private` and expose behaviour through public getters/setters or methods.",
     tags: ["access-modifiers", "encapsulation"],
   },
   {
@@ -115,7 +115,7 @@ export const javaQuestions = [
     options: ["volatile", "synchronized", "transient", "static"],
     correctIndex: 1,
     explanation:
-      "`synchronized` makes a thread acquire a lock (the object's monitor) before entering the method/block and release it on exit, so other threads block until it's free — this is how Java prevents race conditions on shared mutable state. `volatile` only guarantees visibility of a single variable's latest value across threads, it does NOT provide mutual exclusion; `transient` is unrelated (it's about serialization).",
+      "`synchronized` makes a thread acquire a lock (the object's monitor) before entering the method/block and release it on exit, so other threads block until it's free - this is how Java prevents race conditions on shared mutable state. `volatile` only guarantees visibility of a single variable's latest value across threads, it does NOT provide mutual exclusion; `transient` is unrelated (it's about serialization).",
     tags: ["concurrency", "synchronized"],
   },
   {
@@ -128,7 +128,7 @@ export const javaQuestions = [
     options: ["4", "5", "6", "It is undefined until elements are assigned"],
     correctIndex: 1,
     explanation:
-      "`new int[5]` allocates an array with exactly 5 slots (indices 0 through 4), all pre-initialized to 0, and `.length` reports that fixed capacity — 5. Array length in Java is fixed at creation time and is a `final` field on the array object itself, not a method call (no parentheses, unlike `String.length()` or `List.size()`).",
+      "`new int[5]` allocates an array with exactly 5 slots (indices 0 through 4), all pre-initialized to 0, and `.length` reports that fixed capacity - 5. Array length in Java is fixed at creation time and is a `final` field on the array object itself, not a method call (no parentheses, unlike `String.length()` or `List.size()`).",
     tags: ["arrays", "length"],
   },
 ];

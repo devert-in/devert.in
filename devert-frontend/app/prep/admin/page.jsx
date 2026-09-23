@@ -1,6 +1,6 @@
 "use client";
 
-// /prep/admin — the control panel (design §2). Single page, tab layout,
+// /prep/admin - the control panel (design §2). Single page, tab layout,
 // RequireAdmin-gated. Each tab is its own panel component under
 // components/prep/admin/ so this file stays a thin router between them.
 
@@ -93,10 +93,10 @@ function AdminTabs() {
 function AdminPageInner() {
   return (
     <PrepShell
-      kicker="// /prep/admin — control_panel.sh"
+      kicker="// /prep/admin - control_panel.sh"
       title="ADMIN"
       accent="CONTROL"
-      subtitle="Questions, exams, courses, daily tasks, roles, groups, and announcements — one terminal."
+      subtitle="Questions, exams, courses, daily tasks, roles, groups, and announcements - one terminal."
       maxWidth="max-w-7xl"
     >
       <Suspense fallback={<p className="font-mono text-xs text-white/30">{"// loading control panel…"}</p>}>

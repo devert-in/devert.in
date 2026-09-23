@@ -1,4 +1,4 @@
-// Shared exam-window helpers — pure functions, no Firebase/React imports.
+// Shared exam-window helpers - pure functions, no Firebase/React imports.
 // Used by /prep/exams (list), /prep/exams/take, /prep/exams/review and
 // /prep/analytics so status logic is computed exactly once.
 

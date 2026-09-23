@@ -1,5 +1,5 @@
 // Python runner: Pyodide inside a Web Worker built from a Blob URL.
-// Blob URL means no worker file has to exist in /public — safe under
+// Blob URL means no worker file has to exist in /public - safe under
 // `output: 'export'`. One warm worker is reused across runs (Pyodide boot is
 // expensive); on timeout we terminate and respawn because a synchronous
 // Python exec cannot be interrupted any other way.
@@ -129,7 +129,7 @@ export function isPythonReady() {
 }
 
 /**
- * Run python `code` with `stdin`. Never rejects — always resolves to
+ * Run python `code` with `stdin`. Never rejects - always resolves to
  * { stdout, stderr, timeMs, timedOut, error }.
  */
 export function runPython(code, stdin = "", timeoutMs = 10000) {

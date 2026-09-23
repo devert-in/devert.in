@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "theory-of-computation",
-  title: "Theory of Computation — Subject Test",
+  title: "Theory of Computation - Subject Test",
   description: "8 questions covering finite automata, regular languages, context-free grammars, PDAs, and Turing machines.",
   testType: "subject",
   durationMinutes: 45,

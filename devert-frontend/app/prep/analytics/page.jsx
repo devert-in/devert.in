@@ -1,6 +1,6 @@
 "use client";
 
-// /prep/analytics — student's own dashboard: streak/progress stats, category
+// /prep/analytics - student's own dashboard: streak/progress stats, category
 // accuracy + attempts-over-time charts, exam history (submissions joined with
 // exams, scores recomputed where the key is readable).
 
@@ -137,10 +137,10 @@ function AnalyticsBody() {
 
   return (
     <PrepShell
-      kicker="// /prep/analytics — self_dashboard.sh"
+      kicker="// /prep/analytics - self_dashboard.sh"
       title="YOUR"
       accent="ANALYTICS"
-      subtitle="Streak, accuracy by category, and exam history — all recomputed from immutable records."
+      subtitle="Streak, accuracy by category, and exam history - all recomputed from immutable records."
       actions={profile?.rollNumber && <NeonBadge color="#FFD700">ROLL: {profile.rollNumber}</NeonBadge>}
     >
       {loading && !error && <LoadingRows rows={4} />}
@@ -193,7 +193,7 @@ function AnalyticsBody() {
         </>
       )}
 
-      {/* Exam history is independent of practice activity — a student who
+      {/* Exam history is independent of practice activity - a student who
           only ever takes weekend tests (no lesson/practice attempts) still
           needs to see their submissions here. */}
       {!loading && (
@@ -227,7 +227,7 @@ function AnalyticsBody() {
                 {
                   key: "submittedAt",
                   label: "submitted",
-                  render: (r) => <span className="text-white/35">{r.submittedAt ? fmtDateTime(r.submittedAt) : "—"}</span>,
+                  render: (r) => <span className="text-white/35">{r.submittedAt ? fmtDateTime(r.submittedAt) : "-"}</span>,
                 },
               ]}
             />

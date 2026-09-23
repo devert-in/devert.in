@@ -214,7 +214,7 @@ function SlidingWindowViz({ array, windowSize }) {
         <p className="text-[12px] mt-3 rounded-lg p-3"
           style={{ background: CAMPUS.goodTint, color: CAMPUS.ink, border: `1px solid ${CAMPUS.good}` }}>
           Done in <b>{nums.length}</b> reads. Brute force would have taken{" "}
-          <b>{(lastStart + 1) * k}</b> for this tiny array &mdash; and the gap widens with
+          <b>{(lastStart + 1) * k}</b> for this tiny array - and the gap widens with
           every extra element, which is the whole difference between O(n) and O(n&times;k).
         </p>
       )}

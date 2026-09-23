@@ -337,7 +337,6 @@ export function ContestAttemptView({ contestId, onBack, onViewResults }) {
 
         <div className="terminal-window">
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">question {qIndex + 1} / {questions.length}</span>
           </div>
           <div className="p-5">

@@ -113,27 +113,43 @@ export function campusPhotoBg(theme, customUrl) {
     return { "--campus-bg-image": `linear-gradient(${scrim}, ${scrim}), url(${customUrl})` };
   }
 
-  // Default: a FLAT canvas. No mesh, no glow, no photograph.
+  // Default in DARK theme: the brand plate, the same devert-hero-bg.jpg that
+  // devert.in and careers.devert.in paint on body. Campus used to be the odd
+  // one out - only its landing hero (.vs-canvas) carried the plate, so every
+  // other surface (Campuses, Pricing, For institutions, the whole workspace)
+  // was flat black while the rest of the platform was textured.
   //
-  // The two hanging-bulb JPEGs this used to load were what made every Campus
-  // surface read warm/tan regardless of the tokens on top of them, and the
-  // accent palette had been pivoted to warm orange specifically to stop
-  // fighting them. Replacing the backdrop is what let --campus-teal go back to
-  // the logo's green (see globals.css's .campus-theme block).
+  // History, so the old backdrops do not come back: this originally loaded two
+  // hanging-bulb JPEGs, which is what made every Campus surface read warm/tan
+  // and why --campus-teal had been pivoted to warm orange to stop fighting
+  // them. Those were replaced by a green/cyan radial mesh, which was rejected
+  // for glowing, then by a flat canvas, which is what this replaces.
   //
-  // Colour blocks sit ON the page as solid fills; the page itself stays out of
-  // the way. An earlier pass put a green/cyan radial mesh here and it was
-  // rejected for the same reason the photo was - a backdrop that glows is
-  // still a backdrop competing with content.
+  // LIGHT THEME STAYS FLAT. The plate is dark artwork; putting it behind
+  // Campus's light theme would leave dark text on a dark photo. Campus is the
+  // only one of the three apps with a light/dark toggle, so it is the only one
+  // that needs this branch at all.
   //
-  // Expressed as a same-colour linear-gradient rather than `none` because this
-  // value is consumed as a background-image on .campus-photo-bg's ::before
-  // layer (globals.css): `none` would make that layer transparent and leave
-  // the canvas to whatever the element behind it happens to paint, which is
-  // not guaranteed on every Campus surface. A two-stop gradient between one
-  // colour IS a flat fill - nothing renders as a gradient.
-  const canvas = theme === "dark" ? "#0A0E17" : "#F8F9FA";
-  return { "--campus-bg-image": `linear-gradient(${canvas}, ${canvas})` };
+  // The flat value is a same-colour linear-gradient rather than `none`: this
+  // is consumed as a background-image on .campus-photo-bg's ::before layer,
+  // and `none` would make that layer transparent and leave the canvas to
+  // whatever the element behind it happens to paint.
+  if (theme === "dark") {
+    return {
+      "--campus-bg-image": "linear-gradient(rgba(5,7,12,0.66), rgba(5,7,12,0.82)), url(/devert-hero-bg.jpg)",
+      // Sharp. The 30px default exists to soften a student's uploaded photo;
+      // applying it to the plate would smear the circuit tracery into the mush
+      // that got the first background rejected as blurry.
+      "--campus-bg-blur": "0px",
+      // No overscan either. The -40px default exists so a 30px blur never
+      // samples past the layer's edge and darkens it; with blur off it only
+      // scales the plate differently from devert.in and careers, which paint
+      // it as a plain body background with no overscan at all. Matching them
+      // is the whole point - the three landings must read as one surface.
+      "--campus-bg-inset": "0px",
+    };
+  }
+  return { "--campus-bg-image": "linear-gradient(#F8F9FA, #F8F9FA)", "--campus-bg-blur": "0px" };
 }
 
 // Fixed literal hex, deliberately NOT CAMPUS.* var() references - an
@@ -145,3 +161,4 @@ export function campusPhotoBg(theme, customUrl) {
 // so campus-branding.jsx's preset swatches don't drift from that palette as
 // independently copy-pasted literals.
 export const NEON_ACCENT_HEX = ["#00FF41", "#00FFFF", "#FF9500", "#C77DFF", "#FFD700", "#3B82F6"];
+

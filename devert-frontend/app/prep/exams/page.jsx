@@ -1,6 +1,6 @@
 "use client";
 
-// /prep/exams — weekend test list. Published prepExams(kind='weekend-test'),
+// /prep/exams - weekend test list. Published prepExams(kind='weekend-test'),
 // status chips (upcoming/live/ended) + countdowns; cards outside the
 // student's classGroup are disabled with a NOT_YOUR_COHORT badge.
 
@@ -139,7 +139,7 @@ function ExamsList() {
   }, []);
 
   const sorted = (exams || []).slice().sort((a, b) => {
-    // live first, then upcoming, then ended — most relevant to a student first
+    // live first, then upcoming, then ended - most relevant to a student first
     const rank = { live: 0, upcoming: 1, unknown: 2, ended: 3 };
     const sa = computeExamStatus(a).status;
     const sb = computeExamStatus(b).status;
@@ -149,10 +149,10 @@ function ExamsList() {
 
   return (
     <PrepShell
-      kicker="// /prep/exams — weekend_test_runner.sh"
+      kicker="// /prep/exams - weekend_test_runner.sh"
       title="WEEKEND"
       accent="TESTS"
-      subtitle="Timed MCQ + coding tests. Your roll number is your test identity — everything is logged against it."
+      subtitle="Timed MCQ + coding tests. Your roll number is your test identity - everything is logged against it."
     >
       {exams === null && !error && <LoadingRows rows={4} />}
       {error && (

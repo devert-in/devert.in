@@ -1,7 +1,7 @@
 "use client";
 
 // Status derivation + chip shared by the contest list and (implicitly) the
-// run page's own window checks — pure function of startsAt/endsAt vs now.
+// run page's own window checks - pure function of startsAt/endsAt vs now.
 
 import { NeonBadge } from "@/components/prep/ui";
 

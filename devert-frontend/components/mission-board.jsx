@@ -7,7 +7,7 @@ import { ArrowRight, Clock, Users, Trophy } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 
-export function MissionBoard() {
+export function MissionBoard({ compact = false }) {
   const [missions, setMissions] = useState([]);
   const [loading,  setLoading]  = useState(true);
 
@@ -19,19 +19,19 @@ export function MissionBoard() {
   }, []);
 
   return (
-    <section className="px-6 py-20">
-      <div className="max-w-6xl mx-auto">
+    <section className={compact ? "" : "px-6 py-20"}>
+      <div className={compact ? "" : "max-w-6xl mx-auto"}>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="flex items-end justify-between mb-10 flex-wrap gap-4"
+          className={`flex items-end justify-between flex-wrap gap-4 ${compact ? "mb-4" : "mb-10"}`}
         >
           <div>
             <p className="font-mono text-xs text-neon-green/55 mb-2 tracking-wider">
               // /missions - classified.db
             </p>
-            <h2 className="font-sans font-bold text-white tracking-tighter" style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)" }}>
+            <h2 className="font-sans font-bold text-white tracking-tighter" style={{ fontSize: compact ? "1.25rem" : "clamp(1.8rem, 4vw, 3rem)" }}>
               MISSION <span className="text-neon-cyan">BOARD</span>
             </h2>
           </div>
@@ -46,7 +46,7 @@ export function MissionBoard() {
         </motion.div>
 
         {loading ? (
-          <div className="grid md:grid-cols-3 gap-5">
+          <div className={`grid gap-5 ${compact ? "sm:grid-cols-2" : "md:grid-cols-3"}`}>
             {[1, 2, 3].map(i => (
               <div key={i} className="terminal-window animate-pulse">
                 <div className="terminal-header" />
@@ -62,9 +62,6 @@ export function MissionBoard() {
         ) : missions.length === 0 ? (
           <div className="terminal-window max-w-md">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" />
-              <div className="terminal-dot bg-yellow-500/70" />
-              <div className="terminal-dot bg-green-500/70" />
             </div>
             <div className="p-8 text-center">
               <p className="font-mono text-xs text-white/25 mb-1">no active missions</p>
@@ -84,9 +81,6 @@ export function MissionBoard() {
                 className="terminal-window group cursor-pointer transition-colors"
               >
                 <div className="terminal-header relative overflow-hidden">
-                  <div className="terminal-dot bg-red-500/70" />
-                  <div className="terminal-dot bg-yellow-500/70" />
-                  <div className="terminal-dot bg-green-500/70" />
                   <span className="font-mono text-[9px] text-white/25 ml-2 truncate">mission_brief.pdf</span>
                   <motion.span
                     whileHover={{ rotate: -8 }}

@@ -70,7 +70,7 @@ export default function HeroSection({
 
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
             className="font-mono text-xs text-neon-green/55 mb-1 tracking-wider">
-            // portfolio — {handle}.sh
+            // portfolio - {handle}.sh
           </motion.p>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
             className="font-mono text-sm text-neon-green mb-3">

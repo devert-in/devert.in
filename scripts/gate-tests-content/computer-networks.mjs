@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "computer-networks",
-  title: "Computer Networks — Subject Test",
+  title: "Computer Networks - Subject Test",
   description: "8 questions covering layering, switching, the data link layer, routing, IPv4, and the transport/application layers.",
   testType: "subject",
   durationMinutes: 45,

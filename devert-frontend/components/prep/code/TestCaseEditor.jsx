@@ -1,7 +1,7 @@
 "use client";
 
 // Custom test-case rows for the code playground: add/remove input/expected
-// pairs, fed straight into CodeRunner's `testCases` prop — its own
+// pairs, fed straight into CodeRunner's `testCases` prop - its own
 // RUN_TESTS button is the "run all" action against whatever is listed here.
 
 import { Plus, Trash2 } from "lucide-react";
@@ -20,7 +20,7 @@ export default function TestCaseEditor({ cases, onChange, className }) {
     <div className={cn("space-y-2.5", className)}>
       {rows.length === 0 && (
         <p className="font-mono text-[11px] text-white/25 leading-relaxed">
-          No custom test cases yet — add one below, then hit{" "}
+          No custom test cases yet - add one below, then hit{" "}
           <span className="text-neon-green">RUN_TESTS</span> above the editor to check your code
           against all of them at once.
         </p>

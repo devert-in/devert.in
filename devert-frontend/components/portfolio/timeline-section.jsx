@@ -44,7 +44,6 @@ export default function TimelineSection(props) {
       <SectionHeading comment="activity.timeline" title="Activity Timeline" lastWordColor="#FF9500" />
       <div className="terminal-window">
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
           <Clock size={10} className="ml-2 text-white/25" />
           <span className="font-mono text-[10px] text-white/25 ml-1.5">timeline.log</span>
         </div>
@@ -60,7 +59,7 @@ export default function TimelineSection(props) {
                   className="flex items-center gap-3 px-5 py-3">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: meta.color, boxShadow: `0 0 4px ${meta.color}` }} />
                   <span className="font-mono text-xs text-white/55 flex-1">
-                    <span style={{ color: meta.color }}>{meta.label}</span> — {e.title}
+                    <span style={{ color: meta.color }}>{meta.label}</span> - {e.title}
                   </span>
                   <span className="font-mono text-[10px] text-white/20 flex-shrink-0">
                     {new Date(e.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}

@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "databases",
-  title: "Databases — Subject Test",
+  title: "Databases - Subject Test",
   description: "8 questions covering ER modeling, relational algebra/SQL, normalization, indexing, and transactions.",
   testType: "subject",
   durationMinutes: 45,

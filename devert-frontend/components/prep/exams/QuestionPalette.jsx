@@ -1,7 +1,7 @@
 "use client";
 
 // Numbered question-jump grid used by the weekend-test runner. Pure
-// presentational component — the parent owns which questions are answered /
+// presentational component - the parent owns which questions are answered /
 // marked / current.
 
 import { Flag } from "lucide-react";

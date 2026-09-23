@@ -58,7 +58,7 @@ export function QuestionAnalysisTab({ exam, paper, records, group }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="font-mono text-[11px] text-white/35">
-          {stats.filter((s) => s.flagged).length} question(s) flagged below 35% correct — consider a review session.
+          {stats.filter((s) => s.flagged).length} question(s) flagged below 35% correct - consider a review session.
         </p>
         <BracketButton variant="green" onClick={handleExport} disabled={!stats.length}>
           <Download size={12} /> EXPORT_CSV
@@ -114,7 +114,7 @@ export function QuestionAnalysisTab({ exam, paper, records, group }) {
                   <AlertTriangle size={9} /> HARD/REVIEW
                 </Tag>
               ) : (
-                <span className="text-white/15">—</span>
+                <span className="text-white/15">-</span>
               ),
           },
         ]}

@@ -2312,7 +2312,7 @@ function ManagePayments() {
 
   const nameFor = (uid) => {
     const p = profilesByUid[uid];
-    return p?.campusFullName || p?.handle || p?.displayName || p?.email || uid || "—";
+    return p?.campusFullName || p?.handle || p?.displayName || p?.email || uid || "-";
   };
   const inr = (paise) => `₹${Math.round((paise || 0) / 100).toLocaleString("en-IN")}`;
 
@@ -2370,7 +2370,7 @@ function ManagePayments() {
                 <div className="flex-1 min-w-0">
                   <b className="block text-[13px] truncate" style={{ color: CAMPUS.ink }}>{nameFor(s.id)}</b>
                   <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>
-                    {s.plan || "—"} · expires {s.expiresAtMs ? new Date(s.expiresAtMs).toLocaleDateString() : "—"}
+                    {s.plan || "-"} · expires {s.expiresAtMs ? new Date(s.expiresAtMs).toLocaleDateString() : "-"}
                   </span>
                 </div>
                 <CampusChip color={CAMPUS.good}>ACTIVE</CampusChip>
@@ -2393,7 +2393,7 @@ function ManagePayments() {
                 <div className="flex-1 min-w-0">
                   <b className="block text-[13px] truncate" style={{ color: CAMPUS.ink }}>{nameFor(p.uid)}</b>
                   <span className="text-[10.5px]" style={{ color: CAMPUS.inkFaint }}>
-                    {p.planId || "—"} · {inr(p.amountPaid ?? p.amount)}
+                    {p.planId || "-"} · {inr(p.amountPaid ?? p.amount)}
                     {p.createdAt?.toDate ? ` · ${p.createdAt.toDate().toLocaleString()}` : ""}
                   </span>
                   {p.failureReason && (

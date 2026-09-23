@@ -5,7 +5,7 @@
 
 export const TEST = {
   subjectId: "engineering-mathematics",
-  title: "Engineering Mathematics — Subject Test",
+  title: "Engineering Mathematics - Subject Test",
   description: "8 questions covering Discrete Mathematics, Linear Algebra, Calculus, and Probability & Statistics - the full Engineering Mathematics section.",
   testType: "subject",
   durationMinutes: 45,

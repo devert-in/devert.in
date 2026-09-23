@@ -362,7 +362,7 @@ export function CampusContestDetails({ contestId, onBack, onEnterAttempt, onView
               </button>
             ) : (
               <span className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-3 rounded-xl" style={{ color: CAMPUS.good, border: `1px solid ${tint(CAMPUS.good, 31)}` }}>
-                <CheckCircle2 size={14} /> registered — come back at start time
+                <CheckCircle2 size={14} /> registered - come back at start time
               </span>
             )
           ) : phase === "past" ? (
@@ -1263,7 +1263,7 @@ function StudentAnalysisDashboard({ contest, submission, questions, answerKeys, 
 }
 
 function formatGivenAnswer(q, given) {
-  if (isBlank(given)) return "— not answered —";
+  if (isBlank(given)) return "- not answered -";
   if (q.type === "multiselect") return (given || []).map(id => q.options?.find(o => o.id === id)?.text || id).join(", ");
   if (q.type === "fillblank") return String(given);
   return q.options?.find(o => o.id === given)?.text || given;
@@ -1401,7 +1401,7 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
 
       {phase !== "past" ? (
         <CampusCard className="p-6 text-center">
-          <p className="text-xs" style={{ color: CAMPUS.inkSoft }}>Results unlock once the contest ends — {formatDate(contest.contestEnd)}.</p>
+          <p className="text-xs" style={{ color: CAMPUS.inkSoft }}>Results unlock once the contest ends - {formatDate(contest.contestEnd)}.</p>
         </CampusCard>
       ) : (
         <>
@@ -1409,14 +1409,14 @@ export function CampusContestResults({ contestId, onBack, onBackToList }) {
           {user && mySubmission?.graded && (
             scoreReleased ? (
               <CampusCard className="p-5 mb-6">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <ResultStat label="RANK" value={myRank ? `#${myRank}` : "-"} color={CAMPUS.gold} />
                   <ResultStat label="SCORE" value={`${mySubmission.score}/${mySubmission.maxScore}`} />
                   <ResultStat label="ACCURACY" value={`${mySubmission.accuracy}%`} color={CAMPUS.good} />
                 </div>
               </CampusCard>
             ) : (
-              <p className="text-xs text-center mb-6" style={{ color: CAMPUS.inkFaint }}>Your score hasn&apos;t been released yet — check back soon.</p>
+              <p className="text-xs text-center mb-6" style={{ color: CAMPUS.inkFaint }}>Your score hasn&apos;t been released yet - check back soon.</p>
             )
           )}
           {user && !mySubmission && !grading && (

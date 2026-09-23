@@ -1,6 +1,6 @@
 "use client";
 
-// Admin — question upload (design §2 + §7). Accepts .json (mcq + coding) and
+// Admin - question upload (design §2 + §7). Accepts .json (mcq + coding) and
 // .csv (mcq only, papaparse). Every row is validated client-side before any
 // Firestore write; only valid rows are imported, batched via lib/prep/db's
 // importQuestions (which itself chunks into <=450-write batches).
@@ -34,7 +34,7 @@ const DIFFICULTY_IDS = new Set(DIFFICULTIES.map((d) => d.id));
 const LETTER_TO_INDEX = { A: 0, B: 1, C: 2, D: 3 };
 
 /** Normalizes one candidate question (from JSON or a mapped CSV row) into
- * { ok, errors, cleaned } — cleaned is the exact shape importQuestions expects. */
+ * { ok, errors, cleaned } - cleaned is the exact shape importQuestions expects. */
 function validateQuestion(raw) {
   const errors = [];
   const rawObj = raw && typeof raw === "object" ? raw : {};
@@ -160,8 +160,8 @@ async function parseFile(file) {
   throw new Error("Only .json and .csv files are supported");
 }
 
-const FORMAT_HELP = `### JSON format (preferred — supports MCQ + coding)
-An array of question objects. Do **not** include \`qid\`, \`createdAt\`, or \`createdBy\` — those are added at import time.
+const FORMAT_HELP = `### JSON format (preferred - supports MCQ + coding)
+An array of question objects. Do **not** include \`qid\`, \`createdAt\`, or \`createdBy\` - those are added at import time.
 
 \`\`\`json
 {
@@ -170,8 +170,8 @@ An array of question objects. Do **not** include \`qid\`, \`createdAt\`, or \`cr
   "topic": "Percentages",
   "difficulty": "easy",          // easy | medium | hard
   "prompt": "markdown text...",
-  "options": ["A", "B", "C", "D"],   // mcq only — exactly 4
-  "correctIndex": 1,                  // mcq only — 0-3
+  "options": ["A", "B", "C", "D"],   // mcq only - exactly 4
+  "correctIndex": 1,                  // mcq only - 0-3
   "explanation": "why the answer is correct",
   "starterCode": { "python": "...", "java": "..." },   // coding only
   "testCases": [{ "input": "...", "expectedOutput": "...", "hidden": false }], // coding only
@@ -185,7 +185,7 @@ type,category,topic,difficulty,prompt,optionA,optionB,optionC,optionD,correctOpt
 \`\`\`
 - \`correctOption\` is a letter **A-D**.
 - \`tags\` are pipe-separated, e.g. \`ratios|arithmetic\`.
-- Coding questions are **not** supported via CSV — use JSON.
+- Coding questions are **not** supported via CSV - use JSON.
 
 Every row is validated before import: enum fields, 4 non-empty options, \`correctIndex\` in bounds, non-empty prompt/explanation, and (for coding) at least one starter-code language plus at least one test case. Only valid rows get imported; invalid rows are listed with their exact errors below.`;
 
@@ -399,19 +399,19 @@ export default function UploadPanel() {
                 sortValue: (r) => (r.ok ? 0 : 1),
                 render: (r) => <StatusBadge ok={r.ok} />,
               },
-              { key: "type", label: "TYPE", width: "70px", render: (r) => r.cleaned?.type || "—" },
+              { key: "type", label: "TYPE", width: "70px", render: (r) => r.cleaned?.type || "-" },
               {
                 key: "category",
                 label: "CATEGORY",
                 width: "100px",
-                render: (r) => r.cleaned?.category || "—",
+                render: (r) => r.cleaned?.category || "-",
               },
               {
                 key: "topic",
                 label: "TOPIC",
                 render: (r) => (
                   <span className="truncate block max-w-[180px]" title={r.cleaned?.topic}>
-                    {r.cleaned?.topic || "—"}
+                    {r.cleaned?.topic || "-"}
                   </span>
                 ),
               },
@@ -429,7 +429,7 @@ export default function UploadPanel() {
                       ))}
                     </ul>
                   ) : (
-                    <span className="text-white/20">—</span>
+                    <span className="text-white/20">-</span>
                   ),
               },
             ]}

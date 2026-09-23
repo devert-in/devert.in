@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "digital-logic",
-  title: "Digital Logic — Subject Test",
+  title: "Digital Logic - Subject Test",
   description: "8 questions covering Boolean algebra, minimization, combinational/sequential circuits, and number representation.",
   testType: "subject",
   durationMinutes: 45,

@@ -484,7 +484,7 @@ function CountUp({ value, suffix = "" }) {
     return () => { io.disconnect(); cancelAnimationFrame(frame); };
   }, [value, reduced]);
 
-  if (typeof value !== "number") return <span ref={ref}>—</span>;
+  if (typeof value !== "number") return <span ref={ref}>-</span>;
   return <span ref={ref}>{(reduced ? value : shown).toLocaleString()}{suffix}</span>;
 }
 
@@ -800,7 +800,7 @@ function Hero({ stats }) {
       {/* One bar, not four floating cards: these six are the page's factual
           claims about the platform and belong together as a single row of
           evidence under the pitch. Every value is a real count or a dash -
-          `null` renders as "—", never as 0 (lib/campusCatalog.js's policy). */}
+          `null` renders as "-", never as 0 (lib/campusCatalog.js's policy). */}
       <div className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-16">
         <CampusCard glass className="p-5 sm:p-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
@@ -812,7 +812,7 @@ function Hero({ stats }) {
                 </span>
                 <span className="min-w-0">
                   <b className="block font-bold leading-tight" style={{ color: CAMPUS.ink, fontSize: 20 }}>
-                    {typeof s.value === "number" ? <CountUp value={s.value} /> : "—"}
+                    {typeof s.value === "number" ? <CountUp value={s.value} /> : "-"}
                   </b>
                   <span className="block text-[11px] leading-tight mt-0.5" style={{ color: CAMPUS.inkSoft }}>{s.label}</span>
                 </span>
@@ -917,7 +917,7 @@ function GateStat({ label, value }) {
   return (
     <div className="min-w-0">
       <b className="block text-[22px] sm:text-[26px] font-bold leading-none tabular-nums" style={{ color: CAMPUS.ink }}>
-        {value == null ? "—" : value.toLocaleString("en-IN")}
+        {value == null ? "-" : value.toLocaleString("en-IN")}
       </b>
       <span className="block text-[11px] mt-1.5" style={{ color: CAMPUS.inkFaint }}>{label}</span>
     </div>
@@ -952,7 +952,7 @@ function GateBand({ catalog }) {
                   </h2>
                   <p className="text-[13.5px] leading-relaxed max-w-[56ch] mb-6" style={{ color: CAMPUS.inkSoft }}>
                     The whole syllabus subject by subject, the previous-year bank filtered by year,
-                    subject or topic, and mock tests marked the way GATE marks them &mdash; negative
+                    subject or topic, and mock tests marked the way GATE marks them - negative
                     marking, NAT ranges and all. Every wrong answer files itself into a mistakes
                     notebook you can practise from later.
                   </p>
@@ -964,7 +964,7 @@ function GateBand({ catalog }) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {papers.length === 0 ? (
-                          <b className="block text-[22px] sm:text-[26px] font-bold leading-none" style={{ color: CAMPUS.ink }}>—</b>
+                          <b className="block text-[22px] sm:text-[26px] font-bold leading-none" style={{ color: CAMPUS.ink }}>-</b>
                         ) : papers.map(p => (
                           <span key={p.id} className="text-[12px] font-mono font-semibold px-2.5 py-1 rounded-md"
                             style={{ background: tint(CAMPUS.gold, 16), color: CAMPUS.ink }}>
@@ -1550,7 +1550,7 @@ function AssessmentsPreview() {
           </div>
         </div>
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             <PreviewTile label="AVG SCORE" value="71%" color={CAMPUS.teal} />
             <PreviewTile label="COMPLETION" value="94%" color={CAMPUS.good} />
             <PreviewTile label="PLACEMENT READY" value="62%" color={CAMPUS.purple} />
@@ -1812,7 +1812,7 @@ function PricingBand() {
                   {COMPARISON.map(row => (
                     <tr key={row.feature}>
                       <td>{row.feature}</td>
-                      <td className={row.free ? "" : "dash"}>{row.free || "—"}</td>
+                      <td className={row.free ? "" : "dash"}>{row.free || "-"}</td>
                       <td>{row.premium}</td>
                     </tr>
                   ))}
@@ -1991,7 +1991,10 @@ export function CampusInfoPage({ section }) {
   return (
     // Same rounded treatment as CampusLanding below - see its own comment for
     // why campus-sharp came off the public surface.
-    <main data-theme={theme} style={{ ...campusPhotoBg(theme), minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square campus-photo-bg">
+    // campusPhotoBg("dark"), not (theme) - these info pages render the same
+    // .vs-scope bands as the landing, which are hardcoded dark. See
+    // CampusLanding below for the full reasoning.
+    <main data-theme={theme} style={{ ...campusPhotoBg("dark"), minHeight: "100vh", colorScheme: theme }} className="campus-theme campus-square campus-photo-bg">
       <CampusPublicNav />
       {page.bands()}
       <LandingFooter />
@@ -2056,7 +2059,7 @@ function VistaHero({ stats }) {
         <div className="vs-shell">
           <VistaReveal className="vs-hero-copy">
             <h1>Don&rsquo;t just prepare for placements. Become <span className="vs-pill">ready</span> for them.</h1>
-            <p>Learn the skills companies look for &mdash; from programming and DSA to CS fundamentals, aptitude and interview preparation.</p>
+            <p>Learn the skills companies look for - from programming and DSA to CS fundamentals, aptitude and interview preparation.</p>
             <div className="vs-hero-actions">
               <Link href="/learning" className="vs-btn">✦ Start learning</Link>
               <Link href="/pricing" className="vs-btn outline">▷ See what&rsquo;s free forever</Link>
@@ -2111,7 +2114,7 @@ function VistaPlanPanel() {
                   <label>START DATE<span>Today</span></label>
                   <label>TARGET<span>Placement season</span></label>
                   <label>TRACK<span>DSA + Programming</span></label>
-                  <label>PACE<span>Steady &mdash; 1hr/day</span></label>
+                  <label>PACE<span>Steady - 1hr/day</span></label>
                 </div>
 
                 <div className="vs-plan-checks">
@@ -2129,7 +2132,7 @@ function VistaPlanPanel() {
               <div className="vs-pick-card">
                 <span className="vs-pick-tag">✦ Most started</span>
                 <h3>Java + DSA</h3>
-                <p>The most commonly asked combination for service and product company interviews &mdash; one language, one problem set, graded end to end.</p>
+                <p>The most commonly asked combination for service and product company interviews - one language, one problem set, graded end to end.</p>
                 <div className="vs-pick-stats">
                   <span>Auto-graded</span>
                   <span>Hidden test cases</span>
@@ -2161,7 +2164,7 @@ function VistaFeaturesPanel() {
               <div className="vs-feature-card">
                 <span className="vs-feature-icon">◇</span>
                 <h4>One curriculum, everywhere</h4>
-                <p>Authored once and shared by every learner and every college &mdash; a fix to a lesson reaches all of them at once.</p>
+                <p>Authored once and shared by every learner and every college - a fix to a lesson reaches all of them at once.</p>
                 <div className="vs-track-list">
                   {VS_TRACKS.map(t => <span key={t.label}>{t.label}<i /></span>)}
                 </div>
@@ -2174,7 +2177,7 @@ function VistaFeaturesPanel() {
               <div className="vs-feature-card">
                 <span className="vs-feature-icon">◈</span>
                 <h4>Honest leaderboards</h4>
-                <p>Real ranks from real submissions &mdash; no vanity streaks, nothing purchasable.</p>
+                <p>Real ranks from real submissions - no vanity streaks, nothing purchasable.</p>
               </div>
             </div>
           </VistaReveal>
@@ -2242,11 +2245,22 @@ export function CampusLanding() {
 
   return (
     // campus-square, NOT campus-sharp - see PricingBand/FaqBand/LandingFooter's
-    // own comments on why. The Vista-styled bands below (VistaHero/
-    // VistaPlanPanel/VistaFeaturesPanel) are scoped to their own .vs-scope
-    // wrapper and don't use campus-square/campus-photo-bg at all - everything
-    // from PricingBand down keeps the real CAMPUS system unchanged.
-    <main data-theme={theme} style={{ colorScheme: theme }} className="campus-theme">
+    // own comments on why.
+    //
+    // campus-photo-bg IS here now. It was not before: the Vista bands carried
+    // their own plate on .vs-canvas::before, so this element never needed one.
+    // That plate was position:absolute and scrolled while the rest of the
+    // platform's is fixed, so it was removed - which left this page with no
+    // backdrop at all, because nothing else on it ever painted one.
+    //
+    // FORCED "dark", not `theme`. Every band below is wrapped in .vs-scope,
+    // which hardcodes its own dark tokens (--vs-bg: #0a0e17) regardless of the
+    // light/dark toggle. So this page renders dark even when the toggle says
+    // light, and passing `theme` handed it the flat LIGHT canvas - a light
+    // backdrop nobody could see behind a hardcoded-dark scope. The surface is
+    // dark by construction, so it takes the dark plate by construction.
+    <main data-theme={theme} style={{ ...campusPhotoBg("dark"), colorScheme: theme }}
+      className="campus-theme campus-photo-bg">
       <CampusPublicNav />
 
       <VistaHero stats={heroStats} />
@@ -2265,3 +2279,4 @@ export function CampusLanding() {
     </main>
   );
 }
+

@@ -46,7 +46,6 @@ function FollowersModal({ uid, onClose }) {
         transition={{ type: "spring", stiffness: 260, damping: 22 }} onClick={e => e.stopPropagation()}
         className="terminal-window w-full max-w-md max-h-[75vh] flex flex-col">
         <div className="terminal-header flex-shrink-0">
-          <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
           <Users size={10} className="ml-2 text-white/25" />
           <span className="font-mono text-[10px] text-white/25 ml-1.5">followers.list</span>
           <button onClick={onClose} className="ml-auto text-white/25 hover:text-white/60 transition-colors"><X size={12} /></button>
@@ -219,7 +218,7 @@ export default function ProfilePage() {
     const trimName = form.displayName.trim();
     const trimHandle = form.handle.trim().toLowerCase();
     if (!trimName) return setSaveError("Full name cannot be empty.");
-    if (!HANDLE_RE.test(trimHandle)) return setSaveError("Username: 3–20 chars, lowercase letters, numbers, underscores only.");
+    if (!HANDLE_RE.test(trimHandle)) return setSaveError("Username: 3-20 chars, lowercase letters, numbers, underscores only.");
     setSaving(true); setSaveError("");
     try {
       if (trimHandle !== userData?.handle) {
@@ -307,7 +306,6 @@ export default function ProfilePage() {
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="terminal-window">
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">portfolio.editor</span>
           </div>
 

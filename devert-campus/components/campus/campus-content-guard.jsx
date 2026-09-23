@@ -1,10 +1,27 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+// The same list app/[slug]/page.jsx uses to decide which reserved slugs are
+// marketing pages rather than institutions - imported, not re-listed, so the
+// two can never drift.
+import { LANDING_PAGE_SECTIONS } from "@/lib/campus-seo";
 
-// Blocks right-click, text selection, drag-out and clipboard operations
-// across all of campus.devert.in, for every non-admin visitor.
+// Blocks right-click, text selection, drag-out and clipboard operations on
+// campus.devert.in's LEARNING CONTENT, for every non-admin visitor.
+//
+// NOT on the public marketing pages. When Campus became its own app the
+// original's `pathname.startsWith("/campus")` gate was dropped on the
+// reasoning that there was no longer any "rest of the site" to exempt. That
+// was wrong in one direction: this app also serves the landing page, pricing,
+// campuses and the two institution marketing pages, and locking those down
+// blocks a visitor from selecting a course name, copying a price, or
+// right-clicking a link to open it in a new tab - on pages whose entire
+// purpose is to be read and shared, and which contain nothing worth
+// protecting. PUBLIC_MARKETING below restores the gate for exactly those
+// routes; institution workspaces, GATE, Roadmaps, Learning, Practice and
+// Contests stay locked exactly as before.
 //
 // Ported from devert-frontend/components/content-guard.jsx, which used to
 // cover this exact surface via a `pathname.startsWith("/campus")` check back
@@ -43,6 +60,10 @@ const CLIPBOARD_KEYS = new Set(["c", "x", "v", "a"]);
 
 const UNLOCKED_CLASS = "clipboard-unlocked";
 
+// First path segment of every page that is marketing rather than content.
+// "" is the landing page itself.
+const PUBLIC_MARKETING = new Set(["", ...LANDING_PAGE_SECTIONS]);
+
 function element(event) {
   const { target } = event;
   if (target instanceof Element) return target;
@@ -65,10 +86,16 @@ function isEditable(event) {
 
 export function CampusContentGuard() {
   const { isAdmin, adminChecked } = useAuth() ?? {};
-  // Fails closed: the admin claim resolves asynchronously (a token fetch),
-  // so the lockdown is active from first paint and only lifts once
-  // adminChecked confirms an admin.
-  const unlocked = adminChecked === true && isAdmin === true;
+  const pathname = usePathname();
+
+  // Marketing pages are unlocked synchronously - no async claim to wait on,
+  // so there is no flash of locked-down marketing copy on first paint.
+  const onMarketingPage = PUBLIC_MARKETING.has(pathname.split("/").filter(Boolean)[0] || "");
+
+  // On content routes this still fails closed: the admin claim resolves
+  // asynchronously (a token fetch), so the lockdown is active from first
+  // paint and only lifts once adminChecked confirms an admin.
+  const unlocked = onMarketingPage || (adminChecked === true && isAdmin === true);
 
   useEffect(() => {
     document.documentElement.classList.toggle(UNLOCKED_CLASS, unlocked);

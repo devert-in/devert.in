@@ -12,7 +12,7 @@ const STATUS_STYLE = {
 };
 
 function fmtTimestamp(ts) {
-  if (!ts || typeof ts.toDate !== "function") return "—";
+  if (!ts || typeof ts.toDate !== "function") return "-";
   return ts.toDate().toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
@@ -26,25 +26,25 @@ function buildRows(students, records) {
     const record = byUid.get(s.id) || null;
     return {
       uid: s.id,
-      rollNumber: s.rollNumber || "—",
-      displayName: s.displayName || "—",
-      branch: s.branch || "—",
-      classGroup: s.classGroup || "—",
+      rollNumber: s.rollNumber || "-",
+      displayName: s.displayName || "-",
+      branch: s.branch || "-",
+      classGroup: s.classGroup || "-",
       status: record ? record.sub.status : "absent",
       record,
     };
   });
-  // Submissions whose author fell outside the fetched roster (rare — role/group
+  // Submissions whose author fell outside the fetched roster (rare - role/group
   // edited after submitting) still deserve a visible row instead of vanishing.
   const knownUids = new Set(students.map((s) => s.id));
   records.forEach((r) => {
     if (knownUids.has(r.uid)) return;
     rows.push({
       uid: r.uid,
-      rollNumber: r.sub.rollNumber || "—",
-      displayName: r.sub.displayName || "—",
-      branch: r.sub.branch || "—",
-      classGroup: r.sub.classGroup || "—",
+      rollNumber: r.sub.rollNumber || "-",
+      displayName: r.sub.displayName || "-",
+      branch: r.sub.branch || "-",
+      classGroup: r.sub.classGroup || "-",
       status: r.sub.status,
       record: r,
     });
@@ -163,7 +163,7 @@ export function StudentsTab({ exam, paper, records, students, group, onOpenStude
                   {r.record.score.total}/{r.record.score.max}
                 </span>
               ) : (
-                <span className="text-white/20">—</span>
+                <span className="text-white/20">-</span>
               ),
           },
           {
@@ -172,7 +172,7 @@ export function StudentsTab({ exam, paper, records, students, group, onOpenStude
             align: "center",
             sortable: false,
             render: (r) => {
-              if (!r.record) return <span className="text-white/20">— / — / —</span>;
+              if (!r.record) return <span className="text-white/20">- / - / -</span>;
               const c = outcomeCounts(r.record);
               return (
                 <span className="inline-flex items-center gap-2 font-mono text-[11px]">

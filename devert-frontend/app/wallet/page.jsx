@@ -317,7 +317,6 @@ export default function WalletPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.22 }}
           className="terminal-window mb-8">
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">earning_rates.json</span>
           </div>
           <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -338,7 +337,7 @@ export default function WalletPage() {
           <div className="px-5 pb-4">
             <p className="font-mono text-[10px] text-white/18">
               Min payout: {COINS.MIN_PAYOUT.toLocaleString()} coins (₹{(COINS.MIN_PAYOUT / COINS.COINS_PER_INR).toFixed(0)}) ·
-              Processed manually within 3–5 business days.
+              Processed manually within 3-5 business days.
             </p>
           </div>
         </motion.div>
@@ -348,7 +347,6 @@ export default function WalletPage() {
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
             className="terminal-window mb-8">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">xp_convert.sh</span>
             </div>
             <div className="p-5">
@@ -385,7 +383,6 @@ export default function WalletPage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="terminal-window mb-8">
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
             <Wallet size={10} className="ml-2 text-white/25" />
             <span className="font-mono text-[10px] text-white/25 ml-1">withdraw.sh</span>
           </div>
@@ -411,7 +408,7 @@ export default function WalletPage() {
                     className="text-center py-6">
                     <CheckCircle size={28} className="mx-auto mb-3" style={{ color: "#00FF41" }} />
                     <p className="font-mono text-sm text-neon-green mb-1">Request submitted!</p>
-                    <p className="font-mono text-[10px] text-white/30">We&apos;ll process it within 3–5 business days.</p>
+                    <p className="font-mono text-[10px] text-white/30">We&apos;ll process it within 3-5 business days.</p>
                   </motion.div>
                 ) : (
                   <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -531,7 +528,6 @@ export default function WalletPage() {
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
             className="terminal-window mb-8">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <Coins size={10} className="ml-2 text-white/25" />
               <span className="font-mono text-[10px] text-white/25 ml-1">earnings_ledger.log</span>
             </div>
@@ -556,7 +552,6 @@ export default function WalletPage() {
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
             className="terminal-window">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <Clock size={10} className="ml-2 text-white/25" />
               <span className="font-mono text-[10px] text-white/25 ml-1">payout_history.log</span>
             </div>

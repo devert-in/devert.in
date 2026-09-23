@@ -79,8 +79,17 @@ export function CampusCard({ children, className = "", hover = false, glass = tr
 // alt="", not "DeVert Campus": every call site pairs this with the visible
 // wordmark text, so a real alt would make a screen reader announce the name
 // twice.
-export function CampusBadge({ size = 30, className = "", rounded = "rounded-lg" }) {
-  const box = { width: size, height: size };
+// `rounded` defaults to campus-badge-round, NOT a Tailwind rounded-* class:
+// .campus-square (globals.css) sets border-radius:0 !important on
+// .rounded-md/lg/xl/2xl, which squared the logo off wherever that class is
+// applied. Same escape hatch, and same reasoning, as .campus-overlay-shadow.
+export function CampusBadge({ size = 30, className = "", rounded = "campus-badge-round" }) {
+  // Radius scales with the badge so the curve reads the same at 26px and at
+  // 96px. Inline rather than a utility class on purpose: .campus-square sets
+  // border-radius:0 !important on every .rounded-* class, which is what
+  // squared this mark off across the public surfaces.
+  const radius = Math.max(4, Math.round(size * 0.26));
+  const box = { width: size, height: size, borderRadius: radius };
   return (
     <span className={`relative flex-shrink-0 ${className}`} style={box}>
       {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -19,7 +19,7 @@ import { Check, Loader2, Send } from "lucide-react";
 import { submitApplication } from "@/lib/careers";
 
 const field =
-  "w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2.5 text-[14px] text-ink-900 " +
+  "w-full rounded-lg border border-ink-200 bg-ink-100 px-3.5 py-2.5 text-[14px] text-ink-900 " +
   "placeholder:text-ink-300 transition-colors focus:border-brand-500 focus:outline-none " +
   "focus:ring-4 focus:ring-brand-50";
 
@@ -74,7 +74,7 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
 
   if (done) {
     return (
-      <div className="rounded-xl border border-ink-200 bg-white p-8 text-center sm:p-10">
+      <div className="rounded-xl border border-ink-200 bg-ink-100 p-8 text-center sm:p-10">
         <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-brand-50">
           <Check size={20} className="text-brand-600" />
         </span>
@@ -82,7 +82,7 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
           {jobTitle ? `Applied for ${jobTitle}` : "Application received"}
         </h3>
         <p className="mx-auto mt-2 max-w-sm text-[14px] leading-relaxed text-ink-600">
-          A real person reads every application here — there is no keyword filter in between.
+          A real person reads every application here - there is no keyword filter in between.
           If there is a fit, we will be in touch at <span className="text-ink-900">{form.email}</span>.
         </p>
       </div>
@@ -90,7 +90,7 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
   }
 
   return (
-    <div className="rounded-xl border border-ink-200 bg-white">
+    <div className="rounded-xl border border-ink-200 bg-ink-100">
       <div className="border-b border-ink-200 px-6 py-5 sm:px-8">
         <h3 className="text-[18px] font-semibold tracking-[-0.01em] text-ink-900">
           {jobTitle ? `Apply for ${jobTitle}` : "General application"}
@@ -121,7 +121,7 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
         </div>
 
         <Field label="Resume link"
-          hint="Google Drive, Dropbox or your own site — make sure it's viewable by anyone with the link"
+          hint="Google Drive, Dropbox or your own site - make sure it's viewable by anyone with the link"
           htmlFor="af-resume">
           <input id="af-resume" type="url" className={field} value={form.resumeUrl} onChange={set("resumeUrl")}
             placeholder="https://..." maxLength={500} />
@@ -144,7 +144,7 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
         </Field>
 
         <Field label="Why you"
-          hint={`${form.coverNote.length}/2000 — what you've built beats what you've studied`}
+          hint={`${form.coverNote.length}/2000 - what you've built beats what you've studied`}
           htmlFor="af-note">
           <textarea id="af-note" rows={5} className={field} value={form.coverNote} onChange={set("coverNote")}
             maxLength={2000}
@@ -159,7 +159,7 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
         )}
 
         <button type="submit" disabled={submitting}
-          className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-[14px] font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50">
+          className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-[14px] font-semibold text-[#05080F] transition-colors hover:bg-brand-700 disabled:opacity-50">
           {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           {submitting ? "Sending..." : "Send application"}
         </button>

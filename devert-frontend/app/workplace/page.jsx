@@ -243,7 +243,6 @@ export default function WorkplacePage() {
         <motion.section initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-16">
           <div className="terminal-window">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">principle.md</span>
             </div>
             <div className="p-6">

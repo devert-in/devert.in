@@ -3,7 +3,7 @@
 // Coding practice flow: prompt (markdown) + CodeRunner wired to the
 // question's starterCode/testCases. Public tests show full detail; hidden
 // tests (CodeRunner already handles this) show pass/fail only. Same
-// login-gate pattern as the MCQ modal — browsing the list needs no auth.
+// login-gate pattern as the MCQ modal - browsing the list needs no auth.
 
 import { LogIn, Shuffle } from "lucide-react";
 import { PrepModal, BracketButton, MarkdownBlock, NeonBadge, Tag } from "@/components/prep/ui";

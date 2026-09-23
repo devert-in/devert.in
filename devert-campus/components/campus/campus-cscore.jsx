@@ -169,6 +169,7 @@ function CsCoreTopicSidebar({ subjectId, activeTopicId, onSelectTopic, onBackToL
       setOpenModules(new Set([list[0]?.module].filter(Boolean)));
     }).catch(() => setTopics([]));
   }, [subjectId]);
+
   useEffect(() => {
     if (!user) return;
     fetchSubjectProgress(user.uid, subjectId).then(setProgress).catch(() => setProgress(null));
@@ -581,6 +582,22 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
     }).catch(() => setTopics([]));
   }, [subjectId]);
 
+  // Picking "Roadmap" opens the subject's FIRST topic rather than switching to
+  // a list of them. The left sidebar already shows the full topic tree, so the
+  // list view was a second copy of it one click deeper - and what a student
+  // actually wants from that tab is to start reading.
+  //
+  // Prefers the first topic that has content: a subject can have placeholder
+  // topics ahead of written ones, and landing on an empty page is worse than
+  // landing on the list ever was. Falls back to the list if nothing is written
+  // yet, so the tab can never become a dead end.
+  const onPickTab = useCallback((key) => {
+    if (key !== "roadmap") { setTab(key); return; }
+    const list = topics || [];
+    const first = list.find(x => topicHasContent(x)) || list[0];
+    if (first) onOpenTopic(first.id); else setTab("roadmap");
+  }, [topics, topicHasContent, onOpenTopic]);
+
   useEffect(() => {
     if (!user) return;
     fetchSubjectProgress(user.uid, subjectId).then(setProgress).catch(() => setProgress(null));
@@ -680,7 +697,7 @@ function SubjectRoadmap({ subjectId, onBack, onOpenTopic }) {
       </div>
 
       {hasIntro && (
-        <CampusTabBar className="mb-5" value={tab || "roadmap"} onChange={setTab} tabs={[
+        <CampusTabBar className="mb-5" value={tab || "roadmap"} onChange={onPickTab} tabs={[
           { key: "overview", label: "Overview", icon: Compass },
           { key: "roadmap", label: "Roadmap", icon: Route },
         ]} />

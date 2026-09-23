@@ -57,7 +57,6 @@ export default function AboutPage() {
 
           <div className="terminal-window mb-6">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">devert.in</span>
             </div>
             <div className="p-6">
@@ -85,7 +84,6 @@ export default function AboutPage() {
 
           <div className="terminal-window">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">campus.devert.in</span>
             </div>
             <div className="p-6">

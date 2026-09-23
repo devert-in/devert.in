@@ -83,7 +83,7 @@ async function postExecute(url, body, timeoutMs) {
       return await res.json();
     } catch (err) {
       if (err && err.name === "AbortError") {
-        // Retrying a 20s timeout would stall the UI for minutes — surface it.
+        // Retrying a 20s timeout would stall the UI for minutes - surface it.
         const timeoutErr = new Error("Execution timed out");
         timeoutErr.timedOut = true;
         throw timeoutErr;
@@ -98,8 +98,7 @@ async function postExecute(url, body, timeoutMs) {
 }
 
 /**
- * Run `code` in `language` (java | c | cpp) via Piston. Never rejects —
- * always resolves to { stdout, stderr, timeMs, timedOut, error }.
+ * Run `code` in `language` (java | c | cpp) via Piston. Never rejects - * always resolves to { stdout, stderr, timeMs, timedOut, error }.
  */
 export async function runPiston(language, code, stdin = "", timeoutMs = 20000) {
   const url = await getPistonUrl();

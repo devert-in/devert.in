@@ -1,6 +1,6 @@
 "use client";
 
-// Admin — class group manager (design §2). CRUD prepClassGroups.
+// Admin - class group manager (design §2). CRUD prepClassGroups.
 
 import { useState, useEffect, useCallback } from "react";
 import { Layers, Plus, Trash2, Pencil, AlertTriangle } from "lucide-react";

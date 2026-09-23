@@ -1,6 +1,6 @@
 "use client";
 
-// /prep/learn — weekday LMS. Course list -> expandable 5-lesson course view
+// /prep/learn - weekday LMS. Course list -> expandable 5-lesson course view
 // (MON-FRI, today highlighted) -> lesson (markdown + inline quiz, one
 // question at a time, instant reveal). Deep-linkable via ?course=&lesson=
 // query params (static-export friendly), hence the Suspense boundary.
@@ -62,7 +62,7 @@ function writeLessonCompletion(uid, courseId, lessonId, data) {
   try {
     window.localStorage.setItem(lessonCompletionKey(uid, courseId, lessonId), JSON.stringify(data));
   } catch {
-    // storage unavailable — the quiz score still shows for this session
+    // storage unavailable - the quiz score still shows for this session
   }
 }
 
@@ -181,7 +181,7 @@ function LessonView({ course, lesson, uid, profile, onBack }) {
   const [finished, setFinished] = useState(false);
   const [logError, setLogError] = useState("");
   // Set for real in the effect below (per-lesson reset); render-time init just
-  // needs a stable placeholder — Date.now() is impure and must not run at render.
+  // needs a stable placeholder - Date.now() is impure and must not run at render.
   const questionStartRef = useRef(null);
 
   const priorCompletion = useMemo(
@@ -362,7 +362,7 @@ function LessonView({ course, lesson, uid, profile, onBack }) {
                   {results.filter(Boolean).length} / {questions.length} correct
                 </p>
                 <p className="font-mono text-[11px] text-white/35">
-                  {Math.round((results.filter(Boolean).length / questions.length) * 100)}% — lesson marked
+                  {Math.round((results.filter(Boolean).length / questions.length) * 100)}% - lesson marked
                   complete
                 </p>
               </div>
@@ -458,7 +458,7 @@ function LearnPageContent() {
         const today = dateKey();
         if (!cancelled) setTodayAttempts((attempts || []).filter((a) => a.date === today));
       } catch {
-        // ticks are a nice-to-have — silent fail keeps the panel usable
+        // ticks are a nice-to-have - silent fail keeps the panel usable
       }
     })();
     return () => {
@@ -486,7 +486,7 @@ function LearnPageContent() {
 
   return (
     <PrepShell
-      kicker="// /prep/learn — weekday_lms.sh"
+      kicker="// /prep/learn - weekday_lms.sh"
       title="LEARN"
       accent="TRACK"
       subtitle="Five lessons a week. Answer, get feedback instantly, keep moving."
@@ -511,7 +511,7 @@ function LearnPageContent() {
             {!coursesError && courses && courses.length === 0 && (
               <EmptyState
                 title="no courses published yet"
-                message="Check back soon — staff are still building the curriculum."
+                message="Check back soon - staff are still building the curriculum."
               />
             )}
             {!coursesError && courses && courses.length > 0 && (

@@ -31,9 +31,6 @@ function ChallengeDetailModal({ challenge, loggedIn, onClose, onStart, starting 
         className="terminal-window w-full max-w-lg max-h-[90vh] overflow-y-auto"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" />
-          <div className="terminal-dot bg-yellow-500/70" />
-          <div className="terminal-dot bg-green-500/70" />
           {CategoryIcon && <CategoryIcon size={10} className="ml-2 text-white/25" />}
           <span className="font-mono text-[10px] text-white/25 ml-1">challenge_brief.md</span>
           <button onClick={onClose} className="ml-auto text-white/25 hover:text-white/60 transition-colors">
@@ -100,9 +97,6 @@ function ActiveAttemptCard({ attempt, onDock, onAbandon }) {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="terminal-window mb-8">
       <div className="terminal-header">
-        <div className="terminal-dot bg-red-500/70" />
-        <div className="terminal-dot bg-yellow-500/70" />
-        <div className="terminal-dot bg-green-500/70" />
         {CategoryIcon && <CategoryIcon size={10} className="ml-2 text-white/25" />}
         <span className="font-mono text-[10px] text-white/25 ml-1">active_build.log</span>
         <span className="font-mono text-[9px] px-1.5 py-0.5 rounded ml-auto"
@@ -342,9 +336,6 @@ export function BuildApp() {
             ) : filtered.length === 0 ? (
               <div className="terminal-window max-w-md mx-auto">
                 <div className="terminal-header">
-                  <div className="terminal-dot bg-red-500/70" />
-                  <div className="terminal-dot bg-yellow-500/70" />
-                  <div className="terminal-dot bg-green-500/70" />
                   <span className="font-mono text-[10px] text-white/25 ml-2">challenges.db</span>
                 </div>
                 <div className="p-10 text-center">
@@ -366,9 +357,6 @@ export function BuildApp() {
                       className="terminal-window text-left transition-colors"
                     >
                       <div className="terminal-header">
-                        <div className="terminal-dot bg-red-500/70" />
-                        <div className="terminal-dot bg-yellow-500/70" />
-                        <div className="terminal-dot bg-green-500/70" />
                         {CategoryIcon && <CategoryIcon size={10} className="ml-2 text-white/25" />}
                       </div>
                       <div className="p-4">

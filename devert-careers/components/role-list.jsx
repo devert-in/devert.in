@@ -37,7 +37,7 @@ function FilterGroup({ label, options, value, onChange }) {
             className={`rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
               active
                 ? "border-brand-600 bg-brand-50 text-brand-700"
-                : "border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:text-ink-900"
+                : "border-ink-200 bg-ink-100 text-ink-600 hover:border-ink-300 hover:text-ink-900"
             }`}>
             {o.label}
           </button>
@@ -50,7 +50,7 @@ function FilterGroup({ label, options, value, onChange }) {
 function RoleRow({ role }) {
   return (
     <Link href={`/${role.id}`}
-      className="group block rounded-xl border border-ink-200 bg-white p-5 transition-all hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:p-6">
+      className="group block rounded-xl border border-ink-200 bg-ink-100 p-5 transition-all hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ink-900 group-hover:text-brand-700">
@@ -96,7 +96,7 @@ function RoleRow({ role }) {
 
 function SkeletonRow() {
   return (
-    <div className="rounded-xl border border-ink-200 bg-white p-6">
+    <div className="rounded-xl border border-ink-200 bg-ink-100 p-6">
       <div className="h-4 w-52 animate-pulse rounded bg-ink-100" />
       <div className="mt-3 h-3 w-32 animate-pulse rounded bg-ink-100" />
       <div className="mt-5 h-3 w-full max-w-md animate-pulse rounded bg-ink-100" />
@@ -194,8 +194,7 @@ export function RoleList() {
             Nothing here fits?{" "}
             <a href="#general" className="font-medium text-brand-600 underline-offset-2 hover:underline">
               Send a general application
-            </a>{" "}
-            — we read those too.
+            </a>{" "} - we read those too.
           </p>
 
           <div id="general" className="mt-10">

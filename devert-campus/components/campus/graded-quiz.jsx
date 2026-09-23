@@ -176,7 +176,7 @@ function QuizResult({ state, result, policy }) {
     <div className="mt-4 rounded-lg p-3" style={{ background: passed ? CAMPUS.goodTint : completed ? CAMPUS.tealTint : CAMPUS.badTint }}>
       <p className="text-[12.5px] font-semibold flex items-center gap-1.5" style={{ color: passed ? CAMPUS.good : completed ? CAMPUS.teal : CAMPUS.bad }}>
         {passed ? <Check size={13} /> : completed ? <Check size={13} /> : <AlertTriangle size={13} />}
-        Score: {correct}/{total} — {
+        Score: {correct}/{total} - {
           passed ? "Passed"
           : completed ? "Attempted (no minimum score required here)"
           : `Not passed (${Math.round(policy.passPct * 100)}% needed)`
@@ -194,7 +194,7 @@ function QuizResult({ state, result, policy }) {
 
       {result?.status === "graded" && !result.rewarded && result.alreadyPaid && (
         <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>
-          This topic was already rewarded earlier — no XP was added again.
+          This topic was already rewarded earlier - no XP was added again.
         </p>
       )}
 
@@ -203,7 +203,7 @@ function QuizResult({ state, result, policy }) {
       {result?.status === "locked" && (
         <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>
           {result.reason === "already-passed"
-            ? "You already submitted this quiz — possibly on another device. It can't be taken again."
+            ? "You already submitted this quiz - possibly on another device. It can't be taken again."
             : "No attempts left on this quiz."}
         </p>
       )}
@@ -213,19 +213,19 @@ function QuizResult({ state, result, policy }) {
           Submitted {state.attemptsUsed} time{state.attemptsUsed === 1 ? "" : "s"}.{" "}
           {completed
             ? "This topic is complete - the quiz itself is locked since you've already attempted it."
-            : "This quiz is locked — ask your admin if you need it reopened."}
+            : "This quiz is locked - ask your admin if you need it reopened."}
         </p>
       )}
 
       {!completed && (
         <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>
-          The topic isn&apos;t marked complete. Re-read the lesson above — the correct answers are highlighted.
+          The topic isn&apos;t marked complete. Re-read the lesson above - the correct answers are highlighted.
         </p>
       )}
 
       {completed && !passed && (
         <p className="text-[11.5px] mt-1.5" style={{ color: CAMPUS.inkSoft }}>
-          This topic is marked complete either way — only the XP you earned depends on which answers were
+          This topic is marked complete either way - only the XP you earned depends on which answers were
           right. Re-read the lesson above if you&apos;d like to see the correct answers.
         </p>
       )}

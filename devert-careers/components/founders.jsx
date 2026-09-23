@@ -32,13 +32,13 @@ export function Founders() {
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-600">
         DeVert is built by two engineers who were tired of mediocre developer content and
         made the platform they wanted instead. On a team this size you work with them
-        directly — not with a layer between you and the decisions.
+        directly - not with a layer between you and the decisions.
       </p>
 
       <div className="mt-10 grid gap-5 sm:grid-cols-2">
         {FOUNDERS.map((f) => (
           <a key={f.key} href={f.linkedin} target="_blank" rel="noopener noreferrer"
-            className="group flex items-start gap-4 rounded-xl border border-ink-200 bg-white p-6 transition-all hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)]">
+            className="group flex items-start gap-4 rounded-xl border border-ink-200 bg-ink-100 p-6 transition-all hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)]">
             {/* Initials, not a headshot: no founder photo is committed to any of
                 the three apps' public/ dirs, and the real ones live behind
                 runtime Firebase Storage URLs on the user docs - fetching those

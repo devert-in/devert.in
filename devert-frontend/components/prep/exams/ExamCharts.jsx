@@ -1,8 +1,8 @@
 "use client";
 
-// Recharts wrappers for /prep/analytics — neon-styled dark grid, cyan/green
+// Recharts wrappers for /prep/analytics - neon-styled dark grid, cyan/green
 // strokes. Kept in a dedicated module so the page can next/dynamic-import it
-// (recharts is one of the heavier deps in the bundle — design §8).
+// (recharts is one of the heavier deps in the bundle - design §8).
 
 import {
   ResponsiveContainer,

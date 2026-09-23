@@ -168,9 +168,6 @@ function MatchModal({ challenge, onSolve, onForfeit }) {
           {/* Challenge + timer */}
           <div className="terminal-window">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" />
-              <div className="terminal-dot bg-yellow-500/70" />
-              <div className="terminal-dot bg-green-500/70" />
               <Swords size={10} className="ml-2 text-white/25" />
               <span className="font-mono text-[10px] text-white/25 ml-1">arena_match.exe</span>
               <span className="font-mono text-[9px] px-1.5 py-0.5 rounded ml-auto"
@@ -212,7 +209,6 @@ function MatchModal({ challenge, onSolve, onForfeit }) {
           {/* Editor */}
           <div className="terminal-window">
             <div className="terminal-header flex-wrap gap-2">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <Dropdown value={language} onChange={handleLanguageChange}
                 options={CODELAB_LANGUAGES.map(l => ({ value: l.id, label: l.label }))}
                 className="ml-2 w-28"
@@ -306,7 +302,6 @@ function ChallengePicker({ challenges, onPick, onClose }) {
         className="terminal-window w-full max-w-md max-h-[90vh] overflow-y-auto"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
           <Swords size={10} className="ml-2 text-white/25" />
           <span className="font-mono text-[10px] text-white/25 ml-1">select_challenge.sh</span>
           <button onClick={onClose} className="ml-auto text-white/25 hover:text-white/60 transition-colors"><X size={13} /></button>
@@ -361,7 +356,6 @@ function ResultModal({ result, onClose }) {
         className="terminal-window w-full max-w-sm text-center"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">{won ? "match_result.win" : "match_result.loss"}</span>
           <button onClick={onClose} className="ml-auto text-white/25 hover:text-white/60 transition-colors">
             <X size={12} />
@@ -536,7 +530,6 @@ export function ArenaApp({ initialTab }) {
           <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
             <div className="terminal-window h-full">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
                 <Terminal size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1">challenges.json</span>
               </div>
@@ -606,7 +599,6 @@ export function ArenaApp({ initialTab }) {
           <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
             <div className="terminal-window h-full">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
                 <Trophy size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1">arena.leaderboard</span>
               </div>

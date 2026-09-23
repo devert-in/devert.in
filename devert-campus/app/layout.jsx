@@ -1,6 +1,5 @@
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
-import { CampusContentGuard } from "@/components/campus/campus-content-guard";
 
 // Generic fallback - real per-institution title/description come from
 // CampusPreviewService via a preview router (see functions/index.js /
@@ -14,6 +13,16 @@ export const metadata = {
   title: { default: "DeVert Campus - learn to code, prepare for placements", template: "%s | DeVert Campus" },
   description: "Programming, CS Core, aptitude, DSA and company-wise interview prep - open to anyone, no college required. Colleges add scheduled Daily Learning, assessments, contests and leaderboards on top.",
   alternates: { canonical: "https://campus.devert.in" },
+  icons: {
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/favicon-32x32.png",
+  },
   openGraph: {
     title: "DeVert Campus",
     description: "Open technical learning and placement prep - plus a licensed workspace for colleges.",
@@ -26,7 +35,18 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="antialiased">
         <AuthProvider>
-          <CampusContentGuard />
+          {/* The content guard that used to mount here is gone. It blocked
+              right-click, text selection, drag-out and Ctrl+C/X/V/A across the
+              whole app for every non-admin, as anti-scraping for the learning
+              content. Removed on request: it was also stopping people copying
+              a code snippet out of a lesson, a company name out of the vault,
+              or opening a link in a new tab.
+
+              EXAMS ARE UNAFFECTED. use-proctor-session.js does its own
+              contextmenu/keydown/screenshot blocking in JS and sets
+              .proctor-active on <html> itself; globals.css keeps the
+              html.proctor-active rules. An invigilated attempt is still
+              locked down - only ordinary browsing is not. */}
           {children}
         </AuthProvider>
         {/* Prevents a flash-of-light-theme AND a React hydration mismatch on a
@@ -53,7 +73,7 @@ export default function RootLayout({ children }) {
             loads. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var s=localStorage.getItem("campus-theme");var d=s==="dark"||(s!=="light"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.querySelectorAll(".campus-theme").forEach(function(el){el.setAttribute("data-theme","dark");el.style.colorScheme="dark";el.style.setProperty("--campus-bg-image","linear-gradient(#0A0E17,#0A0E17)");});}}catch(e){}`,
+            __html: `try{var s=localStorage.getItem("campus-theme");var d=s==="dark"||(s!=="light"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.querySelectorAll(".campus-theme").forEach(function(el){el.setAttribute("data-theme","dark");el.style.colorScheme="dark";el.style.setProperty("--campus-bg-image","linear-gradient(rgba(5,7,12,0.66), rgba(5,7,12,0.82)), url(/devert-hero-bg.jpg)");el.style.setProperty("--campus-bg-blur","0px");el.style.setProperty("--campus-bg-inset","0px");});}}catch(e){}`,
           }}
         />
       </body>

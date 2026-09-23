@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "compiler-design",
-  title: "Compiler Design — Subject Test",
+  title: "Compiler Design - Subject Test",
   description: "8 questions covering lexical analysis, parsing, syntax-directed translation, intermediate code, and optimization.",
   testType: "subject",
   durationMinutes: 45,

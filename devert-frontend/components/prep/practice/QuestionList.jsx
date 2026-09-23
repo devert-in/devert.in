@@ -60,7 +60,7 @@ export default function QuestionList({ questions, attemptsMap = {}, onSelect }) 
             {c.label.toUpperCase()}
           </NeonBadge>
         ) : (
-          <span className="text-white/30">{q.category || "—"}</span>
+          <span className="text-white/30">{q.category || "-"}</span>
         );
       },
     },
@@ -70,14 +70,14 @@ export default function QuestionList({ questions, attemptsMap = {}, onSelect }) 
       sortValue: (q) => q.difficulty || "",
       render: (q) => {
         const d = DIFFICULTY_MAP[q.difficulty];
-        return d ? <NeonBadge color={d.color}>{d.label}</NeonBadge> : <span className="text-white/30">—</span>;
+        return d ? <NeonBadge color={d.color}>{d.label}</NeonBadge> : <span className="text-white/30">-</span>;
       },
     },
     {
       key: "topic",
       label: "topic",
       sortValue: (q) => q.topic || "",
-      render: (q) => <Tag>{q.topic || "—"}</Tag>,
+      render: (q) => <Tag>{q.topic || "-"}</Tag>,
     },
     {
       key: "type",

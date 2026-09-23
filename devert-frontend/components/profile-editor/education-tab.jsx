@@ -31,7 +31,7 @@ export default function EducationTab({ education, onChange }) {
           <div key={e.id} className="flex items-start gap-3 px-3 py-2.5 rounded" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
             <div className="flex-1 min-w-0">
               <p className="font-mono text-xs text-white/75 font-semibold">{e.degree}{e.field ? ` in ${e.field}` : ""}</p>
-              <p className="font-mono text-[10px] text-white/28 mt-0.5">{e.institution} · {e.startDate} – {e.current ? "Present" : e.endDate}</p>
+              <p className="font-mono text-[10px] text-white/28 mt-0.5">{e.institution} · {e.startDate} - {e.current ? "Present" : e.endDate}</p>
             </div>
             <button onClick={() => remove(e.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"><Trash2 size={11} /></button>
           </div>

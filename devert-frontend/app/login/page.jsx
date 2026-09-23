@@ -66,8 +66,7 @@ function EcosystemPanel() {
   );
 }
 
-// Public OAuth Web Client ID for the devert-me Firebase project (not a secret —
-// same class of value as firebaseConfig.apiKey, safe to embed in client code).
+// Public OAuth Web Client ID for the devert-me Firebase project (not a secret - // same class of value as firebaseConfig.apiKey, safe to embed in client code).
 // Used to drive Google Identity Services directly so the sign-in popup never
 // has to visit Firebase's own /__/auth/handler relay page.
 const GOOGLE_CLIENT_ID = "550891323057-09tnhqhgpmtuoud983ug14f6rmoi4bgh.apps.googleusercontent.com";
@@ -131,7 +130,7 @@ function LoginContent() {
         }
       },
       error_callback: () => {
-        // User closed the Google popup or it was blocked — not a real failure,
+        // User closed the Google popup or it was blocked - not a real failure,
         // just stop the spinner and let them try again.
         setLoading(false);
       },
@@ -183,9 +182,6 @@ function LoginContent() {
           style={{ boxShadow: "0 0 80px rgba(0,255,65,0.06), 0 2px 40px rgba(0,0,0,0.8)" }}
         >
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" />
-            <div className="terminal-dot bg-yellow-500/70" />
-            <div className="terminal-dot bg-green-500/70" />
             <Terminal size={11} className="ml-2 text-white/25" />
             <span className="font-mono text-[11px] text-white/25 ml-1">ssh devert.in</span>
             <div className="ml-auto flex items-center gap-3">

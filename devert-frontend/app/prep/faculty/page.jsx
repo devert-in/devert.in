@@ -1,8 +1,8 @@
 "use client";
 
-// /prep/faculty — the monitoring cockpit (design §2). Faculty/TPO/admin only.
+// /prep/faculty - the monitoring cockpit (design §2). Faculty/TPO/admin only.
 // Every number shown here is recomputed client-side from responses + the
-// answer key at read time — prepSubmissions.responses is the only thing
+// answer key at read time - prepSubmissions.responses is the only thing
 // trusted from Firestore (design §5, §9's scoreSubmission contract).
 
 import { useState, useEffect, useCallback } from "react";
@@ -55,7 +55,7 @@ function FacultyDashboard() {
 
   useEffect(() => {
     // Fetch-on-mount pattern: loadRoot resets loading/error state synchronously
-    // before awaiting Firestore reads — standard data-fetch effect, no derivable
+    // before awaiting Firestore reads - standard data-fetch effect, no derivable
     // render-time equivalent exists here (network I/O).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRoot();
@@ -91,10 +91,10 @@ function FacultyDashboard() {
 
   return (
     <PrepShell
-      kicker="// /prep/faculty — cohort_monitor.sh"
+      kicker="// /prep/faculty - cohort_monitor.sh"
       title="FACULTY"
       accent="COCKPIT"
-      subtitle="Live cohort visibility keyed by roll number and class group. Scores are always recomputed from the answer key — never trusted from the submission."
+      subtitle="Live cohort visibility keyed by roll number and class group. Scores are always recomputed from the answer key - never trusted from the submission."
       actions={
         <BracketButton variant="ghost" onClick={loadRoot} title="Reload exam and class-group lists">
           <RefreshCw size={11} /> REFRESH

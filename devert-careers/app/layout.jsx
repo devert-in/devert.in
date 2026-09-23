@@ -32,6 +32,16 @@ export const metadata = {
   description:
     "Open roles at DeVert. We build a developer operating system and a learning platform used by college cohorts across India. Engineering, content, design and community.",
   alternates: { canonical: "https://careers.devert.in" },
+  icons: {
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/favicon-32x32.png",
+  },
   openGraph: {
     title: "Careers at DeVert",
     description: "Open roles at DeVert - built by people who ship, for people who ship.",
@@ -49,13 +59,13 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className="font-sans antialiased bg-white text-ink-800">
+      <body className="font-sans antialiased text-ink-800">
         {/* Keyboard and screen-reader users land on the header's nav first;
             without this they would tab through it on every page to reach the
             role they actually came for. */}
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[#05080F]"
         >
           Skip to content
         </a>

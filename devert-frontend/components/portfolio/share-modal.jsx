@@ -24,7 +24,6 @@ export default function ShareModal({ handle, onClose }) {
           onClick={e => e.stopPropagation()}
           className="terminal-window max-w-sm w-full">
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">share.sh</span>
             <button onClick={onClose} className="ml-auto text-white/30 hover:text-white/70"><X size={14} /></button>
           </div>

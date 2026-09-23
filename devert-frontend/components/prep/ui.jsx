@@ -93,9 +93,6 @@ export function TerminalCard({
   return (
     <Wrapper {...motionProps} className={cn("terminal-window", className)}>
       <div className="terminal-header">
-        <div className="terminal-dot bg-red-500/70" />
-        <div className="terminal-dot bg-yellow-500/70" />
-        <div className="terminal-dot bg-green-500/70" />
         {Icon && <Icon size={10} className="ml-2 text-white/25 flex-shrink-0" />}
         {filename && (
           <span className="font-mono text-[10px] text-white/25 ml-1 truncate">{filename}</span>
@@ -292,9 +289,6 @@ export function PrepModal({ open, onClose, title, filename, maxWidth = "max-w-lg
             style={{ background: "rgba(8,8,8,0.98)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}
           >
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" />
-              <div className="terminal-dot bg-yellow-500/70" />
-              <div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2 truncate">
                 {filename || "modal.sh"}
               </span>

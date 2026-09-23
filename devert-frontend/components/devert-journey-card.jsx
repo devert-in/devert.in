@@ -84,19 +84,23 @@ export function DevertJourneyCard() {
   const { user, userData } = useAuth();
   const signals = useJourneySignals(user);
 
-  if (!user || !userData) return null;
+  // Only gated on `user`. Every row below already has a designed zero state
+  // ("Ship your first project", "Structured learning & placement prep"), so
+  // bailing on a missing userData threw away the one widget that is useful
+  // precisely when a user has done nothing yet.
+  if (!user) return null;
+  const profile = userData || {};
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }}
       className="terminal-window mb-5">
       <div className="terminal-header">
-        <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
         <span className="font-mono text-[10px] text-white/25 ml-2">your_devert_today.log</span>
       </div>
       <div className="px-5 py-1 divide-y divide-white/5">
-        {userData.institutionId ? (
+        {profile.institutionId ? (
           <JourneyRow icon={GraduationCap} color="#00FFFF" label="CAMPUS"
-            value="Continue your Campus workspace" cta="open" href={`${CAMPUS_URL}/${userData.institutionId}`} />
+            value="Continue your Campus workspace" cta="open" href={`${CAMPUS_URL}/${profile.institutionId}`} />
         ) : (
           <JourneyRow icon={GraduationCap} color="#00FFFF" label="CAMPUS"
             value="Structured learning & placement prep" cta="explore" href={CAMPUS_URL} />

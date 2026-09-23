@@ -1,6 +1,6 @@
 "use client";
 
-// Category-wise accuracy bars — shared by /prep/exams/review and /prep/analytics.
+// Category-wise accuracy bars - shared by /prep/exams/review and /prep/analytics.
 // items: [{ category, attempted, correct }]
 
 import { ProgressBar } from "@/components/prep/ui";
@@ -19,7 +19,7 @@ export function CategoryBreakdown({ items = [], className }) {
               key={row.category}
               value={pct}
               color={meta?.color || "#00FFFF"}
-              label={`${(meta?.label || row.category).toUpperCase()} — ${row.correct}/${row.attempted}`}
+              label={`${(meta?.label || row.category).toUpperCase()} - ${row.correct}/${row.attempted}`}
             />
           );
         })}

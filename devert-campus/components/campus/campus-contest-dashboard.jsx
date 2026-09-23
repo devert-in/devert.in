@@ -875,7 +875,7 @@ export function CampusContestDashboard({ contestId, onBack, onEdit, onDuplicated
           style={{ background: CAMPUS.warnTint, color: CAMPUS.warn, border: `1px solid ${tint(CAMPUS.warn, 25)}` }}>
           <AlertTriangle size={14} />
           <span className="text-[12.5px] flex-1">
-            <b>Dry run</b> — this is the real paper on the real timer, but nothing you do here counts.
+            <b>Dry run</b> - this is the real paper on the real timer, but nothing you do here counts.
             It is saved outside the results and never appears in the leaderboard or averages.
           </span>
           <button onClick={() => { setDryRunOpen(false); load(); }}

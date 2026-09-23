@@ -112,9 +112,9 @@ export function CohortSummaryTab({ exam, records, totalStudents, group }) {
               key: "rollNumber",
               label: "Roll Number",
               sortValue: (r) => r.sub.rollNumber || "",
-              render: (r) => <span className="text-neon-cyan font-semibold">{r.sub.rollNumber || "—"}</span>,
+              render: (r) => <span className="text-neon-cyan font-semibold">{r.sub.rollNumber || "-"}</span>,
             },
-            { key: "name", label: "Name", sortValue: (r) => r.sub.displayName || "", render: (r) => r.sub.displayName || "—" },
+            { key: "name", label: "Name", sortValue: (r) => r.sub.displayName || "", render: (r) => r.sub.displayName || "-" },
             {
               key: "score",
               label: "Score",

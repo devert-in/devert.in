@@ -1,4 +1,4 @@
-// Seed DSA theory MCQs — the classic ground placement papers are set from.
+// Seed DSA theory MCQs - the classic ground placement papers are set from.
 
 export const dsaQuestions = [
   {
@@ -11,7 +11,7 @@ export const dsaQuestions = [
     options: ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
     correctIndex: 1,
     explanation:
-      "Binary search halves the search space with every comparison, so at most ⌈log₂ n⌉ + 1 comparisons are needed — O(log n). It requires two things: the data must be sorted, and random access must be O(1) (arrays yes, linked lists no).",
+      "Binary search halves the search space with every comparison, so at most ⌈log₂ n⌉ + 1 comparisons are needed - O(log n). It requires two things: the data must be sorted, and random access must be O(1) (arrays yes, linked lists no).",
     tags: ["binary-search", "complexity"],
   },
   {
@@ -24,7 +24,7 @@ export const dsaQuestions = [
     options: ["O(1)", "O(log n)", "O(n)", "O(n²)"],
     correctIndex: 0,
     explanation:
-      "Arrays are stored contiguously, so the address of index i is computed as base + i × elementSize — one arithmetic step regardless of n. That constant-time random access is the array's superpower, and exactly what linked lists give up in exchange for cheap insertion.",
+      "Arrays are stored contiguously, so the address of index i is computed as base + i × elementSize - one arithmetic step regardless of n. That constant-time random access is the array's superpower, and exactly what linked lists give up in exchange for cheap insertion.",
     tags: ["arrays", "memory-layout"],
   },
   {
@@ -38,7 +38,7 @@ export const dsaQuestions = [
     options: ["O(n)", "O(1)", "O(log n)", "O(n²)"],
     correctIndex: 1,
     explanation:
-      "Front insertion is three constant-time steps: create the node, point it at the current head, and update the head pointer — O(1). Contrast this with inserting at the tail (O(n) without a tail pointer, since you must walk the whole list) and with array front-insertion (O(n) because every element shifts).",
+      "Front insertion is three constant-time steps: create the node, point it at the current head, and update the head pointer - O(1). Contrast this with inserting at the tail (O(n) without a tail pointer, since you must walk the whole list) and with array front-insertion (O(n) because every element shifts).",
     tags: ["linked-lists", "insertion"],
   },
   {
@@ -51,7 +51,7 @@ export const dsaQuestions = [
     options: ["Queue", "Stack", "Heap", "Graph"],
     correctIndex: 1,
     explanation:
-      "Function calls follow last-in-first-out order — the most recently called function must return first — which is exactly a stack. The runtime pushes an activation record on every call and pops it on return; this is also why runaway recursion causes a \"stack overflow\" error.",
+      "Function calls follow last-in-first-out order - the most recently called function must return first - which is exactly a stack. The runtime pushes an activation record on every call and pops it on return; this is also why runaway recursion causes a \"stack overflow\" error.",
     tags: ["stacks", "recursion"],
   },
   {
@@ -64,7 +64,7 @@ export const dsaQuestions = [
     options: ["Quick sort", "Bubble sort", "Merge sort", "Insertion sort"],
     correctIndex: 2,
     explanation:
-      "Merge sort guarantees O(n log n) even in the worst case, because it always splits the array exactly in half and merges in linear time. Quick sort degrades to O(n²) on adversarial pivot choices, and bubble/insertion sort are O(n²) — though insertion sort is O(n) on nearly-sorted data, a favourite follow-up question.",
+      "Merge sort guarantees O(n log n) even in the worst case, because it always splits the array exactly in half and merges in linear time. Quick sort degrades to O(n²) on adversarial pivot choices, and bubble/insertion sort are O(n²) - though insertion sort is O(n) on nearly-sorted data, a favourite follow-up question.",
     tags: ["sorting", "merge-sort", "complexity"],
   },
   {
@@ -77,7 +77,7 @@ export const dsaQuestions = [
     options: ["Quick sort", "Heap sort", "Selection sort", "Merge sort"],
     correctIndex: 3,
     explanation:
-      "A stable sort preserves the original relative order of equal elements. Merge sort is stable because on ties the merge step always takes from the left half first. Quick, heap and selection sort all jump elements across long distances and destroy the order of equals — stability matters when sorting by one key after another (e.g. by marks, then by name).",
+      "A stable sort preserves the original relative order of equal elements. Merge sort is stable because on ties the merge step always takes from the left half first. Quick, heap and selection sort all jump elements across long distances and destroy the order of equals - stability matters when sorting by one key after another (e.g. by marks, then by name).",
     tags: ["sorting", "stability"],
   },
   {
@@ -90,7 +90,7 @@ export const dsaQuestions = [
     options: ["2^h", "2^h − 1", "2^(h+1) − 1", "2h + 1"],
     correctIndex: 2,
     explanation:
-      "A full binary tree has 2^L nodes at level L. Summing levels 0 through h: 2⁰ + 2¹ + … + 2^h = 2^(h+1) − 1. Watch the convention — if the question counts the root as height 1, the answer becomes 2^h − 1, so always check which convention the paper uses.",
+      "A full binary tree has 2^L nodes at level L. Summing levels 0 through h: 2⁰ + 2¹ + … + 2^h = 2^(h+1) − 1. Watch the convention - if the question counts the root as height 1, the answer becomes 2^h − 1, so always check which convention the paper uses.",
     tags: ["trees", "counting"],
   },
   {
@@ -117,7 +117,7 @@ export const dsaQuestions = [
     options: ["C F", "F C", "B D E", "E C F"],
     correctIndex: 0,
     explanation:
-      "The first preorder element, A, is the root. In the inorder sequence D B E | A | F C, everything after A — {F, C} — forms the right subtree. Removing the left-subtree nodes from the preorder leaves C F: C is the right child of A, with F as C's left child (F precedes C in inorder). Splitting inorder around the root is the key move in every such question.",
+      "The first preorder element, A, is the root. In the inorder sequence D B E | A | F C, everything after A - {F, C} - forms the right subtree. Removing the left-subtree nodes from the preorder leaves C F: C is the right child of A, with F as C's left child (F precedes C in inorder). Splitting inorder around the root is the key move in every such question.",
     tags: ["traversals", "tree-construction"],
   },
   {
@@ -130,7 +130,7 @@ export const dsaQuestions = [
     options: ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
     correctIndex: 0,
     explanation:
-      "A good hash function spreads keys uniformly across buckets, so each bucket holds O(1) items on average and lookup is constant time. The worst case — all keys colliding into one bucket — degrades to O(n), which is why interviewers love asking for both cases together.",
+      "A good hash function spreads keys uniformly across buckets, so each bucket holds O(1) items on average and lookup is constant time. The worst case - all keys colliding into one bucket - degrades to O(n), which is why interviewers love asking for both cases together.",
     tags: ["hashing", "hash-tables"],
   },
   {
@@ -156,7 +156,7 @@ export const dsaQuestions = [
     options: ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
     correctIndex: 1,
     explanation:
-      "Extract-min removes the root, moves the last element to the top, then sifts it down — at most one swap per level, and a complete binary tree has ⌈log₂ n⌉ levels, so O(log n). Merely peeking at the minimum is O(1); it's the removal and re-heapify that costs log n.",
+      "Extract-min removes the root, moves the last element to the top, then sifts it down - at most one swap per level, and a complete binary tree has ⌈log₂ n⌉ levels, so O(log n). Merely peeking at the minimum is O(1); it's the removal and re-heapify that costs log n.",
     tags: ["heaps", "priority-queues"],
   },
   {
@@ -169,7 +169,7 @@ export const dsaQuestions = [
     options: ["O(n)", "O(n log n)", "O(n²)", "O(log n)"],
     correctIndex: 1,
     explanation:
-      "By the Master Theorem with a = 2, b = 2 and f(n) = n: n^(log₂ 2) = n, which matches f(n), so T(n) = O(n log n) (case 2). Intuitively there are log n levels of recursion and each level does O(n) total work. This is exactly merge sort's recurrence — two half-size subproblems plus a linear merge.",
+      "By the Master Theorem with a = 2, b = 2 and f(n) = n: n^(log₂ 2) = n, which matches f(n), so T(n) = O(n log n) (case 2). Intuitively there are log n levels of recursion and each level does O(n) total work. This is exactly merge sort's recurrence - two half-size subproblems plus a linear merge.",
     tags: ["recurrences", "master-theorem"],
   },
   {
@@ -182,7 +182,7 @@ export const dsaQuestions = [
     options: ["46", "24", "48", "28"],
     correctIndex: 2,
     explanation:
-      "Evaluate with a stack, left to right: 5 3 + → 8; then 8 2 − → 6; finally * pops 6 and 8 to give 8 × 6 = 48. Careful with − and ÷: the SECOND value popped is the left operand — computing 2 − 8 instead of 8 − 2 is the classic slip.",
+      "Evaluate with a stack, left to right: 5 3 + → 8; then 8 2 − → 6; finally * pops 6 and 8 to give 8 × 6 = 48. Careful with − and ÷: the SECOND value popped is the left operand - computing 2 − 8 instead of 8 − 2 is the classic slip.",
     tags: ["postfix", "expression-evaluation"],
   },
 ];

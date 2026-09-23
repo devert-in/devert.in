@@ -27,7 +27,7 @@
 
 html {
   scroll-behavior: smooth;
-  background: #050505;
+  background: #05070c;
   color-scheme: dark;
 }
 
@@ -260,11 +260,18 @@ select option {
 .campus-photo-bg::before {
   content: "";
   position: fixed;
-  inset: -40px;
+  /* Driven by --campus-bg-inset for the same reason as --campus-bg-blur
+     below: the -40px overscan is only needed when the layer is blurred. */
+  inset: var(--campus-bg-inset, -40px);
   background-image: var(--campus-bg-image);
   background-size: cover;
   background-position: center;
-  filter: blur(30px);
+  /* Driven by campusPhotoBg()'s --campus-bg-blur so each backdrop picks its
+     own: 0 for the brand plate (blurring it destroys the circuit detail),
+     30px for a student's uploaded photo, which is what this layer was built
+     for. The fallback keeps the original behaviour for any caller that sets
+     only --campus-bg-image. */
+  filter: blur(var(--campus-bg-blur, 30px));
   z-index: -1;
   pointer-events: none;
 }
@@ -432,8 +439,8 @@ select option {
    and the plate reads as plain black (an earlier pass at 0.88-0.94 did
    exactly that), too sheer and the circuit tracery fights small mono text. */
 body {
-  background-color: #050505;
-  background-image: linear-gradient(rgba(5,7,12,0.62), rgba(5,7,12,0.80)), url(/devert-hero-bg.jpg);
+  background-color: #05070c;
+  background-image: linear-gradient(rgba(5,7,12,0.66), rgba(5,7,12,0.82)), url(/devert-hero-bg.jpg);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -552,28 +559,41 @@ body {
 }
 
 /* Terminal window chrome */
+/* PLAIN CARDS. These were the terminal-window treatment - a fake title bar
+   with three coloured macOS dots and a monospace filename - used as the
+   standard panel across the whole app. The dots are gone from the markup
+   (330 of them) and the chrome is gone from here; what is left is an
+   ordinary card: a dark fill on the plate, a hairline, and a quiet header
+   strip for whatever label or actions the panel already had.
+
+   THE CLASS NAMES STAY. They are used 541 times across 80 files, and
+   renaming them would be a large mechanical diff with no visual result -
+   the look is defined here, not by the name. Read `.terminal-window` as
+   `.card` and `.terminal-header` as `.card-header`.
+
+   The fill sits ON the plate rather than tinting it (an earlier 2% white
+   wash let the circuit tracery run straight through every card), and the
+   blur softens whatever texture still shows at the edges. */
 .terminal-window {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  background: rgba(8, 11, 18, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
   overflow: hidden;
 }
 
 .terminal-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 8px;
+  padding: 11px 16px;
+  background: rgba(255, 255, 255, 0.035);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.terminal-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
+/* .terminal-dot is deliberately not defined any more. If one reappears in
+   markup it renders as nothing rather than as a coloured dot. */
 
 /* Window manager chrome - floating app windows built on .terminal-window */
 .window-frame {
@@ -699,7 +719,12 @@ body {
    this removes the selection highlight and the long-press callout so there is
    nothing to grab in the first place. ContentGuard adds .clipboard-unlocked to
    <html> for admins, which lifts the whole CSS half in one go. */
-html:not(.clipboard-unlocked) {
+/* Was html:not(.clipboard-unlocked) - selection and long-press disabled for
+   everyone, everywhere, all the time. Now scoped to an invigilated attempt
+   only: use-proctor-session.js adds .proctor-active while one is running and
+   blocks the clipboard events in JS alongside this. Ordinary pages are fully
+   selectable and right-clickable. */
+html.proctor-active {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   user-select: none;
@@ -723,7 +748,7 @@ select,
   user-select: text;
 }
 
-html:not(.clipboard-unlocked) :is(img, svg, canvas, video) {
+html.proctor-active :is(img, svg, canvas, video) {
   -webkit-user-drag: none;
   user-drag: none;
 }
@@ -761,17 +786,7 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
    to this element so it cannot paint through anything else on the page. The
    scrim is heavy and deepens downward - the plate's top-right carries bright
    circuit detail that a headline cannot compete with. */
-.devert-hero-bg { position: relative; isolation: isolate; background-color: #0A0E17; }
-.devert-hero-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(rgba(10,14,23,0.62), rgba(10,14,23,0.82)), url(/devert-hero-bg.jpg);
-  background-size: cover;
-  background-position: center;
-  z-index: -1;
-  pointer-events: none;
-}
+
 
 /* Full-page variant of .devert-hero-bg, for long scrolling pages (the
    signed-in HomeDashboard).
@@ -787,17 +802,7 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
    plate's circuit tracery competes with small mono text far more than it
    plate's circuit tracery competes with small mono text far more than it
    does with a 4rem masthead. */
-.devert-page-bg { position: relative; isolation: isolate; background-color: #05070C; }
-.devert-page-bg::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image: linear-gradient(rgba(5,7,12,0.58), rgba(5,7,12,0.76)), url(/devert-hero-bg.jpg);
-  background-size: cover;
-  background-position: center;
-  z-index: -1;
-  pointer-events: none;
-}
+
 
 
 
@@ -827,3 +832,68 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 }
 
 
+
+
+/* The logo mark's corner radius. A plain class rather than a Tailwind
+   rounded-* utility so that .campus-square's border-radius:0 !important
+   flattening does not match it - the mark should stay rounded even on the
+   square-cornered public surfaces. */
+.campus-badge-round { border-radius: 9px; }
+
+
+
+/* ── Adaptive navbar ───────────────────────────────────────────────────────
+   One shell on devert.in, campus.devert.in and careers.devert.in.
+
+   At the top of a page the bar has NO fill and NO border, so the plate reads
+   unbroken across the hero - which is the whole reason this is adaptive
+   rather than a solid bar. `.is-solid` (set from lib/useScrolled.js once the
+   page moves, and forced whenever a menu is open) brings in the surface.
+
+   background-attachment: fixed on the solid state, for the same reason
+   .devert-surface uses it: the plate anchors to the VIEWPORT, so the bar
+   exposes the same region of the same image the page behind it is showing,
+   and reads as a cut-out rather than a separate tile.
+
+   Height is 56px on phones and 64px from sm: up - a 64px bar eats too much
+   of a 667px-tall screen. */
+.devert-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
+}
+.devert-navbar.is-solid {
+  background-image: linear-gradient(rgba(8,11,18,0.90), rgba(8,11,18,0.94)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  border-bottom-color: rgba(255,255,255,0.10);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.devert-navbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 56px;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+@media (min-width: 640px) {
+  .devert-navbar-inner { height: 64px; padding: 0 32px; }
+}
+/* Panels that hang off the bar (dropdowns, the mobile sheet) reuse the solid
+   fill at a heavier scrim - they sit over page content, never over nothing. */
+.devert-navbar-panel {
+  background-image: linear-gradient(rgba(8,11,18,0.95), rgba(8,11,18,0.975)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.10);
+}

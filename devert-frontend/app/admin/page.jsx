@@ -327,7 +327,7 @@ function ChallengeForm({ ch, onChange, onRemove, index, problems }) {
             LINKED CODELAB PROBLEM {!ch.problemId && <span className="text-orange-400/70">(unplayable until linked)</span>}
           </p>
           <Dropdown value={ch.problemId || ""} onChange={v => onChange(index, "problemId", v)}
-            options={[{ value: "", label: "— not linked —" }, ...problems.map(p => ({ value: p.id, label: p.title }))]}
+            options={[{ value: "", label: "- not linked -" }, ...problems.map(p => ({ value: p.id, label: p.title }))]}
             className="w-full"
             buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
             />
@@ -7172,7 +7172,6 @@ function AdminCommandPalette({ onClose, onNavigate }) {
         className="terminal-window w-full max-w-md" onClick={e => e.stopPropagation()}
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">admin_palette.sh</span>
         </div>
         <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
@@ -7303,9 +7302,6 @@ function AdminPageInner() {
           className="terminal-window mb-6 overflow-hidden"
         >
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" />
-            <div className="terminal-dot bg-yellow-500/70" />
-            <div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">control_panel.tabs</span>
           </div>
           <div className="flex items-stretch overflow-x-auto no-scrollbar">

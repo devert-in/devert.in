@@ -95,7 +95,7 @@ export default function AnalyticsTab({ uid }) {
           <div><p className="font-mono text-lg font-bold text-white">{dsa.acceptanceRate ?? "-"}{dsa.acceptanceRate != null && "%"}</p><p className="font-mono text-[9px] text-white/30">ACCEPTANCE RATE</p></div>
           <div><p className="font-mono text-lg font-bold text-white">{dsa.totalSubmissions}</p><p className="font-mono text-[9px] text-white/30">SUBMISSIONS</p></div>
         </div>
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
           <div className="text-center py-1.5 rounded" style={{ background: "rgba(0,255,65,0.08)" }}><p className="font-mono text-sm font-bold" style={{ color: "#00FF41" }}>{dsa.byDifficulty.Easy}</p><p className="font-mono text-[8px] text-white/30">EASY</p></div>
           <div className="text-center py-1.5 rounded" style={{ background: "rgba(255,149,0,0.08)" }}><p className="font-mono text-sm font-bold" style={{ color: "#FF9500" }}>{dsa.byDifficulty.Medium}</p><p className="font-mono text-[8px] text-white/30">MEDIUM</p></div>
           <div className="text-center py-1.5 rounded" style={{ background: "rgba(255,80,80,0.08)" }}><p className="font-mono text-sm font-bold" style={{ color: "#FF5050" }}>{dsa.byDifficulty.Hard}</p><p className="font-mono text-[8px] text-white/30">HARD</p></div>

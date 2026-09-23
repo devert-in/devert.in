@@ -15,14 +15,14 @@ export const seedAnnouncements = [
   {
     id: "seed-ann-001",
     text:
-      "Welcome to Placements Prep! Complete your onboarding (roll number + branch + class group) before attempting any exam or contest — it's your test identity on every submission.",
+      "Welcome to Placements Prep! Complete your onboarding (roll number + branch + class group) before attempting any exam or contest - it's your test identity on every submission.",
     date: "2026-07-13",
     link: "/prep/onboarding",
   },
   {
     id: "seed-ann-002",
     text:
-      "New this week: Aptitude Bootcamp Week and DSA Foundations Week are live under Learn — 5 days each, with instant-feedback quizzes after every lesson.",
+      "New this week: Aptitude Bootcamp Week and DSA Foundations Week are live under Learn - 5 days each, with instant-feedback quizzes after every lesson.",
     date: "2026-07-13",
     link: "/prep/learn",
   },
@@ -54,7 +54,7 @@ function formatDateKey(d) {
 /**
  * Builds 7 days of prepDailyTasks (today .. today+6), cycling through the two
  * seed courses' lessons plus a couple of standalone practice items each day.
- * Returns { [dateKey]: { items: [...] } } — ready to setDoc one entry at a time
+ * Returns { [dateKey]: { items: [...] } } - ready to setDoc one entry at a time
  * (or batch-write) onto prepDailyTasks/{dateKey}.
  */
 export function buildSeedDailyTasks(todayKey) {
@@ -79,14 +79,14 @@ export function buildSeedDailyTasks(todayKey) {
           type: "lesson",
           refId: p.aptitude,
           courseId: "seed-course-aptitude",
-          title: "Aptitude Bootcamp — today's lesson",
+          title: "Aptitude Bootcamp - today's lesson",
           category: "aptitude",
         },
         {
           type: "lesson",
           refId: p.dsa,
           courseId: "seed-course-dsa",
-          title: "DSA Foundations — today's lesson",
+          title: "DSA Foundations - today's lesson",
           category: "dsa",
         },
         {

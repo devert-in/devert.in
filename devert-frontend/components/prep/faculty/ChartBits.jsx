@@ -1,7 +1,6 @@
 "use client";
 
-// Small recharts wrappers styled to match the Devert terminal aesthetic —
-// dark tooltip card, faint grid, neon bars. Kept local to /prep/faculty
+// Small recharts wrappers styled to match the Devert terminal aesthetic - // dark tooltip card, faint grid, neon bars. Kept local to /prep/faculty
 // since no other feature currently needs a bar chart like this.
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -82,7 +81,7 @@ export function ClassComparisonChart({ data, colorOf, height = 220 }) {
 
 /** Compact inline A/B/C/D option-distribution mini bars for a table cell. */
 export function OptionMiniBars({ counts, correctIndex }) {
-  if (!Array.isArray(counts)) return <span className="text-white/20">—</span>;
+  if (!Array.isArray(counts)) return <span className="text-white/20">-</span>;
   const max = Math.max(1, ...counts);
   const labels = ["A", "B", "C", "D"];
   return (

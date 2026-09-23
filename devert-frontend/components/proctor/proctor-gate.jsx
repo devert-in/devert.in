@@ -74,9 +74,6 @@ export function ProctorGate({
       <div className="max-w-lg mx-auto mt-16">
         <div className="terminal-window">
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" />
-            <div className="terminal-dot bg-yellow-500/70" />
-            <div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">proctoring unavailable</span>
           </div>
           <div className="p-6">
@@ -97,9 +94,6 @@ export function ProctorGate({
     <div className="max-w-lg mx-auto mt-10">
       <div className="terminal-window">
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" />
-          <div className="terminal-dot bg-yellow-500/70" />
-          <div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">invigilated session</span>
           <span className="ml-auto font-mono text-[10px]" style={{ color: "rgba(0,255,65,0.6)" }}>
             {rollNumber}

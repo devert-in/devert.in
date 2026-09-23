@@ -1,6 +1,6 @@
 "use client";
 
-// Shared "today's missions" checklist — used by both the /prep hub preview
+// Shared "today's missions" checklist - used by both the /prep hub preview
 // and the /prep/learn daily-tasks panel, so completion logic lives once.
 // Lesson/course items are "done" when the learn page's own localStorage
 // completion record exists; quiz/coding items are "done" when today's
@@ -64,7 +64,7 @@ export default function DailyMissionsPanel({
     return (
       <EmptyState
         title="no missions today"
-        message={emptyMessage || "Nothing scheduled for today — check back tomorrow, or head to practice."}
+        message={emptyMessage || "Nothing scheduled for today - check back tomorrow, or head to practice."}
         className={className}
       />
     );

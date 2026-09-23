@@ -138,9 +138,6 @@ export function BroadcastApp() {
           className="terminal-window mb-8 overflow-hidden"
         >
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" />
-            <div className="terminal-dot bg-yellow-500/70" />
-            <div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">CHANNEL 01 - DEVERT_LIVE</span>
             <div className="ml-auto flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
@@ -203,7 +200,6 @@ export function BroadcastApp() {
             <p className="font-mono text-xs text-white/25 mb-4 tracking-wider">// past_broadcasts</p>
             <div className="terminal-window">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
                 <span className="font-mono text-[10px] text-white/25 ml-2">episodes.archive</span>
               </div>
               {loading ? (
@@ -261,7 +257,6 @@ export function BroadcastApp() {
             <p className="font-mono text-xs text-white/25 mb-4 tracking-wider">// upcoming_streams</p>
             <div className="terminal-window">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
                 <Calendar size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1">schedule.json</span>
               </div>

@@ -1,6 +1,6 @@
 "use client";
 
-// Admin — course/lesson editor (design §2 + §10 shape). CRUD prepCourses;
+// Admin - course/lesson editor (design §2 + §10 shape). CRUD prepCourses;
 // each course has lessons: [{id, title, day, contentMarkdown, questionIds}].
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -259,7 +259,7 @@ function CourseEditorModal({ course, allQuestions, onClose, onSaved }) {
       <div className="space-y-3">
         {(draft.lessons || []).length === 0 && (
           <p className="font-mono text-[11px] text-white/25 py-4 text-center border border-dashed border-white/10 rounded">
-            no lessons yet — add one above
+            no lessons yet - add one above
           </p>
         )}
         {(draft.lessons || []).map((lesson, i) => (

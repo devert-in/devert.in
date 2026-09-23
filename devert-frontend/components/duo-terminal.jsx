@@ -65,9 +65,6 @@ function CommitLog({ name, handle, profileHandle, role, tagline, commits, accent
       style={{ boxShadow: `0 0 40px ${accent}08` }}
     >
       <div className="terminal-header">
-        <div className="terminal-dot bg-red-500/70" />
-        <div className="terminal-dot bg-yellow-500/70" />
-        <div className="terminal-dot bg-green-500/70" />
         <Terminal size={10} className="ml-2 text-white/20" />
         <span className="font-mono text-[10px] text-white/22 ml-1 truncate">
           {handle}.git

@@ -88,7 +88,7 @@ function validate(subjectId, intro) {
       // The renderer is fine with these, but the rest of the catalogue is
       // normalised to ASCII (see scripts/normalize-dashes.mjs) and drifting
       // back is how it stops being normalised.
-      if (/[–—]/.test(intro.overview)) errors.push(`${subjectId}: overview contains an en/em dash - use " - "`);
+      if (/[--]/.test(intro.overview)) errors.push(`${subjectId}: overview contains an en/em dash - use " - "`);
     }
   }
 

@@ -36,7 +36,6 @@ export default function ContactSection({ profile, onShare }) {
       <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
         className="terminal-window">
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">contact.sh</span>
         </div>
         <div className="p-6 grid md:grid-cols-5 gap-6">

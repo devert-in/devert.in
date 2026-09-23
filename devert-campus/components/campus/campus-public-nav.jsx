@@ -14,9 +14,10 @@ import { useAuth } from "@/context/AuthContext";
 import { DEVERT_URL } from "@/lib/campusUrl";
 // Via devert-campus/jsconfig.json's @/* fallback to ../devert-frontend/* -
 // the same shared registry devert-frontend's and devert-careers' navs read.
-import { CAMPUS } from "@/lib/campus-theme";
+import { CAMPUS, tint } from "@/lib/campus-theme";
 import { useCampusTheme } from "@/components/campus/campus-theme-provider";
 import { CampusBadge, CampusCard, CampusGoogleButton } from "@/components/campus/campus-ui";
+import { useScrolled } from "@/lib/useScrolled";
 import { DemoRequestDialog, DEMO_EMAIL } from "@/components/campus/campus-demo-request";
 
 // The public Campus header, extracted out of campus-landing.jsx so it can sit on
@@ -239,7 +240,16 @@ function MenuRow({ link, onNavigate, onDemo }) {
 
 export function CampusPublicNav() {
   const { theme, toggleTheme } = useCampusTheme();
-  const { user } = useAuth();
+  // `loading` matters as much as `user` here: it is true while the Firebase
+  // token is still being checked, during which `user` is null - which is
+  // indistinguishable from signed-out. Without it the bar rendered Log in /
+  // Sign up to an already-signed-in member for a beat on every refresh, then
+  // swapped them for the account button.
+  const { user, loading: authLoading } = useAuth();
+  // Solid once the page moves, and ALWAYS solid while a menu is open: a
+  // transparent bar sitting above an opaque mega-menu reads as a rendering
+  // bug, not a style.
+  const hasScrolled = useScrolled();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
@@ -268,6 +278,8 @@ export function CampusPublicNav() {
 
   const closeAll = () => { setOpenMenu(null); setMobileOpen(false); setOpenGroup(null); };
 
+  const solid = hasScrolled || !!openMenu || mobileOpen || flyoutOpen;
+
   const menus = NAV_MENUS;
 
   return (
@@ -282,9 +294,12 @@ export function CampusPublicNav() {
           instead of being washed grey. Sticky is what makes it read as glass at
           all - content has to travel underneath for the backdrop-filter to have
           anything to work on. */}
-      <nav ref={navRef} className="campus-glass-nav"
-        style={{ borderBottom: `1px solid ${CAMPUS.line}`, position: "sticky", top: 0, zIndex: 30 }}>
-        <div className="flex items-center gap-4 px-6 sm:px-10" style={{ height: 72 }}>
+      {/* Was .campus-glass-nav: a permanent 0.88 fill, 72px tall, full-bleed.
+          Now the shared adaptive bar - transparent at rest so the plate reads
+          across the hero, solid once scrolled or whenever a menu is open. The
+          height drops 72 -> 64 to match devert.in and careers. */}
+      <nav ref={navRef} className={`devert-navbar ${solid ? "is-solid" : ""}`}>
+        <div className="devert-navbar-inner">
           <Link href="/" onClick={closeAll} className="flex items-center gap-2.5 font-bold text-[17px] flex-shrink-0" style={{ color: CAMPUS.ink }}>
             <CampusBadge size={30} />
             DeVert Campus
@@ -325,7 +340,12 @@ export function CampusPublicNav() {
                 only, so "log in" and "sign up" are literally the same action -
                 the panel says so rather than this pretending they are two
                 different flows. */}
-            {user ? (
+            {authLoading ? (
+              /* Same 34px footprint as the account button below, so resolving
+                 auth never shifts the bar's layout. */
+              <span aria-hidden="true" className="w-[34px] h-[34px] rounded-full flex-shrink-0"
+                style={{ background: CAMPUS.surface2, border: `1px solid ${CAMPUS.line}` }} />
+            ) : user ? (
               <button onClick={() => setFlyoutOpen(true)} title="Account"
                 className="w-[34px] h-[34px] rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.inkSoft }}>
@@ -358,10 +378,16 @@ export function CampusPublicNav() {
             menu with a featured card fits. Every row is a real <Link> to a real
             route; nothing in here scrolls the current page. */}
         {openMenu && (
-          <div className="hidden lg:block absolute left-0 right-0 top-full campus-overlay-shadow"
-            style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
+          <div className="devert-navbar-panel hidden lg:block absolute left-0 right-0 top-full campus-overlay-shadow"
+            style={{ borderBottom: `1px solid ${CAMPUS.line}` }}>
             {menus.filter(m => m.label === openMenu).map(m => (
-              <div key={m.label} className="max-w-6xl mx-auto px-6 sm:px-10 py-9 flex gap-12 flex-wrap">
+              <div key={m.label} className="max-w-6xl mx-auto px-6 sm:px-10 py-9 flex gap-10 flex-col lg:flex-row lg:items-start">
+                {/* Columns share the free space instead of hugging the left
+                    edge. Was `flex gap-12 flex-wrap`, which packed two short
+                    columns together and let ml-auto fling the featured card
+                    to the far right - a full-bleed panel with a dead middle. */}
+                <div className="flex-1 grid gap-x-10 gap-y-8"
+                  style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
                 {m.columns.map(col => (
                   <div key={col.title} className="min-w-[190px]">
                     <p className="text-[10.5px] font-mono uppercase tracking-[0.15em] mb-4" style={{ color: CAMPUS.inkFaint }}>{col.title}</p>
@@ -372,8 +398,9 @@ export function CampusPublicNav() {
                     </div>
                   </div>
                 ))}
+                </div>
                 {m.featured && (
-                  <CampusCard className="p-6 ml-auto" style={{ maxWidth: 300, background: CAMPUS.paper }}>
+                  <CampusCard className="p-6 lg:w-[300px] lg:flex-shrink-0" style={{ background: CAMPUS.paper }}>
                     <p className="text-[15.5px] font-semibold leading-snug mb-2" style={{ color: CAMPUS.ink }}>{m.featured.title}</p>
                     <p className="text-[12.5px] leading-relaxed mb-4" style={{ color: CAMPUS.inkSoft }}>{m.featured.body}</p>
                     <Link href={m.featured.href} onClick={closeAll}
@@ -388,27 +415,40 @@ export function CampusPublicNav() {
         )}
 
         {mobileOpen && (
-          <div className="lg:hidden absolute left-0 right-0 top-full flex flex-col max-h-[75vh] overflow-y-auto campus-overlay-shadow"
-            style={{ background: CAMPUS.surface, borderBottom: `1px solid ${CAMPUS.line}` }}>
+          /* Rows are INSET and rounded, not full-bleed bars with dividers.
+              They used to be px-6 py-3.5 with a borderTop each, which on a
+              phone reads as a stack of horizontal rules running edge to edge -
+              nine of them before you reach the bottom. Padding the panel and
+              rounding each row turns the same list into discrete targets.
+
+              borderRadius is INLINE rather than a rounded-* class: .campus-square
+              sets border-radius:0 !important on every Tailwind radius utility,
+              and CampusInfoPage still carries that class. Same trap the logo
+              badge hit. */
+          <div className="devert-navbar-panel lg:hidden absolute right-3 top-full mt-2 flex flex-col gap-1 p-2.5 max-h-[70vh] overflow-y-auto campus-overlay-shadow"
+            style={{ width: "min(340px, calc(100vw - 24px))", borderRadius: 16 }}>
             {menus.map(m => {
               if (!m.columns) return (
                 <Link key={m.label} href={m.href} onClick={closeAll}
-                  className="px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
+                  className="px-3.5 py-3 text-[14.5px] font-medium"
+                  style={{ color: CAMPUS.ink, borderRadius: 10 }}>
                   {m.label}
                 </Link>
               );
               const on = openGroup === m.label;
               return (
-                <div key={m.label} style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+                <div key={m.label}>
                   <button onClick={() => setOpenGroup(on ? null : m.label)} aria-expanded={on}
-                    className="w-full flex items-center justify-between px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink }}>
+                    className="w-full flex items-center justify-between px-3.5 py-3 text-[14.5px] font-medium"
+                    style={{ color: CAMPUS.ink, borderRadius: 10, background: on ? tint(CAMPUS.teal, 10) : "transparent" }}>
                     {m.label}
-                    <ChevronDown size={15} style={{ color: CAMPUS.inkFaint, transform: on ? "rotate(180deg)" : "none", transition: "transform 150ms" }} />
+                    <ChevronDown size={15} style={{ color: on ? CAMPUS.teal : CAMPUS.inkFaint, transform: on ? "rotate(180deg)" : "none", transition: "transform 150ms" }} />
                   </button>
                   {on && (
-                    <div className="pb-2" style={{ background: CAMPUS.paper }}>
+                    <div className="flex flex-col gap-0.5 mt-1 mb-1 ml-3 pl-2" style={{ borderLeft: `1px solid ${CAMPUS.line}` }}>
                       {m.columns.flatMap(c => c.links).map(l => {
-                        const rowClass = "flex items-center gap-2.5 px-6 py-2.5 text-[13.5px] w-full text-left";
+                        const rowClass = "flex items-center gap-2.5 px-3 py-2.5 text-[13.5px] w-full text-left";
+                        const rowStyle = { color: CAMPUS.inkSoft, borderRadius: 8 };
                         const inner = (
                           <>
                             {l.icon && <l.icon size={14} style={{ color: CAMPUS.teal, flexShrink: 0 }} />}
@@ -416,10 +456,10 @@ export function CampusPublicNav() {
                           </>
                         );
                         return l.action === "demo" ? (
-                          <button key={l.label} className={rowClass} style={{ color: CAMPUS.inkSoft }}
+                          <button key={l.label} className={rowClass} style={rowStyle}
                             onClick={() => { closeAll(); setDemoOpen(true); }}>{inner}</button>
                         ) : (
-                          <Link key={l.label} href={l.href} onClick={closeAll} className={rowClass} style={{ color: CAMPUS.inkSoft }}>{inner}</Link>
+                          <Link key={l.label} href={l.href} onClick={closeAll} className={rowClass} style={rowStyle}>{inner}</Link>
                         );
                       })}
                     </div>
@@ -427,10 +467,13 @@ export function CampusPublicNav() {
                 </div>
               );
             })}
-            <Link href={DEVERT_URL} onClick={closeAll}
-              className="sm:hidden px-6 py-3.5 text-[14.5px] font-medium" style={{ color: CAMPUS.ink, borderTop: `1px solid ${CAMPUS.line}` }}>
-              Return to DeVert
-            </Link>
+            <div className="sm:hidden mt-1 pt-2" style={{ borderTop: `1px solid ${CAMPUS.line}` }}>
+              <Link href={DEVERT_URL} onClick={closeAll}
+                className="block px-3.5 py-3 text-[14.5px] font-medium"
+                style={{ color: CAMPUS.inkSoft, borderRadius: 10 }}>
+                Return to DeVert
+              </Link>
+            </div>
           </div>
         )}
       </nav>

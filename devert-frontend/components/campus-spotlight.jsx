@@ -21,7 +21,6 @@ export function CampusSpotlight() {
         <div className="terminal-window overflow-hidden transition-colors duration-200 h-full flex flex-col"
           style={{ borderColor: "#00FFFF30" }}>
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">campus.devert.in</span>
           </div>
           <div className="p-5 sm:p-6 relative overflow-hidden flex-1 flex flex-col">

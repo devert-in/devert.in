@@ -10,7 +10,7 @@ function fmtExamOption(exam) {
   const dateStr = when
     ? when.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
     : "no date";
-  return `${exam.title} — ${dateStr}${exam.published ? "" : " (draft)"}`;
+  return `${exam.title} - ${dateStr}${exam.published ? "" : " (draft)"}`;
 }
 
 /**

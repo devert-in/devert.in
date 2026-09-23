@@ -1,6 +1,6 @@
 "use client";
 
-// /prep/exams/review?id=X — post-exam review (design §5). Score is NEVER
+// /prep/exams/review?id=X - post-exam review (design §5). Score is NEVER
 // trusted from the submission doc: it's always recomputed here from the
 // immutable `responses` + the answer key, once the key becomes readable
 // (rules time-gate it to request.time > exam.endsAt).
@@ -37,16 +37,13 @@ function LockedScreen({ endsAtMs, message }) {
         className="terminal-window overflow-hidden"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" />
-          <div className="terminal-dot bg-yellow-500/70" />
-          <div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">results_locked.sh</span>
         </div>
         <div className="p-8 flex flex-col items-center text-center gap-4">
           <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ background: "rgba(0,255,255,0.08)" }}>
             <Lock size={24} className="text-neon-cyan" />
           </div>
-          <p className="font-mono text-xs text-neon-green/55 tracking-wider">{"// /prep/exams/review — locked.sh"}</p>
+          <p className="font-mono text-xs text-neon-green/55 tracking-wider">{"// /prep/exams/review - locked.sh"}</p>
           <h2 className="font-sans text-xl font-bold text-white leading-snug">Results Are Still Locked</h2>
           <p className="font-mono text-xs text-white/40 leading-relaxed">
             {message || "Results unlock automatically once the test window closes."}
@@ -189,7 +186,7 @@ function ReviewBody({ examId }) {
 
   if (phase === "error") {
     return (
-      <PrepShell kicker="// /prep/exams/review — error.sh" title="COULDN'T LOAD" accent="RESULTS">
+      <PrepShell kicker="// /prep/exams/review - error.sh" title="COULDN'T LOAD" accent="RESULTS">
         <EmptyState icon={AlertTriangle} title="something went wrong" message={error} action={<BracketButton href="/prep/exams">BACK_TO_TESTS</BracketButton>} />
       </PrepShell>
     );
@@ -197,7 +194,7 @@ function ReviewBody({ examId }) {
 
   if (phase === "no-attempt") {
     return (
-      <PrepShell kicker="// /prep/exams/review — no_attempt.sh" title="NO" accent="ATTEMPT">
+      <PrepShell kicker="// /prep/exams/review - no_attempt.sh" title="NO" accent="ATTEMPT">
         <EmptyState
           icon={FileQuestion}
           title="you didn't attempt this test"
@@ -218,11 +215,11 @@ function ReviewBody({ examId }) {
 
   return (
     <PrepShell
-      kicker="// /prep/exams/review — score_report.sh"
+      kicker="// /prep/exams/review - score_report.sh"
       title="TEST"
       accent="RESULTS"
       subtitle={exam?.title}
-      actions={<NeonBadge color="#FFD700">TEST ID: {submission?.rollNumber || "—"}</NeonBadge>}
+      actions={<NeonBadge color="#FFD700">TEST ID: {submission?.rollNumber || "-"}</NeonBadge>}
     >
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatTile label="score" value={`${score.total}/${score.max}`} icon={Award} color="#FFD700" delay={0} />
@@ -260,7 +257,7 @@ function ReviewBody({ examId }) {
                 {raw?.code ? (
                   <>
                     <p className="font-mono text-[9px] tracking-wider text-white/25 uppercase mb-1">
-                      your submission {langMeta ? `(${langMeta.label})` : ""} — public tests {raw.publicPassed ?? 0}/{raw.publicTotal ?? 0}
+                      your submission {langMeta ? `(${langMeta.label})` : ""} - public tests {raw.publicPassed ?? 0}/{raw.publicTotal ?? 0}
                     </p>
                     <pre className="font-mono text-[11px] whitespace-pre-wrap break-words bg-black/60 border border-white/8 rounded p-3 max-h-64 overflow-y-auto text-neon-green">
                       {raw.code}
@@ -297,7 +294,7 @@ function ReviewBody({ examId }) {
 
 function MissingIdScreen() {
   return (
-    <PrepShell kicker="// /prep/exams/review — missing_id.sh" title="NO TEST" accent="SELECTED">
+    <PrepShell kicker="// /prep/exams/review - missing_id.sh" title="NO TEST" accent="SELECTED">
       <EmptyState icon={AlertTriangle} title="nothing to review" message="Open this page from the weekend tests list." action={<BracketButton href="/prep/exams">BACK_TO_TESTS</BracketButton>} />
     </PrepShell>
   );

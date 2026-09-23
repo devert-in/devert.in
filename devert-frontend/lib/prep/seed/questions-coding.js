@@ -1,4 +1,4 @@
-// Seed coding questions — stdin/stdout judge contracts. Every test case below was
+// Seed coding questions - stdin/stdout judge contracts. Every test case below was
 // traced by hand against the stated contract before being written down.
 // starterCode only scaffolds I/O parsing (per design §6/§9); the algorithm itself
 // is intentionally left as a TODO for the student to fill in.
@@ -79,7 +79,7 @@ export const codingQuestions = [
       "**Input**\n```\nn\na1 a2 ... an\n```\n**Output**\n```\nsecond_largest  or  NONE\n```\n\n" +
       "**Example**\nInput:\n```\n5\n4 1 3 4 2\n```\nOutput:\n```\n3\n```",
     explanation:
-      "Collect the distinct values (a set), and if there are at least two, the answer is the second-largest of that distinct set — NOT the second element after a plain sort of the original array, which could repeat the maximum. A single pass tracking the largest and second-largest-so-far (skipping ties with the current largest) solves it in O(n) without sorting.",
+      "Collect the distinct values (a set), and if there are at least two, the answer is the second-largest of that distinct set - NOT the second element after a plain sort of the original array, which could repeat the maximum. A single pass tracking the largest and second-largest-so-far (skipping ties with the current largest) solves it in O(n) without sorting.",
     starterCode: {
       python:
         "import sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    arr = list(map(int, data[1:1 + n]))\n    # TODO: print the second largest DISTINCT value, or NONE\n    pass\n\nif __name__ == \"__main__\":\n    main()\n",
@@ -110,7 +110,7 @@ export const codingQuestions = [
       "**Input**\n```\nn target\na1 a2 ... an\n```\n**Output**\n```\ncount\n```\n\n" +
       "**Example**\nInput:\n```\n5 9\n1 8 2 7 3\n```\nOutput:\n```\n2\n```",
     explanation:
-      "Naive O(n²) checks every pair, which is fine for small n. The O(n) upgrade uses a hash map of value → count seen so far: for each new number x, add the current count of (target − x) to the answer, then increment x's own count. Watch out for duplicate values (e.g. two 2's both pairing with a 3) — the frequency-map approach handles that correctly, a plain set does not.",
+      "Naive O(n²) checks every pair, which is fine for small n. The O(n) upgrade uses a hash map of value → count seen so far: for each new number x, add the current count of (target − x) to the answer, then increment x's own count. Watch out for duplicate values (e.g. two 2's both pairing with a 3) - the frequency-map approach handles that correctly, a plain set does not.",
     starterCode: {
       python:
         "import sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n, target = int(data[0]), int(data[1])\n    arr = list(map(int, data[2:2 + n]))\n    # TODO: count index pairs (i < j) with arr[i] + arr[j] == target\n    pass\n\nif __name__ == \"__main__\":\n    main()\n",
@@ -141,7 +141,7 @@ export const codingQuestions = [
       "**Input**\n```\nn\n```\n**Output**\n```\ndigital_root\n```\n\n" +
       "**Example**\nInput:\n```\n9875\n```\nOutput:\n```\n2\n```\n(9+8+7+5=29, 2+9=11, 1+1=2)",
     explanation:
-      "You can solve it by literally looping \"sum the digits\" until the number is under 10, which works fine for any input size. There is also a famous O(1) formula: for n > 0, the digital root equals `1 + (n - 1) % 9` (and it's 0 for n = 0) — because summing digits repeatedly is the same operation as reducing modulo 9, a fact used in an old accounting technique called \"casting out nines\".",
+      "You can solve it by literally looping \"sum the digits\" until the number is under 10, which works fine for any input size. There is also a famous O(1) formula: for n > 0, the digital root equals `1 + (n - 1) % 9` (and it's 0 for n = 0) - because summing digits repeatedly is the same operation as reducing modulo 9, a fact used in an old accounting technique called \"casting out nines\".",
     starterCode: {
       python:
         "def main():\n    n = int(input().strip())\n    # TODO: reduce n to its digital root and print it\n    pass\n\nif __name__ == \"__main__\":\n    main()\n",
@@ -172,7 +172,7 @@ export const codingQuestions = [
       "**Input**\n```\nn\na1 a2 ... an\n```\n**Output**\n```\nmost_frequent_value\n```\n\n" +
       "**Example**\nInput:\n```\n7\n1 2 2 3 3 3 1\n```\nOutput:\n```\n3\n```",
     explanation:
-      "Build a frequency dictionary in one pass (`count[x] = count.get(x, 0) + 1` in Python, or a `HashMap<Integer,Integer>` in Java). Then scan the dictionary once to find the maximum count, and among values with that maximum count keep the smallest one — do this by comparing carefully on ties, not just taking whichever appears first.",
+      "Build a frequency dictionary in one pass (`count[x] = count.get(x, 0) + 1` in Python, or a `HashMap<Integer,Integer>` in Java). Then scan the dictionary once to find the maximum count, and among values with that maximum count keep the smallest one - do this by comparing carefully on ties, not just taking whichever appears first.",
     starterCode: {
       python:
         "import sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    arr = list(map(int, data[1:1 + n]))\n    # TODO: print the most frequent value (smallest value on a tie)\n    pass\n\nif __name__ == \"__main__\":\n    main()\n",
@@ -204,14 +204,14 @@ export const codingQuestions = [
       "**Input**\n```\nr c\nrow1\nrow2\n...\nrowr\n```\n**Output**\n```\nc lines, r numbers each\n```\n\n" +
       "**Example**\nInput:\n```\n2 3\n1 2 3\n4 5 6\n```\nOutput:\n```\n1 4\n2 5\n3 6\n```",
     explanation:
-      "Read the matrix into a 2D array of shape r×c, then build the output by iterating columns as the outer loop and rows as the inner loop: `transpose[j][i] = matrix[i][j]`. No extra data structure is strictly required — you can print `matrix[i][j]` directly while looping `j` outer, `i` inner, skipping the explicit transpose array.",
+      "Read the matrix into a 2D array of shape r×c, then build the output by iterating columns as the outer loop and rows as the inner loop: `transpose[j][i] = matrix[i][j]`. No extra data structure is strictly required - you can print `matrix[i][j]` directly while looping `j` outer, `i` inner, skipping the explicit transpose array.",
     starterCode: {
       python:
-        "import sys\n\ndef main():\n    data = sys.stdin.read().split('\\n')\n    r, c = map(int, data[0].split())\n    matrix = [list(map(int, data[i + 1].split())) for i in range(r)]\n    # TODO: print the transpose — c lines, each with r numbers\n    pass\n\nif __name__ == \"__main__\":\n    main()\n",
+        "import sys\n\ndef main():\n    data = sys.stdin.read().split('\\n')\n    r, c = map(int, data[0].split())\n    matrix = [list(map(int, data[i + 1].split())) for i in range(r)]\n    # TODO: print the transpose - c lines, each with r numbers\n    pass\n\nif __name__ == \"__main__\":\n    main()\n",
       java:
-        "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int r = sc.nextInt(), c = sc.nextInt();\n        int[][] matrix = new int[r][c];\n        for (int i = 0; i < r; i++)\n            for (int j = 0; j < c; j++)\n                matrix[i][j] = sc.nextInt();\n        // TODO: print the transpose — c lines, each with r numbers\n    }\n}\n",
+        "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int r = sc.nextInt(), c = sc.nextInt();\n        int[][] matrix = new int[r][c];\n        for (int i = 0; i < r; i++)\n            for (int j = 0; j < c; j++)\n                matrix[i][j] = sc.nextInt();\n        // TODO: print the transpose - c lines, each with r numbers\n    }\n}\n",
       cpp:
-        "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    int r, c; cin >> r >> c;\n    vector<vector<int>> matrix(r, vector<int>(c));\n    for (int i = 0; i < r; i++)\n        for (int j = 0; j < c; j++)\n            cin >> matrix[i][j];\n    // TODO: print the transpose — c lines, each with r numbers\n    return 0;\n}\n",
+        "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    int r, c; cin >> r >> c;\n    vector<vector<int>> matrix(r, vector<int>(c));\n    for (int i = 0; i < r; i++)\n        for (int j = 0; j < c; j++)\n            cin >> matrix[i][j];\n    // TODO: print the transpose - c lines, each with r numbers\n    return 0;\n}\n",
     },
     testCases: [
       { input: "2 3\n1 2 3\n4 5 6", expectedOutput: "1 4\n2 5\n3 6", hidden: false },

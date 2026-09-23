@@ -103,7 +103,7 @@ export function ContestResultsView({ contestId, onBack, onLogin }) {
         {phase !== "past" ? (
           <div className="terminal-window p-6 text-center">
             <p className="font-mono text-xs text-white/40">
-              Results unlock once the contest ends — {formatDate(contest.contestEnd)}.
+              Results unlock once the contest ends - {formatDate(contest.contestEnd)}.
             </p>
           </div>
         ) : (
@@ -113,7 +113,7 @@ export function ContestResultsView({ contestId, onBack, onLogin }) {
             )}
             {user && mySubmission?.graded && (
               <div className="terminal-window mb-6">
-                <div className="p-5 grid grid-cols-3 gap-4 text-center">
+                <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
                   <Stat label="RANK" value={myRank ? `#${myRank}` : "-"} color="#FFD700" />
                   <Stat label="SCORE" value={`${mySubmission.score}/${mySubmission.maxScore}`} />
                   <Stat label="ACCURACY" value={`${mySubmission.accuracy}%`} color="#00FF41" />
@@ -131,7 +131,6 @@ export function ContestResultsView({ contestId, onBack, onLogin }) {
 
             <div className="terminal-window">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
                 <span className="font-mono text-[10px] text-white/25 ml-2">contest.leaderboard</span>
               </div>
               {leaderboard.length === 0 ? (

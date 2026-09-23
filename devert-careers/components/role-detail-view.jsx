@@ -84,7 +84,7 @@ export function RoleDetailView({ slug }) {
             It was either filled or withdrawn. Our current openings are on the careers home page.
           </p>
           <Link href="/"
-            className="mt-6 inline-flex rounded-full bg-brand-600 px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-brand-700">
+            className="mt-6 inline-flex rounded-full bg-brand-600 px-5 py-2.5 text-[14px] font-semibold text-[#05080F] transition-colors hover:bg-brand-700">
             See open roles
           </Link>
         </div>
@@ -106,13 +106,13 @@ export function RoleDetailView({ slug }) {
 
             {role.status === JOB_STATUS.CLOSED && (
               <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-800">
-                This role has closed. You can still send an application — we keep them for when
+                This role has closed. You can still send an application - we keep them for when
                 it reopens.
               </p>
             )}
 
             <a href="#apply"
-              className="mt-7 inline-flex rounded-full bg-brand-600 px-6 py-3 text-[14.5px] font-semibold text-white transition-colors hover:bg-brand-700">
+              className="mt-7 inline-flex rounded-full bg-brand-600 px-6 py-3 text-[14.5px] font-semibold text-[#05080F] transition-colors hover:bg-brand-700">
               Apply for this role
             </a>
           </header>

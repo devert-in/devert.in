@@ -6,7 +6,6 @@ import { Navbar } from "@/components/navbar";
 import { TopNavbar } from "@/components/top-navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
-import { ContentGuard } from "@/components/content-guard";
 import { ReferralCapture } from "@/components/referral-capture";
 
 const spaceGrotesk = Space_Grotesk({
@@ -45,15 +44,27 @@ export const metadata = {
   authors:   [{ name: "DeVert", url: "https://devert.in" }],
   creator:   "DeVert",
   publisher: "DeVert",
+  // Matches devert-campus and devert-careers exactly. Two entries were
+  // removed rather than re-pointed:
+  //
+  // /logo.svg - an SVG favicon, which Chrome and Firefox PREFER over every
+  // PNG and ICO below it. It held the old `</>` chevron mark, so it was the
+  // icon actually being displayed no matter what the raster set contained;
+  // regenerating the PNGs alone changed nothing visible. The file is gone
+  // too - it was referenced nowhere else in the app. There is no SVG of the
+  // current logo because the logo is raster artwork, and a rasterised SVG
+  // would only reintroduce the same precedence trap.
+  //
+  // icon-192/512 - PWA install icons. They belong in app/manifest.ts, which
+  // already lists them (with the maskable variants); declaring them as
+  // <link rel=icon> as well just gave the browser two more candidates to
+  // pick the wrong one from for a 16px tab.
   icons: {
     icon: [
-      { url: "/logo.svg", type: "image/svg+xml" },
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
       { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
       { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple:   [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
     shortcut: "/favicon-32x32.png",
@@ -181,7 +192,18 @@ export default function RootLayout({ children }) {
         className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${inter.variable} antialiased font-sans text-foreground overflow-x-hidden`}
       >
         <AuthProvider>
-          <ContentGuard />
+          {/* The content guard that used to mount here is gone. It blocked
+              right-click, text selection, drag-out and Ctrl+C/X/V/A across the
+              whole app for every non-admin, as anti-scraping for the learning
+              content. Removed on request: it was also stopping people copying
+              a code snippet out of a lesson, a company name out of the vault,
+              or opening a link in a new tab.
+
+              EXAMS ARE UNAFFECTED. use-proctor-session.js does its own
+              contextmenu/keydown/screenshot blocking in JS and sets
+              .proctor-active on <html> itself; globals.css keeps the
+              html.proctor-active rules. An invigilated attempt is still
+              locked down - only ordinary browsing is not. */}
           {/* Inside AuthProvider: it needs the signed-in user to attribute, and
               must run on every route since an ambassador link can point anywhere. */}
           <ReferralCapture />
@@ -233,7 +255,7 @@ export default function RootLayout({ children }) {
             React swaps in their custom one moments later. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var s=localStorage.getItem("campus-theme");var d=s==="dark"||(s!=="light"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.querySelectorAll(".campus-theme").forEach(function(el){el.setAttribute("data-theme","dark");el.style.colorScheme="dark";el.style.setProperty("--campus-bg-image","linear-gradient(#0A0E17,#0A0E17)");});}}catch(e){}`,
+            __html: `try{var s=localStorage.getItem("campus-theme");var d=s==="dark"||(s!=="light"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.querySelectorAll(".campus-theme").forEach(function(el){el.setAttribute("data-theme","dark");el.style.colorScheme="dark";el.style.setProperty("--campus-bg-image","linear-gradient(rgba(5,7,12,0.66), rgba(5,7,12,0.82)), url(/devert-hero-bg.jpg)");el.style.setProperty("--campus-bg-blur","0px");el.style.setProperty("--campus-bg-inset","0px");});}}catch(e){}`,
           }}
         />
       </body>

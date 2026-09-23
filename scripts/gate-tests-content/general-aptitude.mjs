@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "general-aptitude",
-  title: "General Aptitude — Subject Test",
+  title: "General Aptitude - Subject Test",
   description: "8 questions covering verbal aptitude, numerical computation, and spatial/logical reasoning - the 15-mark section every GATE paper shares.",
   testType: "subject",
   durationMinutes: 30,

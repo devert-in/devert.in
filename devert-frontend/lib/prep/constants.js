@@ -1,5 +1,5 @@
 // Shared constants for the Placements Prep module.
-// Icon names are lucide-react export names — consumers resolve them themselves
+// Icon names are lucide-react export names - consumers resolve them themselves
 // so this module stays import-free and safe for any context.
 
 export const PISTON_DEFAULT_URL = "https://emkc.org/api/v2/piston";

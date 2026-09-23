@@ -129,7 +129,6 @@ export function ContestDetailsView({ contestId, onBack, onEnterAttempt, onViewRe
 
         <div className="terminal-window mb-6">
           <div className="terminal-header">
-            <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
             <span className="font-mono text-[10px] text-white/25 ml-2">contest.overview</span>
           </div>
           <div className="p-5 space-y-4">
@@ -172,7 +171,7 @@ export function ContestDetailsView({ contestId, onBack, onEnterAttempt, onViewRe
               </button>
             ) : (
               <span className="flex-1 flex items-center justify-center gap-2 font-mono text-sm py-3 rounded-xl text-neon-green border border-neon-green/30">
-                <CheckCircle2 size={14} /> registered — come back at start time
+                <CheckCircle2 size={14} /> registered - come back at start time
               </span>
             )
           ) : phase === "past" ? (

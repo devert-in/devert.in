@@ -266,11 +266,18 @@ body {
 .campus-photo-bg::before {
   content: "";
   position: fixed;
-  inset: -40px;
+  /* Driven by --campus-bg-inset for the same reason as --campus-bg-blur
+     below: the -40px overscan is only needed when the layer is blurred. */
+  inset: var(--campus-bg-inset, -40px);
   background-image: var(--campus-bg-image);
   background-size: cover;
   background-position: center;
-  filter: blur(30px);
+  /* Driven by campusPhotoBg()'s --campus-bg-blur so each backdrop picks its
+     own: 0 for the brand plate (blurring it destroys the circuit detail),
+     30px for a student's uploaded photo, which is what this layer was built
+     for. The fallback keeps the original behaviour for any caller that sets
+     only --campus-bg-image. */
+  filter: blur(var(--campus-bg-blur, 30px));
   z-index: -1;
   pointer-events: none;
 }
@@ -415,7 +422,12 @@ body {
    .clipboard-unlocked to <html> for admins, which lifts the whole CSS half in
    one go. Ported from devert-frontend/app/globals.css's own copy - see
    campus-content-guard.jsx's header for why this couldn't just stay there. */
-html:not(.clipboard-unlocked) {
+/* Was html:not(.clipboard-unlocked) - selection and long-press disabled for
+   everyone, everywhere, all the time. Now scoped to an invigilated attempt
+   only: use-proctor-session.js adds .proctor-active while one is running and
+   blocks the clipboard events in JS alongside this. Ordinary pages are fully
+   selectable and right-clickable. */
+html.proctor-active {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   user-select: none;
@@ -439,7 +451,7 @@ select,
   user-select: text;
 }
 
-html:not(.clipboard-unlocked) :is(img, svg, canvas, video) {
+html.proctor-active :is(img, svg, canvas, video) {
   -webkit-user-drag: none;
   user-drag: none;
 }
@@ -485,31 +497,28 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
      sit ON them: white on neon green is ~1.5:1, near-black is ~14:1. */
   --vs-accent: #00FF41; --vs-accent-2: #00D8FF; --vs-on-accent: #05080F;
   font-family: var(--vs-body), ui-sans-serif, system-ui, sans-serif;
-  color: var(--vs-ink); background: var(--vs-bg); -webkit-font-smoothing: antialiased;
+  color: var(--vs-ink);
+  /* TRANSPARENT, not var(--vs-bg). This scope wraps the whole marketing pitch
+     and sits INSIDE <main class="campus-photo-bg">, whose plate renders on a
+     ::before at z-index:-1 - i.e. behind main's content. An opaque background
+     here is main's content, so it painted straight over the plate and the
+     landing page came out flat. --vs-bg is still the canvas colour; it is just
+     applied by the page behind this scope now, not by the scope itself. */
+  background: transparent;
+  -webkit-font-smoothing: antialiased;
 }
 .vs-scope * { box-sizing: border-box; }
 .vs-scope h1, .vs-scope h2, .vs-scope h3, .vs-scope h4 { font-family: var(--vs-display), ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; margin: 0; }
 .vs-scope a { text-decoration: none; }
 .vs-shell { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
 
-/* The brushed-metal circuit plate behind the hero (public/devert-hero-bg.jpg,
-   the logo's own backing art with the chevrons removed). ::before rather than a
-   background on .vs-canvas itself so the scrim and the photo compose as one
-   layer behind the content without tinting it; isolation:isolate keeps the
-   negative z-index scoped here instead of punching through the page. The scrim
-   is heavy and gets heavier downward - the plate's top-right corner carries
-   bright circuit tracery that headline text cannot compete with. */
-.vs-canvas { padding: 64px 0 60px; position: relative; isolation: isolate; }
-.vs-canvas::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(rgba(10,14,23,0.62), rgba(10,14,23,0.82)), url(/devert-hero-bg.jpg);
-  background-size: cover;
-  background-position: center;
-  z-index: -1;
-  pointer-events: none;
-}
+/* .vs-canvas had its own plate here and it has been removed. CampusLanding
+   already carries .campus-photo-bg, whose ::before is position:FIXED; this
+   was a position:absolute copy of the same image layered over it, so the
+   hero's plate scrolled up while the page's stayed with the viewport. One
+   plate per surface - the fixed one. Do not re-add a per-section plate;
+   careers.devert.in had the identical bug for the identical reason. */
+.vs-canvas { padding: 64px 0 60px; }
 .vs-hero-copy { max-width: 760px; margin: 0 auto; text-align: center; }
 .vs-hero-copy h1 { font-size: clamp(2.1rem, 4.6vw, 3.1rem); font-weight: 800; line-height: 1.14; margin-bottom: 22px; text-wrap: balance; }
 .vs-pill { display: inline-block; background: var(--vs-accent); color: var(--vs-on-accent); padding: 2px 16px 6px; border-radius: 999px; }
@@ -628,4 +637,98 @@ html.proctor-active :not(input):not(textarea):not(.monaco-editor):not(.monaco-ed
 .vs-faq-q { width: 100%; display: flex; align-items: center; gap: 16px; text-align: left; padding: 18px 4px; background: none; border: none; cursor: pointer; color: var(--vs-cream); font-size: 14.5px; font-weight: 500; }
 .vs-faq-q .ico { margin-left: auto; color: rgba(242,246,250,0.4); flex-shrink: 0; }
 .vs-faq-a { font-size: 13.5px; line-height: 1.65; color: rgba(242,246,250,0.6); padding: 0 4px 22px; max-width: 76ch; }
+
+
+/* Mega-menu panel surface - the Campus counterpart of devert-frontend's
+   .devert-surface.
+
+   It was a flat fill of --campus-surface, which read as a slab dropped over
+   the page rather than as part of the same product: the bar above it and the
+   hero below it both carry the plate, and this sat between them showing
+   neither.
+
+   background-attachment: fixed is the point - the plate anchors to the
+   VIEWPORT, so the panel exposes the same region of the same image that the
+   page behind it is showing. It reads as the bar thickening rather than as a
+   separate rectangle appearing.
+
+   Scrim is heavy (0.93-0.96): this panel sits directly over hero copy that
+   must NOT be readable through it - a menu you can see text through is the
+   bug this replaces, not a feature. */
+.campus-menu-panel {
+  background-image: linear-gradient(rgba(10,14,23,0.93), rgba(10,14,23,0.96)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+/* Light theme keeps a light panel - the plate is a dark asset and white-on-it
+   is unreadable. Same reasoning as Careers staying light below its hero. */
+.campus-theme[data-theme="light"] .campus-menu-panel {
+  background-image: none;
+  background-color: var(--campus-surface);
+}
+
+/* The logo mark's corner radius. A plain class rather than a Tailwind
+   rounded-* utility so that .campus-square's border-radius:0 !important
+   flattening does not match it - the mark should stay rounded even on the
+   square-cornered public surfaces. */
+.campus-badge-round { border-radius: 9px; }
+
+/* ── Adaptive navbar ───────────────────────────────────────────────────────
+   One shell on devert.in, campus.devert.in and careers.devert.in.
+
+   At the top of a page the bar has NO fill and NO border, so the plate reads
+   unbroken across the hero - which is the whole reason this is adaptive
+   rather than a solid bar. `.is-solid` (set from lib/useScrolled.js once the
+   page moves, and forced whenever a menu is open) brings in the surface.
+
+   background-attachment: fixed on the solid state, for the same reason
+   .devert-surface uses it: the plate anchors to the VIEWPORT, so the bar
+   exposes the same region of the same image the page behind it is showing,
+   and reads as a cut-out rather than a separate tile.
+
+   Height is 56px on phones and 64px from sm: up - a 64px bar eats too much
+   of a 667px-tall screen. */
+.devert-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
+}
+.devert-navbar.is-solid {
+  background-image: linear-gradient(rgba(8,11,18,0.90), rgba(8,11,18,0.94)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  border-bottom-color: rgba(255,255,255,0.10);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.devert-navbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 56px;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+@media (min-width: 640px) {
+  .devert-navbar-inner { height: 64px; padding: 0 32px; }
+}
+/* Panels that hang off the bar (dropdowns, the mobile sheet) reuse the solid
+   fill at a heavier scrim - they sit over page content, never over nothing. */
+.devert-navbar-panel {
+  background-image: linear-gradient(rgba(8,11,18,0.95), rgba(8,11,18,0.975)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.10);
+}
 

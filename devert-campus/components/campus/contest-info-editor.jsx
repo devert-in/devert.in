@@ -204,7 +204,7 @@ export function ContestInfoCard({ contest, onSaved }) {
 
           <div className="sm:col-span-3 space-y-2">
             <p className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>
-              Questions: {contest.questionCount || 0} — set by the question list, not editable here.
+              Questions: {contest.questionCount || 0} - set by the question list, not editable here.
               Times are in your own timezone.
             </p>
             {draftWindow != null && draftWindow > 0 && Number.isFinite(draftDuration) && draftDuration > draftWindow && (
@@ -233,7 +233,7 @@ function ClashWarning({ duration, windowMin }) {
     <p className="text-[11.5px] flex items-start gap-1.5 mt-2" style={{ color: CAMPUS.warn }}>
       <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
       Duration is {duration} min but the window is only {windowMin} min. Students get the shorter of the two,
-      so nobody will have more than {windowMin} min — and anyone starting late gets less.
+      so nobody will have more than {windowMin} min - and anyone starting late gets less.
     </p>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-// Admin — exam/contest builder (design §2). Creates weekend-test / coding-contest
+// Admin - exam/contest builder (design §2). Creates weekend-test / coding-contest
 // exams via lib/prep/db's createExam (which splits the paper away from the
-// answer key in one write batch — see that function's docstring). Also lists
+// answer key in one write batch - see that function's docstring). Also lists
 // existing exams for schedule edits, publish toggling, and deletion.
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -38,7 +38,7 @@ const KINDS = [
 ];
 
 function fmtDate(ts) {
-  if (!ts) return "—";
+  if (!ts) return "-";
   const d = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
@@ -186,7 +186,7 @@ function SelectedPanel({ selected, setSelected }) {
   return (
     <div>
       <p className="font-mono text-[10px] text-white/30 mb-2">
-        {selected.length} question{selected.length === 1 ? "" : "s"} — {totalMarks} total marks
+        {selected.length} question{selected.length === 1 ? "" : "s"} - {totalMarks} total marks
       </p>
       <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
         {selected.map((q, i) => (

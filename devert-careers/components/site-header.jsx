@@ -13,6 +13,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Menu, X } from "lucide-react";
+// Shared with devert.in and campus through this app's jsconfig @/* fallback.
+// Safe to import here despite the no-@source rule: it is a hook with no JSX and
+// no Tailwind class names, so nothing of it needs compiling by this app.
+import { useScrolled } from "@/lib/useScrolled";
 
 // FOUNDERS IS DELIBERATELY NOT IMPORTED HERE, unlike the other two apps' navs.
 //
@@ -46,10 +50,15 @@ const OFF_SITE = [
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  // Solid on scroll, and forced solid while the mobile sheet is open.
+  const solid = useScrolled() || open;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-ink-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/75">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-5 sm:px-8">
+    // Was a permanently-filled bar (bg-ink-50/85 + blur). Now the shared
+    // adaptive bar, so all three sites open on an unbroken plate and gain
+    // their surface at the same moment.
+    <header className={`devert-navbar ${solid ? "is-solid" : ""}`}>
+      <div className="devert-navbar-inner">
         <Link href="/" className="flex items-baseline gap-2 shrink-0">
           <span className="text-[19px] font-semibold tracking-[-0.03em] text-ink-900">DeVert</span>
           <span className="text-[13px] font-medium text-ink-500">Careers</span>
@@ -73,7 +82,7 @@ export function SiteHeader() {
             </a>
           ))}
           <a href="#open-roles"
-            className="rounded-full bg-brand-600 px-4 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-brand-700">
+            className="rounded-full bg-brand-600 px-4 py-2 text-[13.5px] font-semibold text-[#05080F] transition-colors hover:bg-brand-700">
             See open roles
           </a>
         </div>
@@ -90,23 +99,32 @@ export function SiteHeader() {
       </div>
 
       {open && (
-        <div className="border-t border-ink-200 bg-white md:hidden">
-          <nav className="mx-auto flex max-w-6xl flex-col px-5 py-2 sm:px-8" aria-label="Sections">
+        /* An inset card anchored under the menu button, not a full-width
+           strip. It was a bg-ink-50 band spanning the whole phone with a
+           hairline under every row - nine rules stacked down the screen.
+           The header is position:sticky, so this absolute child anchors to
+           it with no `relative` needed. */
+        <div className="devert-navbar-panel md:hidden absolute right-3 top-full mt-2 flex flex-col p-2.5 max-h-[70vh] overflow-y-auto"
+          style={{ width: "min(320px, calc(100vw - 24px))", borderRadius: 16 }}>
+          <nav className="flex flex-col gap-0.5" aria-label="Sections">
             {SECTIONS.map((s) => (
               <Link key={s.label} href={s.href} onClick={() => setOpen(false)}
-                className="border-b border-ink-100 py-3 text-[15px] font-medium text-ink-700">
+                className="px-3.5 py-3 text-[15px] font-medium text-ink-800"
+                style={{ borderRadius: 10 }}>
                 {s.label}
               </Link>
             ))}
+            <span className="my-1.5 h-px" style={{ background: "var(--color-ink-200)" }} />
             {OFF_SITE.map((s) => (
               <a key={s.label} href={s.href} onClick={() => setOpen(false)}
-                className="flex items-center gap-1.5 border-b border-ink-100 py-3 text-[15px] font-medium text-ink-500 last:border-0">
+                className="flex items-center gap-1.5 px-3.5 py-3 text-[15px] font-medium text-ink-600"
+                style={{ borderRadius: 10 }}>
                 {s.label} <ArrowUpRight size={14} />
               </a>
             ))}
 
             <a href="#open-roles" onClick={() => setOpen(false)}
-              className="my-3 rounded-full bg-brand-600 px-4 py-2.5 text-center text-[14px] font-semibold text-white">
+              className="mt-2 rounded-full bg-brand-600 px-4 py-2.5 text-center text-[14px] font-semibold text-[#05080F]">
               See open roles
             </a>
           </nav>

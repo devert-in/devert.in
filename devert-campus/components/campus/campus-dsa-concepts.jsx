@@ -126,8 +126,7 @@ function LanguagePicker({ tracks, user, onPick }) {
       <div className="mb-4">
         <h3 className="text-[15px] font-semibold mb-1" style={{ color: CAMPUS.ink }}>Choose your language</h3>
         <p className="text-[12.5px]" style={{ color: CAMPUS.inkSoft }}>
-          Every concept is taught with implementations, idioms and interview notes for the language you pick &mdash;
-          not generic pseudocode.
+          Every concept is taught with implementations, idioms and interview notes for the language you pick - not generic pseudocode.
         </p>
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -317,7 +316,7 @@ function ConceptLanguageSection({ concept }) {
     <div>
       <div className="flex items-center justify-between gap-3 mb-2.5 flex-wrap">
         <p className="text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>
-          IMPLEMENTATION &mdash; EDIT AND RUN IT
+          IMPLEMENTATION - EDIT AND RUN IT
         </p>
         {/* Only rendered when there is more than one language to choose between -
             a one-tab switcher is chrome that decides nothing. */}

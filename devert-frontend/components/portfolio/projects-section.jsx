@@ -20,7 +20,7 @@ function effectiveStatus(p) {
 
 function formatRange(start, end) {
   if (!start) return "";
-  return `${start} – ${end || "ongoing"}`;
+  return `${start} - ${end || "ongoing"}`;
 }
 
 function ProjectCard({ p, onOpen }) {
@@ -36,7 +36,6 @@ function ProjectCard({ p, onOpen }) {
         <img src={p.images[0]} alt={p.name} className="w-full h-36 object-cover border-b border-white/6" />
       )}
       <div className="terminal-header">
-        <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
         <span className="font-mono text-[9px] ml-auto px-1.5 py-0.5 rounded" style={{ color: STATUS_COLOR[status], background: `${STATUS_COLOR[status]}12` }}>
           {status}
         </span>
@@ -73,7 +72,6 @@ function ProjectModal({ p, onClose }) {
         onClick={e => e.stopPropagation()}
         className="terminal-window max-w-2xl w-full max-h-[85vh] overflow-y-auto">
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-1.5">{p.name}</span>
           <button onClick={onClose} className="ml-auto text-white/30 hover:text-white/70"><X size={14} /></button>
         </div>

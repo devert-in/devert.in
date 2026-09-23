@@ -1,13 +1,13 @@
 // The ONLY scoring implementation (design §9). Both the student review page
-// and the faculty dashboards import this — scores are NEVER trusted from the
+// and the faculty dashboards import this - scores are NEVER trusted from the
 // submission doc, they are always recomputed from responses + key at read time.
 //
 // Pure function. No firebase imports.
 //
 //   scoreSubmission(responses, key, paper)
-//     responses: prepSubmissions.responses — { [idx]: number | { lang, code, publicPassed, publicTotal } }
-//     key:       prepExamKeys doc          — { answers: { [idx]: correctIndex }, ... }
-//     paper:     prepExamPapers doc        — { questions: [{ idx, type, marks, ... }] }
+//     responses: prepSubmissions.responses - { [idx]: number | { lang, code, publicPassed, publicTotal } }
+//     key:       prepExamKeys doc - { answers: { [idx]: correctIndex }, ... }
+//     paper:     prepExamPapers doc - { questions: [{ idx, type, marks, ... }] }
 //   → { total, max, perQuestion: [{ idx, type, correct, chosen, correctIndex, marksAwarded, marks }] }
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -25,7 +25,7 @@ export function scoreSubmission(responses, key, paper) {
     if (q && q.type === "coding") {
       // Coding marks are scaled by the public test-case pass ratio recorded in
       // the response at submit time. Re-running hidden tests against the key's
-      // hiddenTestCases is a staff-side future upgrade — the stored code makes
+      // hiddenTestCases is a staff-side future upgrade - the stored code makes
       // that possible without touching this contract.
       const publicPassed = raw && typeof raw === "object" ? Number(raw.publicPassed) || 0 : 0;
       const publicTotal = raw && typeof raw === "object" ? Number(raw.publicTotal) || 0 : 0;

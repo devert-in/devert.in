@@ -45,9 +45,6 @@ function LockScreen({ icon: Icon = Lock, kicker, title, message, action }) {
         className="terminal-window overflow-hidden"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" />
-          <div className="terminal-dot bg-yellow-500/70" />
-          <div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">access_denied.sh</span>
         </div>
         <div className="p-8 flex flex-col items-center text-center gap-4">
@@ -118,7 +115,7 @@ export function RequireStaff({ children }) {
   if (!isStaff) {
     return (
       <LockScreen
-        kicker="// /prep — staff_only.sh"
+        kicker="// /prep - staff_only.sh"
         title="Staff Access Required"
         message="This section is restricted to faculty, TPO, and admin accounts. If you believe this is a mistake, contact your placements coordinator to have your role updated."
       />
@@ -149,7 +146,7 @@ export function RequireAdmin({ children }) {
     return (
       <LockScreen
         icon={ShieldAlert}
-        kicker="// /prep/admin — admin_only.sh"
+        kicker="// /prep/admin - admin_only.sh"
         title="Admin Access Required"
         message="This panel is restricted to Prep admins. Ask an existing admin to grant your account the 'admin' role from the role manager."
       />

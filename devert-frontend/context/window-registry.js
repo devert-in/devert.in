@@ -28,7 +28,7 @@ export const DOCK_RESERVED_PX = 110;
 export const WINDOW_REGISTRY = {
   pulse: {
     id: "pulse",
-    title: "pulse — community_feed.live",
+    title: "pulse - community_feed.live",
     route: "/pulse",
     accent: "#00FF41",
     icon: "Activity",
@@ -38,7 +38,7 @@ export const WINDOW_REGISTRY = {
   },
   arena: {
     id: "arena",
-    title: "arena — the_arena",
+    title: "arena - the_arena",
     route: "/arena",
     accent: "#00FFFF",
     icon: "Swords",
@@ -48,7 +48,7 @@ export const WINDOW_REGISTRY = {
   },
   grind: {
     id: "grind",
-    title: "grind — practice.sh",
+    title: "grind - practice.sh",
     route: "/grind",
     accent: "#FF6430",
     icon: "Zap",
@@ -58,7 +58,7 @@ export const WINDOW_REGISTRY = {
   },
   intel: {
     id: "intel",
-    title: "intel — dev_intelligence.feed",
+    title: "intel - dev_intelligence.feed",
     route: "/intel",
     accent: "#00FFFF",
     icon: "Radio",
@@ -68,7 +68,7 @@ export const WINDOW_REGISTRY = {
   },
   missions: {
     id: "missions",
-    title: "missions — classified.db",
+    title: "missions - classified.db",
     route: "/missions",
     accent: "#00FFFF",
     icon: "Target",
@@ -78,7 +78,7 @@ export const WINDOW_REGISTRY = {
   },
   broadcast: {
     id: "broadcast",
-    title: "broadcast — devcast.live",
+    title: "broadcast - devcast.live",
     route: "/broadcast",
     accent: "#00FFFF",
     icon: "Tv2",

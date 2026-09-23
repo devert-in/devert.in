@@ -46,9 +46,6 @@ export function Section({ title, icon: Icon, color, children, defaultOpen = fals
       <button onClick={() => setOpen(o => !o)}
         className="terminal-header w-full flex items-center gap-2 hover:bg-white/2 transition-colors"
       >
-        <div className="terminal-dot bg-red-500/70" />
-        <div className="terminal-dot bg-yellow-500/70" />
-        <div className="terminal-dot bg-green-500/70" />
         <Icon size={11} className="ml-2" style={{ color }} />
         <span className="font-mono text-xs ml-1" style={{ color }}>{title}</span>
         <span className="ml-auto mr-1">{open ? <ChevronUp size={12} className="text-white/30" /> : <ChevronDown size={12} className="text-white/30" />}</span>

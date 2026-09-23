@@ -495,7 +495,7 @@ function ModuleView() {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <SeStat label="Lessons" value={stat?.total || 0} icon={BookOpen} color={accentOf(mod)} />
         <SeStat label="Completed" value={stat?.completed || 0} icon={CheckCircle2} color={SE_ACCENT.green} />
         <SeStat label="Est. time" value={`${mod.estimatedHours || 0}h`} icon={Clock} color={SE_ACCENT.purple} />

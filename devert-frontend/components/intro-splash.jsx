@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 const BOOT_LINES = [
     "mounting /learn /build /connect /campus",
     "linking developer network",
-    "DeVert OS v2.0 — ready",
+    "DeVert OS v2.0 - ready",
 ];
 
 export function IntroSplash({ onComplete }) {

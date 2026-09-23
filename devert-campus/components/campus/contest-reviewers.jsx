@@ -84,7 +84,7 @@ export function ContestReviewersPanel({ contestId, roster = [], adminUid }) {
         {reviewers.length > 0 && <CampusChip color={CAMPUS.teal}>{reviewers.length}</CampusChip>}
       </p>
       <p className="text-[11.5px] mb-3" style={{ color: CAMPUS.inkFaint }}>
-        Let someone sit this paper before it opens — even if they are outside the target audience.
+        Let someone sit this paper before it opens - even if they are outside the target audience.
         Their attempt is saved separately and never reaches the leaderboard, participant count or any average.
       </p>
 
@@ -95,7 +95,7 @@ export function ContestReviewersPanel({ contestId, roster = [], adminUid }) {
       <div className="relative mb-3">
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: CAMPUS.inkFaint }} />
         <input value={query} onChange={e => setQuery(e.target.value)}
-          placeholder="Add a reviewer — search by name, roll number, email, department..."
+          placeholder="Add a reviewer - search by name, roll number, email, department..."
           aria-label="Search the roster for a reviewer"
           className="w-full text-[12.5px] pl-8 pr-3 py-2 rounded-lg outline-none"
           style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}`, color: CAMPUS.ink }} />
@@ -183,7 +183,7 @@ export function ContestReviewersPanel({ contestId, roster = [], adminUid }) {
       {reviewers.length > 0 && (
         <p className="text-[10.5px] mt-2.5 flex items-start gap-1.5" style={{ color: CAMPUS.inkFaint }}>
           <Check size={11} className="flex-shrink-0 mt-0.5" style={{ color: CAMPUS.good }} />
-          Reviewers see the questions but not the answer key — that unlocks only once they submit their own dry run,
+          Reviewers see the questions but not the answer key - that unlocks only once they submit their own dry run,
           so review access can never be a way to read the answers early.
         </p>
       )}

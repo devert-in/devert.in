@@ -1,9 +1,9 @@
 "use client";
 
-// /prep — hub landing. Public (works logged-out for the MRCET redirect
+// /prep - hub landing. Public (works logged-out for the MRCET redirect
 // funnel); stats/missions light up once a session exists. Dynamic content
 // (?src=mrcet) is read via useSearchParams inside a Suspense boundary, per
-// the static-export constraint — no server rendering involved.
+// the static-export constraint - no server rendering involved.
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -48,7 +48,7 @@ function MrcetBanner() {
       try {
         window.localStorage.setItem(MRCET_SRC_KEY, "mrcet");
       } catch {
-        // localStorage unavailable (private mode) — banner just won't persist
+        // localStorage unavailable (private mode) - banner just won't persist
       }
     }
     let persisted = false;
@@ -57,7 +57,7 @@ function MrcetBanner() {
       persisted = window.localStorage.getItem(MRCET_SRC_KEY) === "mrcet";
       dismissed = window.localStorage.getItem(MRCET_DISMISS_KEY) === "1";
     } catch {
-      // ignore — fromQuery alone still works this visit
+      // ignore - fromQuery alone still works this visit
     }
     // localStorage is a client-only external system; reading it at render time
     // would mismatch server/client output, so this must stay in an effect.
@@ -84,7 +84,7 @@ function MrcetBanner() {
     >
       <GraduationCap size={16} className="text-neon-green flex-shrink-0" />
       <p className="font-mono text-xs text-white/75 flex-1 leading-relaxed">
-        Welcome, MRCET students <span aria-hidden="true">🎓</span> — this is your official placements
+        Welcome, MRCET students <span aria-hidden="true">🎓</span> - this is your official placements
         practice portal.
       </p>
       <button
@@ -123,7 +123,7 @@ const BASE_CARDS = [
     href: "/prep/code",
     icon: TerminalIcon,
     label: "CODE",
-    desc: "A live playground — write, run and test code in 5 languages.",
+    desc: "A live playground - write, run and test code in 5 languages.",
     color: "#FFD700",
   },
   {
@@ -139,7 +139,7 @@ const BASE_CARDS = [
     href: "/prep/exams",
     icon: ClipboardList,
     label: "EXAMS",
-    desc: "Weekend tests — MCQ + coding, autosaved, instantly scored.",
+    desc: "Weekend tests - MCQ + coding, autosaved, instantly scored.",
     color: "#FF3B3B",
   },
   {
@@ -147,7 +147,7 @@ const BASE_CARDS = [
     href: "/prep/analytics",
     icon: BarChart3,
     label: "ANALYTICS",
-    desc: "Your accuracy, streak and exam history — charted.",
+    desc: "Your accuracy, streak and exam history - charted.",
     color: "#B794F6",
   },
 ];
@@ -231,7 +231,7 @@ function PrepHub() {
         const rows = await getAnnouncements({ max: 10 });
         if (!cancelled) setAnnouncements(rows || []);
       } catch {
-        // announcements are decorative — fail silent, ticker just stays hidden
+        // announcements are decorative - fail silent, ticker just stays hidden
       } finally {
         if (!cancelled) setAnnLoading(false);
       }
@@ -276,7 +276,7 @@ function PrepHub() {
         const today = dateKey();
         if (!cancelled) setTodayAttempts((attempts || []).filter((a) => a.date === today));
       } catch {
-        // ticks are a nice-to-have — silent fail keeps the checklist usable
+        // ticks are a nice-to-have - silent fail keeps the checklist usable
       }
     })();
     return () => {
@@ -310,13 +310,13 @@ function PrepHub() {
 
   return (
     <PrepShell
-      kicker="// /prep — placements_prep.sh"
+      kicker="// /prep - placements_prep.sh"
       title="PLACEMENTS"
       accent="PREP"
       subtitle={
         user
           ? `Welcome back, ${profile?.displayName || profile?.email || "operator"}. Keep the streak alive.`
-          : "Aptitude, DSA, code, and full-length mock exams — one portal, zero server load."
+          : "Aptitude, DSA, code, and full-length mock exams - one portal, zero server load."
       }
       actions={
         !user &&
@@ -337,7 +337,7 @@ function PrepHub() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
           <StatTile
             label="STREAK"
-            value={progLoading ? "—" : `${stats.streak}d`}
+            value={progLoading ? "-" : `${stats.streak}d`}
             sub={stats.streak > 0 ? "don't break the chain" : "solve one today to start"}
             icon={Flame}
             color="#FF6430"
@@ -345,7 +345,7 @@ function PrepHub() {
           />
           <StatTile
             label="XP"
-            value={progLoading ? "—" : stats.xp.toLocaleString()}
+            value={progLoading ? "-" : stats.xp.toLocaleString()}
             sub="lifetime experience"
             icon={Zap}
             color="#FFD700"
@@ -353,7 +353,7 @@ function PrepHub() {
           />
           <StatTile
             label="SOLVED"
-            value={progLoading ? "—" : stats.solved}
+            value={progLoading ? "-" : stats.solved}
             sub="questions correct"
             icon={Trophy}
             color="#00FF41"
@@ -361,7 +361,7 @@ function PrepHub() {
           />
           <StatTile
             label="ACCURACY"
-            value={progLoading ? "—" : `${stats.accuracy}%`}
+            value={progLoading ? "-" : `${stats.accuracy}%`}
             sub="across all categories"
             icon={Percent}
             color="#00FFFF"

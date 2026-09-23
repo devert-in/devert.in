@@ -35,9 +35,6 @@ function MissionCard({ m, i, accepted, accepting, onAccept }) {
       style={isAccepted ? { borderColor: "rgba(0,255,65,0.18)" } : {}}
     >
       <div className="terminal-header">
-        <div className="terminal-dot bg-red-500/70" />
-        <div className="terminal-dot bg-yellow-500/70" />
-        <div className="terminal-dot bg-green-500/70" />
         <span className="font-mono text-[9px] text-white/22 ml-2">{m.classification || "UNCLASSIFIED"}</span>
         <span className="ml-auto font-mono text-[9px] px-2 py-0.5 rounded border"
           style={isAccepted
@@ -199,7 +196,6 @@ export function MissionsApp() {
         ) : missions.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="terminal-window max-w-lg mx-auto">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">classified.db</span>
             </div>
             <div className="p-10 text-center">

@@ -48,9 +48,6 @@ export function DockModal({ onClose, onSubmit, submitting }) {
         className="terminal-window w-full max-w-md max-h-[90vh] overflow-y-auto"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" />
-          <div className="terminal-dot bg-yellow-500/70" />
-          <div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">dock_ship.sh</span>
           <button onClick={onClose} className="ml-auto text-white/25 hover:text-white/60 transition-colors">
             <X size={13} />
@@ -215,9 +212,6 @@ function ProjectCommentsDrawer({ project, user, userData, onClose, onCommented }
         className="terminal-window w-full max-w-md max-h-[80vh] flex flex-col"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" />
-          <div className="terminal-dot bg-yellow-500/70" />
-          <div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">comments.log</span>
           <button onClick={onClose} className="ml-auto text-white/25 hover:text-white/60 transition-colors">
             <X size={13} />
@@ -433,9 +427,6 @@ export function ShipyardApp() {
             className="terminal-window max-w-md mx-auto"
           >
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" />
-              <div className="terminal-dot bg-yellow-500/70" />
-              <div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">projects.feed</span>
             </div>
             <div className="p-10 text-center">
@@ -464,9 +455,6 @@ export function ShipyardApp() {
                   className={`terminal-window transition-colors ${p.url ? "group cursor-pointer" : ""}`}
                 >
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     {p.url && (
                       <a href={p.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                         className="ml-auto text-white/18 group-hover:text-neon-cyan/55 transition-colors"

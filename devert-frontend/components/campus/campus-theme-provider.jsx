@@ -33,7 +33,15 @@ export function CampusThemeProvider({ children }) {
   // set to, light or dark, rather than a hardcoded default - explicitly
   // toggling below is what opts them into a fixed choice of their own.
   const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") return "light";
+    // DARK is the server fallback, not light. These apps are static exports:
+    // whatever this returns during prerender is the HTML the browser paints
+    // BEFORE hydration reads localStorage. Returning light meant every visitor
+    // - including one whose saved preference is dark - got a white navbar for
+    // a frame, then a flip. Dark is the platform default everywhere else now,
+    // so it is the right thing to paint first; a visitor who has explicitly
+    // chosen light still gets one frame of dark, but that is the rarer case
+    // and it is the same single frame, not a regression.
+    if (typeof window === "undefined") return "dark";
     const saved = localStorage.getItem("campus-theme");
     if (saved === "dark" || saved === "light") return saved;
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";

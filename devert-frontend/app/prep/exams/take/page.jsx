@@ -1,9 +1,9 @@
 "use client";
 
-// /prep/exams/take?id=X — THE weekend test runner (design §5).
+// /prep/exams/take?id=X - THE weekend test runner (design §5).
 // One question per screen, question palette, mark-for-review, autosave,
 // server-skew-corrected countdown with auto-submit at zero. No score is
-// ever computed or shown here — the key is unreadable during the window.
+// ever computed or shown here - the key is unreadable during the window.
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -37,7 +37,7 @@ import { computeExamStatus, cohortAllowed, toMillis } from "@/components/prep/ex
 import { CATEGORY_MAP, DIFFICULTY_MAP } from "@/lib/prep/constants";
 import { getExam, getMySubmission, getPaper, startSubmission, submitExam, upsertSubmission } from "@/lib/prep/db";
 
-// CodeMirror is heavy — only pull it in when a test actually has a coding
+// CodeMirror is heavy - only pull it in when a test actually has a coding
 // question (design §8: keep the judge/editor code-split off the base bundle).
 const CodeRunner = dynamic(() => import("@/components/prep/CodeRunner"), {
   ssr: false,
@@ -60,9 +60,6 @@ function StatusScreen({ icon: Icon = Lock, kicker, title, message, children }) {
         className="terminal-window overflow-hidden"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" />
-          <div className="terminal-dot bg-yellow-500/70" />
-          <div className="terminal-dot bg-green-500/70" />
           <span className="font-mono text-[10px] text-white/25 ml-2">exam_status.sh</span>
         </div>
         <div className="p-8 flex flex-col items-center text-center gap-4">
@@ -140,7 +137,7 @@ function TakeExamRunner({ examId }) {
           return;
         }
 
-        // live — create/resume the submission, measuring round-trip clock skew.
+        // live - create/resume the submission, measuring round-trip clock skew.
         const t0 = Date.now();
         const sub = await startSubmission(examId, user.uid, {
           rollNumber: profile?.rollNumber,
@@ -170,7 +167,7 @@ function TakeExamRunner({ examId }) {
           paperDoc = await getPaper(examId);
         } catch (err) {
           // permission-denied here means the window isn't actually open yet
-          // from the server's point of view (client clock drift) — treat as
+          // from the server's point of view (client clock drift) - treat as
           // not-started rather than a hard error.
           if (cancelled) return;
           setError(err?.message || "The paper isn't available yet.");
@@ -306,7 +303,7 @@ function TakeExamRunner({ examId }) {
     return (
       <StatusScreen
         icon={Lock}
-        kicker="// /prep/exams/take — access_denied.sh"
+        kicker="// /prep/exams/take - access_denied.sh"
         title="Not Your Cohort"
         message="This test is targeted at a different class group. Contact your faculty/TPO if you believe this is a mistake."
       >
@@ -322,9 +319,9 @@ function TakeExamRunner({ examId }) {
     return (
       <StatusScreen
         icon={Clock}
-        kicker="// /prep/exams/take — not_live_yet.sh"
+        kicker="// /prep/exams/take - not_live_yet.sh"
         title="This Test Hasn't Started"
-        message={error || "Come back when the window opens — the countdown will update automatically."}
+        message={error || "Come back when the window opens - the countdown will update automatically."}
       >
         {startsAtMs && <Countdown target={startsAtMs} prefix="starts in" />}
         <BracketButton variant="cyan" href="/prep/exams" className="mt-2">
@@ -338,7 +335,7 @@ function TakeExamRunner({ examId }) {
     return (
       <StatusScreen
         icon={FileWarning}
-        kicker="// /prep/exams/take — window_closed.sh"
+        kicker="// /prep/exams/take - window_closed.sh"
         title="The Test Window Has Closed"
         message="You didn't attempt this test before it ended, so it can no longer be started."
       >
@@ -354,7 +351,7 @@ function TakeExamRunner({ examId }) {
     return (
       <StatusScreen
         icon={CheckCircle2}
-        kicker="// /prep/exams/take — already_submitted.sh"
+        kicker="// /prep/exams/take - already_submitted.sh"
         title="Already Submitted"
         message={
           ended
@@ -402,7 +399,7 @@ function TakeExamRunner({ examId }) {
             <div>
               <h1 className="font-sans text-xl font-bold text-white mb-1.5">{exam?.title}</h1>
               <div className="flex items-center gap-2 flex-wrap">
-                <NeonBadge color="#FFD700">TEST ID: {profile?.rollNumber || "—"}</NeonBadge>
+                <NeonBadge color="#FFD700">TEST ID: {profile?.rollNumber || "-"}</NeonBadge>
                 <NeonBadge color="#00FF41">{answeredCount}/{questions.length} ANSWERED</NeonBadge>
               </div>
             </div>
@@ -549,7 +546,7 @@ function MissingIdScreen() {
   return (
     <StatusScreen
       icon={AlertTriangle}
-      kicker="// /prep/exams/take — missing_id.sh"
+      kicker="// /prep/exams/take - missing_id.sh"
       title="No Test Selected"
       message="Open this page from the weekend tests list."
     >

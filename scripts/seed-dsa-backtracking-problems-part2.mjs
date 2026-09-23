@@ -8,7 +8,7 @@ const serviceAccount = JSON.parse(readFileSync(join(__dirname, "service-account.
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-// DSA-450-sheet ingestion, BACKTRACKING topic, PART 2 — closing the real gap
+// DSA-450-sheet ingestion, BACKTRACKING topic, PART 2 - closing the real gap
 // against the sheet's verbatim row list. Rows skipped as already genuinely
 // covered by problems seeded in part 1 (seed-dsa-backtracking-problems.mjs):
 // "Rat in a maze Problem", "Word Break Problem using Backtracking",
@@ -23,12 +23,12 @@ const db = admin.firestore();
 // unambiguous, easily hand-verifiable expected output (the natural
 // board-of-move-numbers output isn't unique per input, and a rigorous
 // existence check has enough edge-case subtlety that it can't be hand
-// verified with confidence here) — same call the part-1 script already
+// verified with confidence here) - same call the part-1 script already
 // made and documented.
 //
 // Two rows ("Printing all solutions in N-Queen Problem" and "Print all
 // palindromic partitions of a string") explicitly say "print(ing) all",
-// which the existing count-only siblings do NOT satisfy — those get
+// which the existing count-only siblings do NOT satisfy - those get
 // genuine new "print all" problems below.
 
 const REWARD = { Easy: [30, 10], Medium: [50, 20], Hard: [80, 30] };
@@ -43,7 +43,7 @@ p("Print All N-Queens Solutions", "Backtracking", "Hard", ["Backtracking"],
   "Given an integer n, find every distinct way to place n queens on an n x n chessboard such that no two queens attack each other (no two share a row, column, or diagonal). Represent each solution as the column positions (1-indexed) of the queen in row 1, row 2, ..., row n, in that order. Print every solution on its own line as space-separated column positions, with solutions ordered by that sequence (compare left to right, smaller first). If no solution exists, print 'NONE'.",
   "1 <= n <= 9",
   "Input:\n4\nOutput:\n2 4 1 3\n3 1 4 2",
-  ["Place queens one row at a time, trying every column in ascending order and skipping any that's attacked by a previously placed queen — trying columns in order naturally produces solutions already sorted.", "Track attacked columns and both diagonal directions with simple sets so each placement check is O(1); backtrack (unplace the queen) after fully exploring a branch."],
+  ["Place queens one row at a time, trying every column in ascending order and skipping any that's attacked by a previously placed queen - trying columns in order naturally produces solutions already sorted.", "Track attacked columns and both diagonal directions with simple sets so each placement check is O(1); backtrack (unplace the queen) after fully exploring a branch."],
   [{ input: "4", expectedOutput: "2 4 1 3\n3 1 4 2", explanation: "" },
    { input: "1", expectedOutput: "1", explanation: "" }],
   [{ input: "2", expectedOutput: "NONE", points: 1 },
@@ -54,7 +54,7 @@ p("Remove Invalid Parentheses", "Backtracking", "Hard", ["Backtracking", "String
   "Given a string s made of lowercase English letters and the characters '(' and ')', remove the minimum number of parentheses so the result is a valid (balanced) sequence of parentheses. Print every distinct string obtainable by such a minimum removal, sorted lexicographically and space-separated on one line. If the only such string is the empty string, print 'EMPTY'.",
   "1 <= |s| <= 20",
   "Input:\n()())()\nOutput:\n(())() ()()()",
-  ["A string is valid if, scanning left to right, the running count of '(' minus ')' never goes negative and finishes at exactly zero.", "Search level by level: start from s itself, and if nothing at the current level is valid, build the next level by deleting one more parenthesis character (every way) from each string in the current level — the first level containing any valid string gives exactly the minimum-removal answers."],
+  ["A string is valid if, scanning left to right, the running count of '(' minus ')' never goes negative and finishes at exactly zero.", "Search level by level: start from s itself, and if nothing at the current level is valid, build the next level by deleting one more parenthesis character (every way) from each string in the current level - the first level containing any valid string gives exactly the minimum-removal answers."],
   [{ input: "()())()", expectedOutput: "(())() ()()()", explanation: "" },
    { input: "()", expectedOutput: "()", explanation: "Already valid, so nothing needs removing." }],
   [{ input: ")(", expectedOutput: "EMPTY", points: 1 },
@@ -65,7 +65,7 @@ p("Print All Palindromic Partitions of a String", "Backtracking", "Medium", ["Ba
   "Given a string s, print every way to partition it into one or more contiguous substrings such that every substring is a palindrome. Print each partition on its own line, as its substrings in order separated by single spaces. Generate partitions by trying the shortest valid palindromic prefix first at every step (this also fixes the order the partitions are printed in, matching the example).",
   "1 <= |s| <= 15",
   "Input:\naab\nOutput:\na a b\naa b",
-  ["Try every possible first cut, but only recurse into it if the piece before the cut is itself a palindrome; move on to the next candidate cut afterward.", "Keep a running list of the pieces chosen so far — push before recursing, pop after — that's what produces each full partition, one leaf of the recursion tree at a time."],
+  ["Try every possible first cut, but only recurse into it if the piece before the cut is itself a palindrome; move on to the next candidate cut afterward.", "Keep a running list of the pieces chosen so far - push before recursing, pop after - that's what produces each full partition, one leaf of the recursion tree at a time."],
   [{ input: "aab", expectedOutput: "a a b\naa b", explanation: "" },
    { input: "a", expectedOutput: "a", explanation: "" }],
   [{ input: "aaa", expectedOutput: "a a a\na aa\naa a\naaa", points: 1 },
@@ -87,7 +87,7 @@ p("Find Shortest Safe Route in a Path With Landmines", "Backtracking", "Medium",
   "Given an n x m grid where each cell is 1 (safe) or 0 (a landmine), find the length, in cells visited (including both endpoints), of the shortest route from any safe cell in the first column to any safe cell in the last column, moving only up, down, left, or right one cell at a time. A landmine cell and every cell adjacent to it (up, down, left, right) are unsafe and can never be stepped on, including cells in the first or last column. Print -1 if no safe route exists.",
   "1 <= n, m <= 50",
   "Input:\n4\n4\n1 1 1 1\n1 0 1 1\n1 1 1 1\n1 1 1 1\nOutput:\n4",
-  ["First mark every landmine cell and its up/down/left/right neighbors as unsafe (a cell can end up unsafe for more than one reason).", "Run a multi-source BFS starting from every safe cell in column 0 at once, and stop at the first safe cell reached in the last column — BFS explores in order of distance, so that's automatically the shortest."],
+  ["First mark every landmine cell and its up/down/left/right neighbors as unsafe (a cell can end up unsafe for more than one reason).", "Run a multi-source BFS starting from every safe cell in column 0 at once, and stop at the first safe cell reached in the last column - BFS explores in order of distance, so that's automatically the shortest."],
   [{ input: "2\n2\n1 1\n1 1", expectedOutput: "2", explanation: "" },
    { input: "3\n3\n1 1 1\n1 1 1\n1 1 1", expectedOutput: "3", explanation: "" }],
   [{ input: "2\n2\n1 0\n0 1", expectedOutput: "-1", points: 1 },
@@ -120,7 +120,7 @@ p("Print All Possible Paths From Top Left to Bottom Right of a Matrix", "Backtra
   "Given the dimensions n and m of a grid with every cell open (no obstacles), print every distinct path from the top-left cell to the bottom-right cell that moves only right or down, one cell at a time. Represent each path as a string of moves ('D' for down, 'R' for right), and print every path on its own line, sorted alphabetically. If n = m = 1 (start and end are the same cell), print 'EMPTY'.",
   "1 <= n, m <= 6",
   "Input:\n2\n3\nOutput:\nDRR\nRDR\nRRD",
-  ["Recurse from the top-left cell: if you're not in the last row you may move down, and if you're not in the last column you may move right — trying down before right at each step is what makes the paths come out already in alphabetical order.", "Append the move, recurse, then pop it off before trying the sibling move — that backtracking step is what lets the same partial path be reused for the other continuation."],
+  ["Recurse from the top-left cell: if you're not in the last row you may move down, and if you're not in the last column you may move right - trying down before right at each step is what makes the paths come out already in alphabetical order.", "Append the move, recurse, then pop it off before trying the sibling move - that backtracking step is what lets the same partial path be reused for the other continuation."],
   [{ input: "2\n3", expectedOutput: "DRR\nRDR\nRRD", explanation: "" },
    { input: "2\n2", expectedOutput: "DR\nRD", explanation: "" }],
   [{ input: "1\n1", expectedOutput: "EMPTY", points: 1 },
@@ -131,7 +131,7 @@ p("Partition of a Set Into K Subsets With Equal Sum", "Backtracking", "Hard", ["
   "Given an array of n positive integers and an integer k, print 'Yes' if the array can be partitioned into k non-empty subsets such that every subset has the same sum (every element must be used in exactly one subset), otherwise print 'No'.",
   "1 <= k <= n <= 16, 1 <= arr[i] <= 1000",
   "Input:\n7\n4 3 2 3 5 2 1\n4\nOutput:\nYes",
-  ["The target sum per subset is (total sum) / k — if that isn't a whole number, or the largest element exceeds it, the answer is immediately 'No'.", "Fill one subset at a time up to the target sum before moving on to the next subset; skip elements already used, and skip any element that would push the current subset's running sum past the target."],
+  ["The target sum per subset is (total sum) / k - if that isn't a whole number, or the largest element exceeds it, the answer is immediately 'No'.", "Fill one subset at a time up to the target sum before moving on to the next subset; skip elements already used, and skip any element that would push the current subset's running sum past the target."],
   [{ input: "7\n4 3 2 3 5 2 1\n4", expectedOutput: "Yes", explanation: "" },
    { input: "4\n1 2 3 4\n3", expectedOutput: "No", explanation: "Total sum 10 isn't divisible by 3." }],
   [{ input: "4\n1 1 1 1\n2", expectedOutput: "Yes", points: 1 },
@@ -142,7 +142,7 @@ p("Find the K-th Permutation Sequence", "Backtracking", "Medium", ["Backtracking
   "Given n and k, consider every permutation of the numbers 1 to n listed in ascending (lexicographic) order. Print the k-th permutation in that list, as a single string with no separators.",
   "1 <= n <= 9, 1 <= k <= n!",
   "Input:\n3\n3\nOutput:\n213",
-  ["Exactly (n-1)! permutations share the same first digit, so (k-1) / (n-1)! tells you which remaining number to place first; the remainder carries forward the same way into every following digit.", "Keep the not-yet-placed numbers in a list and remove the chosen one by index at each step — the factorial arithmetic picks the correct branch directly, so no undo/backtrack step is actually needed."],
+  ["Exactly (n-1)! permutations share the same first digit, so (k-1) / (n-1)! tells you which remaining number to place first; the remainder carries forward the same way into every following digit.", "Keep the not-yet-placed numbers in a list and remove the chosen one by index at each step - the factorial arithmetic picks the correct branch directly, so no undo/backtrack step is actually needed."],
   [{ input: "3\n3", expectedOutput: "213", explanation: "" },
    { input: "3\n1", expectedOutput: "123", explanation: "" }],
   [{ input: "4\n9", expectedOutput: "2314", points: 1 },

@@ -1,13 +1,13 @@
 "use client";
 
-// Class-group-wide practice pulse — no exam required. Two data sources kept
+// Class-group-wide practice pulse - no exam required. Two data sources kept
 // deliberately separate so neither read pattern scales with cohort size in a
 // way that could time out:
 //   1. attemptsForClassGroup (collectionGroup `records`, one query per group,
-//      date-ranged) → "active today / this week" — scales with attempt count,
+//      date-ranged) → "active today / this week" - scales with attempt count,
 //      not roster size.
 //   2. prepProgress fetched per uid, PAGINATED 200-at-a-time with a
-//      load-more button → avg streak + category-accuracy heat table — this is
+//      load-more button → avg streak + category-accuracy heat table - this is
 //      the read that scales with roster size, so it stays bounded (design §8).
 
 import { useEffect, useMemo, useState } from "react";
@@ -225,8 +225,8 @@ export function PracticePulseTab({ group, classGroups }) {
                   const known = progressMap.has(s.id);
                   return (
                     <tr key={s.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
-                      <td className="px-3 py-2 text-neon-cyan font-semibold">{s.rollNumber || "—"}</td>
-                      <td className="px-3 py-2 text-white/60">{s.displayName || "—"}</td>
+                      <td className="px-3 py-2 text-neon-cyan font-semibold">{s.rollNumber || "-"}</td>
+                      <td className="px-3 py-2 text-white/60">{s.displayName || "-"}</td>
                       <td className="px-3 py-2 text-center text-white/60">
                         {known ? progress?.streak || 0 : <Loader2 size={10} className="inline animate-spin text-white/20" />}
                       </td>
@@ -238,7 +238,7 @@ export function PracticePulseTab({ group, classGroups }) {
                         const attempted = stat?.attempted || 0;
                         const correct = stat?.correct || 0;
                         if (!attempted) {
-                          return <td key={c.id} className="px-2 py-2 text-center text-white/15">—</td>;
+                          return <td key={c.id} className="px-2 py-2 text-center text-white/15">-</td>;
                         }
                         const pct = Math.round((correct / attempted) * 100);
                         const color = pctColor(pct);

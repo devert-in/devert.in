@@ -91,9 +91,6 @@ export function SeTerminal({ label, children, className = "", accent }) {
   return (
     <div className={`terminal-window ${className}`}>
       <div className="terminal-header">
-        <div className="terminal-dot bg-red-500/70" />
-        <div className="terminal-dot bg-yellow-500/70" />
-        <div className="terminal-dot bg-green-500/70" />
         <span className="font-mono text-[10px] ml-2" style={{ color: accent || "rgba(255,255,255,0.25)" }}>
           {label}
         </span>

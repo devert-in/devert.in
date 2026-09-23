@@ -52,7 +52,7 @@ export function SelectField({ label, value, onChange, options }) {
     <div>
       <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">{label}</p>
       <Dropdown value={value} onChange={onChange}
-        options={[{ value: "", label: "— not set —" }, ...options]}
+        options={[{ value: "", label: "- not set -" }, ...options]}
         className="w-full"
         buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
         />

@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "computer-organization-and-architecture",
-  title: "Computer Organization & Architecture — Subject Test",
+  title: "Computer Organization & Architecture - Subject Test",
   description: "8 questions covering instruction sets, ALU/control unit design, memory hierarchy, I/O, and pipelining.",
   testType: "subject",
   durationMinutes: 45,

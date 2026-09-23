@@ -1,6 +1,6 @@
 export const TEST = {
   subjectId: "algorithms",
-  title: "Algorithms — Subject Test",
+  title: "Algorithms - Subject Test",
   description: "8 questions covering complexity analysis, searching, sorting, hashing, design techniques, and graph algorithms.",
   testType: "subject",
   durationMinutes: 45,

@@ -1,6 +1,6 @@
 "use client";
 
-// Mandatory profile completion — roll number, branch, class group.
+// Mandatory profile completion - roll number, branch, class group.
 // Students cannot take exams/tests, log attempts, or see faculty dashboards
 // correctly without this. Roll number is immutable once set (design §3).
 
@@ -29,7 +29,7 @@ function OnboardingForm() {
   const [error, setError] = useState("");
   const [rollTouchError, setRollTouchError] = useState("");
 
-  // Already fully onboarded — bounce to the hub instead of re-showing the form.
+  // Already fully onboarded - bounce to the hub instead of re-showing the form.
   useEffect(() => {
     if (alreadyOnboarded) router.replace("/prep");
   }, [alreadyOnboarded, router]);
@@ -43,7 +43,7 @@ function OnboardingForm() {
         setGroups(rows && rows.length ? rows : DEFAULT_CLASS_GROUPS.map((g) => ({ id: g.name, ...g })));
       } catch {
         if (cancelled) return;
-        setGroupsError("Couldn't reach the class-group list — showing the default set.");
+        setGroupsError("Couldn't reach the class-group list - showing the default set.");
         setGroups(DEFAULT_CLASS_GROUPS.map((g) => ({ id: g.name, ...g })));
       }
     })();
@@ -111,9 +111,9 @@ function OnboardingForm() {
 
   if (alreadyOnboarded) {
     return (
-      <PrepShell kicker="// /prep/onboarding — profile_setup.sh" title="ALL" accent="SET">
+      <PrepShell kicker="// /prep/onboarding - profile_setup.sh" title="ALL" accent="SET">
         <TerminalCard filename="redirecting.sh">
-          <p className="font-mono text-sm text-white/50">Profile already complete — taking you to the hub…</p>
+          <p className="font-mono text-sm text-white/50">Profile already complete - taking you to the hub…</p>
         </TerminalCard>
       </PrepShell>
     );
@@ -121,10 +121,10 @@ function OnboardingForm() {
 
   return (
     <PrepShell
-      kicker="// /prep/onboarding — profile_setup.sh"
+      kicker="// /prep/onboarding - profile_setup.sh"
       title="COMPLETE"
       accent="YOUR PROFILE"
-      subtitle="One-time setup. Your roll number becomes your test identity — it's used on every submission, dashboard row, and export."
+      subtitle="One-time setup. Your roll number becomes your test identity - it's used on every submission, dashboard row, and export."
       maxWidth="max-w-2xl"
     >
       <TerminalCard filename="onboarding-form.sh" icon={GraduationCap} delay={0.1}>
@@ -139,7 +139,7 @@ function OnboardingForm() {
               <div className="flex items-center gap-2 font-mono text-sm px-3 py-2.5 border border-white/10 rounded bg-white/[0.02] text-white/70">
                 <Lock size={13} className="text-white/25 flex-shrink-0" />
                 {lockedRoll}
-                <span className="ml-auto text-[10px] text-white/25">LOCKED — contact staff to correct</span>
+                <span className="ml-auto text-[10px] text-white/25">LOCKED - contact staff to correct</span>
               </div>
             ) : (
               <>

@@ -11,6 +11,13 @@ import { QuickActionsGrid } from "@/components/quick-actions-grid";
 import { NotificationsSummary } from "@/components/notifications-summary";
 import { PlatformUpdates } from "@/components/platform-updates";
 import { UpcomingContestsCard } from "@/components/upcoming-contests-card";
+// Built long ago, mounted everywhere EXCEPT the signed-in home: TodayTaskCard
+// lived only inside Grind, and MissionBoard/RankLadder only on the
+// logged-OUT landing page - so a signed-in member saw less of the product
+// than a stranger did.
+import { TodayTaskCard } from "@/components/today-task-card";
+import { MissionBoard } from "@/components/mission-board";
+import { RankLadder } from "@/components/rank-ladder";
 
 export function HomeDashboard() {
   return (
@@ -31,6 +38,9 @@ export function HomeDashboard() {
         <div className="lg:grid lg:grid-cols-3 lg:gap-6 lg:items-start">
           <div className="lg:col-span-2">
             <WelcomeBanner />
+            {/* Resume before promote: what you were in the middle of outranks
+                anything we want to show you. */}
+            <TodayTaskCard />
             <div className="grid sm:grid-cols-2 gap-4">
               <HackathonSpotlight />
               <CampusSpotlight />
@@ -39,10 +49,12 @@ export function HomeDashboard() {
             <LiveOnDevert />
             <QuickStatsRow />
             <QuickActionsGrid />
+            <MissionBoard compact />
           </div>
           <div className="lg:col-span-1">
             <UpcomingContestsCard />
             <NotificationsSummary />
+            <RankLadder compact />
             <PlatformUpdates />
           </div>
         </div>

@@ -103,7 +103,7 @@ function ensureWorker() {
 }
 
 /**
- * Run javascript `code` with `stdin`. Never rejects — always resolves to
+ * Run javascript `code` with `stdin`. Never rejects - always resolves to
  * { stdout, stderr, timeMs, timedOut, error }.
  */
 export function runJavascript(code, stdin = "", timeoutMs = 10000) {

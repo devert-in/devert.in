@@ -125,7 +125,7 @@ function QuestionCard({ question, chosen, onChoose, revealed = false, index, sho
             >
               {wasCorrect
                 ? "✓ CORRECT"
-                : `✗ INCORRECT — correct answer: ${LETTERS[correctIndex] ?? "?"}`}
+                : `✗ INCORRECT - correct answer: ${LETTERS[correctIndex] ?? "?"}`}
             </p>
           )}
           {question.explanation && (

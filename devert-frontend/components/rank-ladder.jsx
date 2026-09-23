@@ -12,21 +12,21 @@ const TIERS = [
   { tier: "RECRUIT",   color: "#555",    req: "Join the platform",  xp: "0",       width: "100%", locked: false },
 ];
 
-export function RankLadder() {
+export function RankLadder({ compact = false }) {
   return (
-    <section className="px-6 py-20">
-      <div className="max-w-6xl mx-auto">
+    <section className={compact ? "" : "px-6 py-20"}>
+      <div className={compact ? "" : "max-w-6xl mx-auto"}>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="flex items-end justify-between mb-10 flex-wrap gap-4"
+          className={`flex items-end justify-between flex-wrap gap-4 ${compact ? "mb-4" : "mb-10"}`}
         >
           <div>
             <p className="font-mono text-xs text-neon-green/55 mb-2 tracking-wider">
               // /ranks - tier_registry.json
             </p>
-            <h2 className="font-sans font-bold text-white tracking-tighter" style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)" }}>
+            <h2 className="font-sans font-bold text-white tracking-tighter" style={{ fontSize: compact ? "1.25rem" : "clamp(1.8rem, 4vw, 3rem)" }}>
               THE <span className="text-neon-cyan">LADDER</span>
             </h2>
           </div>

@@ -1,14 +1,13 @@
 "use client";
 
-// /prep/contests/run?id=X — the live contest runner (design §2, §5, §6).
+// /prep/contests/run?id=X - the live contest runner (design §2, §5, §6).
 //
 // Integrity model: the paper (prompts/starter/public tests, no answers) is
-// only readable once the exam has started (Firestore rules time-gate it) —
-// a permission-denied here just means "not started yet", handled as a
+// only readable once the exam has started (Firestore rules time-gate it) - // a permission-denied here just means "not started yet", handled as a
 // state, not an error. The submission doc is created on first entry and
 // every RUN_TESTS result autosaves into it (debounced 5s per question) via
 // upsertSubmission; final SUBMIT_CONTEST flushes pending autosaves, then
-// writes the full responses map + status:'submitted' — after that, writes
+// writes the full responses map + status:'submitted' - after that, writes
 // are rejected by rules (write-once semantics) so the recap always reads
 // the true submitted state back from Firestore.
 
@@ -166,7 +165,7 @@ function ContestRunContent() {
       if (timersRef.current[idx]) clearTimeout(timersRef.current[idx]);
       timersRef.current[idx] = setTimeout(() => {
         upsertSubmission(examId, user.uid, { responses: { [idx]: entry } }).catch(() => {
-          // transient failure — the next RUN_TESTS on this question retries the save
+          // transient failure - the next RUN_TESTS on this question retries the save
         });
       }, DEBOUNCE_MS);
     },
@@ -246,7 +245,7 @@ function ContestRunContent() {
 
   if (phase === "loading") {
     return (
-      <PrepShell kicker="// /prep/contests/run — loading.sh" title="LOADING" accent="CONTEST">
+      <PrepShell kicker="// /prep/contests/run - loading.sh" title="LOADING" accent="CONTEST">
         <div className="flex items-center gap-3 font-mono text-sm text-white/40">
           <Loader2 size={16} className="animate-spin text-neon-cyan/60" />
           fetching contest data…
@@ -257,7 +256,7 @@ function ContestRunContent() {
 
   if (phase === "not-found") {
     return (
-      <PrepShell kicker="// /prep/contests/run — 404.sh" title="CONTEST" accent="NOT_FOUND">
+      <PrepShell kicker="// /prep/contests/run - 404.sh" title="CONTEST" accent="NOT_FOUND">
         <EmptyState
           icon={AlertTriangle}
           title="contest not found"
@@ -270,7 +269,7 @@ function ContestRunContent() {
 
   if (phase === "error") {
     return (
-      <PrepShell kicker="// /prep/contests/run — error.sh" title="SOMETHING" accent="BROKE">
+      <PrepShell kicker="// /prep/contests/run - error.sh" title="SOMETHING" accent="BROKE">
         <EmptyState
           icon={AlertTriangle}
           title="couldn't load this contest"
@@ -283,11 +282,11 @@ function ContestRunContent() {
 
   if (phase === "not-started") {
     return (
-      <PrepShell kicker="// /prep/contests/run — locked.sh" title="NOT" accent="STARTED">
+      <PrepShell kicker="// /prep/contests/run - locked.sh" title="NOT" accent="STARTED">
         <TerminalCard filename="waiting_room.sh" icon={Lock}>
           <h3 className="font-sans text-xl font-bold text-white mb-2">{exam?.title || "Contest"}</h3>
           <p className="font-mono text-xs text-white/40 mb-5 leading-relaxed">
-            The question paper unlocks the moment this contest starts. Leave this tab open — it will
+            The question paper unlocks the moment this contest starts. Leave this tab open - it will
             unlock itself.
           </p>
           {startTargetMs != null && (
@@ -305,12 +304,12 @@ function ContestRunContent() {
 
   if (phase === "closed") {
     return (
-      <PrepShell kicker="// /prep/contests/run — closed.sh" title="WINDOW" accent="CLOSED">
+      <PrepShell kicker="// /prep/contests/run - closed.sh" title="WINDOW" accent="CLOSED">
         <TerminalCard filename="closed.sh" icon={Lock}>
           <h3 className="font-sans text-xl font-bold text-white mb-2">{exam?.title || "Contest"}</h3>
           <p className="font-mono text-xs text-white/40 leading-relaxed">
             {submission
-              ? "The contest window ended before you submitted. Only submitted attempts are scored — your last autosaved answers were not counted."
+              ? "The contest window ended before you submitted. Only submitted attempts are scored - your last autosaved answers were not counted."
               : "The contest window has closed. You did not enter before it ended."}
           </p>
           <div className="mt-5">
@@ -336,7 +335,7 @@ function ContestRunContent() {
     const accuracy = totalCases > 0 ? Math.round((totalPassed / totalCases) * 100) : 0;
 
     return (
-      <PrepShell kicker="// /prep/contests/run — recap.sh" title="SUBMISSION" accent="RECAP">
+      <PrepShell kicker="// /prep/contests/run - recap.sh" title="SUBMISSION" accent="RECAP">
         <TerminalCard filename="recap.sh" icon={Trophy} className="mb-6">
           <div className="flex items-center gap-6 flex-wrap">
             <div>
@@ -350,7 +349,7 @@ function ContestRunContent() {
               <ProgressBar
                 value={accuracy}
                 color={accuracy >= 70 ? "#00FF41" : accuracy >= 40 ? "#FF9500" : "#FF3B3B"}
-                label={`PUBLIC_TEST_ACCURACY — ${totalPassed}/${totalCases}`}
+                label={`PUBLIC_TEST_ACCURACY - ${totalPassed}/${totalCases}`}
               />
             </div>
           </div>
@@ -395,7 +394,7 @@ function ContestRunContent() {
   // phase === "active"
   return (
     <PrepShell
-      kicker={`// /prep/contests/run — ${exam?.title || "contest"}.sh`}
+      kicker={`// /prep/contests/run - ${exam?.title || "contest"}.sh`}
       title="CODING"
       accent="CONTEST"
       subtitle={exam?.description}
@@ -446,7 +445,7 @@ function ContestRunContent() {
           />
         </TerminalCard>
       ) : (
-        <EmptyState title="no questions in this paper" message="Contact staff — this contest has no questions attached." />
+        <EmptyState title="no questions in this paper" message="Contact staff - this contest has no questions attached." />
       )}
 
       <PrepModal
@@ -467,7 +466,7 @@ function ContestRunContent() {
       >
         <p className="font-mono text-xs text-white/50 leading-relaxed">
           Once submitted you cannot change your answers. Make sure you&apos;ve run{" "}
-          <span className="text-neon-green">RUN_TESTS</span> on every question you want scored — only
+          <span className="text-neon-green">RUN_TESTS</span> on every question you want scored - only
           the last saved run per question counts.
         </p>
       </PrepModal>
@@ -477,7 +476,7 @@ function ContestRunContent() {
 
 function ContestRunFallback() {
   return (
-    <PrepShell kicker="// /prep/contests/run — loading.sh" title="LOADING" accent="CONTEST">
+    <PrepShell kicker="// /prep/contests/run - loading.sh" title="LOADING" accent="CONTEST">
       <div className="font-mono text-sm text-white/40">preparing…</div>
     </PrepShell>
   );

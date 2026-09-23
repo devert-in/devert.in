@@ -124,7 +124,7 @@ const FURNITURE = [
   /^GATE\s*\d{4}\b/i,
   /^Computer Science (&|and) Information Technology\b.*$/i,
   /^Data Science (&|and) Artificial Intelligence\b.*$/i,
-  /^(General Aptitude|Computer Science|Data Science)\s*[-–—]?\s*GA\b/i,
+  /^(General Aptitude|Computer Science|Data Science)\s*[---]?\s*GA\b/i,
   /^[A-Z]{2,4}\s*:?\s*Page \d+ of \d+$/i,
   /^Page \d+ of \d+$/i,
   /^\f+$/,

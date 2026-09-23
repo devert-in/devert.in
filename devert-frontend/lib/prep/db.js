@@ -94,7 +94,7 @@ export async function getQuestions({ category, topic, difficulty, type, max = 10
     if (difficulty) clauses.push(where("difficulty", "==", difficulty));
     if (type) clauses.push(where("type", "==", type));
     // orderBy(createdAt) is only index-backed for no-filter and the exact
-    // (category, difficulty) combination — other mixes sort client-side.
+    // (category, difficulty) combination - other mixes sort client-side.
     // (An index prefix cannot skip its middle field.)
     const canOrder =
       !topic && !type && ((!!category && !!difficulty) || (!category && !difficulty));
@@ -241,7 +241,7 @@ export async function getKey(examId) {
  * Create exam + paper + key in ONE write batch. The draft carries full
  * questions (answers, explanations, hidden tests); this helper is the ONLY
  * place they get split apart. The paper doc must never contain correctIndex,
- * explanation, or hidden test cases — that separation IS the security model.
+ * explanation, or hidden test cases - that separation IS the security model.
  *
  * draft: { id?, title, kind, description?, startsAt, endsAt, durationMins,
  *          classGroups?, categories?, published?, createdBy?,
@@ -373,8 +373,7 @@ export async function getMySubmission(examId, uid) {
 
 /**
  * Create the submission doc at exam start if it doesn't exist yet.
- * Returns the (re-read) doc so callers get the server-written startedAt —
- * used to measure client-clock skew for the countdown.
+ * Returns the (re-read) doc so callers get the server-written startedAt - * used to measure client-clock skew for the countdown.
  * profile: { rollNumber, classGroup, branch, displayName }
  */
 export async function startSubmission(examId, uid, profile = {}) {
@@ -422,7 +421,7 @@ export async function upsertSubmission(examId, uid, patch = {}) {
   }
 }
 
-/** Final submit. `responses` (if given) replaces the whole map — no stale keys. */
+/** Final submit. `responses` (if given) replaces the whole map - no stale keys. */
 export async function submitExam(examId, uid, responses) {
   try {
     const patch = {
@@ -437,7 +436,7 @@ export async function submitExam(examId, uid, responses) {
       throw new Error("Submit rejected: the exam window has closed (permission-denied)");
     }
     if (err && err.code === "not-found") {
-      throw new Error("No submission found to submit — start the exam first");
+      throw new Error("No submission found to submit - start the exam first");
     }
     fail("Failed to submit the exam", err);
   }
@@ -761,7 +760,7 @@ export async function setRoleByEmail(email, role) {
   const allowed = ["student", "faculty", "tpo", "admin"];
   if (!allowed.includes(role)) throw new Error(`Role must be one of: ${allowed.join(", ")}`);
   const user = await findUserByEmail(email);
-  if (!user) throw new Error(`No user found with email "${email}" — they must log in once first`);
+  if (!user) throw new Error(`No user found with email "${email}" - they must log in once first`);
   try {
     await updateDoc(doc(db, "users", user.id), { role });
     return { ...user, role };
@@ -784,7 +783,7 @@ export async function saveOnboardingProfile(uid, { rollNumber, branch, classGrou
     const snap = await withRetry(() => getDoc(ref));
     const prev = snap.exists() ? snap.data() : {};
     if (prev.rollNumber && prev.rollNumber !== roll) {
-      throw new Error("Roll number is locked once set — ask staff to correct it");
+      throw new Error("Roll number is locked once set - ask staff to correct it");
     }
     await setDoc(ref, { rollNumber: roll, branch, classGroup, prepOnboarded: true }, { merge: true });
     return { rollNumber: roll, branch, classGroup };

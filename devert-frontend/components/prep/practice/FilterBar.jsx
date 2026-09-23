@@ -107,7 +107,7 @@ export default function FilterBar({
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        {/* topic select — distinct topics of currently loaded questions */}
+        {/* topic select - distinct topics of currently loaded questions */}
         <div className="flex items-center gap-2">
           <label htmlFor="practice-topic" className="font-mono text-[9px] text-white/25 tracking-wider uppercase">
             topic
@@ -127,7 +127,7 @@ export default function FilterBar({
           </select>
         </div>
 
-        {/* search — client-side over prompt/topic/tags */}
+        {/* search - client-side over prompt/topic/tags */}
         <div className="relative flex-1 min-w-[220px]">
           <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" />
           <input

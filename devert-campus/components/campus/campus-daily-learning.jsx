@@ -397,7 +397,7 @@ function WeekNav({ weekId, weekOffset, onChange }) {
 
       <div className="flex-1 min-w-0 text-center">
         <p className="text-[12.5px] font-semibold truncate" style={{ color: CAMPUS.ink }}>
-          {fmt(start)} &ndash; {fmt(end)}
+          {fmt(start)} - {fmt(end)}
         </p>
         <p className="text-[10px] font-mono tracking-widest" style={{ color: atCurrent ? CAMPUS.teal : CAMPUS.inkFaint }}>
           {atCurrent ? "THIS WEEK" : `${Math.abs(weekOffset)} WEEK${Math.abs(weekOffset) === 1 ? "" : "S"} AGO`}

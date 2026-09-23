@@ -1,4 +1,4 @@
-// Seed Python MCQs — core language semantics, traced against actual CPython behaviour.
+// Seed Python MCQs - core language semantics, traced against actual CPython behaviour.
 
 export const pythonQuestions = [
   {
@@ -11,7 +11,7 @@ export const pythonQuestions = [
     options: ["list", "<class 'list'>", "tuple", "NoneType"],
     correctIndex: 1,
     explanation:
-      "`type()` returns the type object itself, and printing a type object shows `<class 'list'>` — not the bare word \"list\". This is different from `[].__class__.__name__`, which WOULD print just \"list\". Knowing the difference between a type object and its name trips up a lot of beginners.",
+      "`type()` returns the type object itself, and printing a type object shows `<class 'list'>` - not the bare word \"list\". This is different from `[].__class__.__name__`, which WOULD print just \"list\". Knowing the difference between a type object and its name trips up a lot of beginners.",
     tags: ["types", "builtins"],
   },
   {
@@ -24,7 +24,7 @@ export const pythonQuestions = [
     options: ["list", "dict", "set", "tuple"],
     correctIndex: 3,
     explanation:
-      "A tuple cannot be changed after creation — no append, no item assignment. list, dict and set are all mutable: you can add/remove/change their contents in place. Immutability is exactly why tuples (unlike lists) can be used as dictionary keys.",
+      "A tuple cannot be changed after creation - no append, no item assignment. list, dict and set are all mutable: you can add/remove/change their contents in place. Immutability is exactly why tuples (unlike lists) can be used as dictionary keys.",
     tags: ["tuples", "mutability"],
   },
   {
@@ -37,7 +37,7 @@ export const pythonQuestions = [
     options: ["[1, 2, 3, 4, 5]", "[5, 4, 3, 2, 1]", "[]", "IndexError"],
     correctIndex: 1,
     explanation:
-      "The slice `[::-1]` means \"start at the end, stop at the beginning, step −1\" — the standard idiom for reversing a sequence without a loop. It works on any sequence (list, string, tuple) and always returns a new object, leaving the original unchanged.",
+      "The slice `[::-1]` means \"start at the end, stop at the beginning, step −1\" - the standard idiom for reversing a sequence without a loop. It works on any sequence (list, string, tuple) and always returns a new object, leaving the original unchanged.",
     tags: ["slicing", "lists"],
   },
   {
@@ -64,7 +64,7 @@ export const pythonQuestions = [
     options: ["except", "else", "finally", "try"],
     correctIndex: 2,
     explanation:
-      "`finally` always executes — on success, on a caught exception, and even if the function returns or an uncaught exception propagates out. `else` only runs if NO exception occurred, and `except` only runs if one DID. `finally` is the right place for cleanup like closing a file or a network connection.",
+      "`finally` always executes - on success, on a caught exception, and even if the function returns or an uncaught exception propagates out. `else` only runs if NO exception occurred, and `except` only runs if one DID. `finally` is the right place for cleanup like closing a file or a network connection.",
     tags: ["exceptions", "control-flow"],
   },
   {
@@ -82,7 +82,7 @@ export const pythonQuestions = [
     ],
     correctIndex: 1,
     explanation:
-      "Calling `.split()` with NO argument splits on any run of whitespace and automatically discards empty strings — so consecutive spaces collapse into one separator. To keep the empty strings between adjacent separators you would need `.split(' ')` with an explicit single-space argument instead.",
+      "Calling `.split()` with NO argument splits on any run of whitespace and automatically discards empty strings - so consecutive spaces collapse into one separator. To keep the empty strings between adjacent separators you would need `.split(' ')` with an explicit single-space argument instead.",
     tags: ["strings", "split"],
   },
   {
@@ -122,7 +122,7 @@ export const pythonQuestions = [
     options: ["Prints 10", "Prints 20", "UnboundLocalError", "NameError"],
     correctIndex: 2,
     explanation:
-      "Python decides a variable's scope for the WHOLE function body at compile time. Because `x` is assigned anywhere inside `f`, it is treated as local for the entire function — including the `print(x)` line that runs before the assignment — so referencing it there raises `UnboundLocalError: local variable 'x' referenced before assignment`. Adding `global x` inside `f` would let it read the module-level `x` instead.",
+      "Python decides a variable's scope for the WHOLE function body at compile time. Because `x` is assigned anywhere inside `f`, it is treated as local for the entire function - including the `print(x)` line that runs before the assignment - so referencing it there raises `UnboundLocalError: local variable 'x' referenced before assignment`. Adding `global x` inside `f` would let it read the module-level `x` instead.",
     tags: ["scoping", "gotchas"],
   },
   {
@@ -135,7 +135,7 @@ export const pythonQuestions = [
     options: ["3.5", "3", "4", "3.0"],
     correctIndex: 1,
     explanation:
-      "`//` is floor division: it divides and rounds DOWN to the nearest integer, giving `3` (an int, since both operands are ints). Regular division `/` would give `3.5` (a float) — the double slash is the operator to reach for whenever you need a whole-number quotient.",
+      "`//` is floor division: it divides and rounds DOWN to the nearest integer, giving `3` (an int, since both operands are ints). Regular division `/` would give `3.5` (a float) - the double slash is the operator to reach for whenever you need a whole-number quotient.",
     tags: ["operators", "division"],
   },
 ];

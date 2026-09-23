@@ -6,7 +6,7 @@ import { PortfolioSection, SectionHeading, EmptyState } from "./terminal-section
 
 function formatRange(startDate, endDate, current) {
   const parts = [startDate, current ? "Present" : endDate].filter(Boolean);
-  return parts.join(" – ");
+  return parts.join(" - ");
 }
 
 export default function EducationSection({ education = [] }) {
@@ -23,9 +23,6 @@ export default function EducationSection({ education = [] }) {
               className="terminal-window overflow-hidden">
               <div className="h-1" style={{ background: "linear-gradient(90deg, #C77DFF, transparent)" }} />
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" />
-                <div className="terminal-dot bg-yellow-500/70" />
-                <div className="terminal-dot bg-green-500/70" />
                 <GraduationCap size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1.5">degree.json</span>
               </div>

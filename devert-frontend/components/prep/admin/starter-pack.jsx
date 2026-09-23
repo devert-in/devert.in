@@ -1,9 +1,9 @@
 "use client";
 
-// Admin — "Install starter pack" (design §2 + §10). Batch-writes the seed
+// Admin - "Install starter pack" (design §2 + §10). Batch-writes the seed
 // content from lib/prep/seed. Every seed id is deterministic, and every write
 // here is a setDoc/batch.set (never addDoc), so re-running this is always
-// safe — it overwrites, never duplicates.
+// safe - it overwrites, never duplicates.
 
 import { useState } from "react";
 import { doc, writeBatch, serverTimestamp } from "firebase/firestore";
@@ -128,7 +128,7 @@ export default function StarterPackPanel() {
           tasks, and a sample weekend test + coding contest.
         </p>
         <p className="font-mono text-[11px] text-white/25 leading-relaxed mb-5">
-          Every seed record has a deterministic id, so this is safe to run more than once — re-installing overwrites
+          Every seed record has a deterministic id, so this is safe to run more than once - re-installing overwrites
           the same records rather than duplicating them.
         </p>
 

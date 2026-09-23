@@ -1,6 +1,6 @@
 "use client";
 
-// Admin — question bank browser (design §2). Filter/search existing
+// Admin - question bank browser (design §2). Filter/search existing
 // prepQuestions, edit in a full modal (mcq or coding fields), delete w/ confirm.
 
 import { useState, useEffect, useCallback, useMemo } from "react";

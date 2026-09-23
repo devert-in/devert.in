@@ -2,7 +2,7 @@
 
 // Row-click drill-down: one student's per-question responses for the
 // selected exam, plus their overall prepProgress (streak + category
-// accuracy) fetched fresh by uid — never derived from the exam alone.
+// accuracy) fetched fresh by uid - never derived from the exam alone.
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, MinusCircle, Flame, Loader2 } from "lucide-react";
@@ -31,18 +31,18 @@ function QuestionRow({ q, response }) {
           <div className="font-mono text-[11px] space-y-0.5">
             <p className="text-white/45">
               Their answer:{" "}
-              <span style={{ color }}>{attempted ? OPTION_LETTERS[q.chosen] : "— blank —"}</span>
+              <span style={{ color }}>{attempted ? OPTION_LETTERS[q.chosen] : "- blank -"}</span>
             </p>
             <p className="text-white/45">
               Correct answer:{" "}
-              <span className="text-neon-green">{q.correctIndex != null ? OPTION_LETTERS[q.correctIndex] : "—"}</span>
+              <span className="text-neon-green">{q.correctIndex != null ? OPTION_LETTERS[q.correctIndex] : "-"}</span>
             </p>
           </div>
         ) : (
           <div className="font-mono text-[11px] text-white/45">
             {attempted ? (
               <>
-                Coding — public tests {response?.publicPassed ?? 0}/{response?.publicTotal ?? 0} passed
+                Coding - public tests {response?.publicPassed ?? 0}/{response?.publicTotal ?? 0} passed
                 {response?.lang && <span className="text-white/25"> · {response.lang}</span>}
               </>
             ) : (
@@ -102,8 +102,8 @@ export function StudentDrilldown({ open, onClose, student, record }) {
     >
       <div className="space-y-6">
         <div className="flex flex-wrap gap-4 font-mono text-[11px] text-white/40">
-          <span>BRANCH: <span className="text-white/70">{student.branch || "—"}</span></span>
-          <span>GROUP: <span className="text-white/70">{student.classGroup || "—"}</span></span>
+          <span>BRANCH: <span className="text-white/70">{student.branch || "-"}</span></span>
+          <span>GROUP: <span className="text-white/70">{student.classGroup || "-"}</span></span>
           <span>STATUS: <span className="text-white/70">{student.status || "absent"}</span></span>
         </div>
 

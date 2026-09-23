@@ -97,7 +97,6 @@ export default function AmbassadorPage() {
         ) : !user ? (
           <div className="terminal-window">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">sign in required</span>
             </div>
             <div className="p-5">
@@ -110,7 +109,6 @@ export default function AmbassadorPage() {
           <>
             <div className="terminal-window mb-5">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
                 <span className="font-mono text-[10px] text-white/25 ml-2">active ambassador</span>
                 <span className="ml-auto font-mono text-[10px]" style={{ color: "#00FF41" }}>{amb.collegeName}</span>
               </div>
@@ -155,7 +153,6 @@ export default function AmbassadorPage() {
 
             <div className="terminal-window">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
                 <span className="font-mono text-[10px] text-white/25 ml-2">what you get</span>
               </div>
               <div className="p-5 space-y-2.5">
@@ -171,7 +168,6 @@ export default function AmbassadorPage() {
         ) : amb?.status === AMBASSADOR_STATUS.PENDING ? (
           <div className="terminal-window">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">under review</span>
             </div>
             <div className="p-6 text-center">
@@ -191,7 +187,6 @@ export default function AmbassadorPage() {
         ) : amb?.status === AMBASSADOR_STATUS.REJECTED || amb?.status === AMBASSADOR_STATUS.SUSPENDED ? (
           <div className="terminal-window">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">{amb.status}</span>
             </div>
             <div className="p-6 text-center">
@@ -206,7 +201,6 @@ export default function AmbassadorPage() {
         ) : (
           <form onSubmit={submit} className="terminal-window">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">apply</span>
             </div>
             <div className="p-5">

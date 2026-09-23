@@ -1,6 +1,6 @@
 "use client";
 
-// Admin — daily task scheduler (design §2). Editor for prepDailyTasks/{yyyy-mm-dd}
+// Admin - daily task scheduler (design §2). Editor for prepDailyTasks/{yyyy-mm-dd}
 // items referencing course lessons or standalone questions.
 
 import { useState, useEffect, useCallback, useMemo } from "react";

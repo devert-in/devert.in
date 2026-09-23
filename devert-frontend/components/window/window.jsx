@@ -64,7 +64,7 @@ function TabPill({ appId, active, onSelect, onClose }) {
   const cfg = WINDOW_REGISTRY[appId];
   if (!cfg) return null;
   const Icon = ICONS[cfg.icon];
-  const shortLabel = cfg.title.split(" — ")[0];
+  const shortLabel = cfg.title.split(" - ")[0];
   return (
     <button
       type="button"

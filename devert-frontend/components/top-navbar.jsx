@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useIntro } from "@/context/IntroContext";
 import { NotificationBell } from "@/components/notification-bell";
 import { NAV_ROUTES, DESKTOP_GROUPS } from "@/lib/navConfig";
+import { useScrolled } from "@/lib/useScrolled";
 
 // This pill intentionally breaks from the site's neon-terminal design system
 // (white surface, Google Material shadow/menu conventions, gray-on-white
@@ -61,7 +62,7 @@ function NavGroup({ group, pathname }) {
         {open && (
           <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="devert-surface absolute left-0 top-full mt-2 rounded-xl overflow-hidden p-2"
+            className="devert-navbar-panel absolute left-0 top-full mt-2 rounded-xl overflow-hidden p-2"
             style={{ width: 300, boxShadow: "0 8px 24px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.4)" }}>
             {group.items.map(item => (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
@@ -101,7 +102,7 @@ function ProfileMenu({ logout, isSuperAdmin }) {
         {open && (
           <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="devert-surface absolute right-0 top-full mt-2 rounded-xl overflow-hidden p-2"
+            className="devert-navbar-panel absolute right-0 top-full mt-2 rounded-xl overflow-hidden p-2"
             style={{ width: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.4)" }}>
             <Link href="/profile" onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-white/10" style={{ color: "#F2F6FA" }}>
@@ -139,6 +140,8 @@ export function TopNavbar() {
 
   // Same gating as the bottom dock: no chrome over the pre-auth intro splash,
   // never on /admin or /u/*.
+  const solid = useScrolled();
+
   const hidden = (pathname === "/" && !user && !hasShownIntro)
     || pathname.startsWith("/admin")
     || pathname.startsWith("/u/");
@@ -146,12 +149,22 @@ export function TopNavbar() {
 
   return (
     <>
-      <nav className="devert-surface hidden lg:flex fixed top-4 left-1/2 -translate-x-1/2 z-40 items-center gap-0.5 px-2 py-1.5 rounded-full"
-        style={{
-          boxShadow: "0 1px 6px 0 rgba(0,0,0,0.5), 0 16px 40px rgba(0,0,0,0.55)",
-        }}>
-        <Link href="/" className="flex items-center pl-4 pr-4">
-          <span className="font-sans font-bold text-base" style={{ color: "#F2F6FA" }}>De<span style={{ color: "#00FF41" }}>Vert</span></span>
+      {/* WAS A FLOATING PILL. It is now the same adaptive full-width bar
+          campus.devert.in and careers.devert.in use: transparent while the
+          page is at the top so the plate reads unbroken across the hero,
+          and a plate-filled surface once content scrolls underneath.
+
+          The pill was a deliberate one-off when pages were flat black - a
+          floating white surface read as intentional chrome against nothing.
+          Against the plate it became a second surface floating over a
+          surface, and it sized itself to its contents, so the three sites'
+          pills would each have been a different width. */}
+      <nav className={`devert-navbar hidden lg:block ${solid ? "is-solid" : ""}`}>
+        <div className="devert-navbar-inner">
+        <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 mr-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/devert-campus-badge.png" alt="" width={24} height={24} style={{ width: 24, height: 24, borderRadius: 6 }} />
+          <span className="font-sans font-bold text-[15px]" style={{ color: "#F2F6FA" }}>De<span style={{ color: "#00FF41" }}>Vert</span></span>
         </Link>
 
         {/* A standalone link, not a dropdown group - Pulse is one destination,
@@ -168,7 +181,7 @@ export function TopNavbar() {
 
         {GROUPS.map(group => <NavGroup key={group.key} group={group} pathname={pathname} />)}
 
-        <div className="flex items-center gap-1 pl-2 ml-1" style={{ borderLeft: "1px solid rgba(255,255,255,0.14)" }}>
+        <div className="flex items-center gap-1 ml-auto flex-shrink-0">
           <button onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
             className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/10" style={{ color: "rgba(255,255,255,0.58)" }}>
             <Command size={17} strokeWidth={1.8} />
@@ -186,18 +199,13 @@ export function TopNavbar() {
             </Link>
           )}
         </div>
+        </div>
       </nav>
-      {/* Reserves real document-flow space below the floating pill, on lg:
-          only (mobile never renders the nav above, so needs none). Every
-          page's own top padding (pt-10/pt-16, duplicated ~15+ places) predates
-          this fixed nav and was never sized to clear it - it only happened to
-          look fine where a page's left-aligned heading/breadcrumb was short
-          enough to stay left of the centered pill (Home, Showcase). A longer
-          line (Wallet's "/wallet - devert_coins") runs horizontally under the
-          pill instead and gets visually clipped by its blurred background.
-          One spacer here fixes every page at once, at the one place that
-          already knows exactly when the nav is showing. */}
-      <div className="hidden lg:block h-20" aria-hidden="true" />
+      {/* The 80px spacer that used to sit here is gone. It existed because
+          the pill was `position: fixed` and therefore out of document flow,
+          so every page needed room reserved under it. The bar above is
+          `position: sticky`, which occupies real flow - a spacer now just
+          adds 80px of dead air to the top of every page. */}
     </>
   );
 }

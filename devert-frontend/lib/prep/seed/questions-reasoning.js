@@ -1,4 +1,4 @@
-// Seed logical reasoning MCQs — answer keys traced and verified by hand.
+// Seed logical reasoning MCQs - answer keys traced and verified by hand.
 
 export const reasoningQuestions = [
   {
@@ -11,7 +11,7 @@ export const reasoningQuestions = [
     options: ["36", "40", "42", "44"],
     correctIndex: 2,
     explanation:
-      "The differences are 4, 6, 8, 10 — increasing by 2 each time — so the next difference is 12 and the answer is 30 + 12 = 42. Equivalently, the series is n(n+1): 1×2, 2×3, 3×4, … 6×7 = 42. Always try differences first; if they aren't constant, difference them again.",
+      "The differences are 4, 6, 8, 10 - increasing by 2 each time - so the next difference is 12 and the answer is 30 + 12 = 42. Equivalently, the series is n(n+1): 1×2, 2×3, 3×4, … 6×7 = 42. Always try differences first; if they aren't constant, difference them again.",
     tags: ["series", "patterns"],
   },
   {
@@ -37,7 +37,7 @@ export const reasoningQuestions = [
     options: ["EW", "EV", "FU", "EU"],
     correctIndex: 1,
     explanation:
-      "The first letters move forward (A, B, C, D, E) while the second letters move backward (Z, Y, X, W, V), so the next pair is EV. Each pair consists of opposite letters — their alphabet positions always sum to 27 (E = 5, V = 22).",
+      "The first letters move forward (A, B, C, D, E) while the second letters move backward (Z, Y, X, W, V), so the next pair is EV. Each pair consists of opposite letters - their alphabet positions always sum to 27 (E = 5, V = 22).",
     tags: ["series", "alphabet"],
   },
   {
@@ -63,7 +63,7 @@ export const reasoningQuestions = [
     options: ["UVWFGPV", "UWVFGPV", "VUWFGPV", "UVWFGVP"],
     correctIndex: 0,
     explanation:
-      "Each letter of TEACHER is shifted two places forward: T→V, E→G, A→C, C→E, H→J, E→G, R→T gives VGCEJGT. Applying the same +2 shift to STUDENT: S→U, T→V, U→W, D→F, E→G, N→P, T→V = UVWFGPV. Verify the rule on the given pair before applying it — one letter is enough to reject wrong options.",
+      "Each letter of TEACHER is shifted two places forward: T→V, E→G, A→C, C→E, H→J, E→G, R→T gives VGCEJGT. Applying the same +2 shift to STUDENT: S→U, T→V, U→W, D→F, E→G, N→P, T→V = UVWFGPV. Verify the rule on the given pair before applying it - one letter is enough to reject wrong options.",
     tags: ["coding-decoding", "letter-shift"],
   },
   {
@@ -77,7 +77,7 @@ export const reasoningQuestions = [
     options: ["His mother", "His sister", "His aunt", "His cousin"],
     correctIndex: 1,
     explanation:
-      "\"The only son of my grandfather\" is the speaker's own father (grandfather has exactly one son). The daughter of his father is his sister. Decode the sentence from the inside out — resolve the innermost relationship first, then walk outward.",
+      "\"The only son of my grandfather\" is the speaker's own father (grandfather has exactly one son). The daughter of his father is his sister. Decode the sentence from the inside out - resolve the innermost relationship first, then walk outward.",
     tags: ["blood-relations", "family-tree"],
   },
   {
@@ -90,7 +90,7 @@ export const reasoningQuestions = [
     options: ["Grandson", "Nephew", "Great-grandson", "Son-in-law"],
     correctIndex: 2,
     explanation:
-      "C is the mother of A and B, and D is C's father — so D is the grandfather of A and B. E is B's son, one generation below B, which puts E three generations below D: E is D's great-grandson. Drawing a quick vertical family tree (D → C → B → E) makes the generation gap obvious.",
+      "C is the mother of A and B, and D is C's father - so D is the grandfather of A and B. E is B's son, one generation below B, which puts E three generations below D: E is D's great-grandson. Drawing a quick vertical family tree (D → C → B → E) makes the generation gap obvious.",
     tags: ["blood-relations", "generations"],
   },
   {
@@ -109,7 +109,7 @@ export const reasoningQuestions = [
     ],
     correctIndex: 1,
     explanation:
-      "The books that are chairs may be entirely different books from the ones that are pens, so conclusion I does not follow — draw the Venn diagram where the pen-circle and chair-region don't overlap. Conclusion II is just the valid converse of \"Some books are chairs\" (some A are B always implies some B are A).",
+      "The books that are chairs may be entirely different books from the ones that are pens, so conclusion I does not follow - draw the Venn diagram where the pen-circle and chair-region don't overlap. Conclusion II is just the valid converse of \"Some books are chairs\" (some A are B always implies some B are A).",
     tags: ["syllogisms", "venn-diagrams"],
   },
   {
@@ -128,7 +128,7 @@ export const reasoningQuestions = [
     ],
     correctIndex: 2,
     explanation:
-      "Every rose sits inside the flower set, and the flower set has no overlap with black things — so no rose can be black; I follows. \"All roses are flowers\" validly converts to \"Some flowers are roses\" (the rose region is non-empty in classical syllogism convention), so II follows too.",
+      "Every rose sits inside the flower set, and the flower set has no overlap with black things - so no rose can be black; I follows. \"All roses are flowers\" validly converts to \"Some flowers are roses\" (the rose region is non-empty in classical syllogism convention), so II follows too.",
     tags: ["syllogisms", "conversion"],
   },
   {
@@ -169,7 +169,7 @@ export const reasoningQuestions = [
     options: ["121", "169", "196", "215"],
     correctIndex: 3,
     explanation:
-      "121 = 11², 169 = 13² and 196 = 14² are all perfect squares, but 215 lies strictly between 14² = 196 and 15² = 225, so it is not. In odd-one-out numbers, test squares, cubes and primes first — they cover most patterns.",
+      "121 = 11², 169 = 13² and 196 = 14² are all perfect squares, but 215 lies strictly between 14² = 196 and 15² = 225, so it is not. In odd-one-out numbers, test squares, cubes and primes first - they cover most patterns.",
     tags: ["odd-one-out", "perfect-squares"],
   },
   {
@@ -183,7 +183,7 @@ export const reasoningQuestions = [
     options: ["A", "B", "D", "E"],
     correctIndex: 0,
     explanation:
-      "C is pinned at the extreme left. \"A immediately to the right of B\" forces the block B–A, and \"D between A and E\" forces the block A–D–E. Chaining them gives the unique arrangement C, B, A, D, E — so A occupies the middle (3rd) seat. Fix the anchored person first, then attach the blocks around them.",
+      "C is pinned at the extreme left. \"A immediately to the right of B\" forces the block B-A, and \"D between A and E\" forces the block A-D-E. Chaining them gives the unique arrangement C, B, A, D, E - so A occupies the middle (3rd) seat. Fix the anchored person first, then attach the blocks around them.",
     tags: ["seating", "puzzles"],
   },
   {
@@ -196,7 +196,7 @@ export const reasoningQuestions = [
     options: ["Saturday", "Sunday", "Monday", "Tuesday"],
     correctIndex: 1,
     explanation:
-      "From 15 January to 15 February is exactly 31 days because January has 31 days. 31 = 4 weeks + 3 odd days, so the weekday advances by 3: Thursday + 3 = Sunday. Calendar questions are always about odd days — the remainder after dividing the gap by 7.",
+      "From 15 January to 15 February is exactly 31 days because January has 31 days. 31 = 4 weeks + 3 odd days, so the weekday advances by 3: Thursday + 3 = Sunday. Calendar questions are always about odd days - the remainder after dividing the gap by 7.",
     tags: ["calendars", "odd-days"],
   },
 ];

@@ -460,7 +460,9 @@ function RoadmapDetail({ roadmapId, roadmapSlug, onBack, onOpenTopic, onResolved
   const [roadmap, setRoadmap] = useState(null);
   const [tree, setTree] = useState(null);
   const [progress, setProgress] = useState(null);
-  const [tab, setTab] = useState("path");
+  // Overview first: a roadmap detail page opens on what the track IS, not on a
+  // 13-node graph. Path is one click away.
+  const [tab, setTab] = useState("overview");
 
   useEffect(() => {
     let cancelled = false;

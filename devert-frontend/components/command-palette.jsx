@@ -219,10 +219,7 @@ export function CommandPalette() {
           >
             {/* Title bar */}
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/80" />
-              <div className="terminal-dot bg-yellow-500/80" />
-              <div className="terminal-dot bg-green-500/80" />
-              <img src="/logo.png" alt="" className="ml-2 w-3.5 h-3.5 object-contain rounded opacity-70" />
+              <img src="/devert-campus-badge.png" alt="" className="ml-2 w-3.5 h-3.5 object-contain rounded-[4px] opacity-70" />
               <span className="font-mono text-[11px] text-white/25 ml-1">devert - command_palette</span>
               <button onClick={() => setOpen(false)} className="ml-auto text-white/25 hover:text-white/60 transition-colors">
                 <X size={13} />

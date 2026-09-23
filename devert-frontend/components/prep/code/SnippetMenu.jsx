@@ -3,7 +3,7 @@
 // Per-language snippet dropdown for the code playground. Inserting a
 // snippet writes straight into CodeRunner's own localStorage slot for the
 // current (question, language) pair and the caller forces a CodeRunner
-// remount (via `key`) — that's the only supported way to push code into it
+// remount (via `key`) - that's the only supported way to push code into it
 // from outside without touching the foundation-owned component.
 
 import { useEffect, useRef, useState } from "react";

@@ -8222,7 +8222,7 @@ const ENRICHMENT = {
     interviewTip: "Be ready to derive the minimum move count formula (2^N - 1) from the recurrence moves(N) = 2*moves(N-1) + 1 - a common follow-up alongside actually generating the sequence.",
     keyObservation: "This is one of the most famous illustrations of how a recursive definition can directly mirror a problem's own self-similar structure - the puzzle 'naturally wants' to be described recursively, which is exactly why the recursive solution feels so elegant compared to any iterative alternative.",
   },
-  "7N0QTrKiyagysNIVaCXW": { // Josephus Problem — Find the Winner
+  "7N0QTrKiyagysNIVaCXW": { // Josephus Problem - Find the Winner
     simpleExplanation: "People stand in a circle, and every K-th person is eliminated repeatedly until one remains - find that survivor, using a recursive formula.",
     realWorldAnalogy: "Imagine a party game where people stand in a circle and every K-th person is tapped out repeatedly, and you want to know exactly who wins by staying in until the very end.",
     visualWalkthrough: [
@@ -8286,7 +8286,7 @@ const ENRICHMENT = {
     interviewTip: "Be ready to explain how tracking 'row - col' and 'row + col' as constant values along each diagonal direction lets diagonal conflicts be checked in O(1), rather than re-scanning the board - a key efficiency detail in any N-Queens implementation.",
     keyObservation: "This is the quintessential BACKTRACKING problem - placing one queen per row, checking validity immediately, and backtracking on conflict (rather than checking only after a FULL arrangement is built) is what makes the search tractable at all for even moderately sized N.",
   },
-  "CzUQiCDV9KSF8SbCRyHf": { // Word Break — Count Ways to Segment a String
+  "CzUQiCDV9KSF8SbCRyHf": { // Word Break - Count Ways to Segment a String
     simpleExplanation: "Count the number of distinct ways to split a string into a sequence of dictionary words.",
     realWorldAnalogy: "Imagine a long string of letters with no spaces, and counting every different way you could insert spaces so that each resulting chunk is a real word from a given dictionary.",
     visualWalkthrough: [

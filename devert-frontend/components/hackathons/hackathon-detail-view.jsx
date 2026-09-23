@@ -181,9 +181,6 @@ function SubmitModal({ slug, uid, handle, displayName, onClose, onSubmitted, exi
         className="terminal-window w-full max-w-lg max-h-[90vh] overflow-y-auto"
       >
         <div className="terminal-header">
-          <div className="terminal-dot bg-red-500/70" />
-          <div className="terminal-dot bg-yellow-500/70" />
-          <div className="terminal-dot bg-green-500/70" />
           <Send size={10} className="ml-2 text-white/25" />
           <span className="font-mono text-[10px] text-white/25 ml-1">{existing ? "update_submission.sh" : "new_submission.sh"}</span>
           <button onClick={onClose} className="ml-auto text-white/25 hover:text-white/55 transition-colors"><X size={12} /></button>
@@ -598,9 +595,6 @@ export function HackathonDetailView({ slug, onBack }) {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
               className="terminal-window mb-6">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" />
-                <div className="terminal-dot bg-yellow-500/70" />
-                <div className="terminal-dot bg-green-500/70" />
                 <Clock size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1">
                   {hackathon.status === "upcoming" ? "starts_in.timer" : "deadline.timer"}
@@ -636,9 +630,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Terminal size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">brief.md</span>
                   </div>
@@ -655,9 +646,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Flame size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">highlights.json</span>
                   </div>
@@ -681,9 +669,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Clock size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">schedule.json</span>
                   </div>
@@ -729,9 +714,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Terminal size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">rules.json</span>
                   </div>
@@ -771,9 +753,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
                   className="terminal-window" style={{ borderColor: `${ac}25` }}>
                   <div className="terminal-header" style={{ borderColor: `${ac}18` }}>
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Star size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">ai_policy.json</span>
                   </div>
@@ -798,9 +777,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Award size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">judging.json</span>
                   </div>
@@ -837,9 +813,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Users size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">conduct.json</span>
                   </div>
@@ -859,9 +832,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Star size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">why_participate.json</span>
                   </div>
@@ -884,9 +854,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Users size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">host.json</span>
                   </div>
@@ -902,9 +869,6 @@ export function HackathonDetailView({ slug, onBack }) {
                   className="terminal-window"
                   style={{ borderColor: `${ac}30` }}>
                   <div className="terminal-header" style={{ borderColor: `${ac}20` }}>
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Send size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">my_submission.json</span>
                     {hackathon.status === "active" && (
@@ -954,9 +918,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Trophy size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">
                       {hackathon.status === "ended" ? "winners.json" : "submissions.json"}
@@ -995,9 +956,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.27 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Terminal size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">faq.json</span>
                   </div>
@@ -1036,9 +994,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Trophy size={10} className="ml-2" style={{ color: "#FFD700" }} />
                     <span className="font-mono text-[10px] text-white/25 ml-1">prizes.json</span>
                   </div>
@@ -1061,9 +1016,6 @@ export function HackathonDetailView({ slug, onBack }) {
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
                 className="terminal-window">
                 <div className="terminal-header">
-                  <div className="terminal-dot bg-red-500/70" />
-                  <div className="terminal-dot bg-yellow-500/70" />
-                  <div className="terminal-dot bg-green-500/70" />
                   <Calendar size={10} className="ml-2 text-white/25" />
                   <span className="font-mono text-[10px] text-white/25 ml-1">timeline.json</span>
                   <span className="ml-auto font-mono text-[9px] px-2 py-0.5 rounded"
@@ -1091,9 +1043,6 @@ export function HackathonDetailView({ slug, onBack }) {
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
                 className="terminal-window">
                 <div className="terminal-header">
-                  <div className="terminal-dot bg-red-500/70" />
-                  <div className="terminal-dot bg-yellow-500/70" />
-                  <div className="terminal-dot bg-green-500/70" />
                   <span className="font-mono text-[10px] text-white/25 ml-2">stats.json</span>
                 </div>
                 <div className={`p-5 grid gap-3 ${isHack ? "grid-cols-2" : "grid-cols-1"}`}>
@@ -1114,9 +1063,6 @@ export function HackathonDetailView({ slug, onBack }) {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}
                   className="terminal-window">
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Users size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">contact.json</span>
                   </div>

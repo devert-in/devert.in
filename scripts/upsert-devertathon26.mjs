@@ -92,12 +92,12 @@ const doc = {
   eventFlow: ["CHECK-IN", "BRIEFING", "IDEATE", "BUILD", "MENTORING", "SUBMIT", "DEMO", "JUDGING", "AWARDS"],
   // 11 - Your 12-Hour Game Plan.
   gamePlan: [
-    { time: "0–1 HR", label: "Understand + Plan" },
-    { time: "1–3 HR", label: "Setup + Architecture" },
-    { time: "3–8 HR", label: "Build MVP" },
-    { time: "8–10 HR", label: "Test + Polish" },
-    { time: "10–11 HR", label: "Prepare Demo" },
-    { time: "11–12 HR", label: "Submit + Present" },
+    { time: "0-1 HR", label: "Understand + Plan" },
+    { time: "1-3 HR", label: "Setup + Architecture" },
+    { time: "3-8 HR", label: "Build MVP" },
+    { time: "8-10 HR", label: "Test + Polish" },
+    { time: "10-11 HR", label: "Prepare Demo" },
+    { time: "11-12 HR", label: "Submit + Present" },
   ],
   // 10 - What to Bring.
   whatToBring: ["College ID", "Laptop + Charger", "Required Accessories", "Hardware (if needed)", "Backup Your Files", "Dev Environment Ready"],
@@ -120,13 +120,13 @@ const doc = {
   },
   // 06 - AI Usage.
   aiPolicy: {
-    headline: "AI IS ALLOWED — USE IT RESPONSIBLY",
+    headline: "AI IS ALLOWED - USE IT RESPONSIBLY",
     body:
       "You're free to use any AI tool - ChatGPT, Claude, Gemini, GitHub Copilot, Cursor, Lovable " +
       "or anything else that helps you build. There's no restriction on your AI workflow, but using " +
       "AI doesn't guarantee a win - we judge the final solution, not who typed the least code. You " +
       "are responsible for everything you submit and must be able to explain your implementation.",
-    quote: "AI should assist your team — not replace your team.",
+    quote: "AI should assist your team - not replace your team.",
   },
   // 07 - Judging.
   judgingCriteria: ["Innovation", "Technical Implementation", "Effective AI Usage", "Problem & Impact", "Functionality", "Presentation", "Future Potential"],

@@ -1,6 +1,6 @@
 // Shared, framework-free helpers for the /prep/faculty cockpit.
 // Scores are ALWAYS recomputed here from responses + key + paper via
-// scoreSubmission — never trusted from the submission doc (design §5/§9).
+// scoreSubmission - never trusted from the submission doc (design §5/§9).
 
 import { scoreSubmission } from "@/lib/prep/grading";
 import { CATEGORY_MAP } from "@/lib/prep/constants";
@@ -97,9 +97,9 @@ export function questionStats(records, paper) {
     return {
       idx: q.idx,
       type: q.type,
-      topic: q.topic || "—",
+      topic: q.topic || "-",
       difficulty: q.difficulty || "medium",
-      category: q.category || "—",
+      category: q.category || "-",
       marks: q.marks,
       attempted,
       correct,
@@ -112,7 +112,7 @@ export function questionStats(records, paper) {
 }
 
 export function categoryLabel(id) {
-  return CATEGORY_MAP[id]?.label || id || "—";
+  return CATEGORY_MAP[id]?.label || id || "-";
 }
 
 // ── CSV export ───────────────────────────────────────────────────────────

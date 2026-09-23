@@ -72,9 +72,6 @@ export function ShipyardPreview() {
         ) : projects.length === 0 ? (
           <div className="terminal-window max-w-sm">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" />
-              <div className="terminal-dot bg-yellow-500/70" />
-              <div className="terminal-dot bg-green-500/70" />
             </div>
             <div className="p-8 text-center">
               <p className="font-mono text-xs text-white/25 mb-1">no ships docked yet</p>
@@ -99,9 +96,6 @@ export function ShipyardPreview() {
                   className="terminal-window p-5 cursor-pointer group transition-colors"
                 >
                   <div className="terminal-header -mx-5 -mt-5 mb-4">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     {p.url ? (
                       <a href={p.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                         className="ml-auto text-white/20 group-hover:text-neon-cyan/60 transition-colors"

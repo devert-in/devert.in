@@ -276,7 +276,7 @@ export function QuestionWorkspace({
           ) : (
             <button onClick={onClose}
               className="w-full font-mono text-sm py-2.5 rounded-xl text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors">
-              topic complete — back to topics
+              topic complete - back to topics
             </button>
           )}
         </>

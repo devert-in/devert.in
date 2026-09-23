@@ -138,9 +138,6 @@ export function IntelApp({ initialTab, initialOppId }) {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <div className="terminal-window h-full">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" />
-                <div className="terminal-dot bg-yellow-500/70" />
-                <div className="terminal-dot bg-green-500/70" />
                 <TrendingUp size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1">trending.repos</span>
               </div>
@@ -181,9 +178,6 @@ export function IntelApp({ initialTab, initialOppId }) {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <div className="terminal-window h-full">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" />
-                <div className="terminal-dot bg-yellow-500/70" />
-                <div className="terminal-dot bg-green-500/70" />
                 <Radio size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1">signal_vs_noise.db</span>
               </div>
@@ -224,9 +218,6 @@ export function IntelApp({ initialTab, initialOppId }) {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
             <div className="terminal-window h-full">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" />
-                <div className="terminal-dot bg-yellow-500/70" />
-                <div className="terminal-dot bg-green-500/70" />
                 <Briefcase size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1">opportunities.json</span>
               </div>

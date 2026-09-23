@@ -564,9 +564,6 @@ function PostMenu({ onEdit, onDelete }) {
 
 const TerminalDots = () => (
   <>
-    <div className="terminal-dot bg-red-500/70" />
-    <div className="terminal-dot bg-yellow-500/70" />
-    <div className="terminal-dot bg-green-500/70" />
   </>
 );
 

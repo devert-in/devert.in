@@ -72,9 +72,6 @@ export function GrindPreview() {
         ) : challenges.length === 0 ? (
           <div className="terminal-window max-w-md">
             <div className="terminal-header">
-              <div className="terminal-dot bg-red-500/70" />
-              <div className="terminal-dot bg-yellow-500/70" />
-              <div className="terminal-dot bg-green-500/70" />
               <span className="font-mono text-[10px] text-white/25 ml-2">daily_challenges.sh</span>
             </div>
             <div className="p-8 text-center">
@@ -98,9 +95,6 @@ export function GrindPreview() {
                   className="terminal-window transition-colors"
                 >
                   <div className="terminal-header">
-                    <div className="terminal-dot bg-red-500/70" />
-                    <div className="terminal-dot bg-yellow-500/70" />
-                    <div className="terminal-dot bg-green-500/70" />
                     <Terminal size={10} className="ml-2 text-white/25" />
                     <span className="font-mono text-[10px] text-white/25 ml-1">{(ch.type || "challenge").toLowerCase()}.sh</span>
                     {isLocked && <Lock size={10} className="ml-auto text-white/20" />}

@@ -1,6 +1,6 @@
 "use client";
 
-// /prep/code — the free code playground (design §2). No auth required to
+// /prep/code - the free code playground (design §2). No auth required to
 // play: full-height CodeRunner across all enabled languages, a custom
 // test-case editor, a runtime status line, and a snippets dropdown.
 //
@@ -38,7 +38,7 @@ export default function CodePlaygroundPage() {
         try {
           window.localStorage.setItem(`${PLAYGROUND_STORAGE_PREFIX}${lang}`, code);
         } catch {
-          // storage unavailable — the remount will just fall back to the
+          // storage unavailable - the remount will just fall back to the
           // CodeRunner default starter for this language instead of the snippet
         }
       }
@@ -49,10 +49,10 @@ export default function CodePlaygroundPage() {
 
   return (
     <PrepShell
-      kicker="// /prep/code — playground.sh"
+      kicker="// /prep/code - playground.sh"
       title="CODE"
       accent="PLAYGROUND"
-      subtitle="Write, run, and test code in 5 languages. Nothing here is graded — just you and the compiler."
+      subtitle="Write, run, and test code in 5 languages. Nothing here is graded - just you and the compiler."
     >
       <TerminalCard filename="playground.run" icon={Terminal} headerRight={<RuntimeStatus />}>
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">

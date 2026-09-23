@@ -402,7 +402,7 @@ function ProblemStudyMenu({ problem, note, uid, onClose, onOpenProblem }) {
         <button onClick={onClose} className="flex-shrink-0" style={{ color: CAMPUS.inkFaint }}><X size={14} /></button>
       </div>
 
-      <div className="grid grid-cols-4 gap-1.5 mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-3">
         {TOGGLES.map(a => (
           <button key={a.key} onClick={a.onClick} title={a.label}
             className="flex flex-col items-center gap-1 py-2 rounded-lg transition-colors"
@@ -805,16 +805,16 @@ function TestCaseCard({ label, passed, verdict, input, expected, actual, showDif
         <div className="mt-2.5 space-y-2">
           <div>
             <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>INPUT</p>
-            <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: CAMPUS.inkSoft }}>{input || "—"}</pre>
+            <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: CAMPUS.inkSoft }}>{input || "-"}</pre>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: CAMPUS.inkFaint }}>EXPECTED</p>
-              <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: CAMPUS.inkSoft }}>{expected || "—"}</pre>
+              <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: CAMPUS.inkSoft }}>{expected || "-"}</pre>
             </div>
             <div>
               <p className="text-[9px] font-mono tracking-widest mb-1" style={{ color: passed ? CAMPUS.inkFaint : CAMPUS.bad }}>YOUR OUTPUT</p>
-              <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: passed ? CAMPUS.inkSoft : CAMPUS.bad }}>{actual || "—"}</pre>
+              <pre className="text-[11px] whitespace-pre-wrap rounded p-2" style={{ background: CAMPUS.surface, color: passed ? CAMPUS.inkSoft : CAMPUS.bad }}>{actual || "-"}</pre>
             </div>
           </div>
         </div>
@@ -849,7 +849,7 @@ function ResultSummaryStrip({ verdict }) {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <StatCell icon={Clock} label="RUNTIME" value={`${verdict.runtimeMs ?? 0} ms`} />
-        <StatCell icon={MemoryStick} label="MEMORY" value={verdict.memoryKb ? `${(verdict.memoryKb / 1024).toFixed(1)} MB` : "—"} />
+        <StatCell icon={MemoryStick} label="MEMORY" value={verdict.memoryKb ? `${(verdict.memoryKb / 1024).toFixed(1)} MB` : "-"} />
         {verdict.xpEarned > 0 && <StatCell icon={PartyPopper} label="XP EARNED" value={`+${verdict.xpEarned}`} color={CAMPUS.gold} />}
         {verdict.coinsEarned > 0 && <StatCell icon={Coins} label="COINS" value={`+${verdict.coinsEarned}`} color={CAMPUS.gold} />}
       </div>
@@ -1057,7 +1057,7 @@ function CodeLabSuccessDialog({ verdict, problemTitle, hasNext, onNext, onBackTo
               {/* DSA Practice tracks completion/streak but no longer grants XP/Coins
                   (only Daily Learning, Programming, and CS Core do) - these three
                   chips are all non-reward stats, never a claim of something earned. */}
-              <div className="grid grid-cols-3 gap-2 mb-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
                 <RewardChip icon={Flame} label="STREAK" value={verdict.streak != null ? `${verdict.streak}d` : "-"} color={CAMPUS.warn} />
                 <RewardChip icon={Clock} label="RUNTIME" value={`${verdict.runtimeMs ?? 0}ms`} color={CAMPUS.blue} />
                 <RewardChip icon={MemoryStick} label="MEMORY" value={`${verdict.memoryKb ?? 0}KB`} color={CAMPUS.blue} />

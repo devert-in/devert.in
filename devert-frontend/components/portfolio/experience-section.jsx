@@ -6,7 +6,7 @@ import { PortfolioSection, SectionHeading, EmptyState } from "./terminal-section
 
 function formatRange(startDate, endDate, current) {
   const parts = [startDate, current ? "Present" : endDate].filter(Boolean);
-  return parts.join(" – ");
+  return parts.join(" - ");
 }
 
 function fileNameFor(company) {
@@ -26,9 +26,6 @@ export default function ExperienceSection({ experience = [] }) {
               viewport={{ once: true }} transition={{ delay: 0.08 * i }}
               className="terminal-window">
               <div className="terminal-header">
-                <div className="terminal-dot bg-red-500/70" />
-                <div className="terminal-dot bg-yellow-500/70" />
-                <div className="terminal-dot bg-green-500/70" />
                 <Briefcase size={10} className="ml-2 text-white/25" />
                 <span className="font-mono text-[10px] text-white/25 ml-1.5">{fileNameFor(exp.company)}</span>
                 <div className="ml-auto flex items-center gap-2">

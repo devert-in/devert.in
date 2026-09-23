@@ -170,7 +170,7 @@ export function GateRoadmap() {
         groupByWeek(days).map(([week, weekDays]) => (
           <div key={week}>
             <h3 className="text-[13px] font-semibold mb-3" style={{ color: CAMPUS.inkSoft }}>
-              Week {week} <span className="font-mono text-[11px]" style={{ color: CAMPUS.inkFaint }}>· Days {weekDays[0].dayNumber}–{weekDays[weekDays.length - 1].dayNumber}</span>
+              Week {week} <span className="font-mono text-[11px]" style={{ color: CAMPUS.inkFaint }}>· Days {weekDays[0].dayNumber}-{weekDays[weekDays.length - 1].dayNumber}</span>
             </h3>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
               {weekDays.map(day => (

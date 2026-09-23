@@ -1,4 +1,4 @@
-// Code judge — public API (design §6).
+// Code judge - public API (design §6).
 //
 //   runOnce({ language, code, stdin })
 //     → { stdout, stderr, timeMs, timedOut, error }
@@ -14,7 +14,7 @@
 //   { index, total, status: 'running', result: null }  before the test starts
 //   { index, total, status: 'done',    result }        after it finishes
 //
-// Neither function rejects for run failures — errors surface in `error` /
+// Neither function rejects for run failures - errors surface in `error` /
 // `timedOut` on the result so UIs can render them per test case.
 
 import { runPython, preloadPython, isPythonReady } from "./pyodide-runner";

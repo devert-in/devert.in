@@ -1,11 +1,11 @@
 "use client";
 
-// /prep/practice — question-bank grinder (design doc §2).
+// /prep/practice - question-bank grinder (design doc §2).
 // Filters (category/difficulty/type) hit Firestore via getQuestions; topic +
 // search are client-side over the loaded batch. MCQs open in a modal with
 // instant reveal; coding questions open a full-width modal wired to
 // CodeRunner. Every answer/test-run logs a prepAttempts record and bumps
-// prepProgress. The list itself is public — only attempting requires login.
+// prepProgress. The list itself is public - only attempting requires login.
 
 import { Suspense, useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
@@ -20,7 +20,7 @@ import McqPracticeModal from "@/components/prep/practice/McqPracticeModal";
 import CodingPracticeModal from "@/components/prep/practice/CodingPracticeModal";
 
 const PAGE_SIZE = 30;
-const KICKER = "// /prep/practice — question_bank.sh";
+const KICKER = "// /prep/practice - question_bank.sh";
 
 function PracticePageInner() {
   const searchParams = useSearchParams();
@@ -87,7 +87,7 @@ function PracticePageInner() {
     };
   }, [category, difficulty, type, max]);
 
-  // Attempt history + progress — fetched once per signed-in user.
+  // Attempt history + progress - fetched once per signed-in user.
   useEffect(() => {
     if (!user) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing derived state on sign-out

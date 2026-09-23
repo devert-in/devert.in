@@ -1,6 +1,6 @@
 // Seed / starter-pack aggregator (design §10). The admin panel's "Install starter
 // pack" button batch-writes everything exported here. Nothing in this module
-// talks to Firestore directly except for building Timestamp values — no reads,
+// talks to Firestore directly except for building Timestamp values - no reads,
 // no writes; that stays the admin feature's job.
 
 import { Timestamp } from "firebase/firestore";
@@ -143,7 +143,7 @@ const CODING_CONTEST_QUESTION_IDS = ["seed-code-001", "seed-code-003", "seed-cod
 /**
  * Builds the sample weekend test (Saturday, 25 MCQs, 60 min) and the sample
  * coding contest (the following Sunday, 4 problems, 90 min), relative to `now`.
- * Returns [{ id, exam, paper, key }] — write each entry to prepExams/{id},
+ * Returns [{ id, exam, paper, key }] - write each entry to prepExams/{id},
  * prepExamPapers/{id} and prepExamKeys/{id} respectively.
  */
 export function buildSeedExams(now = new Date()) {
@@ -158,7 +158,7 @@ export function buildSeedExams(now = new Date()) {
     title: "Weekend Aptitude & DSA Test #1",
     kind: "weekend-test",
     description:
-      "25 MCQs mixing aptitude, reasoning and DSA theory — the same spread TCS NQT and Cognizant GenC screening rounds use. 60 minutes, no negative marking.",
+      "25 MCQs mixing aptitude, reasoning and DSA theory - the same spread TCS NQT and Cognizant GenC screening rounds use. 60 minutes, no negative marking.",
     dateKeyStr: saturdayKey,
     startHH: 10,
     durationMins: 60,

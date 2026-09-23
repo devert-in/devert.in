@@ -111,7 +111,7 @@ export function CampusDepartments({ institutionId }) {
                   <span className="text-[11px]" style={{ color: CAMPUS.inkFaint }}>{hod ? hod.displayName : "No HOD assigned"}</span>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center">
                 <div><b className="block text-[15px]" style={{ color: CAMPUS.ink }}>{deptStudents.length}</b><span className="text-[9.5px]" style={{ color: CAMPUS.inkFaint }}>STUDENTS</span></div>
                 <div><b className="block text-[15px]" style={{ color: CAMPUS.ink }}>{facultyCount}</b><span className="text-[9.5px]" style={{ color: CAMPUS.inkFaint }}>FACULTY</span></div>
                 <div><b className="block text-[15px]" style={{ color: CAMPUS.ink }}>{sectionCount}</b><span className="text-[9.5px]" style={{ color: CAMPUS.inkFaint }}>SECTIONS</span></div>

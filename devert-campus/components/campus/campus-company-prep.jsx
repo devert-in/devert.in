@@ -345,7 +345,7 @@ function ReadinessScore({ score, selfAssessment, onToggleSelfAssessment }) {
           <Sparkles size={16} style={{ color: CAMPUS.gold }} />
           <div>
             <p className="text-[9px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>READINESS SCORE</p>
-            <p className="text-lg font-bold" style={{ color: CAMPUS.ink }}>{score == null ? "—" : `${score}%`}</p>
+            <p className="text-lg font-bold" style={{ color: CAMPUS.ink }}>{score == null ? "-" : `${score}%`}</p>
           </div>
         </div>
         <p className="text-[11px] max-w-xs" style={{ color: CAMPUS.inkFaint }}>Based on how many of this company&apos;s practice questions you&apos;ve solved.</p>

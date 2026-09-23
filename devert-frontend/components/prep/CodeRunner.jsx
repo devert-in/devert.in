@@ -187,7 +187,7 @@ function CodeRunner({
           const saved = window.localStorage.getItem(storageKey(l));
           if (saved !== null && saved !== "") return saved;
         } catch {
-          // storage unavailable (private mode) — fall through to starter
+          // storage unavailable (private mode) - fall through to starter
         }
       }
       return starters[l] || FALLBACK_STARTER[l] || "";
@@ -233,7 +233,7 @@ function CodeRunner({
         try {
           window.localStorage.setItem(storageKey(lang), val);
         } catch {
-          // storage full/unavailable — editing still works, just no persistence
+          // storage full/unavailable - editing still works, just no persistence
         }
       }
     },
@@ -358,9 +358,9 @@ function CodeRunner({
         </button>
 
         <span className="ml-auto font-mono text-[9px] text-white/25">
-          {langMeta.judge === "pyodide" && "runs in your browser — first run boots python (~5-10s)"}
+          {langMeta.judge === "pyodide" && "runs in your browser - first run boots python (~5-10s)"}
           {langMeta.judge === "worker" && "runs sandboxed in your browser"}
-          {langMeta.judge === "piston" && "runs on the remote judge — may queue under load"}
+          {langMeta.judge === "piston" && "runs on the remote judge - may queue under load"}
         </span>
       </div>
 
@@ -389,7 +389,7 @@ function CodeRunner({
             onChange={(e) => setStdin(e.target.value)}
             rows={2}
             spellCheck={false}
-            placeholder="input for [ RUN ] — one value per line"
+            placeholder="input for [ RUN ] - one value per line"
             className="w-full bg-black/60 border border-white/10 rounded px-3 py-2 font-mono text-xs text-white/80 placeholder:text-white/20 focus:border-neon-cyan/50 outline-none resize-y"
           />
         </div>
@@ -452,7 +452,7 @@ function CodeRunner({
       {testResult && (
         <div className="mt-3 space-y-2">
           <p className={cn("font-mono text-xs tracking-wider", accuracyColor)}>
-            PASSED {testResult.passed}/{testResult.total} — {pct}%
+            PASSED {testResult.passed}/{testResult.total} - {pct}%
           </p>
           {(testResult.results || []).map((r, i) => (
             <TestResultRow key={i} result={r} testCase={cases[i]} index={i} />

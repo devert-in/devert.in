@@ -22,7 +22,6 @@ export function ContestCard({ contest, registered, registering, onRegister, onVi
   return (
     <motion.div whileHover={{ borderColor: "rgba(0,255,255,0.25)" }} className="terminal-window relative">
       <div className="terminal-header">
-        <div className="terminal-dot bg-red-500/70" /><div className="terminal-dot bg-yellow-500/70" /><div className="terminal-dot bg-green-500/70" />
         <Trophy size={10} className="ml-2 text-white/25" />
         <span className="font-mono text-[9px] px-1.5 py-0.5 rounded ml-auto" style={{ color: PHASE_COLOR[phase], background: `${PHASE_COLOR[phase]}15` }}>
           {PHASE_LABEL[phase]}

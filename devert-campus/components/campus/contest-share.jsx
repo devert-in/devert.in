@@ -164,7 +164,7 @@ function ContestShareSheet({ url, title, startText, onClose }) {
             </p>
           )}
 
-          <div className="grid grid-cols-3 gap-2 mb-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
             {channels.map(c => (
               <a key={c.key} href={c.href} target="_blank" rel="noopener noreferrer"
                 className="flex flex-col items-center gap-1.5 py-2.5 rounded-lg transition-colors"

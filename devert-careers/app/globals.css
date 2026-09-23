@@ -4,16 +4,27 @@
    DeVert Careers - a THIRD design system in this repo, and deliberately not
    either of the other two.
 
-   devert.in is the neon-terminal identity (near-black, #00FF41, font-mono
-   chrome). campus.devert.in is premium-SaaS (indigo/violet on deep navy,
-   glassmorphism). Neither is right for a hiring site: a candidate deciding
-   whether to send a resume is not a user being sold a product, and the
-   terminal aesthetic in particular reads as a toy to the senior engineers this
-   site exists to reach. So this one is light-first, quiet, and typographic -
-   closer to a corporate careers page than to anything else DeVert ships.
+   THIS WAS LIGHT-FIRST UNTIL 2026-09-23. It is now dark, on the same
+   brushed-metal plate as devert.in and campus.devert.in, with the logo's
+   green as its accent - asked for directly, as a deliberate reversal of the
+   divergence this file used to argue for. The old reasoning (a candidate
+   deciding whether to send a resume is not a user being sold a product, and
+   the terminal aesthetic reads as a toy to senior engineers) is recorded
+   here because it was a real argument, not an oversight - it was overruled
+   in favour of one consistent brand across all three sites.
 
-   Do NOT backport the neon palette here, and do not carry these tokens back
-   into the other two apps. The divergence is the point.
+   HOW THE FLIP WAS DONE, because it matters if you touch these tokens:
+   the ink ramp was INVERTED rather than the components being rewritten.
+   ink-50 is now the darkest and ink-900 the lightest, exactly reversing the
+   old scale. Every component here already used the ramp semantically
+   (`text-ink-900` = strongest text, `border-ink-200` = hairline, `bg-ink-50`
+   = faintest surface), so reversing the values re-themed the whole app
+   without touching those class names. If you add a component, keep using
+   the ramp semantically and it will stay correct.
+
+   The brand ramp brightens with the scale for the same reason: on a dark
+   surface a hover state must go lighter, so brand-700 is brighter than
+   brand-600, not darker.
 
    No @source directive (unlike devert-campus/app/globals.css, which needs one
    because it renders devert-frontend JSX by source). Every component this app
@@ -24,30 +35,34 @@
 --------------------------------------------------------------------------- */
 
 @theme {
-  /* Brand - one confident blue, used sparingly. The accent carries the CTA and
-     little else; everything structural is neutral. */
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #dbe6fe;
-  --color-brand-200: #bfd3fe;
-  --color-brand-300: #93b4fd;
-  --color-brand-400: #608bfa;
-  --color-brand-500: #3b6df6;
-  --color-brand-600: #1a56db;
-  --color-brand-700: #1e429f;
-  --color-brand-800: #1e3a8a;
-  --color-brand-900: #1e3163;
+  /* Brand - the logo green. BRIGHTENS with the scale (600 -> 700 gets
+     lighter), because every hover here now lands on a dark surface. A CTA
+     filled with brand-600 must carry DARK text: white on a bright green
+     measures ~1.5:1. */
+  --color-brand-50: #04210f;
+  --color-brand-100: #06301a;
+  --color-brand-200: #0a4a28;
+  --color-brand-300: #12703c;
+  --color-brand-400: #16a34a;
+  --color-brand-500: #22c55e;
+  --color-brand-600: #3ce86f;
+  --color-brand-700: #5cff8a;
+  --color-brand-800: #8affb0;
+  --color-brand-900: #c9ffd9;
 
-  /* Neutrals - warm-leaning slate, so large light surfaces don't read clinical. */
-  --color-ink-50: #f8fafc;
-  --color-ink-100: #f1f5f9;
-  --color-ink-200: #e2e8f0;
-  --color-ink-300: #cbd5e1;
-  --color-ink-400: #94a3b8;
-  --color-ink-500: #64748b;
-  --color-ink-600: #475569;
-  --color-ink-700: #334155;
-  --color-ink-800: #1e293b;
-  --color-ink-900: #0f172a;
+  /* Neutrals - the old slate ramp, REVERSED. ink-50 is the darkest surface
+     and ink-900 the strongest text, so every existing semantic use stays
+     correct on a dark canvas. Cool-leaning to sit with the plate. */
+  --color-ink-50: #0b0f17;
+  --color-ink-100: #131824;
+  --color-ink-200: #1e2533;
+  --color-ink-300: #3f4a5e;
+  --color-ink-400: #6a7589;
+  --color-ink-500: #7d8799;
+  --color-ink-600: #9aa3b4;
+  --color-ink-700: #bcc4d1;
+  --color-ink-800: #dde3ec;
+  --color-ink-900: #f4f7fb;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
@@ -57,17 +72,35 @@
 }
 
 :root {
-  --surface: #ffffff;
-  --surface-muted: var(--color-ink-50);
+  --surface: #0b0f17;
+  --surface-muted: var(--color-ink-100);
   --hairline: var(--color-ink-200);
 }
 
 html {
   scroll-behavior: smooth;
+  background: #05070c;
 }
 
+/* The plate, site-wide - same treatment as devert.in's body rule.
+
+   It is body's OWN background-image, never a body::before layer: `html`
+   above carries an opaque background, which stops body's background
+   propagating to the canvas, so body paints its own box - and a stacking
+   context paints that box AFTER its negative z-index children. A ::before
+   plate would be covered by body's own background on every page. devert.in
+   hit exactly this; see its globals.css for the long version.
+
+   background-attachment: fixed anchors it to the viewport so tall pages
+   don't stretch the texture. iOS Safari ignores `fixed` and falls back to
+   `scroll`, which degrades fine. */
 body {
-  background: var(--surface);
+  background-color: #05070c;
+  background-image: linear-gradient(rgba(5,7,12,0.66), rgba(5,7,12,0.82)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--color-ink-800);
   -webkit-font-smoothing: antialiased;
 }
@@ -102,30 +135,67 @@ body {
   }
 }
 
-/* Shared hero plate ------------------------------------------------------
-   public/devert-hero-bg.jpg is the logo's own backing art with the chevrons
-   removed - brushed metal and faint circuit tracery. Used as the hero
-   backdrop on devert.in, campus.devert.in and careers.devert.in so the three
-   sites open on the same surface.
+/* The hero used to carry its own .devert-hero-bg plate on top of body's.
+   That is what made the background appear to scroll: body's plate is
+   background-attachment: fixed and stays with the viewport, while the
+   hero's was a position:absolute ::before that scrolled with the page - two
+   copies of the same image sliding past each other, with a visible seam
+   where the hero band ended. There is one background on this site now, and
+   it is the body rule above. Do not re-add a per-section plate. */
 
-   Duplicated into each app's globals.css + public/ on purpose: each Next app
-   builds its own CSS and serves its own public/, and the jsconfig @/* source
-   sharing covers neither.
 
-   The photo rides on ::before, not on the element's own background, so the
-   scrim composites with it as one layer BEHIND the content instead of
-   tinting the content itself. isolation:isolate scopes the negative z-index
-   to this element so it cannot paint through anything else on the page. The
-   scrim is heavy and deepens downward - the plate's top-right carries bright
-   circuit detail that a headline cannot compete with. */
-.devert-hero-bg { position: relative; isolation: isolate; background-color: #0A0E17; }
-.devert-hero-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(rgba(10,14,23,0.62), rgba(10,14,23,0.82)), url(/devert-hero-bg.jpg);
+/* ── Adaptive navbar ───────────────────────────────────────────────────────
+   One shell on devert.in, campus.devert.in and careers.devert.in.
+
+   At the top of a page the bar has NO fill and NO border, so the plate reads
+   unbroken across the hero - which is the whole reason this is adaptive
+   rather than a solid bar. `.is-solid` (set from lib/useScrolled.js once the
+   page moves, and forced whenever a menu is open) brings in the surface.
+
+   background-attachment: fixed on the solid state, for the same reason
+   .devert-surface uses it: the plate anchors to the VIEWPORT, so the bar
+   exposes the same region of the same image the page behind it is showing,
+   and reads as a cut-out rather than a separate tile.
+
+   Height is 56px on phones and 64px from sm: up - a 64px bar eats too much
+   of a 667px-tall screen. */
+.devert-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
+}
+.devert-navbar.is-solid {
+  background-image: linear-gradient(rgba(8,11,18,0.90), rgba(8,11,18,0.94)), url(/devert-hero-bg.jpg);
   background-size: cover;
   background-position: center;
-  z-index: -1;
-  pointer-events: none;
+  background-attachment: fixed;
+  border-bottom-color: rgba(255,255,255,0.10);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.devert-navbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 56px;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+@media (min-width: 640px) {
+  .devert-navbar-inner { height: 64px; padding: 0 32px; }
+}
+/* Panels that hang off the bar (dropdowns, the mobile sheet) reuse the solid
+   fill at a heavier scrim - they sit over page content, never over nothing. */
+.devert-navbar-panel {
+  background-image: linear-gradient(rgba(8,11,18,0.95), rgba(8,11,18,0.975)), url(/devert-hero-bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.10);
 }
