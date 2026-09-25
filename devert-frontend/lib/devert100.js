@@ -170,6 +170,57 @@ export function bonusProblems(dayDoc) {
   return (dayDoc?.problems || []).filter(p => p.type !== "Main");
 }
 
+// The problem's catalogue number, as a developer would say it out loud: "LC
+// 283". It is the fastest way to recognise a problem you have seen before, so
+// it belongs anywhere the title appears.
+//
+// 104 of the 112 problems have a real number. The 8 GFG-only ones carry "-" in
+// the sheet's LC column, because they have no LeetCode number to carry - those
+// fall back to the platform name rather than rendering "LC -". Nothing is
+// invented: if there is no number, none is shown.
+export function problemLabel(problem) {
+  if (!problem) return "";
+  const n = String(problem.problemNumber || "").trim();
+  const hasNumber = /^\d+$/.test(n);
+  if (hasNumber) return `LC ${n}`;
+  // "LeetCode / GFG" without a number would read oddly as a badge; take the
+  // first platform named and leave it at that.
+  return String(problem.platform || "").split("/")[0].trim();
+}
+
+// ── video solutions ───────────────────────────────────────────────────────
+// THE SOURCE SPREADSHEET HAS NO VIDEO LINKS. Not one of the 112 rows carries a
+// URL to a walkthrough, so there is nothing to import and nothing that could be
+// imported without making it up.
+//
+// So this resolves in two steps, and the UI must label them differently:
+//
+//   curated: true   an admin filled in videoUrl on that problem. A specific
+//                   video someone chose. Say "Video solution".
+//   curated: false  nobody has. We hand over a YouTube SEARCH built from the
+//                   problem's own name and number, which is exactly what a
+//                   developer would type. Say "Search YouTube" - calling a
+//                   search a solution would be a small lie that costs trust the
+//                   first time the top result is wrong.
+//
+// The field is read straight off the problem, so curating one is a content
+// edit (admin write to devert100_days) and needs no code change.
+export function videoSearchUrl(problem) {
+  if (!problem?.name) return "";
+  const n = String(problem.problemNumber || "").trim();
+  const q = [problem.name, /^\d+$/.test(n) ? `leetcode ${n}` : problem.platform, "solution explained"]
+    .filter(Boolean).join(" ");
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
+
+export function problemVideo(problem) {
+  if (!problem) return null;
+  const curated = String(problem.videoUrl || "").trim();
+  if (/^https?:\/\//.test(curated)) return { url: curated, curated: true, label: "Video solution" };
+  const search = videoSearchUrl(problem);
+  return search ? { url: search, curated: false, label: "Search YouTube" } : null;
+}
+
 // ── participation ─────────────────────────────────────────────────────────
 export function subscribeToParticipant(uid, callback) {
   if (!uid) { callback(null); return () => {}; }

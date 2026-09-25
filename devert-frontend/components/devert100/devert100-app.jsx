@@ -12,7 +12,7 @@ import { useIsWindowed } from "@/components/window/is-windowed";
 import {
   DEVERT100_TOTAL_DAYS, DAY_STATE, dayState, currentDay, hasRunStarted,
   formatDayDate, dateForDay, fetchDayIndex, subscribeToParticipant,
-  joinDevert100, progressSummary, breakdowns,
+  joinDevert100, progressSummary, breakdowns, problemLabel,
 } from "@/lib/devert100";
 
 const GREEN = "#00FF41";
@@ -130,6 +130,11 @@ function JourneyGrid({ dayIndex, completedDays, joined }) {
                       <span className="font-mono text-[9px]" style={{ color: locked ? "rgba(255,255,255,0.18)" : (DIFFICULTY_COLOR[d.difficulty] || "rgba(255,255,255,0.3)") }}>
                         {d.difficulty}
                       </span>
+                      {problemLabel(d) && (
+                        <span className="font-mono text-[9px]" style={{ color: locked ? "rgba(255,255,255,0.15)" : "rgba(0,255,255,0.5)" }}>
+                          {problemLabel(d)}
+                        </span>
+                      )}
                       <span className="font-mono text-[9px] text-white/20 ml-auto">{formatDayDate(d.day).replace(/ \d{4}$/, "")}</span>
                     </div>
                   </>
@@ -227,7 +232,7 @@ export function Devert100App() {
             DEVERT <span className="text-neon-green">100</span>
           </h1>
           <p className="font-mono text-sm text-white/40 max-w-2xl">
-            100 days. 112 problems. One developer transformation.
+            100 days. 100+ problems. One developer transformation.
           </p>
         </motion.div>
 
@@ -325,6 +330,11 @@ export function Devert100App() {
                     </span>
                     <h2 className="font-sans text-xl sm:text-2xl font-bold text-white mb-1.5">{todayEntry.name}</h2>
                     <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                      {problemLabel(todayEntry) && (
+                        <span className="font-mono text-[11px] px-1.5 rounded" style={{ color: CYAN, background: `${CYAN}12` }}>
+                          {problemLabel(todayEntry)}
+                        </span>
+                      )}
                       <span className="font-mono text-[11px] text-white/55">{todayEntry.topic}</span>
                       <span className="font-mono text-[11px]" style={{ color: DIFFICULTY_COLOR[todayEntry.difficulty] || "#fff6" }}>
                         {todayEntry.difficulty}
@@ -332,11 +342,16 @@ export function Devert100App() {
                       <span className="font-mono text-[11px] text-white/40">{todayEntry.pattern}</span>
                     </div>
                   </div>
-                  <Link href={`/devert100/day/${live}`}
+                  {/* Signed out, this goes through login and lands on the day
+                      afterwards. The day itself stays publicly readable - but
+                      "START MISSION" promises tracked progress, and delivering
+                      an untracked page instead is the kind of small broken
+                      promise that stops someone bothering to sign in at all. */}
+                  <Link href={user ? `/devert100/day/${live}` : `/login?next=/devert100/day/${live}`}
                     className="flex-shrink-0 inline-flex items-center gap-1.5 font-mono text-xs font-semibold px-4 py-2.5 rounded"
                     style={{ background: completedDays[String(live)] ? "rgba(255,255,255,0.08)" : CYAN,
                       color: completedDays[String(live)] ? "#fff" : "#05080F" }}>
-                    {completedDays[String(live)] ? "REVIEW" : "START MISSION"} <ArrowRight size={13} />
+                    {completedDays[String(live)] ? "REVIEW" : !user ? "SIGN IN TO START" : "START MISSION"} <ArrowRight size={13} />
                   </Link>
                 </div>
               </motion.div>

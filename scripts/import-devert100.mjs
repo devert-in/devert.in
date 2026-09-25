@@ -25,7 +25,7 @@
 // lives in a different collection entirely and is never read or written here,
 // so re-importing cannot cost anyone their streak.
 
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync, existsSync } from "fs";
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -59,13 +59,88 @@ function indexEntry(d) {
     name: main?.name || "",
     difficulty: main?.difficulty || "",
     pattern: main?.pattern || "",
+    // Carried so the grid and the dashboard's mission card can show "LC 283"
+    // without fetching the full day document. problemLabel() in
+    // lib/devert100.js turns these two into the badge.
+    problemNumber: main?.problemNumber || "",
+    platform: main?.platform || "",
     bonusCount: d.problems.filter(p => p.type !== "Main").length,
   };
+}
+
+// ── deep dives ────────────────────────────────────────────────────────────
+// The spreadsheet's Brute Force / Optimal columns are ONE LINE each. The
+// long-form teaching writeup - worked example, step-by-step optimisation, Java
+// implementation, edge cases - does not exist in it and cannot be derived from
+// it, so it is authored by hand, one markdown file per day, in
+// scripts/data/devert100-deepdives/day-NNN.md.
+//
+// FORMAT: sections delimited by a line reading `=== key ===`. Keys must match
+// DEEP_DIVE_SECTIONS in components/devert100/deep-dive.jsx; an unknown key is
+// reported rather than silently dropped, because a typo'd heading would
+// otherwise just make a section vanish from the page with no other symptom.
+//
+// A day with no file keeps the short spreadsheet fields and the UI renders
+// those instead. Nothing is generated to fill the gap.
+const DEEP_DIVE_DIR = "scripts/data/devert100-deepdives";
+const DEEP_DIVE_KEYS = new Set([
+  "intro", "problem", "pattern", "bruteForce", "optimization",
+  "complexity", "implementation", "edgeCases", "takeaway",
+]);
+
+// LF and CR as character codes rather than escapes: these markdown files are
+// authored on Windows and every line ending matters inside a fenced code
+// block, so the one place that splits them should be impossible to misread.
+const LF = String.fromCharCode(10);
+const CR = String.fromCharCode(13);
+
+function parseDeepDive(text, file) {
+  const out = {};
+  let key = null, buf = [];
+  const flush = () => { if (key) out[key] = buf.join(LF).trim(); buf = []; };
+  for (const rawLine of text.split(LF)) {
+    const line = rawLine.endsWith(CR) ? rawLine.slice(0, -1) : rawLine;
+    const m = line.match(/^===\s*([A-Za-z]+)\s*===\s*$/);
+    if (m) {
+      flush();
+      key = m[1];
+      if (!DEEP_DIVE_KEYS.has(key)) {
+        console.error(`  ! ${file}: unknown section "${key}" - expected one of ${[...DEEP_DIVE_KEYS].join(", ")}`);
+        process.exit(1);
+      }
+    } else if (key) {
+      buf.push(line);
+    }
+  }
+  flush();
+  return out;
+}
+
+function loadDeepDives() {
+  if (!existsSync(DEEP_DIVE_DIR)) return {};
+  const byDay = {};
+  for (const f of readdirSync(DEEP_DIVE_DIR).filter(f => f.endsWith(".md"))) {
+    const m = f.match(/day-(\d+)\.md$/);
+    if (!m) { console.error(`  ! ${f}: expected day-NNN.md`); process.exit(1); }
+    byDay[Number(m[1])] = parseDeepDive(readFileSync(`${DEEP_DIVE_DIR}/${f}`, "utf8"), f);
+  }
+  return byDay;
+}
+
+const deepDives = loadDeepDives();
+// Attached to the day's MAIN problem - the deep dive teaches that one problem,
+// and a bonus has its own (usually absent) writeup.
+for (const d of days) {
+  const dd = deepDives[d.day];
+  if (!dd) continue;
+  const main = d.problems.find(p => p.type === "Main") || d.problems[0];
+  if (main) main.deepDive = dd;
 }
 
 const targets = days.filter(d => !ONLY || ONLY.has(d.day));
 
 console.log(`${IN}: ${counts.days} days, ${counts.problems} problems (${counts.main} main + ${counts.bonus} bonus)`);
+console.log(`deep dives authored: ${Object.keys(deepDives).length}/100  ${Object.keys(deepDives).length ? "(days " + Object.keys(deepDives).sort((a,b)=>a-b).join(", ") + ")" : ""}`);
 console.log(`${APPLY ? "APPLYING" : "DRY RUN"} - ${targets.length} day document(s)${ONLY ? ` (--only ${[...ONLY].join(",")})` : ""}\n`);
 
 if (!APPLY) {

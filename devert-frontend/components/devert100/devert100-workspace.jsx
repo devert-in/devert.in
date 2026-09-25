@@ -6,16 +6,17 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, ExternalLink, Play, RotateCcw, Loader2, CheckCircle2,
-  Lock, Lightbulb, Eye, EyeOff, Clock, Cpu, AlertCircle, Share2, Target, ChevronRight,
+  Lock, Lightbulb, Eye, EyeOff, Clock, Cpu, AlertCircle, Share2, Target, ChevronRight, Youtube,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useIsWindowed } from "@/components/window/is-windowed";
 import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
 import {
   DEVERT100_TOTAL_DAYS, DAY_STATE, dayState, currentDay, formatDayDate,
-  fetchDay, subscribeToParticipant, completeDay, mainProblem, bonusProblems,
+  fetchDay, subscribeToParticipant, completeDay, mainProblem, bonusProblems, problemLabel, problemVideo,
 } from "@/lib/devert100";
 import { Devert100ShareCard } from "@/components/devert100/devert100-share-card";
+import { DeepDive, hasDeepDive } from "@/components/devert100/deep-dive";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -231,6 +232,8 @@ export function Devert100Workspace({ day }) {
 
   const problem = mainProblem(dayDoc);
   const bonuses = bonusProblems(dayDoc);
+  const video = problemVideo(problem);
+  const deep = hasDeepDive(problem);
 
   const shell = (children) => (
     <main className={`${windowed ? "min-h-full" : "min-h-screen"} pt-10 pb-32 px-5 sm:px-6 relative`}>
@@ -304,6 +307,11 @@ export function Devert100Workspace({ day }) {
           {problem?.name}
         </h1>
         <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+          {problemLabel(problem) && (
+            <span className="font-mono text-[11px] px-1.5 rounded" style={{ color: CYAN, background: `${CYAN}12` }}>
+              {problemLabel(problem)}
+            </span>
+          )}
           <span className="font-mono text-[11px] text-white/55">{dayDoc.topic}</span>
           <span className="font-mono text-[11px]" style={{ color: DIFFICULTY_COLOR[problem?.difficulty] || "#fff6" }}>
             {problem?.difficulty}
@@ -313,6 +321,14 @@ export function Devert100Workspace({ day }) {
             <a href={problem.url} target="_blank" rel="noopener noreferrer"
               className="font-mono text-[11px] inline-flex items-center gap-1 hover:opacity-80" style={{ color: CYAN }}>
               Solve on {problem.platform} <ExternalLink size={11} />
+            </a>
+          )}
+          {video && (
+            <a href={video.url} target="_blank" rel="noopener noreferrer"
+              className="font-mono text-[11px] inline-flex items-center gap-1 hover:opacity-80"
+              style={{ color: "#FF5050" }}
+              title={video.curated ? "A video picked for this problem" : "Opens a YouTube search - no video has been picked for this problem yet"}>
+              <Youtube size={12} /> {video.label}
             </a>
           )}
         </div>
@@ -342,6 +358,16 @@ export function Devert100Workspace({ day }) {
       <div className="grid lg:grid-cols-2 gap-4 items-start">
         {/* ── left: understand ── */}
         <div className="space-y-4">
+          {/* A hand-authored deep dive REPLACES the short sheet fields rather
+              than sitting beside them: it covers the same seven steps in full,
+              and showing both would have the one-line "Brute Force" column
+              directly above a worked version of the same thing.
+
+              Most days have no deep dive yet. Those fall back to the short
+              fields below, which is the honest default - the long-form writeup
+              is authored by hand (scripts/data/devert100-deepdives/) because
+              nothing in the source spreadsheet can produce it. */}
+          {deep ? <DeepDive problem={problem} /> : <>
           <Section title="problem" icon={Target} color={CYAN}>
             <Prose text={problem?.statement} />
           </Section>
@@ -397,6 +423,8 @@ export function Devert100Workspace({ day }) {
             </Section>
           )}
 
+          </>}
+
           {bonuses.length > 0 && (
             <Section title={`bonus (${bonuses.length})`} icon={Lightbulb} color={CYAN} defaultOpen={false}>
               <div className="space-y-3">
@@ -404,13 +432,22 @@ export function Devert100Workspace({ day }) {
                   <div key={i} className="pb-3" style={{ borderBottom: i < bonuses.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                     <div className="flex items-baseline gap-2 flex-wrap mb-1">
                       <span className="font-sans text-sm font-semibold text-white/85">{b.name}</span>
+                      {problemLabel(b) && <span className="font-mono text-[10px]" style={{ color: CYAN }}>{problemLabel(b)}</span>}
                       <span className="font-mono text-[10px]" style={{ color: DIFFICULTY_COLOR[b.difficulty] || "#fff6" }}>{b.difficulty}</span>
-                      {b.url && (
-                        <a href={b.url} target="_blank" rel="noopener noreferrer"
-                          className="font-mono text-[10px] inline-flex items-center gap-1 ml-auto" style={{ color: CYAN }}>
-                          open <ExternalLink size={10} />
-                        </a>
-                      )}
+                      <span className="ml-auto flex items-center gap-2.5">
+                        {problemVideo(b) && (
+                          <a href={problemVideo(b).url} target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[10px] inline-flex items-center gap-1" style={{ color: "#FF5050" }}>
+                            <Youtube size={11} /> video
+                          </a>
+                        )}
+                        {b.url && (
+                          <a href={b.url} target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[10px] inline-flex items-center gap-1" style={{ color: CYAN }}>
+                            open <ExternalLink size={10} />
+                          </a>
+                        )}
+                      </span>
                     </div>
                     <p className="font-mono text-[11px] text-white/45 leading-relaxed">{b.statement}</p>
                   </div>

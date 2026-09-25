@@ -25,8 +25,7 @@ export function CampusSpotlight() {
           </div>
           <div className="p-5 sm:p-6 relative overflow-hidden flex-1 flex flex-col">
             <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: "#00FFFF" }} />
-            <div className="relative flex items-start justify-between gap-4 flex-wrap">
-              <div className="min-w-0">
+            <div className="relative flex-1 min-w-0">
                 <span className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-widest px-2 py-1 rounded mb-2.5"
                   style={{ color: "#00FFFF", background: "#00FFFF15", border: "1px solid #00FFFF35" }}>
                   <GraduationCap size={11} /> FOR INSTITUTIONS
@@ -47,8 +46,13 @@ export function CampusSpotlight() {
                   </span>
                 </div>
               </div>
+            {/* Pinned to the bottom with mt-auto so this button lands on the
+                same line as the neighbouring card's, whatever length the copy
+                above it happens to be. Inside the text block it floated to a
+                different height per card. */}
+            <div className="relative mt-auto pt-5">
               <motion.span whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                className="flex-shrink-0 flex items-center gap-1.5 font-mono text-xs font-semibold px-4 py-2.5 rounded"
+                className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold px-4 py-2.5 rounded"
                 style={{ color: "#000", background: "#00FFFF" }}>
                 Explore Campus <ArrowUpRight size={13} />
               </motion.span>

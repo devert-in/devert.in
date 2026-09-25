@@ -42,7 +42,7 @@ export function Devert100Spotlight() {
   let badge, headline, sub, cta;
   if (!started) {
     badge = { icon: CalendarDays, text: "STARTS " + formatDayDate(1).toUpperCase() };
-    headline = "100 Days. 112 Problems.";
+    headline = "100 Days. 100+ Problems.";
     sub = "A structured DSA run that ends with the year.";
     cta = "SEE THE PLAN";
   } else if (joined && summary.isComplete) {
@@ -59,7 +59,7 @@ export function Devert100Spotlight() {
     cta = "CONTINUE JOURNEY";
   } else {
     badge = { icon: Flame, text: `DAY ${live} - LIVE NOW` };
-    headline = "100 Days. 112 Problems.";
+    headline = "100 Days. 100+ Problems.";
     sub = "Stop collecting tutorials. Start solving.";
     cta = "JOIN DEVERT 100";
   }
@@ -76,8 +76,7 @@ export function Devert100Spotlight() {
             <span className="font-mono text-[10px] text-white/25 ml-2">devert_100.run</span>
           </div>
           <div className="p-5 sm:p-6 relative overflow-hidden flex-1 flex flex-col">
-            <div className="relative flex items-start justify-between gap-4 flex-wrap">
-              <div className="min-w-0">
+            <div className="relative flex-1 min-w-0">
                 <span className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-widest px-2 py-1 rounded mb-2.5"
                   style={{ color: GREEN, background: `${GREEN}15`, border: `1px solid ${GREEN}35` }}>
                   <BadgeIcon size={11} /> {badge.text}
@@ -96,8 +95,13 @@ export function Devert100Spotlight() {
                   </div>
                 )}
               </div>
+            {/* Pinned to the bottom with mt-auto so this button lands on the
+                same line as the neighbouring card's, whatever length the copy
+                above it happens to be. Inside the text block it floated to a
+                different height per card. */}
+            <div className="relative mt-auto pt-5">
               <motion.span whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                className="flex-shrink-0 flex items-center gap-1.5 font-mono text-xs font-semibold px-4 py-2.5 rounded"
+                className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold px-4 py-2.5 rounded"
                 style={{ color: "#05080F", background: GREEN }}>
                 {cta} <ArrowUpRight size={13} />
               </motion.span>

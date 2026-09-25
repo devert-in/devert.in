@@ -8,10 +8,10 @@
 export const metadata = {
   title: "DeVert 100 - 100 Days of DSA",
   description:
-    "Join DeVert 100, a 100-day execution-focused DSA run with 112 problems, an in-browser scratchpad, progress tracking and developer milestones. Runs 23 Sep to 31 Dec 2026.",
+    "Join DeVert 100, a 100-day execution-focused DSA run with 100+ problems, an in-browser scratchpad, progress tracking and developer milestones. Runs 23 Sep to 31 Dec 2026.",
   alternates: { canonical: "https://devert.in/devert100" },
   openGraph: {
-    title: "DeVert 100 | 100 Days. 112 Problems.",
+    title: "DeVert 100 | 100 Days. 100+ Problems.",
     description:
       "Stop collecting tutorials. Start solving. A structured 100-day DSA run for developers who want to actually execute.",
     url: "https://devert.in/devert100",

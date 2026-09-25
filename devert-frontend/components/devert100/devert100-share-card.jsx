@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Download, Linkedin, Copy, Check, X, Loader2 } from "lucide-react";
-import { DEVERT100_TOTAL_DAYS, computeStreaks, formatDayDate } from "@/lib/devert100";
+import { DEVERT100_TOTAL_DAYS, computeStreaks, formatDayDate, problemLabel } from "@/lib/devert100";
 
 // The completion card.
 //
@@ -111,7 +111,9 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name }) {
   ctx.fillStyle = "rgba(255,255,255,0.28)";
   ctx.fillText(`/ ${DEVERT100_TOTAL_DAYS}`, PAD + dayW + 18, 220);
 
-  // completed pill
+  // completed pill, then the problem's catalogue number beside it - "LC 283"
+  // is how a developer recognises a problem at a glance, and a share card that
+  // omits it makes the reader go look it up.
   ctx.font = `700 17px ${mono}`;
   const pill = "COMPLETED";
   const pillW = ctx.measureText(pill).width + 34;
@@ -122,6 +124,19 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name }) {
   ctx.stroke();
   ctx.fillStyle = GREEN;
   ctx.fillText(pill, PAD + 17, 271);
+
+  const lcLabel = problemLabel(problem);
+  if (lcLabel) {
+    const lcW = ctx.measureText(lcLabel).width + 34;
+    const lcX = PAD + pillW + 12;
+    ctx.fillStyle = "rgba(0,255,255,0.10)";
+    roundRect(ctx, lcX, 246, lcW, 38, 8);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,255,255,0.35)";
+    ctx.stroke();
+    ctx.fillStyle = CYAN;
+    ctx.fillText(lcLabel, lcX + 17, 271);
+  }
 
   // problem name
   ctx.font = `700 44px ${sans}`;
@@ -194,7 +209,7 @@ export function Devert100ShareCard({ day, problem, topic, participant, displayNa
   const postText =
 `Day ${day}/${DEVERT100_TOTAL_DAYS} of #DeVert100
 
-Today I solved: ${problem?.name || ""}
+Today I solved: ${problem?.name || ""}${problemLabel(problem) ? ` (${problemLabel(problem)})` : ""}
 Pattern: ${problem?.pattern || topic || ""}
 ${streak > 1 ? `\n${streak} days in a row.` : ""}
 One more day of consistency. One step closer to becoming a better problem solver.
