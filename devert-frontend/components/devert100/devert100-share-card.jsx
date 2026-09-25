@@ -64,7 +64,30 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function drawCard(canvas, { day, problem, topic, streak, completed, name }) {
+// The 100-day strip: one tick per day of the run, lit for the days this person
+// has finished. It is the single most DeVert-ish thing on the card and the only
+// element that shows the JOURNEY rather than one day of it - "Day 3" alone says
+// nothing about whether you have been here since the start. It also fills the
+// dead band the old layout left between the meta line and the footer.
+function drawProgressStrip(ctx, { x, y, width, completedDays, today }) {
+  const GAP = 4;
+  const tickW = (width - GAP * (DEVERT100_TOTAL_DAYS - 1)) / DEVERT100_TOTAL_DAYS;
+  const tickH = 16;
+
+  for (let d = 1; d <= DEVERT100_TOTAL_DAYS; d++) {
+    const done = !!completedDays[String(d)];
+    const isToday = d === today;
+    ctx.fillStyle = done ? GREEN : isToday ? CYAN : "rgba(255,255,255,0.075)";
+    // Today gets full height even when unfinished, so the current position in
+    // the run is findable at a glance.
+    const h = done || isToday ? tickH : tickH * 0.5;
+    const top = y + (tickH - h);
+    roundRect(ctx, x + (d - 1) * (tickW + GAP), top, tickW, h, 1.5);
+    ctx.fill();
+  }
+}
+
+function drawCard(canvas, { day, problem, topic, streak, completed, name, completedDays, logo }) {
   const ctx = canvas.getContext("2d");
   canvas.width = W * SCALE;
   canvas.height = H * SCALE;
@@ -73,80 +96,84 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name }) {
   const mono = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
   const sans = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
 
-  // plate
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
 
-  // A faint grid, echoing the site's own .grid-bg, so the card reads as DeVert
-  // rather than as a generic dark rectangle.
-  ctx.strokeStyle = "rgba(255,255,255,0.035)";
+  // The site's own .grid-bg, so the card reads as DeVert rather than as a
+  // generic dark rectangle.
+  ctx.strokeStyle = "rgba(255,255,255,0.032)";
   ctx.lineWidth = 1;
   for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
   for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
 
-  // accent edge
   ctx.fillStyle = GREEN;
   ctx.fillRect(0, 0, 6, H);
 
   const PAD = 64;
 
-  // brand
+  // ── brand ──
+  // The real mark when it loaded, the wordmark alone when it did not. Never a
+  // placeholder box: a broken logo on a card someone is about to post is worse
+  // than no logo.
+  let brandX = PAD;
+  if (logo) {
+    const lh = 30;
+    const lw = (logo.width / logo.height) * lh;
+    ctx.drawImage(logo, PAD, PAD - 14, lw, lh);
+    brandX = PAD + lw + 12;
+  }
   ctx.font = `600 20px ${mono}`;
-  ctx.fillStyle = "rgba(255,255,255,0.35)";
-  ctx.fillText("DEVERT 100", PAD, PAD + 8);
+  ctx.fillStyle = "rgba(255,255,255,0.38)";
+  ctx.fillText("DEVERT 100", brandX, PAD + 8);
 
   ctx.font = `500 16px ${mono}`;
   ctx.fillStyle = "rgba(255,255,255,0.22)";
   const dateLabel = formatDayDate(day);
   ctx.fillText(dateLabel, W - PAD - ctx.measureText(dateLabel).width, PAD + 7);
 
-  // day number - the thing the card is actually about
-  ctx.font = `800 128px ${sans}`;
+  // ── the day ──
+  ctx.font = `800 120px ${sans}`;
   ctx.fillStyle = "#ffffff";
   const dayText = `DAY ${day}`;
-  ctx.fillText(dayText, PAD, 220);
+  ctx.fillText(dayText, PAD, 208);
   const dayW = ctx.measureText(dayText).width;
 
-  ctx.font = `600 34px ${mono}`;
-  ctx.fillStyle = "rgba(255,255,255,0.28)";
-  ctx.fillText(`/ ${DEVERT100_TOTAL_DAYS}`, PAD + dayW + 18, 220);
+  ctx.font = `600 32px ${mono}`;
+  ctx.fillStyle = "rgba(255,255,255,0.26)";
+  ctx.fillText(`/ ${DEVERT100_TOTAL_DAYS}`, PAD + dayW + 18, 208);
 
-  // completed pill, then the problem's catalogue number beside it - "LC 283"
-  // is how a developer recognises a problem at a glance, and a share card that
-  // omits it makes the reader go look it up.
+  // ── pills ──
   ctx.font = `700 17px ${mono}`;
   const pill = "COMPLETED";
   const pillW = ctx.measureText(pill).width + 34;
   ctx.fillStyle = "rgba(0,255,65,0.12)";
-  roundRect(ctx, PAD, 246, pillW, 38, 8);
+  roundRect(ctx, PAD, 236, pillW, 38, 8);
   ctx.fill();
   ctx.strokeStyle = "rgba(0,255,65,0.4)";
   ctx.stroke();
   ctx.fillStyle = GREEN;
-  ctx.fillText(pill, PAD + 17, 271);
+  ctx.fillText(pill, PAD + 17, 261);
 
   const lcLabel = problemLabel(problem);
   if (lcLabel) {
     const lcW = ctx.measureText(lcLabel).width + 34;
     const lcX = PAD + pillW + 12;
     ctx.fillStyle = "rgba(0,255,255,0.10)";
-    roundRect(ctx, lcX, 246, lcW, 38, 8);
+    roundRect(ctx, lcX, 236, lcW, 38, 8);
     ctx.fill();
     ctx.strokeStyle = "rgba(0,255,255,0.35)";
     ctx.stroke();
     ctx.fillStyle = CYAN;
-    ctx.fillText(lcLabel, lcX + 17, 271);
+    ctx.fillText(lcLabel, lcX + 17, 261);
   }
 
-  // problem name
+  // ── problem ──
   ctx.font = `700 44px ${sans}`;
   ctx.fillStyle = "#ffffff";
   const lines = wrapText(ctx, problem?.name || "", W - PAD * 2, 2);
-  lines.forEach((l, i) => ctx.fillText(l, PAD, 350 + i * 54));
+  lines.forEach((l, i) => ctx.fillText(l, PAD, 338 + i * 54));
+  const afterTitle = 338 + lines.length * 54;
 
-  const afterTitle = 350 + lines.length * 54;
-
-  // meta chips
   ctx.font = `500 18px ${mono}`;
   let cx = PAD;
   const chips = [
@@ -158,16 +185,31 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name }) {
     const w = ctx.measureText(chip.text).width;
     if (cx + w > W - PAD) break;
     ctx.fillStyle = chip.color;
-    ctx.fillText(chip.text, cx, afterTitle + 14);
+    ctx.fillText(chip.text, cx, afterTitle + 8);
     cx += w + 26;
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
-    if (chip !== chips[chips.length - 1]) ctx.fillText("·", cx - 17, afterTitle + 14);
+    if (chip !== chips[chips.length - 1]) {
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      ctx.fillText("·", cx - 17, afterTitle + 8);
+    }
   }
 
-  // footer stats
-  const FY = H - 96;
+  // ── the run so far ──
+  const STRIP_Y = H - 176;
+  ctx.font = `500 12px ${mono}`;
+  ctx.fillStyle = "rgba(255,255,255,0.28)";
+  ctx.fillText("THE RUN", PAD, STRIP_Y - 12);
+  const legend = `${completed} of ${DEVERT100_TOTAL_DAYS} days`;
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
+  ctx.fillText(legend, W - PAD - ctx.measureText(legend).width, STRIP_Y - 12);
+
+  drawProgressStrip(ctx, {
+    x: PAD, y: STRIP_Y, width: W - PAD * 2, completedDays, today: day,
+  });
+
+  // ── footer ──
+  const FY = H - 84;
   ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.beginPath(); ctx.moveTo(PAD, FY - 28); ctx.lineTo(W - PAD, FY - 28); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD, FY - 30); ctx.lineTo(W - PAD, FY - 30); ctx.stroke();
 
   const stats = [
     { label: "COMPLETED", value: `${completed}/${DEVERT100_TOTAL_DAYS}`, color: GREEN },
@@ -175,56 +217,25 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name }) {
   ];
   let sx = PAD;
   for (const s of stats) {
-    ctx.font = `500 13px ${mono}`;
+    ctx.font = `500 12px ${mono}`;
     ctx.fillStyle = "rgba(255,255,255,0.3)";
-    ctx.fillText(s.label, sx, FY + 2);
-    ctx.font = `700 32px ${sans}`;
+    ctx.fillText(s.label, sx, FY);
+    ctx.font = `700 30px ${sans}`;
     ctx.fillStyle = s.color;
-    ctx.fillText(s.value, sx, FY + 38);
-    sx += 200;
+    ctx.fillText(s.value, sx, FY + 34);
+    sx += 190;
   }
 
-  // name, only if we have one - never a placeholder
   if (name) {
     ctx.font = `500 18px ${mono}`;
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
     const nw = ctx.measureText(name).width;
-    ctx.fillText(name, W - PAD - nw, FY + 2);
+    ctx.fillText(name, W - PAD - nw, FY);
   }
   ctx.font = `600 18px ${mono}`;
   ctx.fillStyle = "rgba(255,255,255,0.22)";
   const url = "devert.in/devert100";
-  ctx.fillText(url, W - PAD - ctx.measureText(url).width, FY + 36);
-}
-
-// The join line is appended here rather than written into each day's authored
-// post, so every share carries it whether the day has a hand-written post or
-// the generated fallback - and so changing the wording once changes all 100.
-// Authors must NOT put it in the markdown; the guard below would only suppress
-// an exact duplicate.
-//
-// It goes ABOVE the hashtag block: LinkedIn truncates long posts behind a "see
-// more", and a call to action stranded under twelve hashtags is a call to
-// action nobody reads.
-const JOIN_LINE = "Want to join the sprint? Join here: https://devert.in/devert100";
-
-function withJoinCta(post) {
-  const body = String(post || "").trimEnd();
-  if (body.includes("devert.in/devert100")) return body;
-
-  const lines = body.split("\n");
-  let firstHashtag = -1;
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (/^\s*#\w/.test(lines[i])) firstHashtag = i; else if (firstHashtag !== -1) break;
-  }
-  if (firstHashtag === -1) return `${body}\n\n${JOIN_LINE}`;
-  return [
-    lines.slice(0, firstHashtag).join("\n").trimEnd(),
-    "",
-    JOIN_LINE,
-    "",
-    lines.slice(firstHashtag).join("\n").trim(),
-  ].join("\n");
+  ctx.fillText(url, W - PAD - ctx.measureText(url).width, FY + 32);
 }
 
 export function Devert100ShareCard({ day, problem, topic, participant, displayName, onClose }) {
@@ -253,18 +264,36 @@ One more day of consistency. One step closer to becoming a better problem solver
   const [text, setText] = useState(withJoinCta(authored || postText));
 
   useEffect(() => {
-    // Fonts have to be settled before the first measureText, or the card draws
-    // once in the fallback face and never redraws.
+    // Two things must settle before the first measureText/drawImage, or the
+    // card renders once in the fallback font with no mark and never redraws.
+    // The logo is allowed to FAIL - the card just draws its wordmark instead,
+    // because a missing image must never block someone from sharing.
     let cancelled = false;
-    const draw = () => {
+
+    const loadLogo = () => new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = "/devert-logo.png";
+    });
+
+    const fonts = document.fonts?.ready ? document.fonts.ready.catch(() => {}) : Promise.resolve();
+
+    Promise.all([fonts, loadLogo()]).then(([, logo]) => {
       if (cancelled || !canvasRef.current) return;
-      drawCard(canvasRef.current, { day, problem, topic, streak, completed, name: displayName });
+      drawCard(canvasRef.current, {
+        day, problem, topic, streak, completed,
+        name: displayName, completedDays, logo,
+      });
       setReady(true);
-    };
-    if (document.fonts?.ready) document.fonts.ready.then(draw).catch(draw);
-    else draw();
+    });
+
     return () => { cancelled = true; };
-  }, [day, problem, topic, streak, completed, displayName]);
+    // NOTE: depend on `participant`, not on `completedDays`. The latter is
+    // `participant?.completedDays || {}` - a fresh object literal on every
+    // render whenever participant is absent, which would re-arm this effect
+    // endlessly.
+  }, [day, problem, topic, streak, completed, displayName, participant]);
 
   function handleDownload() {
     if (!canvasRef.current) return;
