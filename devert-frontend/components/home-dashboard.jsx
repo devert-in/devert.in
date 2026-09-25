@@ -5,18 +5,26 @@ import { WelcomeBanner } from "@/components/welcome-banner";
 import { HackathonSpotlight } from "@/components/hackathon-spotlight";
 import { Devert100Spotlight } from "@/components/devert100-spotlight";
 import { CampusSpotlight } from "@/components/campus-spotlight";
-import { DevertJourneyCard } from "@/components/devert-journey-card";
 import { LiveOnDevert } from "@/components/live-on-devert";
 import { QuickStatsRow } from "@/components/quick-stats-row";
-import { QuickActionsGrid } from "@/components/quick-actions-grid";
 import { NotificationsSummary } from "@/components/notifications-summary";
 import { PlatformUpdates } from "@/components/platform-updates";
 import { UpcomingContestsCard } from "@/components/upcoming-contests-card";
-// Built long ago, mounted everywhere EXCEPT the signed-in home: TodayTaskCard
-// lived only inside Grind, and MissionBoard/RankLadder only on the
-// logged-OUT landing page - so a signed-in member saw less of the product
-// than a stranger did.
-import { TodayTaskCard } from "@/components/today-task-card";
+// MissionBoard and RankLadder used to live only on the logged-OUT landing page,
+// so a signed-in member saw less of the product than a stranger did. They are
+// mounted here for that reason.
+//
+// Three cards were REMOVED from this dashboard rather than kept:
+//   TodayTaskCard      - advertised "DSA Fundamentals, Day 1" at 0% to every
+//                        member whether or not they had enrolled. Replaced by
+//                        DailyDevTip, which at least says something true.
+//   DevertJourneyCard  - "your_devert_today.log": four rows reading Campus /
+//                        Events / Shipyard / Pulse with a generic tagline
+//                        each. It claimed to be today's and was identical
+//                        every day for everyone - the navbar in a box.
+//   QuickActionsGrid   - eight tiles, every one a link already in the bottom
+//                        dock AND the top bar. A third copy of the sitemap.
+import { DailyDevTip } from "@/components/daily-dev-tip";
 import { MissionBoard } from "@/components/mission-board";
 import { RankLadder } from "@/components/rank-ladder";
 
@@ -39,18 +47,21 @@ export function HomeDashboard() {
         <div className="lg:grid lg:grid-cols-3 lg:gap-6 lg:items-start">
           <div className="lg:col-span-2">
             <WelcomeBanner />
-            {/* Resume before promote: what you were in the middle of outranks
-                anything we want to show you. */}
-            <TodayTaskCard />
+            {/* One real, checkable technical fact a day, rotating on the IST
+                date so everyone sees the same one.
+
+                It replaced TodayTaskCard, which advertised "DSA Fundamentals -
+                Day 1" at 0% to every member regardless of whether they had
+                enrolled - prime dashboard space spent telling you that you had
+                not started something. */}
+            <DailyDevTip />
             <div className="flex flex-col sm:flex-row sm:items-stretch gap-4">
               <Devert100Spotlight />
               <HackathonSpotlight />
               <CampusSpotlight />
             </div>
-            <DevertJourneyCard />
             <LiveOnDevert />
             <QuickStatsRow />
-            <QuickActionsGrid />
             <MissionBoard compact />
           </div>
           <div className="lg:col-span-1">
