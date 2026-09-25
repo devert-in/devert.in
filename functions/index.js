@@ -269,9 +269,17 @@ if (admin.apps.length === 0) admin.initializeApp();
 // identity model firestore.rules uses: the platform admin claim, membership of
 // the institution's admins collection, or an active roleAssignment (which is
 // what Principal, HOD and Faculty-Class-Teacher all hold).
+// Platform admin is ONE account - the same test as firestore.rules'
+// isAdmin(): the admin claim AND a verified devert.contact@gmail.com.
+const PLATFORM_OWNER_EMAIL = "devert.contact@gmail.com";
+function isPlatformAdmin(auth) {
+  const t = (auth && auth.token) || {};
+  return t.admin === true && t.email_verified === true && t.email === PLATFORM_OWNER_EMAIL;
+}
+
 async function assertCanInvigilate(auth, contestId) {
   if (!auth) throw new HttpsError("unauthenticated", "Sign in first.");
-  if (auth.token && auth.token.admin === true) return;
+  if (isPlatformAdmin(auth)) return;
 
   const db = admin.firestore();
   const contestSnap = await db.doc(`contests/${contestId}`).get();

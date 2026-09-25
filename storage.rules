@@ -3,6 +3,17 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // Platform admin = the one owner account, exactly as firestore.rules'
+    // isAdmin(): the admin custom claim AND a verified
+    // devert.contact@gmail.com sign-in. Every admin check below uses this.
+    function isPlatformAdmin() {
+      return request.auth != null
+        && request.auth.token.get('email', '') == 'devert.contact@gmail.com'
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('admin', false) == true;
+    }
+
+
     // User avatars - public read, owner writes (max 2MB, images only)
     match /avatars/{uid}/{allPaths=**} {
       allow read: if true;
@@ -74,8 +85,7 @@ service firebase.storage {
     // scripts/set-admin-claim.mjs - matches the Firestore admin model)
     match /intel-resources/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-        && request.auth.token.get('admin', false) == true;
+      allow write: if isPlatformAdmin();
     }
 
     // GATE resources (past papers, notes) - public read, admin writes. Same
@@ -85,8 +95,7 @@ service firebase.storage {
     // sized for a single candidate's own document, not a scanned exam paper.
     match /gate-resources/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-        && request.auth.token.get('admin', false) == true
+      allow write: if isPlatformAdmin()
         && request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType == 'application/pdf';
     }
@@ -143,8 +152,7 @@ service firebase.storage {
     // frames, and evidence retention should be a deliberate lifecycle policy on
     // the bucket, not a client call.
     match /proctor/{contestId}/{uid}/{allPaths=**} {
-      allow read: if request.auth != null
-        && request.auth.token.get('admin', false) == true;
+      allow read: if isPlatformAdmin();
       allow write: if request.auth != null
         && request.auth.uid == uid
         && request.resource.size < 1 * 1024 * 1024
@@ -162,8 +170,7 @@ service firebase.storage {
     // allowed here, unlike /proctor, since this is disposable test data a
     // reviewer may legitimately want to redo.
     match /proctor-dryrun/{contestId}/{uid}/{allPaths=**} {
-      allow read: if request.auth != null
-        && request.auth.token.get('admin', false) == true;
+      allow read: if isPlatformAdmin();
       allow write: if request.auth != null
         && request.auth.uid == uid
         && request.resource.size < 1 * 1024 * 1024

@@ -1,5 +1,6 @@
 import { fetchPublishedContests } from "@/lib/contests";
 import { hackathonStaticParams } from "@/lib/hackathon-seo";
+import { devert100SitemapEntries } from "@/lib/devert100Seo";
 // Campus's own institution/section URLs moved to devert-campus/app/sitemap.ts
 // alongside the rest of Campus - it's now a different origin
 // (campus.devert.in), so it needs its own sitemap, not an entry in this one.
@@ -65,5 +66,9 @@ export default async function sitemap() {
   // only list URLs on the host that serves it, and devert.in/careers is now
   // just a 301 to that host.
 
-  return [...staticRoutes, ...contestUrls, ...hackathonUrls];
+  // The 100 day pages. These come from the build-time catalogue, not a
+  // Firestore query like contests and hackathons above - so they are in the
+  // sitemap even on a build that could not reach the network, and each one
+  // carries its OWN date as lastModified rather than the build time.
+  return [...staticRoutes, ...contestUrls, ...hackathonUrls, ...devert100SitemapEntries()];
 }

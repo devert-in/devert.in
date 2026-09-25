@@ -9,12 +9,16 @@ import { mintSharedSession, exchangeSharedSession, clearSharedSession } from "@/
 
 const AuthContext = createContext();
 
+// The one platform-admin account - see firestore.rules' isPlatformOwner().
+export const PLATFORM_OWNER_EMAIL = "devert.contact@gmail.com";
+
 // Placements Prep module's staff roles - a `role` field on users/{uid}
 // (default "student", see firestore.rules' myRole()). Not a real trust
 // boundary on its own: every prep* collection is actually gated by
 // isStaff()/isPrepAdmin() in firestore.rules, which also OR in the real
 // isAdmin claim below - this mirrors that exact logic for UI gating only.
-const STAFF_ROLES = ["faculty", "tpo", "admin"];
+// "admin" is not a staff role any more - see firestore.rules isStaff().
+const STAFF_ROLES = ["faculty", "tpo"];
 
 function getTier(xp = 0) {
   if (xp >= 10000) return { name: "LEGEND",    color: "#FFD700" };
@@ -58,9 +62,7 @@ export function AuthProvider({ children }) {
   const triedExchangeRef = useRef(false);
 
   useEffect(() => {
-    console.log("[Auth Debug] AuthContext mounted, setting up onAuthStateChanged listener...");
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      console.log("[Auth Debug] onAuthStateChanged fired. User:", currentUser ? currentUser.uid : "null");
       setUser(currentUser);
       if (!currentUser) {
         setUserData(null);
@@ -87,9 +89,13 @@ export function AuthProvider({ children }) {
       }
       try {
         const token = await currentUser.getIdTokenResult();
-        console.log("[Auth Debug] Token fetched successfully for", currentUser.uid);
-        setIsAdmin(token.claims.admin === true);
-        setIsSuperAdmin(token.claims.superAdmin === true);
+        // Platform admin is ONE account (owner instruction, 2026-09-25): the
+        // claim AND a verified devert.contact@gmail.com - the same test as
+        // firestore.rules' isAdmin(). This only drives UI; the rules are what
+        // actually refuse everyone else.
+        const isOwner = token.claims.email === PLATFORM_OWNER_EMAIL && token.claims.email_verified === true;
+        setIsAdmin(isOwner && token.claims.admin === true);
+        setIsSuperAdmin(isOwner && token.claims.superAdmin === true);
         // Publish this reader's content audiences for every content query to
         // use - see lib/audiences.js on why this is ambient rather than threaded
         // through eight lib modules. No account carries the `auds` claim yet, so
@@ -117,7 +123,6 @@ export function AuthProvider({ children }) {
     // page (e.g. Campus) is stuck on "Loading..." forever. Treat a stuck
     // check as logged-out; if auth does resolve later, `user` still updates.
     const fallback = setTimeout(() => {
-      console.log("[Auth Debug] onAuthStateChanged fallback timeout (6s) triggered");
       setAdminChecked(true);
       setLoading(false);
     }, 6000);

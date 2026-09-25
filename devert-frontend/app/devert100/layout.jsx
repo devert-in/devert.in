@@ -19,5 +19,9 @@ export const metadata = {
 };
 
 export default function Devert100Layout({ children }) {
+  // Metadata only. The Course + ItemList markup lives on page.jsx, NOT here:
+  // this layout also wraps /devert100/day/[day], so emitting it here stamped a
+  // Course entity and a 100-entry syllabus onto all 101 pages - about 40KB of
+  // duplicate JSON-LD each, and 100 pages each claiming to BE the course.
   return children;
 }

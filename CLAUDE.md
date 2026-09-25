@@ -91,12 +91,22 @@ follows, notifications, and progress update across tabs/users without a
 manual refresh. `AuthContext` is the single source of truth for the signed-in
 user, their live profile doc, and whether they're an admin.
 
-**Admin model:** a custom Firebase Auth claim (`admin: true`), not an email
-check. Grant/revoke with `node scripts/set-admin-claim.mjs <email> [--revoke]` - the user must sign out/in (or get a token refresh) afterward for it to take
-effect. `isAdmin()` in both rules files, and `isAdmin`/`adminChecked` from
-`useAuth()` on the client, all key off this claim. Never reintroduce a
-hardcoded admin email - it was migrated away from deliberately (see git
-history around the security-hardening commit).
+**Admin model:** platform admin is exactly ONE account,
+`devert.contact@gmail.com` (owner instruction, 2026-09-25 - "very strict").
+It takes BOTH halves: the custom Firebase Auth claim (`admin: true` /
+`superAdmin: true`, which only the Admin SDK can set) AND a signed-in token
+whose `email` is that address with `email_verified == true`. The email check
+never stands alone - it was a bare hardcoded email that was migrated away from
+in the security-hardening commit, and that stays true: a claim on any other
+account, or that email without the claim, grants nothing. The one test lives
+in `isPlatformOwner()`/`isAdmin()`/`isSuperAdmin()` (firestore.rules),
+`isPlatformAdmin()` (storage.rules), `isPlatformAdmin()` (functions/index.js)
+and `PLATFORM_OWNER_EMAIL` (devert-frontend/context/AuthContext.js) - change
+all five together. `scripts/set-admin-claim.mjs` / `set-super-admin-claim.mjs`
+refuse to GRANT to any other email (revoking any account is still allowed);
+the user must sign out/in (or refresh the token) after a change. A users/{uid}
+`role` field is never admin: `isPrepAdmin()` is `isAdmin()`, and `role` /
+`fullAccess` are blocked on the owner's create as well as update.
 
 **Coin economy is trust-boundary-sensitive.** Coins convert to real INR
 payouts (Wallet page). Any rule change touching `user_earnings`,
