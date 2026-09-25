@@ -127,7 +127,7 @@ const jsonLd = {
       "@type": "WebSite",
       "@id": "https://devert.in/#website",
       "name": "DeVert",
-      "alternateName": "DeVert - Builder's OS",
+      "alternateName": ["DeVert", "DeVert - Builder's OS", "devert.in"],
       "url": "https://devert.in",
       "description": "Introvert. Extrovert. DeVert. Developer + Verts - a new identity for builders who ship.",
       // No SearchAction/potentialAction on purpose. It previously pointed at
@@ -161,8 +161,15 @@ const jsonLd = {
       "alternateName": [
         "Devert",
         "DVert",
+        "DVRT",
+        "DeVrt",
+        "Devrt",
+        "Devret",
+        "De Vert",
         "Divert",
+        "devert.in",
         "DeVert Campus",
+        "DeVert100",
         "DeVert - Builder's OS",
       ],
       "url": "https://devert.in",
@@ -174,7 +181,24 @@ const jsonLd = {
       },
       "description": "Introvert. Extrovert. DeVert. Developer + Verts - a new identity for builders. Arena, Shipyard, Intel Feed, Missions, Daily Grind, Pulse, Hackathons and more.",
       "foundingDate": "2026",
-      "sameAs": [],
+      // THE FIELD THAT ACTUALLY MOVES THE NEEDLE, and it was empty.
+      //
+      // sameAs is how Google connects this domain to the brand as an ENTITY -
+      // it is the primary input to entity resolution and to a Knowledge Panel.
+      // An alias list says "we are also called X"; sameAs proves it, by
+      // pointing at profiles Google already has indexed and trusts. For brand
+      // recognition it is worth more than every spelling variant above put
+      // together.
+      //
+      // These three are the real, live profiles already linked in the footer.
+      // Only add a URL here that genuinely belongs to DeVert and genuinely
+      // exists - a dead or wrong sameAs weakens the entity instead of
+      // strengthening it.
+      "sameAs": [
+        "https://www.linkedin.com/company/111474265/",
+        "https://www.instagram.com/devert.in",
+        "https://youtube.com/@devert5",
+      ],
     },
   ],
 };
