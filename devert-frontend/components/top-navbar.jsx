@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useIntro } from "@/context/IntroContext";
 import { NotificationBell } from "@/components/notification-bell";
 import { NAV_ROUTES, DESKTOP_GROUPS } from "@/lib/navConfig";
+import { useFeatureFlags, isHrefDisabled } from "@/lib/featureFlags";
 import { useScrolled } from "@/lib/useScrolled";
 
 // This pill intentionally breaks from the site's neon-terminal design system
@@ -81,7 +82,7 @@ function NavGroup({ group, pathname }) {
   );
 }
 
-function ProfileMenu({ logout, isSuperAdmin }) {
+function ProfileMenu({ logout, isAdmin }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -112,13 +113,12 @@ function ProfileMenu({ logout, isSuperAdmin }) {
               className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-white/10" style={{ color: "#F2F6FA" }}>
               <Wallet size={13} style={{ color: "#00FF41" }} /> Wallet
             </Link>
-            {/* Global Super Admin only - the whole-ecosystem control center,
-                distinct from /admin (DeVert Core's own panel, unlinked from
-                any nav today, reached by URL only). */}
-            {isSuperAdmin && (
-              <Link href="/manage" onClick={() => setOpen(false)}
+            {/* Admins only - the one admin console. (The separate /manage
+                control center was folded into it and now redirects there.) */}
+            {isAdmin && (
+              <Link href="/admin" onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs transition-colors hover:bg-white/10" style={{ color: "#F2F6FA" }}>
-                <Globe size={13} style={{ color: "#00FF41" }} /> Manage
+                <Globe size={13} style={{ color: "#00FF41" }} /> Admin
               </Link>
             )}
             <div className="h-px my-1 mx-1" style={{ background: "rgba(255,255,255,0.12)" }} />
@@ -136,7 +136,12 @@ function ProfileMenu({ logout, isSuperAdmin }) {
 export function TopNavbar() {
   const pathname = usePathname();
   const { hasShownIntro } = useIntro();
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
+  // Admin feature switches: a switched-off feature drops out of the menus.
+  const flags = useFeatureFlags();
+  const groups = GROUPS
+    .map(g => ({ ...g, items: g.items.filter(it => !isHrefDisabled(flags, it.href)) }))
+    .filter(g => g.items.length > 0);
 
   // Same gating as the bottom dock: no chrome over the pre-auth intro splash,
   // never on /admin or /u/*.
@@ -170,16 +175,16 @@ export function TopNavbar() {
         {/* A standalone link, not a dropdown group - Pulse is one destination,
             not a set of them, and asked to sit at the same level as
             Explore/Build/Connect/More rather than buried inside Connect. */}
-        <Link href={PULSE_ITEM.href}
+        {!isHrefDisabled(flags, PULSE_ITEM.href) && <Link href={PULSE_ITEM.href}
           className="flex items-center gap-1 text-sm font-medium px-4 py-2.5 rounded-full transition-colors"
           style={{
             color: pathname === PULSE_ITEM.href || pathname.startsWith(PULSE_ITEM.href + "/") ? "#F2F6FA" : "rgba(255,255,255,0.58)",
             background: pathname === PULSE_ITEM.href || pathname.startsWith(PULSE_ITEM.href + "/") ? "rgba(255,255,255,0.10)" : "transparent",
           }}>
           {PULSE_ITEM.label}
-        </Link>
+        </Link>}
 
-        {GROUPS.map(group => <NavGroup key={group.key} group={group} pathname={pathname} />)}
+        {groups.map(group => <NavGroup key={group.key} group={group} pathname={pathname} />)}
 
         <div className="flex items-center gap-1 ml-auto flex-shrink-0">
           <button onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
@@ -189,7 +194,7 @@ export function TopNavbar() {
           {user ? (
             <>
               <NotificationBell anchor="down" />
-              <ProfileMenu logout={logout} isSuperAdmin={isSuperAdmin} />
+              <ProfileMenu logout={logout} isAdmin={isAdmin} />
             </>
           ) : (
             <Link href="/login"

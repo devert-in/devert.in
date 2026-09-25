@@ -4,9 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-// Shared low-level form/panel primitives, used by both app/admin/page.jsx and
-// /manage/page.jsx (the Global Super Admin control center) - kept here so the
-// two surfaces share one visual language instead of drifting apart.
+// Shared low-level form/panel primitives for app/admin/page.jsx and the
+// components/admin/* panels it renders.
 
 export function Input({ label, value, onChange, placeholder, maxLength, hint, type = "text" }) {
   return (

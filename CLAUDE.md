@@ -39,7 +39,10 @@ no application server in the request path.
   `devert-careers/jsconfig.json`'s `@/*` fallback - `lib/careers.js` (the
   shared data layer, which devert-frontend's admin panels also use) and
   `lib/firebase.js`. Everything else, including every component, is native
-  here. Two consequences worth knowing:
+  here - except `components/feature-gate.jsx` + `lib/featureFlags.js` (the
+  admin's global feature switches, mounted in all three apps' root layouts),
+  which is inline-styled precisely so it needs no `@source` here. Two
+  consequences worth knowing:
   - It mounts **no `AuthProvider`** and calls no backend, so unlike
     devert-campus its CI build needs no `NEXT_PUBLIC_*` vars. Firebase Auth
     does not span subdomains on its own (that is what

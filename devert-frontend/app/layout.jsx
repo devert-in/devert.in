@@ -7,6 +7,7 @@ import { TopNavbar } from "@/components/top-navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
 import { ReferralCapture } from "@/components/referral-capture";
+import { FeatureGate } from "@/components/feature-gate";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -225,7 +226,9 @@ export default function RootLayout({ children }) {
             <CommandPalette />
             <TopNavbar />
             <Navbar />
-            {children}
+            {/* Admin on/off switches (lib/featureFlags.js) - a switched-off
+                feature's pages show a "turned off" screen for everyone. */}
+            <FeatureGate>{children}</FeatureGate>
             <Footer />
           </IntroProvider>
         </AuthProvider>

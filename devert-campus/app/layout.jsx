@@ -1,5 +1,6 @@
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { FeatureGate } from "@/components/feature-gate";
 
 // Generic fallback - real per-institution title/description come from
 // CampusPreviewService via a preview router (see functions/index.js /
@@ -47,7 +48,9 @@ export default function RootLayout({ children }) {
               .proctor-active on <html> itself; globals.css keeps the
               html.proctor-active rules. An invigilated attempt is still
               locked down - only ordinary browsing is not. */}
-          {children}
+          {/* The whole site is one switch in devert.in's admin console
+              (lib/featureFlags.js, key "campus"). */}
+          <FeatureGate feature="campus">{children}</FeatureGate>
         </AuthProvider>
         {/* Prevents a flash-of-light-theme AND a React hydration mismatch on a
             hard load of any page here. output:'export' bakes each page's HTML

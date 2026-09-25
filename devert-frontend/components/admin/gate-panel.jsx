@@ -4,12 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, Check, Copy, Download, Layers, Pencil,
   Plus, Sigma, Trash2, Upload, Library, Megaphone, ClipboardList, Sparkles,
-  ShieldCheck, Undo2,
+  ShieldCheck, Undo2, GraduationCap, CalendarDays, TrendingUp, BookOpen,
+  Clock, ListChecks, Flag, CircleCheck, Eye, KeyRound, FileText, Pin, Link2,
+  Hash, FileJson,
 } from "lucide-react";
 import Dropdown from "@/components/dropdown";
 import { useAuth } from "@/context/AuthContext";
 import { LessonConceptField } from "@/components/admin/lesson-concept-field";
 import { StringListField, McqListField } from "@/components/campus/campus-daily-learning-editor";
+import { Input as UiInput, Textarea as UiTextarea } from "@/components/admin/admin-ui";
+import {
+  KIT, fmt, StatGrid, Pill, PrimaryButton, SecondaryButton,
+  DataTable, Drawer, DrawerSection,
+} from "@/components/admin/admin-kit";
 import { CODELAB_LANGUAGES } from "@/lib/codelab";
 import { parseCSV } from "@/lib/contests";
 import { useKeyedFetch } from "@/lib/useKeyedFetch";
@@ -40,92 +47,107 @@ import {
   fetchAnnouncements, saveAnnouncement, deleteAnnouncement,
 } from "@/lib/gateLibrary";
 
-// The GATE authoring surface. Mounted as sections inside /admin's existing CONTENT
-// tab (see app/admin/page.jsx) rather than as a new top-level admin tab, per
-// CLAUDE.md - a new admin capability belongs inside an existing tab family.
+// The GATE authoring surface. Mounted as sections inside /admin's GATE group
+// (see app/admin/page.jsx's ADMIN_NAV) rather than as a new top-level admin
+// surface, per CLAUDE.md - a new admin capability belongs inside an existing
+// tab family.
 //
-// Everything here is styled to match the surrounding admin panel exactly (dark
-// chrome, mono labels, the same Input/Textarea/Dropdown vocabulary), because it
-// lives inside those panels' own <Section> wrappers. Those primitives are
-// re-declared locally rather than exported from app/admin/page.jsx: that file is
-// a 6000-line page component, and importing from it would make this module depend
-// on the page rather than the other way round.
+// Built from the shared enterprise kit (components/admin/admin-kit.jsx) like
+// every other admin section: a StatGrid of REAL counts on top, a DataTable for
+// any list of records, and create/edit forms in a right-hand Drawer. The deep
+// hierarchical editors (a topic's seven-part lesson, the bulk lesson import's
+// validate-then-commit flow) keep their own inner editing UI - flattening a
+// lesson into table cells would lose the reading-order structure an author
+// writes it in - but they sit inside the same chrome.
+//
+// Every stat below is counted from documents this panel has already loaded. No
+// trends, no estimates: nothing here stores history to derive one from.
 
-// ---------------- local admin primitives (match app/admin/page.jsx) ----------------
+// ---------------- local primitives ----------------
 
-function Input({ label, value, onChange, placeholder, type = "text", hint }) {
+// The shared admin-ui inputs, coerced so a Firestore `null` (year: null,
+// natMin: null...) never reaches a controlled <input> as a null value.
+function Input(props) {
+  return <UiInput {...props} value={props.value ?? ""} />;
+}
+
+function Textarea(props) {
+  return <UiTextarea {...props} value={props.value ?? ""} />;
+}
+
+function SelectField({ label, value, onChange, options, className = "w-full" }) {
   return (
     <div>
       <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">{label}</p>
-      <input type={type} value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none transition-colors"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-        onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
-        onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")} />
-      {hint && <p className="font-mono text-[10px] text-white/20 mt-1">{hint}</p>}
-    </div>
-  );
-}
-
-function Textarea({ label, value, onChange, placeholder, rows = 3 }) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">{label}</p>
-      <textarea value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={rows}
-        className="w-full font-mono text-xs text-white/80 px-3 py-2 rounded outline-none resize-y transition-colors"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-        onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
-        onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")} />
-    </div>
-  );
-}
-
-function Btn({ children, onClick, disabled, color = "#00FFFF", solid = false, icon: Icon }) {
-  return (
-    <button onClick={onClick} disabled={disabled}
-      className="inline-flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
-      style={solid
-        ? { background: color, color: "#000" }
-        : { background: `${color}14`, color, border: `1px solid ${color}40` }}>
-      {Icon && <Icon size={12} />}{children}
-    </button>
-  );
-}
-
-function StatusPill({ status }) {
-  const published = status === "published";
-  return (
-    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
-      style={{
-        background: published ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)",
-        color: published ? "#00FF41" : "rgba(255,255,255,0.4)",
-      }}>
-      {(status || "draft").toUpperCase()}
-    </span>
-  );
-}
-
-function Row({ children, onClick }) {
-  return (
-    <div onClick={onClick}
-      className={`flex items-center gap-3 p-2.5 rounded flex-wrap ${onClick ? "cursor-pointer" : ""}`}
-      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-      {children}
-    </div>
-  );
-}
-
-function FormBox({ children }) {
-  return (
-    <div className="p-3 rounded space-y-2.5"
-      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-      {children}
+      <Dropdown value={value} onChange={onChange} options={options} className={className} />
     </div>
   );
 }
 
 const STATUSES = ["draft", "published", "archived"];
-const ACCENT = "#00E5A0";
+const STATUS_COLOR = { published: KIT.green, draft: KIT.muted, archived: KIT.orange };
+const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : "");
+
+function StatusPill({ status }) {
+  const s = status || "draft";
+  return <Pill color={STATUS_COLOR[s] || KIT.muted}>{cap(s)}</Pill>;
+}
+
+// Every table here filters by status the same way; missing status reads as
+// draft, matching what StatusPill shows.
+const STATUS_FILTER = {
+  key: "status", label: "All statuses", get: (r) => r.status || "draft",
+  options: STATUSES.map(s => ({ value: s, label: cap(s) })),
+};
+
+const DIFFICULTY_TONE = { Easy: KIT.green, Moderate: KIT.orange, Hard: KIT.red };
+
+function TitleCell({ title, sub }) {
+  return (
+    <div className="min-w-0 w-[260px] xl:w-[320px]">
+      <p className="font-sans text-sm font-medium text-white truncate">{title || "-"}</p>
+      {sub && <p className="font-sans text-xs text-white/40 truncate">{sub}</p>}
+    </div>
+  );
+}
+
+function Num({ value, muted }) {
+  return <span className={`font-sans text-sm tabular-nums ${muted ? "text-white/50" : "text-white/80"}`}>{fmt(value)}</span>;
+}
+
+function Muted({ children }) {
+  return <span className="font-sans text-sm text-white/60">{children || "-"}</span>;
+}
+
+// A plain kit-styled card for the parts of a panel that are not a table
+// (seeding, import steps, validation results).
+function KitCard({ title, hint, icon: Icon, color = KIT.cyan, action, children }) {
+  return (
+    <section className="rounded-xl border p-4 sm:p-5 space-y-3" style={{ background: KIT.surface, borderColor: KIT.line }}>
+      {(title || hint) && (
+        <div className="flex items-start gap-3 flex-wrap">
+          {Icon && <Icon size={18} className="flex-shrink-0 mt-0.5" style={{ color }} />}
+          <div className="min-w-0 flex-1">
+            {title && <h3 className="font-sans text-sm font-semibold text-white">{title}</h3>}
+            {hint && <p className="font-sans text-xs text-white/45 mt-0.5 leading-relaxed max-w-3xl">{hint}</p>}
+          </div>
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+function Notice({ color = KIT.orange, icon: Icon = AlertTriangle, children }) {
+  return (
+    <div className="rounded-lg px-3.5 py-2.5 flex items-start gap-2.5 font-sans text-xs leading-relaxed"
+      style={{ background: `${color}10`, border: `1px solid ${color}30`, color }}>
+      <Icon size={14} className="flex-shrink-0 mt-0.5" />
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
 
 function slug(text) {
   return (text || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -165,20 +187,21 @@ function usePapers() {
   };
 }
 
-function PaperSelect({ papers, paperId, setPaperId }) {
+function PaperSelect({ papers, paperId, setPaperId, loading }) {
+  if (loading) return <p className="font-sans text-xs text-white/40">Loading papers...</p>;
   if (papers.length === 0) {
     return (
-      <p className="font-mono text-xs" style={{ color: "#FF9500" }}>
-        No GATE paper exists yet - create or seed one in GATE PAPERS first.
-      </p>
+      <Notice>No GATE paper exists yet - create or seed one in Papers &amp; syllabus first.</Notice>
     );
   }
   return (
-    <div className="flex items-center gap-2.5 flex-wrap">
-      <p className="font-mono text-[10px] text-white/30 tracking-wider">PAPER</p>
+    <div className="flex items-center gap-3 flex-wrap rounded-xl border px-4 py-3"
+      style={{ background: KIT.surface, borderColor: KIT.line }}>
+      <GraduationCap size={16} style={{ color: KIT.green }} />
+      <p className="font-sans text-sm font-medium text-white/80">Paper</p>
       <Dropdown value={paperId} onChange={setPaperId} className="w-56"
         options={papers.map(p => p.id)} />
-      <span className="font-mono text-[10px] text-white/25">
+      <span className="font-sans text-xs text-white/40">
         {papers.find(p => p.id === paperId)?.name}
       </span>
     </div>
@@ -197,6 +220,12 @@ function blankPaperForm() {
   };
 }
 
+function paperExamDate(p) {
+  return p.examDate?.toDate
+    ? p.examDate.toDate().toISOString().slice(0, 10)
+    : (typeof p.examDate === "string" ? p.examDate.slice(0, 10) : "");
+}
+
 export function GatePapersPanel() {
   const { papers, loading, reload } = usePapers();
   const [editingId, setEditingId] = useState(null);
@@ -211,13 +240,12 @@ export function GatePapersPanel() {
     setAdding(false);
     setForm({
       ...blankPaperForm(), ...p,
-      examDate: p.examDate?.toDate
-        ? p.examDate.toDate().toISOString().slice(0, 10)
-        : (typeof p.examDate === "string" ? p.examDate.slice(0, 10) : ""),
+      examDate: paperExamDate(p),
       candidateCount: p.candidateCount ?? "",
       rankAnchorsText: (p.rankAnchors || []).map(a => `${a.marks},${a.air}`).join("\n"),
     });
   };
+  const closeForm = () => { setEditingId(null); setAdding(false); };
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
@@ -294,51 +322,92 @@ export function GatePapersPanel() {
     setFeedback({ ok: true, msg: `Cleared all content banks for ${id}.` });
   };
 
-  const unseeded = Object.keys(GATE_SYLLABI).filter(id => !papers.some(p => p.id === id));
+  const syllabusIds = Object.keys(GATE_SYLLABI);
+  const unseeded = syllabusIds.filter(id => !papers.some(p => p.id === id));
+  const published = papers.filter(p => p.status === "published").length;
+  const customCurve = papers.filter(p => p.rankAnchors?.length).length;
+  const withDate = papers.filter(p => p.examDate).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Papers", value: papers.length, sub: `${published} published`, icon: GraduationCap, color: KIT.green, loading },
+        { label: "Official syllabi seeded", value: `${syllabusIds.length - unseeded.length} / ${syllabusIds.length}`,
+          sub: unseeded.length ? `Not yet: ${unseeded.join(", ")}` : "Every transcribed syllabus exists", icon: Sparkles, color: KIT.cyan, loading },
+        { label: "Custom rank curve", value: customCurve, sub: `${papers.length - customCurve} on the default CS curve`, icon: TrendingUp, color: KIT.orange, loading },
+        { label: "Exam date set", value: withDate, sub: "Drives the student countdown", icon: CalendarDays, color: KIT.purple, loading },
+      ]} />
+
       {/* one-click official syllabus seeding */}
-      <div className="p-3 rounded space-y-2.5"
-        style={{ background: `${ACCENT}0D`, border: `1px solid ${ACCENT}30` }}>
-        <div className="flex items-center gap-2">
-          <Sparkles size={12} style={{ color: ACCENT }} />
-          <p className="font-mono text-[11px]" style={{ color: ACCENT }}>SEED AN OFFICIAL SYLLABUS</p>
-        </div>
-        <p className="font-mono text-[10px] text-white/40 leading-relaxed">
-          The GATE syllabus is transcribed in lib/gateSyllabus.js from the official paper documents. Seeding creates the
-          paper plus its complete subject and topic tree, published and ready for lesson authoring. Re-seeding is safe and
-          additive - it never overwrites content you have written.
-        </p>
+      <KitCard icon={Sparkles} color={KIT.green} title="Seed an official syllabus"
+        hint="The GATE syllabus is transcribed in lib/gateSyllabus.js from the official paper documents. Seeding creates the paper plus its complete subject and topic tree, published and ready for lesson authoring. Re-seeding is safe and additive - it never overwrites content you have written.">
         <div className="flex gap-2 flex-wrap">
           {Object.entries(GATE_SYLLABI).map(([id, s]) => {
             const exists = papers.some(p => p.id === id);
             const counts = countSyllabusDocs(s);
-            return (
-              <Btn key={id} onClick={() => handleSeed(id)} disabled={seeding === id}
-                color={exists ? "#FFD700" : ACCENT} icon={exists ? Copy : Plus}>
-                {seeding === id ? "Seeding..." : `${exists ? "Re-seed" : "Seed"} ${s.name} (${counts.topics} topics)`}
-              </Btn>
+            return exists ? (
+              <SecondaryButton key={id} icon={Copy} onClick={() => handleSeed(id)} disabled={seeding === id}>
+                {seeding === id ? "Seeding..." : `Re-seed ${s.name} (${counts.topics} topics)`}
+              </SecondaryButton>
+            ) : (
+              <PrimaryButton key={id} icon={Plus} busy={seeding === id} onClick={() => handleSeed(id)}>
+                {seeding === id ? "Seeding..." : `Seed ${s.name} (${counts.topics} topics)`}
+              </PrimaryButton>
             );
           })}
         </div>
-        {unseeded.length > 0 && (
-          <p className="font-mono text-[10px] text-white/25">
-            Not yet created: {unseeded.join(", ")}
-          </p>
-        )}
-      </div>
+      </KitCard>
 
       {feedback && (
-        <p className="font-mono text-[11px]" style={{ color: feedback.ok ? "#00FF41" : "#FF5050" }}>{feedback.msg}</p>
+        <Notice color={feedback.ok ? KIT.green : KIT.red} icon={feedback.ok ? Check : AlertTriangle}>{feedback.msg}</Notice>
       )}
 
-      <Btn onClick={() => { setAdding(true); setEditingId(null); setForm(blankPaperForm()); }} icon={Plus} color={ACCENT}>
-        Add a paper manually
-      </Btn>
+      <DataTable
+        title="All papers" icon={GraduationCap}
+        subtitle="Every GATE paper, published or not. Content banks (PYQs, tests, formulas, resources) are scoped to a paper."
+        rows={papers} loading={loading}
+        searchKeys={["id", "name", "fullName", "code"]} searchPlaceholder="Search papers..."
+        filters={[
+          STATUS_FILTER,
+          { key: "curve", label: "Any rank curve", get: p => (p.rankAnchors?.length ? "custom" : "default"),
+            options: [{ value: "custom", label: "Custom curve" }, { value: "default", label: "Default curve" }] },
+        ]}
+        primaryAction={{ label: "Add paper", icon: Plus, onClick: () => { setAdding(true); setEditingId(null); setForm(blankPaperForm()); } }}
+        onRowClick={startEdit}
+        emptyText="No papers yet - seed one above."
+        columns={[
+          { key: "name", label: "Paper", render: p => <TitleCell title={p.name} sub={p.fullName} /> },
+          { key: "id", label: "Id", render: p => <Pill color={KIT.cyan}>{p.id}</Pill> },
+          { key: "totalMarks", label: "Format", sort: p => p.totalMarks || 100, render: p => (
+            <span className="font-sans text-sm text-white/70 whitespace-nowrap">
+              {p.totalMarks || 100} marks · {p.durationMinutes || 180} min
+            </span>
+          ) },
+          { key: "examDate", label: "Exam date", sort: paperExamDate, render: p => <Muted>{paperExamDate(p) || "Not set"}</Muted> },
+          { key: "curve", label: "Rank curve", sort: p => (p.rankAnchors?.length || 0), render: p => (
+            p.rankAnchors?.length
+              ? <Pill color={KIT.green}>Custom ({p.rankAnchors.length})</Pill>
+              : <Pill color={KIT.orange}>Default</Pill>
+          ) },
+          { key: "order", label: "Order", sort: p => Number(p.order) || 0, render: p => <Num value={p.order} muted /> },
+          { key: "status", label: "Status", render: p => <StatusPill status={p.status} /> },
+        ]}
+        rowActions={p => [
+          GATE_SYLLABI[p.id] && { icon: Copy, label: "Re-seed syllabus", onClick: () => handleSeed(p.id), disabled: seeding === p.id },
+          { icon: Pencil, label: "Edit", onClick: () => startEdit(p) },
+          { icon: AlertTriangle, label: "Clear content banks", danger: true, onClick: () => handleDeleteContent(p.id) },
+          { icon: Trash2, label: "Delete paper", danger: true, onClick: () => handleDelete(p.id) },
+        ]}
+      />
 
-      {(adding || editingId) && (
-        <FormBox>
+      <Drawer open={adding || !!editingId} onClose={closeForm}
+        title={adding ? "Add a paper" : form.name || "Edit paper"}
+        subtitle={adding ? "Most papers should be seeded from the official syllabus instead." : `${editingId} · ${form.fullName || ""}`}
+        footer={<>
+          <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} disabled={!form.name.trim()} onClick={handleSave}>Save paper</PrimaryButton>
+        </>}>
+        <DrawerSection title="Identity">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Input label="CODE (e.g. CS, DA, EC)" value={form.code} onChange={v => setForm(p => ({ ...p, code: v }))} />
             <Input label="SHORT NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="GATE CS" />
@@ -348,6 +417,8 @@ export function GatePapersPanel() {
             placeholder="Computer Science and Information Technology"
             hint={`Known GATE codes: ${GATE_PAPER_CATALOG.map(p => p.code).join(", ")}`} />
           <Textarea label="DESCRIPTION" rows={2} value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
+        </DrawerSection>
+        <DrawerSection title="Exam format">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <Input label="EXAM DATE" type="date" value={form.examDate} onChange={v => setForm(p => ({ ...p, examDate: v }))}
               hint="Blank = no countdown shown" />
@@ -360,64 +431,17 @@ export function GatePapersPanel() {
             <Input label="CANDIDATE COUNT (for percentile)" type="number" value={form.candidateCount}
               onChange={v => setForm(p => ({ ...p, candidateCount: v }))} hint="Blank = 130,000 default" />
           </div>
+        </DrawerSection>
+        <DrawerSection title="Rank curve"
+          hint="Leave blank to use the built-in generic curve (shaped like published GATE CS data). SET THIS for any paper other than CS - DA's candidate pool is an order of magnitude smaller, so the CS curve produces nonsense ranks for it. Students always see this figure labelled as an estimate, and the UI additionally flags when a paper is still on the default curve.">
           <Textarea label="RANK CURVE - one 'marks,AIR' pair per line" rows={5}
             value={form.rankAnchorsText} onChange={v => setForm(p => ({ ...p, rankAnchorsText: v }))}
             placeholder={DEFAULT_RANK_ANCHORS.slice(0, 4).map(a => `${a.marks},${a.air}`).join("\n")} />
-          <p className="font-mono text-[10px] text-white/25 -mt-1.5 leading-relaxed">
-            Leave blank to use the built-in generic curve (shaped like published GATE CS data). SET THIS for any paper other
-            than CS - DA&apos;s candidate pool is an order of magnitude smaller, so the CS curve produces nonsense ranks for
-            it. Students always see this figure labelled as an estimate, and the UI additionally flags when a paper is still
-            on the default curve.
-          </p>
-          <div className="flex items-center gap-3">
-            <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
-            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
-          </div>
-          <div className="flex gap-2">
-            <Btn onClick={handleSave} disabled={saving || !form.name.trim()} solid color="#00FF41">
-              {saving ? "Saving..." : "Save"}
-            </Btn>
-            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
-        </FormBox>
-      )}
-
-      {loading ? (
-        <p className="font-mono text-xs text-white/30">Loading...</p>
-      ) : papers.length === 0 ? (
-        <p className="font-mono text-xs text-white/30">No papers yet - seed one above.</p>
-      ) : (
-        <div className="space-y-2">
-          {papers.map(p => (
-            <Row key={p.id}>
-              <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">#{p.order}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <b className="font-mono text-xs text-white/80">{p.name}</b>
-                  <StatusPill status={p.status} />
-                  {!p.rankAnchors?.length && (
-                    <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>DEFAULT RANK CURVE</span>
-                  )}
-                  {!p.examDate && (
-                    <span className="font-mono text-[10px] text-white/25">NO EXAM DATE</span>
-                  )}
-                </div>
-                <span className="font-mono text-[10px] text-white/30">
-                  {p.id} · {p.fullName} · {p.totalMarks || 100} marks / {p.durationMinutes || 180} min
-                </span>
-              </div>
-              {GATE_SYLLABI[p.id] && (
-                <Btn onClick={() => handleSeed(p.id)} disabled={seeding === p.id} color="#FFD700" icon={Copy}>
-                  {seeding === p.id ? "..." : "Re-seed"}
-                </Btn>
-              )}
-              <Btn onClick={() => startEdit(p)} color="#FFD700" icon={Pencil}>Edit</Btn>
-              <Btn onClick={() => handleDeleteContent(p.id)} color="#FF9500" icon={AlertTriangle}>Clear banks</Btn>
-              <Btn onClick={() => handleDelete(p.id)} color="#FF5050" icon={Trash2}>Delete</Btn>
-            </Row>
-          ))}
-        </div>
-      )}
+        </DrawerSection>
+        <DrawerSection title="Publishing">
+          <SelectField label="STATUS" value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
+        </DrawerSection>
+      </Drawer>
     </div>
   );
 }
@@ -431,7 +455,7 @@ function blankSubjectForm() {
 }
 
 export function GateSubjectsPanel() {
-  const { papers, paperId, setPaperId } = usePapers();
+  const { papers, paperId, setPaperId, loading: papersLoading } = usePapers();
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -446,6 +470,8 @@ export function GateSubjectsPanel() {
     fetchSubjects(paperId, { includeUnpublished: true }).then(setSubjects).catch(console.error).finally(() => setLoading(false));
   };
   useEffect(() => { load();   }, [paperId]);
+
+  const closeForm = () => { setEditingId(null); setAdding(false); };
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
@@ -469,22 +495,66 @@ export function GateSubjectsPanel() {
     load();
   };
 
+  const startEdit = (s) => { setEditingId(s.id); setAdding(false); setForm({ ...blankSubjectForm(), ...s }); };
+
   if (managing) {
     return <GateTopicsPanel paperId={paperId} subjectId={managing.id} subjectName={managing.name}
       onBack={() => { setManaging(null); load(); }} />;
   }
 
+  const published = subjects.filter(s => s.status === "published").length;
+  const topicTotal = subjects.reduce((n, s) => n + (s.topicCount || 0), 0);
+  const weightage = subjects.reduce((n, s) => n + (Number(s.weightageMarks) || 0), 0);
+  const hours = subjects.reduce((n, s) => n + (Number(s.estimatedHours) || 0), 0);
+  const statsLoading = loading || papersLoading;
+
   return (
-    <div className="space-y-4">
-      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} />
+    <div className="space-y-5">
+      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} loading={papersLoading} />
       {!paperId ? null : (
         <>
-          <Btn onClick={() => { setAdding(true); setEditingId(null); setForm(blankSubjectForm()); }} icon={Plus} color={ACCENT}>
-            Add Subject
-          </Btn>
+          <StatGrid stats={[
+            { label: "Subjects", value: subjects.length, sub: `${published} published`, icon: Layers, color: KIT.green, loading: statsLoading },
+            { label: "Topics", value: topicTotal, sub: "Counted from each subject's topic list", icon: ListChecks, color: KIT.cyan, loading: statsLoading },
+            { label: "Weightage", value: weightage, sub: "Marks, historical average - approximate", icon: TrendingUp, color: KIT.orange, loading: statsLoading },
+            { label: "Estimated hours", value: hours, sub: "Sum of per-subject estimates", icon: Clock, color: KIT.purple, loading: statsLoading },
+          ]} />
 
-          {(adding || editingId) && (
-            <FormBox>
+          <DataTable
+            title="Subjects" icon={Layers}
+            subtitle="Open a subject to author its topics and lessons."
+            rows={subjects} loading={loading}
+            searchKeys={["name", "id", "description"]} searchPlaceholder="Search subjects..."
+            filters={[STATUS_FILTER]}
+            primaryAction={{ label: "Add subject", icon: Plus, onClick: () => { setAdding(true); setEditingId(null); setForm(blankSubjectForm()); } }}
+            onRowClick={s => setManaging(s)}
+            emptyText="No subjects - seed the official syllabus from Papers & syllabus, or add one manually."
+            columns={[
+              { key: "name", label: "Subject", render: s => <TitleCell title={s.name} sub={s.description || s.id} /> },
+              { key: "topicCount", label: "Topics", sort: s => s.topicCount || 0, render: s => <Num value={s.topicCount || 0} /> },
+              { key: "weightageMarks", label: "Weightage", sort: s => Number(s.weightageMarks) || 0,
+                render: s => <Muted>{s.weightageMarks ? `~${s.weightageMarks} marks` : "-"}</Muted> },
+              { key: "estimatedHours", label: "Hours", sort: s => Number(s.estimatedHours) || 0,
+                render: s => <Muted>{s.estimatedHours ? `~${s.estimatedHours}h` : "-"}</Muted> },
+              { key: "order", label: "Order", sort: s => Number(s.order) || 0, render: s => <Num value={s.order} muted /> },
+              { key: "status", label: "Status", render: s => <StatusPill status={s.status} /> },
+            ]}
+            rowActions={s => [
+              { icon: Layers, label: "Topics & lessons", onClick: () => setManaging(s) },
+              { icon: Pencil, label: "Edit", onClick: () => startEdit(s) },
+              { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(s.id) },
+            ]}
+          />
+
+          <Drawer open={adding || !!editingId} onClose={closeForm}
+            title={adding ? "Add subject" : form.name || "Edit subject"}
+            subtitle={adding ? `A new subject under ${paperId}.` : `${paperId} / ${editingId}`}
+            width={620}
+            footer={<>
+              <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+              <PrimaryButton icon={Check} busy={saving} disabled={!form.name.trim()} onClick={handleSave}>Save subject</PrimaryButton>
+            </>}>
+            <DrawerSection title="Subject">
               <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Operating System" />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
@@ -493,40 +563,9 @@ export function GateSubjectsPanel() {
                 <Input label="ESTIMATED HOURS" type="number" value={form.estimatedHours} onChange={v => setForm(p => ({ ...p, estimatedHours: v }))} />
               </div>
               <Textarea label="DESCRIPTION" rows={2} value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
-              <div className="flex items-center gap-3">
-                <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
-                <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
-              </div>
-              <div className="flex gap-2">
-                <Btn onClick={handleSave} disabled={saving || !form.name.trim()} solid color="#00FF41">{saving ? "Saving..." : "Save"}</Btn>
-                <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-              </div>
-            </FormBox>
-          )}
-
-          {loading ? <p className="font-mono text-xs text-white/30">Loading...</p>
-            : subjects.length === 0 ? <p className="font-mono text-xs text-white/30">No subjects - seed the official syllabus from GATE PAPERS, or add one manually.</p>
-              : (
-                <div className="space-y-2">
-                  {subjects.map(s => (
-                    <Row key={s.id}>
-                      <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">#{s.order}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <b className="font-mono text-xs text-white/80">{s.name}</b>
-                          <StatusPill status={s.status} />
-                        </div>
-                        <span className="font-mono text-[10px] text-white/30">
-                          {s.topicCount || 0} topics{s.weightageMarks ? ` · ~${s.weightageMarks} marks` : ""}{s.estimatedHours ? ` · ~${s.estimatedHours}h` : ""}
-                        </span>
-                      </div>
-                      <Btn onClick={() => setManaging(s)} color={ACCENT} icon={Layers}>Topics</Btn>
-                      <Btn onClick={() => { setEditingId(s.id); setAdding(false); setForm({ ...blankSubjectForm(), ...s }); }} color="#FFD700" icon={Pencil}>Edit</Btn>
-                      <Btn onClick={() => handleDelete(s.id)} color="#FF5050" icon={Trash2}>Delete</Btn>
-                    </Row>
-                  ))}
-                </div>
-              )}
+              <SelectField label="STATUS" value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
+            </DrawerSection>
+          </Drawer>
         </>
       )}
     </div>
@@ -604,6 +643,14 @@ function serializeNumericals(items) {
   ).join("\n");
 }
 
+const topicHasLesson = (t) => !!(t.concept?.trim() || t.keyPoints?.length || t.formulas?.length);
+
+function ParseNote({ count, children }) {
+  return (
+    <p className="font-sans text-xs -mt-1" style={{ color: count ? KIT.green : "rgba(255,255,255,0.3)" }}>{children}</p>
+  );
+}
+
 function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -611,7 +658,6 @@ function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(blankTopicForm());
   const [saving, setSaving] = useState(false);
-  const [moduleFilter, setModuleFilter] = useState("");
 
   const load = () => {
     setLoading(true);
@@ -620,7 +666,6 @@ function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
   useEffect(() => { load();   }, [paperId, subjectId]);
 
   const modules = useMemo(() => [...new Set(topics.map(t => t.module).filter(Boolean))], [topics]);
-  const shown = moduleFilter ? topics.filter(t => t.module === moduleFilter) : topics;
 
   const startEdit = (t) => {
     setEditingId(t.id);
@@ -633,6 +678,7 @@ function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
       numericalsText: serializeNumericals(t.numericals),
     });
   };
+  const closeForm = () => { setEditingId(null); setAdding(false); };
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
@@ -670,25 +716,72 @@ function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
   const parsedExamples = parseWorkedExamples(form.workedExamplesText);
   const parsedNumericals = parseNumericals(form.numericalsText);
 
-  return (
-    <div className="space-y-4">
-      <button onClick={onBack} className="inline-flex items-center gap-1.5 font-mono text-xs text-white/40">
-        <ArrowLeft size={11} /> Back to Subjects
-      </button>
-      <h4 className="font-mono text-sm" style={{ color: ACCENT }}>{subjectName} - Topics ({topics.length})</h4>
+  const published = topics.filter(t => t.status === "published").length;
+  const withLesson = topics.filter(topicHasLesson).length;
+  const withNotes = topics.filter(t => t.shortNotes?.oneMinute).length;
+  const mcqTotal = topics.reduce((n, t) => n + (t.mcqs?.length || 0), 0);
+  const mcqTopics = topics.filter(t => t.mcqs?.length).length;
 
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <Btn onClick={() => { setAdding(true); setEditingId(null); setForm(blankTopicForm()); }} icon={Plus} color={ACCENT}>
-          Add Topic
-        </Btn>
-        {modules.length > 0 && (
-          <Dropdown value={moduleFilter} onChange={setModuleFilter} className="w-56"
-            options={["", ...modules]} />
-        )}
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 flex-wrap">
+        <SecondaryButton icon={ArrowLeft} onClick={onBack}>Back to subjects</SecondaryButton>
+        <h3 className="font-sans text-base font-semibold text-white">{subjectName}</h3>
+        <span className="font-sans text-xs text-white/40">{paperId} / {subjectId}</span>
       </div>
 
-      {(adding || editingId) && (
-        <FormBox>
+      <StatGrid stats={[
+        { label: "Topics", value: topics.length, sub: `${published} published`, icon: ListChecks, color: KIT.green, loading },
+        { label: "Lessons written", value: withLesson, sub: `${topics.length - withLesson} not written yet`, icon: BookOpen, color: KIT.cyan, loading },
+        { label: "Short notes", value: withNotes, sub: "Topics with a 1-minute revision note", icon: FileText, color: KIT.orange, loading },
+        { label: "Practice MCQs", value: mcqTotal, sub: `Across ${mcqTopics} topic${mcqTopics === 1 ? "" : "s"}`, icon: CircleCheck, color: KIT.purple, loading },
+      ]} />
+
+      <DataTable
+        title="Topics" icon={ListChecks}
+        subtitle='Published + no content = listed in the syllabus, marked "not written yet" for students.'
+        rows={topics} loading={loading}
+        searchKeys={["title", "module", "id"]} searchPlaceholder="Search topics..."
+        filters={[
+          ...(modules.length ? [{ key: "module", label: "All modules", options: modules.map(m => ({ value: m, label: m })) }] : []),
+          STATUS_FILTER,
+          { key: "lesson", label: "Any lesson state", get: t => (topicHasLesson(t) ? "yes" : "no"),
+            options: [{ value: "yes", label: "Lesson written" }, { value: "no", label: "No lesson" }] },
+        ]}
+        primaryAction={{ label: "Add topic", icon: Plus, onClick: () => { setAdding(true); setEditingId(null); setForm(blankTopicForm()); } }}
+        onRowClick={startEdit}
+        emptyText="No topics."
+        columns={[
+          { key: "title", label: "Topic", render: t => <TitleCell title={t.title} sub={t.module} /> },
+          { key: "difficulty", label: "Difficulty", render: t => <Pill color={DIFFICULTY_TONE[t.difficulty] || KIT.muted}>{t.difficulty || "-"}</Pill> },
+          { key: "estimatedMinutes", label: "Minutes", sort: t => Number(t.estimatedMinutes) || 0, render: t => <Num value={t.estimatedMinutes || 0} muted /> },
+          { key: "lesson", label: "Lesson", sort: t => (topicHasLesson(t) ? 1 : 0), render: t => (
+            topicHasLesson(t) ? <Pill color={KIT.green}>Written</Pill> : <Pill color={KIT.orange}>No lesson</Pill>
+          ) },
+          { key: "notes", label: "Notes", sort: t => (t.shortNotes?.oneMinute ? 1 : 0), render: t => (
+            t.shortNotes?.oneMinute ? <Pill color={KIT.cyan}>Notes</Pill> : <Muted>-</Muted>
+          ) },
+          { key: "mcqs", label: "MCQs", sort: t => t.mcqs?.length || 0, render: t => <Num value={t.mcqs?.length || 0} muted /> },
+          { key: "order", label: "Order", sort: t => Number(t.order) || 0, render: t => <Num value={t.order} muted /> },
+          { key: "status", label: "Status", render: t => <StatusPill status={t.status} /> },
+        ]}
+        rowActions={t => [
+          { icon: Pencil, label: "Edit lesson", onClick: () => startEdit(t) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(t.id) },
+        ]}
+      />
+
+      {/* The lesson editor keeps its seven-part, top-to-bottom structure - it is
+          the lesson in reading order, not a flat record - just inside the
+          drawer instead of wedged above the list. */}
+      <Drawer open={adding || !!editingId} onClose={closeForm} width={880}
+        title={adding ? "Add topic" : form.title || "Edit topic"}
+        subtitle={`${subjectName}${form.module ? ` · ${form.module}` : ""}`}
+        footer={<>
+          <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} disabled={!form.title.trim()} onClick={handleSave}>Save topic</PrimaryButton>
+        </>}>
+        <DrawerSection title="Basics">
           <div className="grid grid-cols-2 gap-2.5">
             <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="CPU Scheduling" />
             <Input label="MODULE (the syllabus sub-heading this sits under)" value={form.module}
@@ -696,36 +789,29 @@ function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
-            <div>
-              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
-              <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={GATE_DIFFICULTIES} className="w-full" />
-            </div>
+            <SelectField label="DIFFICULTY" value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={GATE_DIFFICULTIES} />
             <Input label="EST. MINUTES" type="number" value={form.estimatedMinutes} onChange={v => setForm(p => ({ ...p, estimatedMinutes: v }))} />
           </div>
-          <div className="flex items-center gap-3">
-            <p className="font-mono text-[10px] text-white/30 tracking-wider">
-              STATUS (published + no content = listed in the syllabus, marked &quot;not written yet&quot;)
-            </p>
-            <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
-          </div>
+          <SelectField label='STATUS (published + no content = listed in the syllabus, marked "not written yet")'
+            value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
+        </DrawerSection>
 
-          <p className="font-mono text-[10px] tracking-widest pt-2" style={{ color: ACCENT }}>1 - INTRODUCTION</p>
+        <DrawerSection title="1 - Introduction">
           <StringListField label="LEARNING OBJECTIVES" items={form.whatYoullLearn} onChange={v => setForm(p => ({ ...p, whatYoullLearn: v }))} />
           <StringListField label="PREREQUISITES" items={form.prerequisites} onChange={v => setForm(p => ({ ...p, prerequisites: v }))} />
+        </DrawerSection>
 
-          <p className="font-mono text-[10px] tracking-widest pt-2" style={{ color: ACCENT }}>2 - THEORY</p>
+        <DrawerSection title="2 - Theory">
           <LessonConceptField value={form.concept} onChange={v => setForm(p => ({ ...p, concept: v }))} />
           <Textarea label="GO DEEPER (exam-depth explanation, shown collapsed under the plain one)" rows={6}
             value={form.deepDive} onChange={v => setForm(p => ({ ...p, deepDive: v }))} />
+        </DrawerSection>
 
-          <p className="font-mono text-[10px] tracking-widest pt-2" style={{ color: ACCENT }}>3 - EXAMPLES &amp; WALKTHROUGH</p>
+        <DrawerSection title="3 - Examples & walkthrough">
           <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">CODE EXAMPLE LANGUAGE</p>
-              <Dropdown value={form.codeExample?.language || "c"} className="w-full"
-                onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, language: v } }))}
-                options={CODELAB_LANGUAGES.map(l => l.id)} />
-            </div>
+            <SelectField label="CODE EXAMPLE LANGUAGE" value={form.codeExample?.language || "c"}
+              onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, language: v } }))}
+              options={CODELAB_LANGUAGES.map(l => l.id)} />
           </div>
           <Textarea label="CODE EXAMPLE (runnable in the lesson when execution is configured)" rows={5}
             value={form.codeExample?.code || ""} onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, code: v } }))} />
@@ -733,36 +819,40 @@ function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
             value={form.codeExample?.expectedOutput || ""} onChange={v => setForm(p => ({ ...p, codeExample: { ...p.codeExample, expectedOutput: v } }))} />
           <Textarea label={`WORKED EXAMPLES - ${WORKED_EXAMPLE_HELP}`} rows={8}
             value={form.workedExamplesText} onChange={v => setForm(p => ({ ...p, workedExamplesText: v }))} />
-          <p className="font-mono text-[10px] -mt-1.5" style={{ color: parsedExamples.length ? "#00FF41" : "rgba(255,255,255,0.25)" }}>
+          <ParseNote count={parsedExamples.length}>
             {parsedExamples.length} example{parsedExamples.length === 1 ? "" : "s"} parsed
             {parsedExamples.length ? `: ${parsedExamples.map(e => e.title).join(", ")}` : ""}
-          </p>
+          </ParseNote>
           <Textarea label="STEP-BY-STEP DRY RUN (supports the lesson block syntax - use a :::flow or :::timeline block for a trace)"
             rows={6} value={form.dryRun} onChange={v => setForm(p => ({ ...p, dryRun: v }))} />
+        </DrawerSection>
 
-          <p className="font-mono text-[10px] tracking-widest pt-2" style={{ color: ACCENT }}>4 - TEACHING AIDS</p>
+        <DrawerSection title="4 - Teaching aids">
           <StringListField label="REAL-WORLD ANALOGIES" items={form.analogies} onChange={v => setForm(p => ({ ...p, analogies: v }))} />
           <StringListField label="COMMON MISTAKES" items={form.commonMistakes} onChange={v => setForm(p => ({ ...p, commonMistakes: v }))} />
           <StringListField label="MEMORY TRICKS" items={form.memoryTricks} onChange={v => setForm(p => ({ ...p, memoryTricks: v }))} />
           <StringListField label="FORMULA BOX (these also appear in the Formula Book automatically)" items={form.formulas} onChange={v => setForm(p => ({ ...p, formulas: v }))} />
           <StringListField label="EXAM SHORTCUTS" items={form.shortcuts} onChange={v => setForm(p => ({ ...p, shortcuts: v }))} />
+        </DrawerSection>
 
-          <p className="font-mono text-[10px] tracking-widest pt-2" style={{ color: ACCENT }}>5 - EXAM &amp; CAREER CONTEXT</p>
+        <DrawerSection title="5 - Exam & career context">
           <Textarea label="HOW GATE ASKS THIS (previous year relevance)" rows={3}
             value={form.pyqRelevance} onChange={v => setForm(p => ({ ...p, pyqRelevance: v }))} />
           <Textarea label="INTERVIEW CONNECTION" rows={2}
             value={form.interviewConnection} onChange={v => setForm(p => ({ ...p, interviewConnection: v }))} />
+        </DrawerSection>
 
-          <p className="font-mono text-[10px] tracking-widest pt-2" style={{ color: ACCENT }}>6 - PRACTICE</p>
+        <DrawerSection title="6 - Practice" hint="A student must submit the practice MCQs to finish the topic.">
           <McqListField label="PRACTICE MCQS (gate topic completion - a student must submit these to finish the topic)"
             items={form.mcqs} onChange={v => setForm(p => ({ ...p, mcqs: v }))} />
           <Textarea label={`NUMERICAL PROBLEMS - ${NUMERICALS_HELP}`} rows={5}
             value={form.numericalsText} onChange={v => setForm(p => ({ ...p, numericalsText: v }))} />
-          <p className="font-mono text-[10px] -mt-1.5" style={{ color: parsedNumericals.length ? "#00FF41" : "rgba(255,255,255,0.25)" }}>
+          <ParseNote count={parsedNumericals.length}>
             {parsedNumericals.length} numerical{parsedNumericals.length === 1 ? "" : "s"} parsed
-          </p>
+          </ParseNote>
+        </DrawerSection>
 
-          <p className="font-mono text-[10px] tracking-widest pt-2" style={{ color: ACCENT }}>7 - REVISION</p>
+        <DrawerSection title="7 - Revision">
           <Textarea label="REVISION SUMMARY" rows={3} value={form.revisionSummary} onChange={v => setForm(p => ({ ...p, revisionSummary: v }))} />
           <Textarea label="SHORT NOTE - 5 MINUTE REVISION" rows={4}
             value={form.shortNotes?.fiveMinute || ""} onChange={v => setForm(p => ({ ...p, shortNotes: { ...p.shortNotes, fiveMinute: v } }))} />
@@ -770,43 +860,15 @@ function GateTopicsPanel({ paperId, subjectId, subjectName, onBack }) {
             value={form.shortNotes?.oneMinute || ""} onChange={v => setForm(p => ({ ...p, shortNotes: { ...p.shortNotes, oneMinute: v } }))} />
           <Textarea label="SHORT NOTE - NIGHT BEFORE THE EXAM (the single highest-yield reminder)" rows={2}
             value={form.shortNotes?.nightBefore || ""} onChange={v => setForm(p => ({ ...p, shortNotes: { ...p.shortNotes, nightBefore: v } }))} />
+        </DrawerSection>
 
-          <div className="grid grid-cols-2 gap-2.5 pt-2">
+        <DrawerSection title="Rewards">
+          <div className="grid grid-cols-2 gap-2.5">
             <Input label="XP REWARD" type="number" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: v }))} />
             <Input label="COIN REWARD" type="number" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: v }))} />
           </div>
-
-          <div className="flex gap-2">
-            <Btn onClick={handleSave} disabled={saving || !form.title.trim()} solid color="#00FF41">{saving ? "Saving..." : "Save Topic"}</Btn>
-            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
-        </FormBox>
-      )}
-
-      {loading ? <p className="font-mono text-xs text-white/30">Loading...</p>
-        : shown.length === 0 ? <p className="font-mono text-xs text-white/30">No topics.</p>
-          : (
-            <div className="space-y-1.5">
-              {shown.map(t => {
-                const hasLesson = !!(t.concept?.trim() || t.keyPoints?.length || t.formulas?.length);
-                return (
-                  <Row key={t.id}>
-                    <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">#{t.order}</span>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-mono text-xs text-white/80">{t.title}</span>
-                      {t.module && <span className="font-mono text-[10px] text-white/30 ml-2">{t.module}</span>}
-                    </div>
-                    <StatusPill status={t.status} />
-                    {!hasLesson && <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO LESSON</span>}
-                    {t.shortNotes?.oneMinute && <span className="font-mono text-[10px]" style={{ color: "#00FFFF" }}>NOTES</span>}
-                    {t.mcqs?.length > 0 && <span className="font-mono text-[10px] text-white/30">{t.mcqs.length} MCQ</span>}
-                    <Btn onClick={() => startEdit(t)} color="#FFD700" icon={Pencil}>Edit</Btn>
-                    <Btn onClick={() => handleDelete(t.id)} color="#FF5050" icon={Trash2}>Delete</Btn>
-                  </Row>
-                );
-              })}
-            </div>
-          )}
+        </DrawerSection>
+      </Drawer>
     </div>
   );
 }
@@ -932,16 +994,19 @@ const PYQ_VIEWS = [
 // would train a reviewer to dismiss them.
 function FlagChip({ flag }) {
   return (
-    <span title={PYQ_REVIEW_FLAGS[flag] || flag}
-      className="font-mono text-[9px] px-1.5 py-0.5 rounded"
-      style={{ background: "rgba(255,149,0,0.12)", color: "#FF9500" }}>
-      {flag}
+    <span title={PYQ_REVIEW_FLAGS[flag] || flag}>
+      <Pill color={KIT.orange}>{flag}</Pill>
     </span>
   );
 }
 
+// Q number and session are what identify a question against the printed paper
+// a reviewer has open beside them - without them, checking "is this really
+// 2024 Q.17" means searching the PDF by text.
+const pyqRef = (p) => (p.questionNumber ? `Q.${p.questionNumber}${p.session ? ` / S${p.session}` : ""}` : "");
+
 export function GatePyqPanel() {
-  const { papers, paperId, setPaperId } = usePapers();
+  const { papers, paperId, setPaperId, loading: papersLoading } = usePapers();
   const { user } = useAuth();
   const [pyqs, setPyqs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -949,12 +1014,14 @@ export function GatePyqPanel() {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(blankPyqForm());
   const [saving, setSaving] = useState(false);
+  const [saveBlockers, setSaveBlockers] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importResult, setImportResult] = useState(null);
   const [importing, setImporting] = useState(false);
-  const [yearFilter, setYearFilter] = useState("");
   const [view, setView] = useState("needsReview");
   const [verifyError, setVerifyError] = useState(null);
+  const [subjects] = useKeyedFetch(paperId, () => fetchSubjects(paperId, { includeUnpublished: true }), { fallback: [] });
 
   const load = () => {
     if (!paperId) { setPyqs([]); return; }
@@ -964,6 +1031,14 @@ export function GatePyqPanel() {
   useEffect(() => { load();   }, [paperId]);
 
   const years = useMemo(() => [...new Set(pyqs.map(p => p.year).filter(Boolean))].sort((a, b) => b - a), [pyqs]);
+  const subjectName = useMemo(() => new Map((subjects || []).map(s => [s.id, s.name])), [subjects]);
+  const subjectIds = useMemo(() => [...new Set(pyqs.map(p => p.subjectId).filter(Boolean))].sort(), [pyqs]);
+
+  // Blockers are computed once per load, from the SAME function
+  // verifyAndPublishPyq enforces - the table's "ready" column, the stat card
+  // and the publish action cannot disagree about what is publishable.
+  const blockersById = useMemo(() => new Map(pyqs.map(p => [p.id, pyqPublishBlockers(p)])), [pyqs]);
+  const blockersOf = (p) => blockersById.get(p.id) || pyqPublishBlockers(p);
 
   // `needsReview` is treated as "true unless explicitly false" only for
   // documents that carry the field at all - the hand-authored questions that
@@ -975,14 +1050,17 @@ export function GatePyqPanel() {
     published: pyqs.filter(p => p.status === "published").length,
     all: pyqs.length,
   }), [pyqs]);
+  const readyCount = useMemo(
+    () => pyqs.filter(p => p.status !== "published" && (blockersById.get(p.id) || []).length === 0).length,
+    [pyqs, blockersById],
+  );
 
   const shown = useMemo(() => {
-    let rows = yearFilter ? pyqs.filter(p => String(p.year) === yearFilter) : pyqs;
-    if (view === "needsReview") rows = rows.filter(p => p.needsReview === true);
-    else if (view === "flagged") rows = rows.filter(p => (p.reviewFlags || []).length > 0);
-    else if (view === "published") rows = rows.filter(p => p.status === "published");
-    return rows;
-  }, [pyqs, yearFilter, view]);
+    if (view === "needsReview") return pyqs.filter(p => p.needsReview === true);
+    if (view === "flagged") return pyqs.filter(p => (p.reviewFlags || []).length > 0);
+    if (view === "published") return pyqs.filter(p => p.status === "published");
+    return pyqs;
+  }, [pyqs, view]);
 
   // Publishing runs the SAME check lib/gatePyq.js enforces, rather than the
   // panel keeping its own idea of what is publishable - so the button being
@@ -997,8 +1075,16 @@ export function GatePyqPanel() {
     }
   };
 
+  const reopen = async (p) => { await sendPyqBackToReview(p.id, "reopened"); load(); };
+  const remove = async (p) => {
+    if (!confirm("Delete this question?")) return;
+    await deletePyq(p.id);
+    if (editingId === p.id) setEditingId(null);
+    load();
+  };
+
   const startEdit = (p) => {
-    setEditingId(p.id); setAdding(false);
+    setEditingId(p.id); setAdding(false); setSaveBlockers(null); setVerifyError(null);
     setForm({
       ...blankPyqForm(), ...p,
       optionsText: (p.options || []).map(o => o.text).join("\n"),
@@ -1006,10 +1092,13 @@ export function GatePyqPanel() {
       natMin: p.natMin ?? "", natMax: p.natMax ?? "",
     });
   };
+  const openCreate = () => { setAdding(true); setEditingId(null); setSaveBlockers(null); setForm(blankPyqForm()); };
+  const closeForm = () => { setEditingId(null); setAdding(false); setSaveBlockers(null); };
 
   const handleSave = async () => {
     if (!form.question.trim()) return;
     setSaving(true);
+    setSaveBlockers(null);
     try {
       const { optionsText, correctAnswer, ...rest } = form;
       const letters = ["a", "b", "c", "d", "e", "f"];
@@ -1017,13 +1106,23 @@ export function GatePyqPanel() {
         : optionsText.split("\n").map(t => t.trim()).filter(Boolean).map((text, i) => ({ id: letters[i], text }));
       const correctOptionIds = form.questionType === "nat" ? []
         : correctAnswer.split(",").map(s => s.trim().toLowerCase()).filter(l => options.some(o => o.id === l));
-      await savePyq(editingId, {
+      const payload = {
         ...rest, paperId, options, correctOptionIds,
         natMin: form.questionType === "nat" ? Number(form.natMin) : null,
         natMax: form.questionType === "nat" ? (form.natMax === "" ? Number(form.natMin) : Number(form.natMax)) : null,
         isRepeated: !!form.repeatGroup,
         order: Number(form.order) || 0,
-      });
+      };
+      // The status dropdown is a second road to "published", so it is held to
+      // the same gate as Verify & publish. pyqPublishBlockers is the ONE rule
+      // for what may reach a student (CLAUDE.md) - an unanswered question saved
+      // straight to published would mark a correct student wrong and file it
+      // into their mistakes notebook. Refuse, and show what is missing.
+      if (payload.status === "published") {
+        const blockers = pyqPublishBlockers(payload);
+        if (blockers.length) { setSaveBlockers(blockers); return; }
+      }
+      await savePyq(editingId, payload);
       setEditingId(null); setAdding(false); setForm(blankPyqForm());
       load();
     } finally { setSaving(false); }
@@ -1050,108 +1149,223 @@ export function GatePyqPanel() {
     URL.revokeObjectURL(url);
   };
 
+  const editing = editingId ? pyqs.find(p => p.id === editingId) : null;
+  const editingBlockers = editing ? blockersOf(editing) : [];
+  const editingFlags = editing?.reviewFlags || [];
+  const statsLoading = loading || papersLoading;
+  const tableVerifyError = verifyError && !editingId ? pyqs.find(p => p.id === verifyError.id) : null;
+
   return (
-    <div className="space-y-4">
-      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} />
+    <div className="space-y-5">
+      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} loading={papersLoading} />
       {!paperId ? null : (
         <>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <Btn onClick={() => { setAdding(true); setEditingId(null); setForm(blankPyqForm()); }} icon={Plus} color={ACCENT}>
-              Add Question
-            </Btn>
-            <Btn onClick={downloadTemplate} icon={Download} color="#00FFFF">CSV template</Btn>
-            {years.length > 0 && <Dropdown value={yearFilter} onChange={setYearFilter} className="w-32" options={["", ...years.map(String)]} />}
-            <span className="font-mono text-[10px] text-white/30">{pyqs.length} in the bank</span>
-          </div>
+          <StatGrid stats={[
+            { label: "Questions in bank", value: counts.all, sub: `${years.length} year${years.length === 1 ? "" : "s"} covered`, icon: ListChecks, color: KIT.cyan, loading: statsLoading },
+            { label: "Needs review", value: counts.needsReview, sub: `${fmt(counts.flagged)} carry review flags`, icon: Flag, color: KIT.orange, loading: statsLoading },
+            { label: "Ready to publish", value: readyCount, sub: "Unpublished with zero publish blockers", icon: ShieldCheck, color: KIT.purple, loading: statsLoading },
+            { label: "Published", value: counts.published, sub: "Visible to students", icon: Eye, color: KIT.green, loading: statsLoading },
+          ]} />
 
           {/* The review queue's view switch. Counts sit on the tabs because
               "how much is left to check" is the single number an admin working
               through a PDF import actually wants, and putting it anywhere else
               means opening a tab to find out it is empty. */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            {PYQ_VIEWS.map(v => (
-              <button key={v.key} onClick={() => setView(v.key)}
-                className="font-mono text-[10.5px] px-2.5 py-1 rounded transition-colors"
-                style={{
-                  background: view === v.key ? "rgba(0,255,65,0.12)" : "transparent",
-                  color: view === v.key ? "#00FF41" : "rgba(255,255,255,0.35)",
-                  border: `1px solid ${view === v.key ? "rgba(0,255,65,0.35)" : "rgba(255,255,255,0.1)"}`,
-                }}>
-                {v.label} <span className="opacity-60">{counts[v.key]}</span>
-              </button>
-            ))}
+            {PYQ_VIEWS.map(v => {
+              const on = view === v.key;
+              return (
+                <button key={v.key} onClick={() => setView(v.key)}
+                  className="font-sans text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                  style={{
+                    background: on ? `${KIT.green}14` : "transparent",
+                    color: on ? KIT.green : "rgba(255,255,255,0.5)",
+                    border: `1px solid ${on ? `${KIT.green}40` : KIT.line}`,
+                  }}>
+                  {v.label} <span className="tabular-nums opacity-60 ml-0.5">{fmt(counts[v.key])}</span>
+                </button>
+              );
+            })}
           </div>
 
           {view === "needsReview" && counts.needsReview > 0 && (
-            <div className="px-3 py-2 rounded" style={{ background: "rgba(255,149,0,0.08)", border: "1px solid rgba(255,149,0,0.2)" }}>
-              <p className="font-mono text-[10.5px] leading-relaxed" style={{ color: "#FF9500" }}>
-                These were extracted from the official question-paper PDFs by
-                scripts/extract-gate-pyqs.mjs. The source papers contain NO answer keys, so
-                every one needs its answer supplied and its text checked against the original
-                before it can be published. Nothing here is visible to a student.
-              </p>
-            </div>
+            <Notice>
+              These were extracted from the official question-paper PDFs by
+              scripts/extract-gate-pyqs.mjs. The source papers contain NO answer keys, so
+              every one needs its answer supplied and its text checked against the original
+              before it can be published. Nothing here is visible to a student.
+            </Notice>
           )}
 
-          {/* bulk import */}
-          <FormBox>
-            <div className="flex items-center gap-2">
-              <Upload size={12} style={{ color: "#00FFFF" }} />
-              <p className="font-mono text-[11px]" style={{ color: "#00FFFF" }}>BULK IMPORT</p>
-            </div>
-            <pre className="font-mono text-[9.5px] text-white/30 whitespace-pre-wrap leading-relaxed">{PYQ_CSV_HELP}</pre>
-            <Textarea label="PASTE CSV (or tab-separated from a spreadsheet)" rows={6}
-              value={importText} onChange={setImportText} />
-            <div className="flex gap-2">
-              <Btn onClick={runImport} disabled={importing || !importText.trim()} solid color="#00FFFF">
-                {importing ? "Importing..." : "Validate & import"}
-              </Btn>
-            </div>
-            {importResult && (
-              <div className="space-y-1">
-                <p className="font-mono text-[10.5px]" style={{ color: importResult.done ? "#00FF41" : "#FFD700" }}>
-                  {importResult.done
-                    ? `Imported ${importResult.questions.length} question(s).`
-                    : `${importResult.questions.length} valid row(s) ready.`}
-                </p>
-                {importResult.errors.map((e, i) => (
-                  <p key={i} className="font-mono text-[10px]" style={{ color: "#FF9500" }}>{e}</p>
-                ))}
-              </div>
-            )}
-          </FormBox>
+          {tableVerifyError && (
+            <Notice color={KIT.red}>
+              Could not publish {pyqRef(tableVerifyError) || "the question"}{tableVerifyError.year ? ` (${tableVerifyError.year})` : ""}: {verifyError.message}
+            </Notice>
+          )}
 
-          {(adding || editingId) && (
-            <FormBox>
+          <DataTable
+            title="Previous year questions" icon={ListChecks}
+            subtitle="Publishing goes through Verify & publish, which refuses any question with no answer or no subject."
+            rows={shown} loading={loading}
+            searchKeys={["question", "subjectId", "topicId", "repeatGroup", "questionNumber"]}
+            searchPlaceholder="Search question text, subject, topic..."
+            filters={[
+              STATUS_FILTER,
+              { key: "needsReview", label: "Any review state", get: p => (p.needsReview === true ? "yes" : "no"),
+                options: [{ value: "yes", label: "Needs review" }, { value: "no", label: "Reviewed / hand-authored" }] },
+              { key: "subjectId", label: "All subjects", get: p => p.subjectId || "__none",
+                options: [
+                  ...subjectIds.map(id => ({ value: id, label: subjectName.get(id) || id })),
+                  { value: "__none", label: "No subject" },
+                ] },
+              { key: "year", label: "All years", get: p => String(p.year || ""),
+                options: years.map(y => ({ value: String(y), label: String(y) })) },
+              { key: "questionType", label: "All types",
+                options: GATE_QUESTION_TYPES.map(t => ({ value: t.key, label: t.label })) },
+            ]}
+            toolbarExtra={
+              <div className="flex items-center gap-2 ml-auto">
+                <SecondaryButton icon={Upload} onClick={() => setImportOpen(true)}>Bulk import</SecondaryButton>
+                <SecondaryButton icon={Download} onClick={downloadTemplate}>CSV template</SecondaryButton>
+              </div>
+            }
+            primaryAction={{ label: "Add question", icon: Plus, onClick: openCreate }}
+            onRowClick={startEdit}
+            pageSize={20}
+            emptyText="No questions in this view."
+            columns={[
+              { key: "question", label: "Question", render: p => (
+                <TitleCell title={p.question}
+                  sub={[
+                    (p.questionType || "").toUpperCase(),
+                    p.repeatGroup && "Repeat",
+                    !p.solution?.trim() && !p.explanation?.trim() && "No solution",
+                  ].filter(Boolean).join(" · ")} />
+              ) },
+              { key: "year", label: "Paper / year", sort: p => p.year || 0, render: p => (
+                <div className="whitespace-nowrap">
+                  <p className="font-sans text-sm text-white/80 tabular-nums">{(p.paperId || paperId).toUpperCase()} {p.year || "-"}</p>
+                  {pyqRef(p) && <p className="font-sans text-xs text-white/40">{pyqRef(p)}</p>}
+                </div>
+              ) },
+              { key: "subjectId", label: "Subject", sort: p => subjectName.get(p.subjectId) || p.subjectId || "",
+                render: p => (p.subjectId
+                  ? <span className="font-sans text-sm text-white/70 truncate inline-block max-w-[180px] align-middle">{subjectName.get(p.subjectId) || p.subjectId}</span>
+                  : <Pill color={KIT.red}>None</Pill>) },
+              { key: "marks", label: "Marks", sort: p => p.marks || 1, render: p => <Num value={p.marks || 1} /> },
+              { key: "status", label: "Status", render: p => <StatusPill status={p.status} /> },
+              { key: "flags", label: "Flags", sort: p => (p.reviewFlags || []).length, render: p => {
+                const flags = p.reviewFlags || [];
+                return flags.length
+                  ? <span title={flags.map(f => PYQ_REVIEW_FLAGS[f] || f).join("\n")}><Pill color={KIT.orange}>{flags.length} flag{flags.length === 1 ? "" : "s"}</Pill></span>
+                  : <Muted>-</Muted>;
+              } },
+              // Verify is offered only where it can succeed. An always-enabled
+              // button that explains afterwards why it refused is a worse
+              // reviewer experience than one that shows what is still missing
+              // up front - so the blocker count is a column of its own.
+              { key: "ready", label: "Publish check", sort: p => (p.status === "published" ? -1 : blockersOf(p).length), render: p => {
+                if (p.status === "published") return <Pill color={KIT.green}>Live</Pill>;
+                const b = blockersOf(p);
+                return b.length
+                  ? <span title={b.join("\n")}><Pill color={KIT.red}>{b.length} to fix</Pill></span>
+                  : <Pill color={KIT.cyan}>Ready</Pill>;
+              } },
+            ]}
+            rowActions={p => [
+              p.status !== "published" && {
+                icon: ShieldCheck, label: "Verify & publish", onClick: () => verify(p),
+                disabled: blockersOf(p).length > 0,
+              },
+              p.status === "published" && p.reviewedAt && { icon: Undo2, label: "Reopen for review", onClick: () => reopen(p) },
+              { icon: Pencil, label: "Edit", onClick: () => startEdit(p) },
+              { icon: Trash2, label: "Delete", danger: true, onClick: () => remove(p) },
+            ]}
+          />
+
+          {/* ---- question editor ---- */}
+          <Drawer open={adding || !!editingId} onClose={closeForm} width={820}
+            title={adding ? "Add question" : `${editing?.year || ""} ${editing ? pyqRef(editing) : ""}`.trim() || "Edit question"}
+            subtitle={adding ? `A new question in the ${paperId} bank.` : `${(editing?.questionType || "").toUpperCase()} · ${editing?.marks || 1} mark${editing?.marks === 2 ? "s" : ""} · ${cap(editing?.status || "draft")}`}
+            footer={<>
+              <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+              <PrimaryButton icon={Check} busy={saving} disabled={!form.question.trim()} onClick={handleSave}>Save question</PrimaryButton>
+            </>}>
+            {editing && (
+              <DrawerSection title="Review"
+                hint="Checks run against the SAVED question - save your edits first, then verify. Verifying marks it reviewed and publishes it in one write.">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <StatusPill status={editing.status} />
+                  {editing.needsReview === true && <Pill color={KIT.orange}>Needs review</Pill>}
+                  {editing.reviewedAt && <Pill color={KIT.green}>Reviewed</Pill>}
+                </div>
+                {editingFlags.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="font-sans text-xs font-medium text-white/60">Review flags</p>
+                    {editingFlags.map(f => (
+                      <div key={f} className="flex items-start gap-2">
+                        <FlagChip flag={f} />
+                        <span className="font-sans text-xs text-white/50 leading-relaxed">{PYQ_REVIEW_FLAGS[f] || "Raised on review."}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {editing.status !== "published" && (
+                  editingBlockers.length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="font-sans text-xs font-medium" style={{ color: KIT.red }}>
+                        {editingBlockers.length} publish blocker{editingBlockers.length === 1 ? "" : "s"}
+                      </p>
+                      {editingBlockers.map((b, i) => (
+                        <p key={i} className="font-sans text-xs text-white/60 flex items-start gap-1.5">
+                          <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" style={{ color: KIT.red }} />{b}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="font-sans text-xs" style={{ color: KIT.cyan }}>No blockers - this question can be published.</p>
+                  )
+                )}
+                {verifyError?.id === editing.id && <Notice color={KIT.red}>{verifyError.message}</Notice>}
+                <div className="flex gap-2 flex-wrap">
+                  {editing.status !== "published" && (
+                    <PrimaryButton icon={ShieldCheck} disabled={editingBlockers.length > 0} onClick={() => verify(editing)}>
+                      Verify &amp; publish
+                    </PrimaryButton>
+                  )}
+                  {editing.status === "published" && editing.reviewedAt && (
+                    <SecondaryButton icon={Undo2} onClick={() => reopen(editing)}>Reopen for review</SecondaryButton>
+                  )}
+                </div>
+              </DrawerSection>
+            )}
+
+            <DrawerSection title="Classification">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <Input label="YEAR" type="number" value={form.year} onChange={v => setForm(p => ({ ...p, year: v }))} />
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">TYPE</p>
-                  <Dropdown value={form.questionType} onChange={v => setForm(p => ({ ...p, questionType: v }))}
-                    options={GATE_QUESTION_TYPES.map(t => t.key)} className="w-full" />
-                </div>
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">MARKS</p>
-                  <Dropdown value={String(form.marks)} onChange={v => setForm(p => ({ ...p, marks: Number(v) }))}
-                    options={["1", "2"]} className="w-full" />
-                </div>
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
-                  <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
-                    options={GATE_DIFFICULTIES} className="w-full" />
-                </div>
+                <SelectField label="TYPE" value={form.questionType} onChange={v => setForm(p => ({ ...p, questionType: v }))}
+                  options={GATE_QUESTION_TYPES.map(t => t.key)} />
+                <SelectField label="MARKS" value={String(form.marks)} onChange={v => setForm(p => ({ ...p, marks: Number(v) }))}
+                  options={["1", "2"]} />
+                <SelectField label="DIFFICULTY" value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
+                  options={GATE_DIFFICULTIES} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="SUBJECT ID" value={form.subjectId} onChange={v => setForm(p => ({ ...p, subjectId: v }))}
                   placeholder="operating-system" hint="Must match a subject id under this paper" />
                 <Input label="TOPIC ID" value={form.topicId} onChange={v => setForm(p => ({ ...p, topicId: v }))}
                   placeholder="cpu-scheduling" hint="Drives topic tagging + per-topic analytics" />
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">ORGANIZING INSTITUTE</p>
-                  <Dropdown value={form.organizingInstitute} onChange={v => setForm(p => ({ ...p, organizingInstitute: v }))}
-                    options={["", ...GATE_ORGANIZING_INSTITUTES]} className="w-full" />
-                </div>
+                <SelectField label="ORGANIZING INSTITUTE" value={form.organizingInstitute} onChange={v => setForm(p => ({ ...p, organizingInstitute: v }))}
+                  options={["", ...GATE_ORGANIZING_INSTITUTES]} />
               </div>
+              {(subjects || []).length > 0 && (
+                <p className="font-sans text-[11px] text-white/35 leading-relaxed">
+                  Subject ids in {paperId}: {(subjects || []).map(s => s.id).join(", ")}
+                </p>
+              )}
+            </DrawerSection>
+
+            <DrawerSection title="Question & answer">
               <Textarea label="QUESTION" rows={4} value={form.question} onChange={v => setForm(p => ({ ...p, question: v }))} />
               {form.questionType === "nat" ? (
                 <div className="grid grid-cols-2 gap-2.5">
@@ -1166,6 +1380,9 @@ export function GatePyqPanel() {
                     onChange={v => setForm(p => ({ ...p, correctAnswer: v }))} placeholder="b   or   a,c for MSQ" />
                 </>
               )}
+            </DrawerSection>
+
+            <DrawerSection title="Solution">
               <Textarea label="SOLUTION (the working - supports lesson block syntax)" rows={4}
                 value={form.solution} onChange={v => setForm(p => ({ ...p, solution: v }))} />
               <Textarea label="EXPLANATION (why the answer is what it is)" rows={3}
@@ -1177,88 +1394,55 @@ export function GatePyqPanel() {
               <Textarea label="WHY STUDENTS GET THIS WRONG" rows={2}
                 value={form.whyStudentsErr} onChange={v => setForm(p => ({ ...p, whyStudentsErr: v }))} />
               <StringListField label="RELATED CONCEPTS" items={form.relatedConcepts} onChange={v => setForm(p => ({ ...p, relatedConcepts: v }))} />
+            </DrawerSection>
+
+            <DrawerSection title="Publishing"
+              hint="Saving with status Published is refused while the question has any publish blocker - supply the answer and subject first.">
               <div className="grid grid-cols-2 gap-2.5">
                 <Input label="REPEAT GROUP (a shared label marks these as the same concept re-asked)"
                   value={form.repeatGroup} onChange={v => setForm(p => ({ ...p, repeatGroup: v }))} />
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">STATUS</p>
-                  <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-full" />
-                </div>
+                <SelectField label="STATUS" value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} />
               </div>
-              <div className="flex gap-2">
-                <Btn onClick={handleSave} disabled={saving || !form.question.trim()} solid color="#00FF41">{saving ? "Saving..." : "Save"}</Btn>
-                <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-              </div>
-            </FormBox>
-          )}
-
-          {loading ? <p className="font-mono text-xs text-white/30">Loading...</p>
-            : shown.length === 0 ? <p className="font-mono text-xs text-white/30">No questions yet.</p>
-              : (
-                <div className="space-y-1.5">
-                  {shown.slice(0, 200).map(p => {
-                    const blockers = pyqPublishBlockers(p);
-                    const flags = p.reviewFlags || [];
-                    return (
-                      <div key={p.id}>
-                        <Row>
-                          <span className="font-mono text-[10px] text-white/25 w-10 flex-shrink-0">{p.year || "-"}</span>
-                          {/* Q number and session are what identify a question
-                              against the printed paper a reviewer has open
-                              beside them - without them, checking "is this
-                              really 2024 Q.17" means searching the PDF by text. */}
-                          <span className="font-mono text-[10px] text-white/25 w-14 flex-shrink-0">
-                            {p.questionNumber ? `Q.${p.questionNumber}${p.session ? `/S${p.session}` : ""}` : ""}
-                          </span>
-                          <span className="font-mono text-[10px] w-10 flex-shrink-0" style={{ color: "#00FFFF" }}>
-                            {(p.questionType || "").toUpperCase()}
-                          </span>
-                          <span className="font-mono text-[10px] text-white/25 w-6 flex-shrink-0">{p.marks}M</span>
-                          <span className="font-mono text-xs text-white/70 flex-1 min-w-0 truncate">{p.question}</span>
-                          {p.repeatGroup && <span className="font-mono text-[10px]" style={{ color: "#C77DFF" }}>REPEAT</span>}
-                          {!p.solution?.trim() && !p.explanation?.trim() && (
-                            <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO SOLUTION</span>
-                          )}
-                          <StatusPill status={p.status} />
-                          {/* Verify is offered only where it can succeed. An
-                              always-enabled button that explains afterwards why
-                              it refused is a worse reviewer experience than one
-                              that shows what is still missing up front. */}
-                          {p.status !== "published" && (
-                            blockers.length === 0
-                              ? <Btn onClick={() => verify(p)} color="#00FF41" icon={ShieldCheck}>Verify &amp; publish</Btn>
-                              : <span className="font-mono text-[9.5px] text-white/25" title={blockers.join(" ")}>
-                                  {blockers.length} to fix
-                                </span>
-                          )}
-                          {p.status === "published" && p.reviewedAt && (
-                            <Btn onClick={async () => { await sendPyqBackToReview(p.id, "reopened"); load(); }} color="#FF9500" icon={Undo2}>Reopen</Btn>
-                          )}
-                          <Btn onClick={() => startEdit(p)} color="#FFD700" icon={Pencil}>Edit</Btn>
-                          <Btn onClick={async () => { if (confirm("Delete this question?")) { await deletePyq(p.id); load(); } }} color="#FF5050" icon={Trash2}>Del</Btn>
-                        </Row>
-                        {(flags.length > 0 || blockers.length > 0 || verifyError?.id === p.id) && (
-                          <div className="flex items-center gap-1.5 flex-wrap pl-2 pb-1.5">
-                            {flags.map(f => <FlagChip key={f} flag={f} />)}
-                            {blockers.map((b, i) => (
-                              <span key={i} className="font-mono text-[9px] px-1.5 py-0.5 rounded"
-                                style={{ background: "rgba(255,80,80,0.1)", color: "#FF5050" }}>{b}</span>
-                            ))}
-                            {verifyError?.id === p.id && (
-                              <span className="font-mono text-[9px]" style={{ color: "#FF5050" }}>{verifyError.message}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {shown.length > 200 && (
-                    <p className="font-mono text-[10px] text-white/25">
-                      Showing the first 200 of {shown.length} - filter by year to narrow.
-                    </p>
-                  )}
-                </div>
+              {saveBlockers && (
+                <Notice color={KIT.red}>
+                  <p className="font-medium mb-1">Not saved - a question cannot be published with:</p>
+                  {saveBlockers.map((b, i) => <p key={i}>{b}</p>)}
+                  <p className="mt-1 text-white/50">Fix these, or save it as a draft.</p>
+                </Notice>
               )}
+            </DrawerSection>
+          </Drawer>
+
+          {/* ---- bulk CSV import ---- */}
+          <Drawer open={importOpen} onClose={() => setImportOpen(false)} width={760}
+            title="Bulk import questions"
+            subtitle={`CSV rows are validated before anything is written to the ${paperId} bank.`}
+            footer={<>
+              <SecondaryButton icon={Download} onClick={downloadTemplate}>CSV template</SecondaryButton>
+              <PrimaryButton icon={Upload} busy={importing} disabled={!importText.trim()} onClick={runImport}>
+                {importing ? "Importing..." : "Validate & import"}
+              </PrimaryButton>
+            </>}>
+            <DrawerSection title="Format">
+              <pre className="font-mono text-[10.5px] text-white/45 whitespace-pre-wrap leading-relaxed">{PYQ_CSV_HELP}</pre>
+            </DrawerSection>
+            <DrawerSection title="Paste">
+              <Textarea label="PASTE CSV (or tab-separated from a spreadsheet)" rows={10}
+                value={importText} onChange={setImportText} />
+            </DrawerSection>
+            {importResult && (
+              <DrawerSection title="Result">
+                <p className="font-sans text-sm" style={{ color: importResult.done ? KIT.green : KIT.gold }}>
+                  {importResult.done
+                    ? `Imported ${importResult.questions.length} question(s).`
+                    : `${importResult.questions.length} valid row(s) ready.`}
+                </p>
+                {importResult.errors.map((e, i) => (
+                  <p key={i} className="font-sans text-xs" style={{ color: KIT.orange }}>{e}</p>
+                ))}
+              </DrawerSection>
+            )}
+          </Drawer>
         </>
       )}
     </div>
@@ -1277,8 +1461,10 @@ function blankTestForm() {
   };
 }
 
+const testTypeLabel = (key) => TEST_TYPES.find(t => t.key === key)?.label || key || "-";
+
 export function GateTestsPanel() {
-  const { papers, paperId, setPaperId } = usePapers();
+  const { papers, paperId, setPaperId, loading: papersLoading } = usePapers();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -1293,6 +1479,18 @@ export function GateTestsPanel() {
     fetchTests(paperId, { includeUnpublished: true }).then(setTests).catch(console.error).finally(() => setLoading(false));
   };
   useEffect(() => { load();   }, [paperId]);
+
+  const closeForm = () => { setEditingId(null); setAdding(false); };
+
+  const startEdit = (t) => {
+    setEditingId(t.id); setAdding(false);
+    setForm({
+      ...blankTestForm(), ...t,
+      sourceYear: t.sourceYear ?? "",
+      subjectIdsText: (t.subjectIds || []).join(", "),
+      topicIdsText: (t.topicIds || []).join(", "),
+    });
+  };
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
@@ -1312,94 +1510,99 @@ export function GateTestsPanel() {
     } finally { setSaving(false); }
   };
 
+  const handleDelete = async (t) => {
+    if (!confirm("Delete this test, its questions and its answer keys? Student attempts are kept.")) return;
+    await deleteTest(t.id); load();
+  };
+
   if (managing) {
     return <GateTestQuestionsPanel test={managing} onBack={() => { setManaging(null); load(); }} />;
   }
 
+  const published = tests.filter(t => t.status === "published").length;
+  const questionTotal = tests.reduce((n, t) => n + (t.questionCount || 0), 0);
+  const empty = tests.filter(t => !t.questionCount).length;
+  const fullMocks = tests.filter(t => t.testType === "full").length;
+  const statsLoading = loading || papersLoading;
+
   return (
-    <div className="space-y-4">
-      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} />
+    <div className="space-y-5">
+      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} loading={papersLoading} />
       {!paperId ? null : (
         <>
-          <Btn onClick={() => { setAdding(true); setEditingId(null); setForm(blankTestForm()); }} icon={Plus} color={ACCENT}>
-            Add Test
-          </Btn>
+          <StatGrid stats={[
+            { label: "Tests", value: tests.length, sub: `${published} published`, icon: ClipboardList, color: KIT.green, loading: statsLoading },
+            { label: "Full-length mocks", value: fullMocks, sub: `${tests.length - fullMocks} topic, subject or other tests`, icon: GraduationCap, color: KIT.cyan, loading: statsLoading },
+            { label: "Questions", value: questionTotal, sub: "Across every test", icon: ListChecks, color: KIT.purple, loading: statsLoading },
+            { label: "Empty tests", value: empty, sub: "No questions added yet", icon: AlertTriangle, color: KIT.orange, loading: statsLoading },
+          ]} />
 
-          {(adding || editingId) && (
-            <FormBox>
+          <DataTable
+            title="Tests & mocks" icon={ClipboardList}
+            subtitle="Marking is always GATE's own scheme (MCQ: -1/3 on 1-mark, -2/3 on 2-mark; MSQ and NAT: no negative marking) and is not configurable per test."
+            rows={tests} loading={loading}
+            searchKeys={["title", "description", "testType"]} searchPlaceholder="Search tests..."
+            filters={[
+              STATUS_FILTER,
+              { key: "testType", label: "All types", options: TEST_TYPES.map(t => ({ value: t.key, label: t.label })) },
+            ]}
+            primaryAction={{ label: "Add test", icon: Plus, onClick: () => { setAdding(true); setEditingId(null); setForm(blankTestForm()); } }}
+            onRowClick={startEdit}
+            emptyText="No tests yet."
+            columns={[
+              { key: "title", label: "Test", render: t => <TitleCell title={t.title} sub={t.description} /> },
+              { key: "testType", label: "Type", render: t => <Pill color={KIT.cyan}>{testTypeLabel(t.testType)}</Pill> },
+              { key: "questionCount", label: "Questions", sort: t => t.questionCount || 0, render: t => (
+                t.questionCount ? <Num value={t.questionCount} /> : <Pill color={KIT.orange}>None</Pill>
+              ) },
+              { key: "totalMarks", label: "Marks", sort: t => t.totalMarks || 0, render: t => <Num value={t.totalMarks || 0} muted /> },
+              { key: "durationMinutes", label: "Duration", sort: t => Number(t.durationMinutes) || 0, render: t => <Muted>{t.durationMinutes ? `${t.durationMinutes} min` : "-"}</Muted> },
+              { key: "sourceYear", label: "Source year", sort: t => t.sourceYear || 0, render: t => <Muted>{t.sourceYear || "-"}</Muted> },
+              { key: "status", label: "Status", render: t => <StatusPill status={t.status} /> },
+            ]}
+            rowActions={t => [
+              { icon: ClipboardList, label: "Questions", onClick: () => setManaging(t) },
+              { icon: Pencil, label: "Edit", onClick: () => startEdit(t) },
+              { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(t) },
+            ]}
+          />
+
+          <Drawer open={adding || !!editingId} onClose={closeForm}
+            title={adding ? "Add test" : form.title || "Edit test"}
+            subtitle={TEST_TYPES.find(t => t.key === form.testType)?.detail}
+            footer={<>
+              <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+              <PrimaryButton icon={Check} busy={saving} disabled={!form.title.trim()} onClick={handleSave}>Save test</PrimaryButton>
+            </>}>
+            <DrawerSection title="Test">
               <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Full Length Mock 1" />
               <Textarea label="DESCRIPTION" rows={2} value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} />
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">TYPE</p>
-                  <Dropdown value={form.testType} onChange={v => setForm(p => ({ ...p, testType: v }))}
-                    options={TEST_TYPES.map(t => t.key)} className="w-full" />
-                </div>
+                <SelectField label="TYPE" value={form.testType} onChange={v => setForm(p => ({ ...p, testType: v }))}
+                  options={TEST_TYPES.map(t => t.key)} />
                 <Input label="DURATION (MIN)" type="number" value={form.durationMinutes} onChange={v => setForm(p => ({ ...p, durationMinutes: v }))} />
                 <Input label="SOURCE YEAR (for PYQ mocks)" type="number" value={form.sourceYear} onChange={v => setForm(p => ({ ...p, sourceYear: v }))} />
                 <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
               </div>
-              <p className="font-mono text-[10px] text-white/25 leading-relaxed">
+              <p className="font-sans text-xs text-white/40 leading-relaxed">
                 {TEST_TYPES.find(t => t.key === form.testType)?.detail} Marking is always GATE&apos;s own scheme
                 (MCQ: -1/3 on 1-mark, -2/3 on 2-mark; MSQ and NAT: no negative marking) and is not configurable per test.
               </p>
+            </DrawerSection>
+            <DrawerSection title="Scope">
               <div className="grid grid-cols-2 gap-2.5">
                 <Input label="SUBJECT IDS (comma-separated - scopes a subject test)" value={form.subjectIdsText}
                   onChange={v => setForm(p => ({ ...p, subjectIdsText: v }))} />
                 <Input label="TOPIC IDS (comma-separated - a topic test appears on those topics' lessons)"
                   value={form.topicIdsText} onChange={v => setForm(p => ({ ...p, topicIdsText: v }))} />
               </div>
+            </DrawerSection>
+            <DrawerSection title="Before starting">
               <Textarea label="INSTRUCTIONS SHOWN BEFORE STARTING" rows={3}
                 value={form.instructions} onChange={v => setForm(p => ({ ...p, instructions: v }))} />
-              <div className="flex items-center gap-3">
-                <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
-                <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
-              </div>
-              <div className="flex gap-2">
-                <Btn onClick={handleSave} disabled={saving || !form.title.trim()} solid color="#00FF41">{saving ? "Saving..." : "Save"}</Btn>
-                <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-              </div>
-            </FormBox>
-          )}
-
-          {loading ? <p className="font-mono text-xs text-white/30">Loading...</p>
-            : tests.length === 0 ? <p className="font-mono text-xs text-white/30">No tests yet.</p>
-              : (
-                <div className="space-y-2">
-                  {tests.map(t => (
-                    <Row key={t.id}>
-                      <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">#{t.order}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <b className="font-mono text-xs text-white/80">{t.title}</b>
-                          <StatusPill status={t.status} />
-                          <span className="font-mono text-[10px]" style={{ color: "#00FFFF" }}>{t.testType?.toUpperCase()}</span>
-                          {!t.questionCount && <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO QUESTIONS</span>}
-                        </div>
-                        <span className="font-mono text-[10px] text-white/30">
-                          {t.questionCount || 0} questions · {t.totalMarks || 0} marks · {t.durationMinutes} min
-                        </span>
-                      </div>
-                      <Btn onClick={() => setManaging(t)} color={ACCENT} icon={ClipboardList}>Questions</Btn>
-                      <Btn color="#FFD700" icon={Pencil}
-                        onClick={() => {
-                          setEditingId(t.id); setAdding(false);
-                          setForm({
-                            ...blankTestForm(), ...t,
-                            sourceYear: t.sourceYear ?? "",
-                            subjectIdsText: (t.subjectIds || []).join(", "),
-                            topicIdsText: (t.topicIds || []).join(", "),
-                          });
-                        }}>Edit</Btn>
-                      <Btn color="#FF5050" icon={Trash2}
-                        onClick={async () => {
-                          if (!confirm("Delete this test, its questions and its answer keys? Student attempts are kept.")) return;
-                          await deleteTest(t.id); load();
-                        }}>Delete</Btn>
-                    </Row>
-                  ))}
-                </div>
-              )}
+              <SelectField label="STATUS" value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
+            </DrawerSection>
+          </Drawer>
         </>
       )}
     </div>
@@ -1425,6 +1628,7 @@ function GateTestQuestionsPanel({ test, onBack }) {
   const [form, setForm] = useState(blankTestQuestionForm());
   const [saving, setSaving] = useState(false);
   const [validation, setValidation] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -1453,6 +1657,19 @@ function GateTestQuestionsPanel({ test, onBack }) {
     return { ...form, options, correctOptionIds, marks: Number(form.marks) === 2 ? 2 : 1 };
   };
 
+  const closeForm = () => { setEditingId(null); setAdding(false); };
+
+  const startEdit = (q) => {
+    const key = keys[q.id];
+    setEditingId(q.id); setAdding(false);
+    setForm({
+      ...blankTestQuestionForm(), ...q, ...(key || {}),
+      optionsText: (q.options || []).map(o => o.text).join("\n"),
+      correctAnswer: (key?.correctOptionIds || []).join(","),
+      natMin: key?.natMin ?? "", natMax: key?.natMax ?? "",
+    });
+  };
+
   const handleSave = async () => {
     if (!form.question.trim()) return;
     setSaving(true);
@@ -1466,6 +1683,14 @@ function GateTestQuestionsPanel({ test, onBack }) {
       setEditingId(null); setAdding(false); setForm(blankTestQuestionForm());
       load();
     } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (q) => {
+    if (!confirm("Delete this question and its answer key?")) return;
+    await deleteTestQuestion(test.id, q.id);
+    const all = await fetchTestQuestions(test.id);
+    await setTestQuestionStats(test.id, all);
+    load();
   };
 
   const runValidation = () => setValidation(validateTestForPublish(test, questions, keys));
@@ -1501,83 +1726,99 @@ function GateTestQuestionsPanel({ test, onBack }) {
   };
 
   const totalMarks = questions.reduce((n, q) => n + (q.marks || 1), 0);
+  // Row shape for the table: the position in the test (Q1, Q2...) and whether
+  // the answer key exists travel with the question, so they sort and filter.
+  const rows = useMemo(() => questions.map((q, i) => ({ ...q, _n: i + 1, _key: keys[q.id] || null })), [questions, keys]);
+  const withKey = rows.filter(r => r._key).length;
+  const withSolution = rows.filter(r => r._key && (r._key.explanation?.trim() || r._key.solution?.trim())).length;
 
   return (
-    <div className="space-y-4">
-      <button onClick={onBack} className="inline-flex items-center gap-1.5 font-mono text-xs text-white/40">
-        <ArrowLeft size={11} /> Back to Tests
-      </button>
-      <h4 className="font-mono text-sm" style={{ color: ACCENT }}>
-        {test.title} - {questions.length} questions, {totalMarks} marks
-      </h4>
-
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <Btn onClick={() => { setAdding(true); setEditingId(null); setForm({ ...blankTestQuestionForm(), order: questions.length + 1 }); }} icon={Plus} color={ACCENT}>
-          Add Question
-        </Btn>
-        <Btn onClick={runValidation} icon={Check} color="#FFD700">Validate for publishing</Btn>
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 flex-wrap">
+        <SecondaryButton icon={ArrowLeft} onClick={onBack}>Back to tests</SecondaryButton>
+        <h3 className="font-sans text-base font-semibold text-white">{test.title}</h3>
+        <Pill color={KIT.cyan}>{testTypeLabel(test.testType)}</Pill>
       </div>
 
+      <StatGrid stats={[
+        { label: "Questions", value: questions.length, sub: `${test.durationMinutes || "-"} min test`, icon: ListChecks, color: KIT.green, loading },
+        { label: "Total marks", value: totalMarks, sub: "Sum of question marks", icon: Hash, color: KIT.cyan, loading },
+        { label: "Answer keys", value: `${fmt(withKey)} / ${fmt(questions.length)}`, sub: `${questions.length - withKey} missing`, icon: KeyRound, color: KIT.orange, loading },
+        { label: "Solutions written", value: withSolution, sub: "Keys with a solution or explanation", icon: BookOpen, color: KIT.purple, loading },
+      ]} />
+
       {validation && (
-        <div className="p-3 rounded space-y-1"
-          style={{
-            background: validation.valid ? "rgba(0,255,65,0.06)" : "rgba(255,80,80,0.06)",
-            border: `1px solid ${validation.valid ? "rgba(0,255,65,0.3)" : "rgba(255,80,80,0.3)"}`,
-          }}>
-          <p className="font-mono text-[11px]" style={{ color: validation.valid ? "#00FF41" : "#FF5050" }}>
+        <Notice color={validation.valid ? KIT.green : KIT.red} icon={validation.valid ? Check : AlertTriangle}>
+          <p className="font-medium">
             {validation.valid ? "Ready to publish - every question has options, a marked answer, valid marks and a solution."
               : `${validation.errors.length} problem(s) block publishing:`}
           </p>
-          {validation.errors.map((e, i) => (
-            <p key={i} className="font-mono text-[10px] text-white/50">{e}</p>
-          ))}
-        </div>
+          {validation.errors.map((e, i) => <p key={i} className="text-white/60">{e}</p>)}
+        </Notice>
       )}
 
-      <FormBox>
-        <div className="flex items-center gap-2">
-          <Upload size={12} style={{ color: "#00FFFF" }} />
-          <p className="font-mono text-[11px]" style={{ color: "#00FFFF" }}>BULK IMPORT (same CSV format as the PYQ bank)</p>
-        </div>
-        <Textarea label="PASTE CSV" rows={5} value={importText} onChange={setImportText} />
-        <Btn onClick={runImport} disabled={importing || !importText.trim()} solid color="#00FFFF">
-          {importing ? "Importing..." : "Validate & import"}
-        </Btn>
-        {importResult && (
-          <div className="space-y-1">
-            <p className="font-mono text-[10.5px]" style={{ color: importResult.done ? "#00FF41" : "#FFD700" }}>
-              {importResult.done ? `Imported ${importResult.count} question(s).` : `${importResult.count} valid row(s) ready.`}
-            </p>
-            {importResult.errors.map((e, i) => <p key={i} className="font-mono text-[10px]" style={{ color: "#FF9500" }}>{e}</p>)}
+      <DataTable
+        title="Questions" icon={ClipboardList}
+        subtitle="Answer keys live in a separate admin-only collection - a question with no key cannot be graded."
+        rows={rows} loading={loading}
+        searchKeys={["question", "subjectId", "topicId"]} searchPlaceholder="Search questions..."
+        filters={[
+          { key: "questionType", label: "All types", options: GATE_QUESTION_TYPES.map(t => ({ value: t.key, label: t.label })) },
+          { key: "marks", label: "Any marks", get: q => String(q.marks || 1), options: [{ value: "1", label: "1 mark" }, { value: "2", label: "2 marks" }] },
+          { key: "key", label: "Any key state", get: q => (q._key ? "yes" : "no"),
+            options: [{ value: "yes", label: "Has answer key" }, { value: "no", label: "No answer key" }] },
+        ]}
+        toolbarExtra={
+          <div className="flex items-center gap-2 ml-auto">
+            <SecondaryButton icon={Check} onClick={runValidation}>Validate for publishing</SecondaryButton>
+            <SecondaryButton icon={Upload} onClick={() => setImportOpen(true)}>Bulk import</SecondaryButton>
           </div>
-        )}
-      </FormBox>
+        }
+        primaryAction={{ label: "Add question", icon: Plus, onClick: () => { setAdding(true); setEditingId(null); setForm({ ...blankTestQuestionForm(), order: questions.length + 1 }); } }}
+        onRowClick={startEdit}
+        pageSize={20}
+        emptyText="No questions yet."
+        columns={[
+          { key: "_n", label: "Q", sort: q => q._n, render: q => <span className="font-sans text-sm text-white/60 tabular-nums">Q{q._n}</span> },
+          { key: "question", label: "Question", render: q => <TitleCell title={q.question} sub={[q.subjectId, q.topicId].filter(Boolean).join(" / ")} /> },
+          { key: "questionType", label: "Type", render: q => <Pill color={KIT.cyan}>{(q.questionType || "").toUpperCase()}</Pill> },
+          { key: "marks", label: "Marks", sort: q => q.marks || 1, render: q => <Num value={q.marks || 1} /> },
+          { key: "key", label: "Answer key", sort: q => (q._key ? 1 : 0), render: q => (
+            q._key ? <Pill color={KIT.green}>Set</Pill> : <Pill color={KIT.red}>No key</Pill>
+          ) },
+          { key: "solution", label: "Solution", sortable: false, render: q => (
+            !q._key ? <Muted>-</Muted>
+              : (q._key.explanation?.trim() || q._key.solution?.trim()) ? <Pill color={KIT.green}>Written</Pill>
+                : <Pill color={KIT.orange}>No solution</Pill>
+          ) },
+        ]}
+        rowActions={q => [
+          { icon: Pencil, label: "Edit", onClick: () => startEdit(q) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(q) },
+        ]}
+      />
 
-      {(adding || editingId) && (
-        <FormBox>
+      <Drawer open={adding || !!editingId} onClose={closeForm} width={820}
+        title={adding ? "Add question" : `Edit Q${rows.find(r => r.id === editingId)?._n || ""}`}
+        subtitle={GATE_QUESTION_TYPES.find(t => t.key === form.questionType)?.detail}
+        footer={<>
+          <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} disabled={!form.question.trim()} onClick={handleSave}>Save question</PrimaryButton>
+        </>}>
+        <DrawerSection title="Classification">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div>
-              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">TYPE</p>
-              <Dropdown value={form.questionType} onChange={v => setForm(p => ({ ...p, questionType: v }))}
-                options={GATE_QUESTION_TYPES.map(t => t.key)} className="w-full" />
-            </div>
-            <div>
-              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">MARKS</p>
-              <Dropdown value={String(form.marks)} onChange={v => setForm(p => ({ ...p, marks: Number(v) }))} options={["1", "2"]} className="w-full" />
-            </div>
+            <SelectField label="TYPE" value={form.questionType} onChange={v => setForm(p => ({ ...p, questionType: v }))}
+              options={GATE_QUESTION_TYPES.map(t => t.key)} />
+            <SelectField label="MARKS" value={String(form.marks)} onChange={v => setForm(p => ({ ...p, marks: Number(v) }))} options={["1", "2"]} />
             <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
-            <div>
-              <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
-              <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={GATE_DIFFICULTIES} className="w-full" />
-            </div>
+            <SelectField label="DIFFICULTY" value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))} options={GATE_DIFFICULTIES} />
           </div>
-          <p className="font-mono text-[10px] text-white/25">
-            {GATE_QUESTION_TYPES.find(t => t.key === form.questionType)?.detail}
-          </p>
           <div className="grid grid-cols-2 gap-2.5">
             <Input label="SUBJECT ID (drives subject-wise analysis)" value={form.subjectId} onChange={v => setForm(p => ({ ...p, subjectId: v }))} />
             <Input label="TOPIC ID (drives weak-topic detection)" value={form.topicId} onChange={v => setForm(p => ({ ...p, topicId: v }))} />
           </div>
+        </DrawerSection>
+        <DrawerSection title="Question & answer">
           <Textarea label="QUESTION" rows={4} value={form.question} onChange={v => setForm(p => ({ ...p, question: v }))} />
           <Textarea label="CODE SNIPPET (optional, rendered monospaced)" rows={4} value={form.codeSnippet} onChange={v => setForm(p => ({ ...p, codeSnippet: v }))} />
           <Input label="IMAGE URL (optional - for circuit/graph figures)" value={form.imageUrl} onChange={v => setForm(p => ({ ...p, imageUrl: v }))} />
@@ -1593,58 +1834,39 @@ function GateTestQuestionsPanel({ test, onBack }) {
               <Input label="CORRECT LETTER(S)" value={form.correctAnswer} onChange={v => setForm(p => ({ ...p, correctAnswer: v }))} placeholder="b   or   a,c" />
             </>
           )}
+        </DrawerSection>
+        <DrawerSection title="Solution">
           <Textarea label="SOLUTION" rows={4} value={form.solution} onChange={v => setForm(p => ({ ...p, solution: v }))} />
           <Textarea label="EXPLANATION" rows={3} value={form.explanation} onChange={v => setForm(p => ({ ...p, explanation: v }))} />
           <Textarea label="ALTERNATE APPROACH" rows={2} value={form.alternateSolution} onChange={v => setForm(p => ({ ...p, alternateSolution: v }))} />
           <Textarea label="TIME-SAVING TRICK" rows={2} value={form.timeSavingTrick} onChange={v => setForm(p => ({ ...p, timeSavingTrick: v }))} />
           <Textarea label="WHY STUDENTS GET THIS WRONG" rows={2} value={form.whyStudentsErr} onChange={v => setForm(p => ({ ...p, whyStudentsErr: v }))} />
           <StringListField label="RELATED CONCEPTS" items={form.relatedConcepts} onChange={v => setForm(p => ({ ...p, relatedConcepts: v }))} />
-          <div className="flex gap-2">
-            <Btn onClick={handleSave} disabled={saving || !form.question.trim()} solid color="#00FF41">{saving ? "Saving..." : "Save"}</Btn>
-            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
-        </FormBox>
-      )}
+        </DrawerSection>
+      </Drawer>
 
-      {loading ? <p className="font-mono text-xs text-white/30">Loading...</p>
-        : questions.length === 0 ? <p className="font-mono text-xs text-white/30">No questions yet.</p>
-          : (
-            <div className="space-y-1.5">
-              {questions.map((q, i) => {
-                const key = keys[q.id];
-                return (
-                  <Row key={q.id}>
-                    <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">Q{i + 1}</span>
-                    <span className="font-mono text-[10px] w-10 flex-shrink-0" style={{ color: "#00FFFF" }}>{q.questionType?.toUpperCase()}</span>
-                    <span className="font-mono text-[10px] text-white/25 w-6 flex-shrink-0">{q.marks}M</span>
-                    <span className="font-mono text-xs text-white/70 flex-1 min-w-0 truncate">{q.question}</span>
-                    {!key && <span className="font-mono text-[10px]" style={{ color: "#FF5050" }}>NO KEY</span>}
-                    {key && !key.explanation?.trim() && !key.solution?.trim() && (
-                      <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO SOLUTION</span>
-                    )}
-                    <Btn color="#FFD700" icon={Pencil}
-                      onClick={() => {
-                        setEditingId(q.id); setAdding(false);
-                        setForm({
-                          ...blankTestQuestionForm(), ...q, ...(key || {}),
-                          optionsText: (q.options || []).map(o => o.text).join("\n"),
-                          correctAnswer: (key?.correctOptionIds || []).join(","),
-                          natMin: key?.natMin ?? "", natMax: key?.natMax ?? "",
-                        });
-                      }}>Edit</Btn>
-                    <Btn color="#FF5050" icon={Trash2}
-                      onClick={async () => {
-                        if (!confirm("Delete this question and its answer key?")) return;
-                        await deleteTestQuestion(test.id, q.id);
-                        const all = await fetchTestQuestions(test.id);
-                        await setTestQuestionStats(test.id, all);
-                        load();
-                      }}>Del</Btn>
-                  </Row>
-                );
-              })}
-            </div>
-          )}
+      <Drawer open={importOpen} onClose={() => setImportOpen(false)} width={760}
+        title="Bulk import questions" subtitle="Same CSV format as the PYQ bank."
+        footer={
+          <PrimaryButton icon={Upload} busy={importing} disabled={!importText.trim()} onClick={runImport}>
+            {importing ? "Importing..." : "Validate & import"}
+          </PrimaryButton>
+        }>
+        <DrawerSection title="Format">
+          <pre className="font-mono text-[10.5px] text-white/45 whitespace-pre-wrap leading-relaxed">{PYQ_CSV_HELP}</pre>
+        </DrawerSection>
+        <DrawerSection title="Paste">
+          <Textarea label="PASTE CSV" rows={10} value={importText} onChange={setImportText} />
+        </DrawerSection>
+        {importResult && (
+          <DrawerSection title="Result">
+            <p className="font-sans text-sm" style={{ color: importResult.done ? KIT.green : KIT.gold }}>
+              {importResult.done ? `Imported ${importResult.count} question(s).` : `${importResult.count} valid row(s) ready.`}
+            </p>
+            {importResult.errors.map((e, i) => <p key={i} className="font-sans text-xs" style={{ color: KIT.orange }}>{e}</p>)}
+          </DrawerSection>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -1663,13 +1885,14 @@ function blankFormulaForm() {
 }
 
 export function GateFormulaPanel() {
-  const { papers, paperId, setPaperId } = usePapers();
+  const { papers, paperId, setPaperId, loading: papersLoading } = usePapers();
   const [formulas, setFormulas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(blankFormulaForm());
   const [saving, setSaving] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
@@ -1681,6 +1904,9 @@ export function GateFormulaPanel() {
   };
   useEffect(() => { load();   }, [paperId]);
 
+  const closeForm = () => { setEditingId(null); setAdding(false); };
+  const startEdit = (f) => { setEditingId(f.id); setAdding(false); setForm({ ...blankFormulaForm(), ...f }); };
+
   const handleSave = async () => {
     if (!form.title.trim()) return;
     setSaving(true);
@@ -1689,6 +1915,10 @@ export function GateFormulaPanel() {
       setEditingId(null); setAdding(false); setForm(blankFormulaForm());
       load();
     } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (f) => {
+    if (confirm("Delete this entry?")) { await deleteFormula(f.id); load(); }
   };
 
   const runImport = async () => {
@@ -1719,45 +1949,74 @@ export function GateFormulaPanel() {
     } finally { setImporting(false); }
   };
 
+  const kindLabel = (k) => FORMULA_KINDS.find(x => x.key === k)?.label || k || "-";
+  const published = formulas.filter(f => f.status === "published").length;
+  const subjectsCovered = new Set(formulas.map(f => f.subjectId).filter(Boolean));
+  const withTopic = formulas.filter(f => f.topicId).length;
+  const withTrick = formulas.filter(f => f.memoryTrick?.trim()).length;
+  const statsLoading = loading || papersLoading;
+
   return (
-    <div className="space-y-4">
-      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} />
+    <div className="space-y-5">
+      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} loading={papersLoading} />
       {!paperId ? null : (
         <>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <Btn onClick={() => { setAdding(true); setEditingId(null); setForm(blankFormulaForm()); }} icon={Plus} color={ACCENT}>Add Entry</Btn>
-            <span className="font-mono text-[10px] text-white/30">{formulas.length} standalone entries</span>
-          </div>
-          <p className="font-mono text-[10px] text-white/25 leading-relaxed">
-            Anything typed into a topic&apos;s FORMULA BOX already appears in the student-facing Formula Book automatically -
-            this panel is for entries that do not belong to a single lesson (cross-cutting theorems, definition sheets,
-            revision cards).
-          </p>
+          <StatGrid stats={[
+            { label: "Standalone entries", value: formulas.length, sub: `${published} published`, icon: Sigma, color: KIT.gold, loading: statsLoading },
+            { label: "Subjects covered", value: subjectsCovered.size, sub: "Distinct subject ids", icon: Layers, color: KIT.cyan, loading: statsLoading },
+            { label: "Tied to a topic", value: withTopic, sub: `${formulas.length - withTopic} cross-cutting`, icon: ListChecks, color: KIT.green, loading: statsLoading },
+            { label: "With a memory trick", value: withTrick, sub: "Entries carrying a mnemonic", icon: Sparkles, color: KIT.purple, loading: statsLoading },
+          ]} />
 
-          <FormBox>
-            <div className="flex items-center gap-2">
-              <Upload size={12} style={{ color: "#00FFFF" }} />
-              <p className="font-mono text-[11px]" style={{ color: "#00FFFF" }}>BULK IMPORT</p>
-            </div>
-            <p className="font-mono text-[10px] text-white/30">Columns: {FORMULA_CSV_HEADER} (tags separated by semicolons)</p>
-            <Textarea label="PASTE CSV" rows={4} value={importText} onChange={setImportText} />
-            <Btn onClick={runImport} disabled={importing || !importText.trim()} solid color="#00FFFF">
-              {importing ? "Importing..." : "Import"}
-            </Btn>
-            {importMsg && <p className="font-mono text-[10.5px]" style={{ color: "#00FF41" }}>{importMsg}</p>}
-          </FormBox>
+          <DataTable
+            title="Formula book" icon={Sigma}
+            subtitle="Anything typed into a topic's FORMULA BOX already appears in the student-facing Formula Book automatically - this list is for entries that do not belong to a single lesson (cross-cutting theorems, definition sheets, revision cards)."
+            rows={formulas} loading={loading}
+            searchKeys={["title", "expression", "statement", "subjectId", "topicId", "tags"]} searchPlaceholder="Search entries..."
+            filters={[
+              { key: "kind", label: "All kinds", options: FORMULA_KINDS.map(k => ({ value: k.key, label: k.label })) },
+              { key: "subjectId", label: "All subjects", get: f => f.subjectId || "__none",
+                options: [...[...subjectsCovered].sort().map(s => ({ value: s, label: s })), { value: "__none", label: "No subject" }] },
+              STATUS_FILTER,
+            ]}
+            toolbarExtra={
+              <div className="ml-auto">
+                <SecondaryButton icon={Upload} onClick={() => setImportOpen(true)}>Bulk import</SecondaryButton>
+              </div>
+            }
+            primaryAction={{ label: "Add entry", icon: Plus, onClick: () => { setAdding(true); setEditingId(null); setForm(blankFormulaForm()); } }}
+            onRowClick={startEdit}
+            emptyText="No standalone entries."
+            columns={[
+              { key: "title", label: "Entry", render: f => <TitleCell title={f.title} sub={f.expression || f.statement} /> },
+              { key: "kind", label: "Kind", render: f => <Pill color={KIT.gold}>{kindLabel(f.kind)}</Pill> },
+              { key: "subjectId", label: "Subject", render: f => <Muted>{f.subjectId}</Muted> },
+              { key: "topicId", label: "Topic", render: f => <Muted>{f.topicId}</Muted> },
+              { key: "order", label: "Order", sort: f => Number(f.order) || 0, render: f => <Num value={f.order} muted /> },
+              { key: "status", label: "Status", render: f => <StatusPill status={f.status} /> },
+            ]}
+            rowActions={f => [
+              { icon: Pencil, label: "Edit", onClick: () => startEdit(f) },
+              { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(f) },
+            ]}
+          />
 
-          {(adding || editingId) && (
-            <FormBox>
+          <Drawer open={adding || !!editingId} onClose={closeForm}
+            title={adding ? "Add entry" : form.title || "Edit entry"}
+            subtitle={FORMULA_KINDS.find(k => k.key === form.kind)?.detail}
+            footer={<>
+              <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+              <PrimaryButton icon={Check} busy={saving} disabled={!form.title.trim()} onClick={handleSave}>Save entry</PrimaryButton>
+            </>}>
+            <DrawerSection title="Placement">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">KIND</p>
-                  <Dropdown value={form.kind} onChange={v => setForm(p => ({ ...p, kind: v }))} options={FORMULA_KINDS.map(k => k.key)} className="w-full" />
-                </div>
+                <SelectField label="KIND" value={form.kind} onChange={v => setForm(p => ({ ...p, kind: v }))} options={FORMULA_KINDS.map(k => k.key)} />
                 <Input label="SUBJECT ID" value={form.subjectId} onChange={v => setForm(p => ({ ...p, subjectId: v }))} />
                 <Input label="TOPIC ID (optional)" value={form.topicId} onChange={v => setForm(p => ({ ...p, topicId: v }))} />
                 <Input label="ORDER" type="number" value={form.order} onChange={v => setForm(p => ({ ...p, order: v }))} />
               </div>
+            </DrawerSection>
+            <DrawerSection title="Content">
               <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Master Theorem" />
               <Textarea label="EXPRESSION (rendered monospaced - write it as you would on paper)" rows={3}
                 value={form.expression} onChange={v => setForm(p => ({ ...p, expression: v }))} placeholder="T(n) = aT(n/b) + f(n)" />
@@ -1765,35 +2024,27 @@ export function GateFormulaPanel() {
               <Textarea label="NOTES / CONDITIONS" rows={2} value={form.notes} onChange={v => setForm(p => ({ ...p, notes: v }))} />
               <Input label="MEMORY TRICK" value={form.memoryTrick} onChange={v => setForm(p => ({ ...p, memoryTrick: v }))} />
               <StringListField label="TAGS" items={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} />
-              <div className="flex items-center gap-3">
-                <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
-                <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
-              </div>
-              <div className="flex gap-2">
-                <Btn onClick={handleSave} disabled={saving || !form.title.trim()} solid color="#00FF41">{saving ? "Saving..." : "Save"}</Btn>
-                <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-              </div>
-            </FormBox>
-          )}
+            </DrawerSection>
+            <DrawerSection title="Publishing">
+              <SelectField label="STATUS" value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
+            </DrawerSection>
+          </Drawer>
 
-          {loading ? <p className="font-mono text-xs text-white/30">Loading...</p>
-            : formulas.length === 0 ? <p className="font-mono text-xs text-white/30">No standalone entries.</p>
-              : (
-                <div className="space-y-1.5">
-                  {formulas.map(f => (
-                    <Row key={f.id}>
-                      <Sigma size={12} className="flex-shrink-0" style={{ color: "#FFD700" }} />
-                      <span className="font-mono text-[10px] w-16 flex-shrink-0 text-white/30">{f.kind?.toUpperCase()}</span>
-                      <span className="font-mono text-xs text-white/70 flex-1 min-w-0 truncate">{f.title}</span>
-                      <span className="font-mono text-[10px] text-white/25">{f.subjectId}</span>
-                      <StatusPill status={f.status} />
-                      <Btn color="#FFD700" icon={Pencil} onClick={() => { setEditingId(f.id); setAdding(false); setForm({ ...blankFormulaForm(), ...f }); }}>Edit</Btn>
-                      <Btn color="#FF5050" icon={Trash2}
-                        onClick={async () => { if (confirm("Delete this entry?")) { await deleteFormula(f.id); load(); } }}>Del</Btn>
-                    </Row>
-                  ))}
-                </div>
-              )}
+          <Drawer open={importOpen} onClose={() => setImportOpen(false)} width={720}
+            title="Bulk import entries" subtitle={`Imported entries are published into the ${paperId} formula book.`}
+            footer={
+              <PrimaryButton icon={Upload} busy={importing} disabled={!importText.trim()} onClick={runImport}>
+                {importing ? "Importing..." : "Import"}
+              </PrimaryButton>
+            }>
+            <DrawerSection title="Format" hint="Tags are separated by semicolons.">
+              <p className="font-mono text-[10.5px] text-white/45 break-all">{FORMULA_CSV_HEADER}</p>
+            </DrawerSection>
+            <DrawerSection title="Paste">
+              <Textarea label="PASTE CSV" rows={10} value={importText} onChange={setImportText} />
+              {importMsg && <p className="font-sans text-sm" style={{ color: KIT.green }}>{importMsg}</p>}
+            </DrawerSection>
+          </Drawer>
         </>
       )}
     </div>
@@ -1804,20 +2055,33 @@ export function GateFormulaPanel() {
 // 6. RESOURCES + ANNOUNCEMENTS
 // ============================================================
 
+function blankResourceForm() {
+  return { kind: "book", subjectId: "", title: "", author: "", url: "", description: "", order: 0, status: "published" };
+}
+
+function blankAnnouncementForm() {
+  return { title: "", body: "", pinned: false, status: "published" };
+}
+
 export function GateResourcesPanel() {
-  const { papers, paperId, setPaperId } = usePapers();
+  const { papers, paperId, setPaperId, loading: papersLoading } = usePapers();
   const [resources, setResources] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [rForm, setRForm] = useState({ kind: "book", subjectId: "", title: "", author: "", url: "", description: "", order: 0, status: "published" });
-  const [aForm, setAForm] = useState({ title: "", body: "", pinned: false, status: "published" });
+  const [loading, setLoading] = useState(false);
+  const [rForm, setRForm] = useState(blankResourceForm());
+  const [aForm, setAForm] = useState(blankAnnouncementForm());
+  // Drawer state: null = closed, "new" = create, otherwise the id being edited.
   const [editingR, setEditingR] = useState(null);
   const [editingA, setEditingA] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = () => {
     if (!paperId) { setResources([]); setAnnouncements([]); return; }
-    fetchResources(paperId, { includeUnpublished: true }).then(setResources).catch(console.error);
-    fetchAnnouncements(paperId, { includeUnpublished: true }).then(setAnnouncements).catch(console.error);
+    setLoading(true);
+    Promise.all([
+      fetchResources(paperId, { includeUnpublished: true }).then(setResources).catch(console.error),
+      fetchAnnouncements(paperId, { includeUnpublished: true }).then(setAnnouncements).catch(console.error),
+    ]).finally(() => setLoading(false));
   };
   useEffect(() => { load();   }, [paperId]);
 
@@ -1825,9 +2089,9 @@ export function GateResourcesPanel() {
     if (!rForm.title.trim()) return;
     setSaving(true);
     try {
-      await saveResource(editingR, { ...rForm, paperId, order: Number(rForm.order) || 0 });
+      await saveResource(editingR === "new" ? null : editingR, { ...rForm, paperId, order: Number(rForm.order) || 0 });
       setEditingR(null);
-      setRForm({ kind: "book", subjectId: "", title: "", author: "", url: "", description: "", order: 0, status: "published" });
+      setRForm(blankResourceForm());
       load();
     } finally { setSaving(false); }
   };
@@ -1836,35 +2100,99 @@ export function GateResourcesPanel() {
     if (!aForm.title.trim()) return;
     setSaving(true);
     try {
-      await saveAnnouncement(editingA, { ...aForm, paperId });
+      await saveAnnouncement(editingA === "new" ? null : editingA, { ...aForm, paperId });
       setEditingA(null);
-      setAForm({ title: "", body: "", pinned: false, status: "published" });
+      setAForm(blankAnnouncementForm());
       load();
     } finally { setSaving(false); }
   };
 
+  const kindLabel = (k) => RESOURCE_KINDS.find(x => x.key === k)?.label || k || "-";
+  const rPublished = resources.filter(r => r.status === "published").length;
+  const aPublished = announcements.filter(a => a.status === "published").length;
+  const pinned = announcements.filter(a => a.pinned).length;
+  const linked = resources.filter(r => r.url?.trim()).length;
+  const statsLoading = loading || papersLoading;
+
   return (
     <div className="space-y-5">
-      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} />
+      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} loading={papersLoading} />
       {!paperId ? null : (
         <>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Library size={12} style={{ color: ACCENT }} />
-              <p className="font-mono text-[11px]" style={{ color: ACCENT }}>RESOURCES ({resources.length})</p>
-            </div>
-            <FormBox>
+          <StatGrid stats={[
+            { label: "Resources", value: resources.length, sub: `${rPublished} published`, icon: Library, color: KIT.green, loading: statsLoading },
+            { label: "With a link", value: linked, sub: `${resources.length - linked} without a URL`, icon: Link2, color: KIT.cyan, loading: statsLoading },
+            { label: "Announcements", value: announcements.length, sub: `${aPublished} published`, icon: Megaphone, color: KIT.purple, loading: statsLoading },
+            { label: "Pinned", value: pinned, sub: "Shown at the top for students", icon: Pin, color: KIT.gold, loading: statsLoading },
+          ]} />
+
+          <DataTable
+            title="Resources" icon={Library}
+            subtitle="Books, lecture series and notes recommended to students of this paper."
+            rows={resources} loading={loading}
+            searchKeys={["title", "author", "url", "description", "subjectId"]} searchPlaceholder="Search resources..."
+            filters={[
+              { key: "kind", label: "All kinds", options: RESOURCE_KINDS.map(k => ({ value: k.key, label: k.label })) },
+              STATUS_FILTER,
+            ]}
+            primaryAction={{ label: "Add resource", icon: Plus, onClick: () => { setRForm(blankResourceForm()); setEditingR("new"); } }}
+            onRowClick={r => { setEditingR(r.id); setRForm({ ...blankResourceForm(), ...r }); }}
+            emptyText="No resources yet."
+            columns={[
+              { key: "title", label: "Resource", render: r => <TitleCell title={r.title} sub={r.author || r.description} /> },
+              { key: "kind", label: "Kind", render: r => <Pill color={KIT.cyan}>{kindLabel(r.kind)}</Pill> },
+              { key: "subjectId", label: "Subject", render: r => <Muted>{r.subjectId}</Muted> },
+              { key: "url", label: "Link", sortable: false, render: r => (
+                r.url
+                  ? <a href={r.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                      className="font-sans text-xs truncate inline-block max-w-[200px] align-middle hover:underline" style={{ color: KIT.cyan }}>{r.url}</a>
+                  : <Muted>-</Muted>
+              ) },
+              { key: "status", label: "Status", render: r => <StatusPill status={r.status} /> },
+            ]}
+            rowActions={r => [
+              { icon: Pencil, label: "Edit", onClick: () => { setEditingR(r.id); setRForm({ ...blankResourceForm(), ...r }); } },
+              { icon: Trash2, label: "Delete", danger: true, onClick: async () => { if (confirm("Delete?")) { await deleteResource(r.id); load(); } } },
+            ]}
+          />
+
+          <DataTable
+            title="Announcements" icon={Megaphone}
+            subtitle="Notices shown on this paper's GATE home. Pinned ones sit at the top."
+            rows={announcements} loading={loading}
+            searchKeys={["title", "body"]} searchPlaceholder="Search announcements..."
+            filters={[
+              { key: "pinned", label: "Pinned or not", get: a => (a.pinned ? "yes" : "no"),
+                options: [{ value: "yes", label: "Pinned" }, { value: "no", label: "Not pinned" }] },
+              STATUS_FILTER,
+            ]}
+            primaryAction={{ label: "Post announcement", icon: Plus, onClick: () => { setAForm(blankAnnouncementForm()); setEditingA("new"); } }}
+            onRowClick={a => { setEditingA(a.id); setAForm({ ...blankAnnouncementForm(), ...a }); }}
+            emptyText="No announcements yet."
+            columns={[
+              { key: "title", label: "Announcement", render: a => <TitleCell title={a.title} sub={a.body} /> },
+              { key: "pinned", label: "Pinned", sort: a => (a.pinned ? 1 : 0), render: a => (a.pinned ? <Pill color={KIT.gold}>Pinned</Pill> : <Muted>-</Muted>) },
+              { key: "status", label: "Status", render: a => <StatusPill status={a.status} /> },
+            ]}
+            rowActions={a => [
+              { icon: Pencil, label: "Edit", onClick: () => { setEditingA(a.id); setAForm({ ...blankAnnouncementForm(), ...a }); } },
+              { icon: Trash2, label: "Delete", danger: true, onClick: async () => { if (confirm("Delete?")) { await deleteAnnouncement(a.id); load(); } } },
+            ]}
+          />
+
+          <Drawer open={!!editingR} onClose={() => setEditingR(null)} width={640}
+            title={editingR === "new" ? "Add resource" : rForm.title || "Edit resource"}
+            subtitle="The WHY THIS ONE text is shown to students beside the link."
+            footer={<>
+              <SecondaryButton onClick={() => setEditingR(null)}>Cancel</SecondaryButton>
+              <PrimaryButton icon={Check} busy={saving} disabled={!rForm.title.trim()} onClick={saveR}>{editingR === "new" ? "Add resource" : "Update"}</PrimaryButton>
+            </>}>
+            <DrawerSection title="Resource">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">KIND</p>
-                  <Dropdown value={rForm.kind} onChange={v => setRForm(p => ({ ...p, kind: v }))} options={RESOURCE_KINDS.map(k => k.key)} className="w-full" />
-                </div>
+                <SelectField label="KIND" value={rForm.kind} onChange={v => setRForm(p => ({ ...p, kind: v }))} options={RESOURCE_KINDS.map(k => k.key)} />
                 <Input label="SUBJECT ID (optional)" value={rForm.subjectId} onChange={v => setRForm(p => ({ ...p, subjectId: v }))} />
                 <Input label="ORDER" type="number" value={rForm.order} onChange={v => setRForm(p => ({ ...p, order: v }))} />
-                <div>
-                  <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">STATUS</p>
-                  <Dropdown value={rForm.status} onChange={v => setRForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-full" />
-                </div>
+                <SelectField label="STATUS" value={rForm.status} onChange={v => setRForm(p => ({ ...p, status: v }))} options={STATUSES} />
               </div>
               <div className="grid grid-cols-2 gap-2.5">
                 <Input label="TITLE" value={rForm.title} onChange={v => setRForm(p => ({ ...p, title: v }))} />
@@ -1872,57 +2200,27 @@ export function GateResourcesPanel() {
               </div>
               <Input label="URL" value={rForm.url} onChange={v => setRForm(p => ({ ...p, url: v }))} placeholder="https://..." />
               <Textarea label="WHY THIS ONE (shown to students)" rows={2} value={rForm.description} onChange={v => setRForm(p => ({ ...p, description: v }))} />
-              <div className="flex gap-2">
-                <Btn onClick={saveR} disabled={saving || !rForm.title.trim()} solid color="#00FF41">{editingR ? "Update" : "Add"}</Btn>
-                {editingR && <button onClick={() => setEditingR(null)} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>}
-              </div>
-            </FormBox>
-            <div className="space-y-1.5">
-              {resources.map(r => (
-                <Row key={r.id}>
-                  <span className="font-mono text-[10px] w-14 flex-shrink-0 text-white/30">{r.kind?.toUpperCase()}</span>
-                  <span className="font-mono text-xs text-white/70 flex-1 min-w-0 truncate">{r.title}</span>
-                  <span className="font-mono text-[10px] text-white/25 truncate max-w-[180px]">{r.url}</span>
-                  <StatusPill status={r.status} />
-                  <Btn color="#FFD700" icon={Pencil} onClick={() => { setEditingR(r.id); setRForm({ ...rForm, ...r }); }}>Edit</Btn>
-                  <Btn color="#FF5050" icon={Trash2} onClick={async () => { if (confirm("Delete?")) { await deleteResource(r.id); load(); } }}>Del</Btn>
-                </Row>
-              ))}
-            </div>
-          </div>
+            </DrawerSection>
+          </Drawer>
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Megaphone size={12} style={{ color: "#C77DFF" }} />
-              <p className="font-mono text-[11px]" style={{ color: "#C77DFF" }}>ANNOUNCEMENTS ({announcements.length})</p>
-            </div>
-            <FormBox>
+          <Drawer open={!!editingA} onClose={() => setEditingA(null)} width={620}
+            title={editingA === "new" ? "Post announcement" : aForm.title || "Edit announcement"}
+            footer={<>
+              <SecondaryButton onClick={() => setEditingA(null)}>Cancel</SecondaryButton>
+              <PrimaryButton icon={Check} busy={saving} disabled={!aForm.title.trim()} onClick={saveA}>{editingA === "new" ? "Post" : "Update"}</PrimaryButton>
+            </>}>
+            <DrawerSection title="Announcement">
               <Input label="TITLE" value={aForm.title} onChange={v => setAForm(p => ({ ...p, title: v }))} />
-              <Textarea label="BODY" rows={3} value={aForm.body} onChange={v => setAForm(p => ({ ...p, body: v }))} />
-              <div className="flex items-center gap-4 flex-wrap">
-                <label className="flex items-center gap-2 font-mono text-[11px] text-white/50">
-                  <input type="checkbox" checked={aForm.pinned} onChange={e => setAForm(p => ({ ...p, pinned: e.target.checked }))} />
+              <Textarea label="BODY" rows={4} value={aForm.body} onChange={v => setAForm(p => ({ ...p, body: v }))} />
+              <div className="flex items-end gap-4 flex-wrap">
+                <label className="flex items-center gap-2 font-sans text-sm text-white/60 pb-2">
+                  <input type="checkbox" checked={!!aForm.pinned} onChange={e => setAForm(p => ({ ...p, pinned: e.target.checked }))} />
                   Pin to the top
                 </label>
-                <Dropdown value={aForm.status} onChange={v => setAForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
+                <SelectField label="STATUS" value={aForm.status} onChange={v => setAForm(p => ({ ...p, status: v }))} options={STATUSES} className="w-40" />
               </div>
-              <div className="flex gap-2">
-                <Btn onClick={saveA} disabled={saving || !aForm.title.trim()} solid color="#00FF41">{editingA ? "Update" : "Post"}</Btn>
-                {editingA && <button onClick={() => setEditingA(null)} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>}
-              </div>
-            </FormBox>
-            <div className="space-y-1.5">
-              {announcements.map(a => (
-                <Row key={a.id}>
-                  {a.pinned && <span className="font-mono text-[10px]" style={{ color: "#FFD700" }}>PINNED</span>}
-                  <span className="font-mono text-xs text-white/70 flex-1 min-w-0 truncate">{a.title}</span>
-                  <StatusPill status={a.status} />
-                  <Btn color="#FFD700" icon={Pencil} onClick={() => { setEditingA(a.id); setAForm({ ...aForm, ...a }); }}>Edit</Btn>
-                  <Btn color="#FF5050" icon={Trash2} onClick={async () => { if (confirm("Delete?")) { await deleteAnnouncement(a.id); load(); } }}>Del</Btn>
-                </Row>
-              ))}
-            </div>
-          </div>
+            </DrawerSection>
+          </Drawer>
         </>
       )}
     </div>
@@ -1944,14 +2242,14 @@ export function GateResourcesPanel() {
 // fact is how a single typo'd subjectId turns into forty wrong documents.
 
 const VERDICT_STYLE = {
-  create: { color: "#00FF41", label: "WILL ADD CONTENT" },
-  update: { color: "#FFD700", label: "WILL OVERWRITE" },
-  unknown: { color: "#FF9500", label: "NO SUCH TOPIC" },
-  invalid: { color: "#FF5050", label: "INVALID" },
+  create: { color: KIT.green, label: "Will add content" },
+  update: { color: KIT.gold, label: "Will overwrite" },
+  unknown: { color: KIT.orange, label: "No such topic" },
+  invalid: { color: KIT.red, label: "Invalid" },
 };
 
 export function GateLessonImportPanel() {
-  const { papers, paperId, setPaperId } = usePapers();
+  const { papers, paperId, setPaperId, loading: papersLoading } = usePapers();
   const [text, setText] = useState("");
   const [report, setReport] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -2011,163 +2309,141 @@ export function GateLessonImportPanel() {
     e.target.value = "";
   };
 
-  if (papers.length === 0) return <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} />;
+  if (papers.length === 0) return <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} loading={papersLoading} />;
 
   const subjectList = subjects || [];
+  const topicTotal = subjectList.reduce((n, s) => n + (s.topicCount || 0), 0);
+  const counts = report?.counts;
 
   return (
-    <div className="space-y-4">
-      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} />
+    <div className="space-y-5">
+      <PaperSelect papers={papers} paperId={paperId} setPaperId={setPaperId} loading={papersLoading} />
 
-      <FormBox>
-        <p className="font-mono text-[10px] tracking-wider mb-2" style={{ color: "#00E5A0" }}>
-          STEP 1 - GET A TEMPLATE
-        </p>
-        <p className="font-mono text-[10.5px] text-white/40 leading-relaxed mb-2.5">
-          Export the paper&apos;s real topic ids so nothing has to be typed by hand. Edit the prose in a proper editor,
-          then bring the file back. Only the fields left in the file are written - a file containing nothing but
-          <span className="text-white/60"> shortNotes</span> updates only short notes and leaves every authored lesson intact.
-        </p>
+      <StatGrid stats={[
+        { label: "Subjects in paper", value: subjectList.length, sub: "Available as template scope", icon: Layers, color: KIT.green, loading: subjects === null },
+        { label: "Topics in paper", value: topicTotal, sub: "Valid import targets", icon: ListChecks, color: KIT.cyan, loading: subjects === null },
+        { label: "Rows validated", value: report?.rows ? report.rows.length : "-",
+          sub: counts ? `${counts.create} add · ${counts.update} overwrite · ${counts.unknown + counts.invalid} skipped` : "Validate to see the diff",
+          icon: FileJson, color: KIT.orange },
+        { label: "Will be written", value: report?.writable ? report.writable.length : "-",
+          sub: done !== null ? `Last import wrote ${done} topic${done === 1 ? "" : "s"}` : "Rows that pass validation",
+          icon: Sparkles, color: KIT.purple },
+      ]} />
+
+      <KitCard icon={Download} color={KIT.cyan} title="Step 1 - Get a template"
+        hint="Export the paper's real topic ids so nothing has to be typed by hand. Edit the prose in a proper editor, then bring the file back. Only the fields left in the file are written - a file containing nothing but shortNotes updates only short notes and leaves every authored lesson intact.">
         <div className="flex items-end gap-2.5 flex-wrap">
           <div className="w-64">
-            <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">SUBJECT (BLANK = WHOLE PAPER)</p>
-            <Dropdown value={templateSubject} onChange={setTemplateSubject} className="w-full"
+            <SelectField label="SUBJECT (BLANK = WHOLE PAPER)" value={templateSubject} onChange={setTemplateSubject}
               options={["", ...subjectList.map(s => s.id)]} />
           </div>
-          <Btn icon={Download} onClick={() => exportTemplate(true)} disabled={busy}>
+          <SecondaryButton icon={Download} onClick={() => exportTemplate(true)} disabled={busy}>
             Export with existing content
-          </Btn>
-          <Btn icon={Download} color="#A78BFA" onClick={() => exportTemplate(false)} disabled={busy}>
+          </SecondaryButton>
+          <SecondaryButton icon={Download} onClick={() => exportTemplate(false)} disabled={busy}>
             Export ids only
-          </Btn>
-          <Btn icon={Copy} color="#FFD700" onClick={() => setText(LESSON_IMPORT_EXAMPLE)}>
+          </SecondaryButton>
+          <SecondaryButton icon={Copy} onClick={() => setText(LESSON_IMPORT_EXAMPLE)}>
             Load a filled example
-          </Btn>
+          </SecondaryButton>
         </div>
-      </FormBox>
+      </KitCard>
 
-      <FormBox>
-        <p className="font-mono text-[10px] tracking-wider mb-2" style={{ color: "#00E5A0" }}>
-          STEP 2 - PASTE OR UPLOAD, THEN VALIDATE
-        </p>
-        <div className="flex items-center gap-2.5 flex-wrap mb-2.5">
-          <label className="font-mono text-[11px] px-2.5 py-1.5 rounded cursor-pointer inline-flex items-center gap-1.5"
-            style={{ background: "rgba(0,255,255,0.08)", color: "#00FFFF", border: "1px solid rgba(0,255,255,0.25)" }}>
-            <Upload size={11} /> Choose a .json file
+      <KitCard icon={Upload} color={KIT.cyan} title="Step 2 - Paste or upload, then validate"
+        hint="Validation compares every row against this paper's real topic ids before anything is written.">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <label className="inline-flex items-center justify-center gap-2 font-sans text-sm px-3.5 py-2 rounded-lg border border-white/12 text-white/70 hover:text-white hover:border-white/25 transition-colors cursor-pointer">
+            <Upload size={14} /> Choose a .json file
             <input type="file" accept=".json,application/json" onChange={onFile} className="hidden" />
           </label>
-          <span className="font-mono text-[10px] text-white/25">
-            {text ? `${text.length.toLocaleString()} characters loaded` : "nothing loaded yet"}
+          <span className="font-sans text-xs text-white/40">
+            {text ? `${text.length.toLocaleString()} characters loaded` : "Nothing loaded yet"}
           </span>
         </div>
         <Textarea label="LESSON JSON" value={text} rows={12}
           onChange={v => { setText(v); setReport(null); setDone(null); }}
           placeholder={'{ "paperId": "cs", "topics": [ { "subjectId": "digital-logic", "topicId": "karnaugh-map", "concept": "..." } ] }'} />
-        <div className="flex items-center gap-2.5 mt-2.5">
-          <Btn icon={Check} onClick={validate} disabled={busy || !text.trim()}>
+        <div className="flex items-center gap-2.5">
+          <PrimaryButton icon={Check} onClick={validate} busy={busy && !progress} disabled={busy || !text.trim()}>
             {busy && !progress ? "Validating..." : "Validate (writes nothing)"}
-          </Btn>
-          <p className="font-mono text-[10px] text-white/25">
-            Compares every row against this paper&apos;s real topic ids before anything is written.
-          </p>
+          </PrimaryButton>
         </div>
-      </FormBox>
+      </KitCard>
 
-      {report?.fatal && (
-        <div className="p-3 rounded font-mono text-[11px] leading-relaxed"
-          style={{ background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.3)", color: "#FF5050" }}>
-          <AlertTriangle size={12} className="inline mr-1.5" />{report.fatal}
-        </div>
-      )}
+      {report?.fatal && <Notice color={KIT.red}>{report.fatal}</Notice>}
 
       {report?.rows && (
-        <FormBox>
-          <p className="font-mono text-[10px] tracking-wider mb-2.5" style={{ color: "#00E5A0" }}>
-            STEP 3 - REVIEW THE DIFF, THEN COMMIT
-          </p>
-          <div className="flex items-center gap-3 flex-wrap mb-3">
-            {Object.entries(report.counts).map(([k, n]) => (n > 0 ? (
-              <span key={k} className="font-mono text-[10.5px] px-2 py-1 rounded"
-                style={{
-                  background: `${VERDICT_STYLE[k].color}14`,
-                  border: `1px solid ${VERDICT_STYLE[k].color}40`,
-                  color: VERDICT_STYLE[k].color,
-                }}>
-                {n} {VERDICT_STYLE[k].label}
-              </span>
-            ) : null))}
-          </div>
+        <>
+          <KitCard icon={ShieldCheck} color={KIT.green} title="Step 3 - Review the diff, then commit"
+            hint="Rows marked No such topic or Invalid are skipped, not written. Fix them and re-validate to include them.">
+            <div className="flex items-center gap-2 flex-wrap">
+              {Object.entries(report.counts).map(([k, n]) => (n > 0 ? (
+                <Pill key={k} color={VERDICT_STYLE[k].color}>{n} {VERDICT_STYLE[k].label.toLowerCase()}</Pill>
+              ) : null))}
+            </div>
 
-          <div className="space-y-1 max-h-80 overflow-y-auto">
-            {report.rows.map(r => {
-              const style = VERDICT_STYLE[r.verdict];
-              return (
-                <div key={r.index} className="p-2.5 rounded"
-                  style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${style.color}26` }}>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-[9.5px] px-1.5 py-0.5 rounded flex-shrink-0"
-                      style={{ background: `${style.color}18`, color: style.color }}>
-                      {style.label}
-                    </span>
-                    <span className="font-mono text-[11px] text-white/70">{r.label}</span>
-                  </div>
-                  {r.fields?.length > 0 && (
-                    <p className="font-mono text-[10px] text-white/30 mt-1">sets: {r.fields.join(", ")}</p>
-                  )}
-                  {r.errors?.map((e, i) => (
-                    <p key={i} className="font-mono text-[10px] mt-1" style={{ color: style.color }}>{e}</p>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
+            {report.counts.update > 0 && (
+              <Notice color={KIT.gold}>
+                {report.counts.update} topic{report.counts.update === 1 ? "" : "s"} already have authored content that will be
+                overwritten. The previous version of each is snapshotted first (last 5 kept), so a bad import is recoverable
+                from that topic&apos;s version history - but check the list below rather than relying on it.
+              </Notice>
+            )}
 
-          {report.counts.update > 0 && (
-            <p className="font-mono text-[10.5px] mt-3 leading-relaxed" style={{ color: "#FFD700" }}>
-              {report.counts.update} topic{report.counts.update === 1 ? "" : "s"} already have authored content that will be
-              overwritten. The previous version of each is snapshotted first (last 5 kept), so a bad import is recoverable
-              from that topic&apos;s version history - but check the list above rather than relying on it.
-            </p>
-          )}
+            <div className="flex items-center gap-2.5">
+              <PrimaryButton icon={Sparkles} onClick={commit} busy={!!progress}
+                disabled={busy || report.writable.length === 0}>
+                {progress
+                  ? `Importing ${progress.n}/${progress.total}...`
+                  : `Import ${report.writable.length} topic${report.writable.length === 1 ? "" : "s"}`}
+              </PrimaryButton>
+              <SecondaryButton onClick={() => setReport(null)} disabled={busy}>Cancel</SecondaryButton>
+            </div>
+          </KitCard>
 
-          <div className="flex items-center gap-2.5 mt-3">
-            <Btn solid color="#00FF41" icon={Sparkles} onClick={commit}
-              disabled={busy || report.writable.length === 0}>
-              {progress
-                ? `Importing ${progress.n}/${progress.total}...`
-                : `Import ${report.writable.length} topic${report.writable.length === 1 ? "" : "s"}`}
-            </Btn>
-            <Btn color="#FF5050" onClick={() => setReport(null)} disabled={busy}>Cancel</Btn>
-          </div>
-          {(report.counts.unknown > 0 || report.counts.invalid > 0) && (
-            <p className="font-mono text-[10px] text-white/30 mt-2">
-              Rows marked NO SUCH TOPIC or INVALID are skipped, not written. Fix them and re-validate to include them.
-            </p>
-          )}
-        </FormBox>
+          <DataTable
+            title="Validation diff" icon={FileJson}
+            subtitle="One row per topic in the file, checked against this paper's real ids."
+            rows={report.rows} rowKey={r => r.index}
+            searchKeys={["label"]} searchPlaceholder="Search topics..."
+            filters={[
+              { key: "verdict", label: "All verdicts",
+                options: Object.entries(VERDICT_STYLE).map(([k, v]) => ({ value: k, label: v.label })) },
+            ]}
+            pageSize={20}
+            columns={[
+              { key: "verdict", label: "Verdict", render: r => <Pill color={VERDICT_STYLE[r.verdict]?.color}>{VERDICT_STYLE[r.verdict]?.label || r.verdict}</Pill> },
+              { key: "label", label: "Topic", render: r => <TitleCell title={r.label} sub={r.fields?.length ? `Sets: ${r.fields.join(", ")}` : ""} /> },
+              { key: "errors", label: "Problems", sort: r => r.errors?.length || 0, render: r => (
+                r.errors?.length
+                  ? <div className="space-y-0.5 max-w-md">{r.errors.map((e, i) => (
+                      <p key={i} className="font-sans text-xs" style={{ color: VERDICT_STYLE[r.verdict]?.color }}>{e}</p>
+                    ))}</div>
+                  : <Muted>-</Muted>
+              ) },
+            ]}
+          />
+        </>
       )}
 
       {done !== null && (
-        <div className="p-3 rounded font-mono text-[11px]"
-          style={{ background: "rgba(0,255,65,0.08)", border: "1px solid rgba(0,255,65,0.3)", color: "#00FF41" }}>
-          <Check size={12} className="inline mr-1.5" />
+        <Notice color={KIT.green} icon={Check}>
           Imported {done} topic{done === 1 ? "" : "s"}. Published lessons are live for students immediately.
-        </div>
+        </Notice>
       )}
 
-      <FormBox>
-        <p className="font-mono text-[10px] tracking-wider mb-2 text-white/40">SUPPORTED FIELDS</p>
-        <p className="font-mono text-[10px] text-white/30 leading-relaxed">
+      <KitCard title="Supported fields" icon={FileText} color={KIT.muted}>
+        <p className="font-mono text-[11px] text-white/45 leading-relaxed">
           {LESSON_IMPORT_FIELDS.join(" · ")}
         </p>
-        <p className="font-mono text-[10px] text-white/25 mt-2 leading-relaxed">
+        <p className="font-sans text-xs text-white/40 leading-relaxed">
           Any other key is rejected rather than ignored, so a misspelled field name fails validation instead of silently
-          writing nothing. <span className="text-white/40">concept</span>, <span className="text-white/40">deepDive</span>,
-          {" "}<span className="text-white/40">dryRun</span> and the short-note depths accept the same
-          {" "}<span className="text-white/40">##</span> heading and <span className="text-white/40">:::</span> block syntax
+          writing nothing. <span className="text-white/60">concept</span>, <span className="text-white/60">deepDive</span>,
+          {" "}<span className="text-white/60">dryRun</span> and the short-note depths accept the same
+          {" "}<span className="text-white/60">##</span> heading and <span className="text-white/60">:::</span> block syntax
           as the single-topic editor.
         </p>
-      </FormBox>
+      </KitCard>
     </div>
   );
 }

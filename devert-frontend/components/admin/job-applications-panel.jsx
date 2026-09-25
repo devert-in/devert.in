@@ -13,31 +13,54 @@
 
 import { useEffect, useState } from "react";
 import {
-  Check, ExternalLink, FileText, Github, Inbox, Linkedin, Loader2, Mail,
-  Phone, RefreshCw, RotateCcw, UserCheck, X,
+  Check, Eye, ExternalLink, FileText, Github, Inbox, Linkedin, Mail, Phone,
+  RefreshCw, RotateCcw, Trophy, UserCheck, Users, X,
 } from "lucide-react";
+import {
+  KIT, fmt, StatGrid, Pill, DataTable, Drawer, DrawerSection,
+  PrimaryButton, SecondaryButton,
+} from "@/components/admin/admin-kit";
+import { logAdminActivity } from "@/lib/adminActivityLog";
 import {
   APPLICATION_STATUS, GENERAL_INTEREST_JOB_ID, fetchApplications,
   setApplicationStatus,
 } from "@/lib/careers";
 
 const STATUS_META = {
-  [APPLICATION_STATUS.NEW]: { label: "NEW", color: "#FF9500" },
-  [APPLICATION_STATUS.SCREENING]: { label: "SCREENING", color: "#00FFFF" },
-  [APPLICATION_STATUS.INTERVIEWING]: { label: "INTERVIEWING", color: "#C77DFF" },
-  [APPLICATION_STATUS.HIRED]: { label: "HIRED", color: "#00FF41" },
-  [APPLICATION_STATUS.REJECTED]: { label: "REJECTED", color: "#FF5050" },
-  [APPLICATION_STATUS.CLOSED]: { label: "CLOSED", color: "rgba(255,255,255,0.35)" },
+  [APPLICATION_STATUS.NEW]: { label: "New", color: KIT.orange },
+  [APPLICATION_STATUS.SCREENING]: { label: "Screening", color: KIT.cyan },
+  [APPLICATION_STATUS.INTERVIEWING]: { label: "Interviewing", color: KIT.purple },
+  [APPLICATION_STATUS.HIRED]: { label: "Hired", color: KIT.green },
+  [APPLICATION_STATUS.REJECTED]: { label: "Rejected", color: KIT.red },
+  [APPLICATION_STATUS.CLOSED]: { label: "Closed", color: KIT.muted },
 };
 
-const FILTERS = [
-  { key: "all", label: "ALL", color: "#C77DFF" },
-  ...Object.entries(STATUS_META).map(([key, m]) => ({ key, ...m })),
-];
+// fetchApplications() default page size; the total stat says so when it is hit.
+const APPLICATION_CAP = 200;
 
+const tsMillis = (ts) => (ts?.toMillis ? ts.toMillis() : ts?.seconds ? ts.seconds * 1000 : 0);
 function fmtWhen(ts) {
-  if (!ts?.toDate) return "";
-  return ts.toDate().toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  const ms = tsMillis(ts);
+  if (!ms) return "-";
+  return new Date(ms).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+const roleLabel = (r) => (r.jobId === GENERAL_INTEREST_JOB_ID
+  ? "General application"
+  : (r.jobTitle || "(role deleted)"));
+
+// The workflow, unchanged from the list version: each status has one forward
+// step, reject is available until a terminal state, and a terminal state can be
+// reopened back to NEW.
+function nextActions(r) {
+  const s = r.status;
+  const out = [];
+  if (s === APPLICATION_STATUS.NEW) out.push({ to: APPLICATION_STATUS.SCREENING, label: "Move to screening", icon: Check });
+  if (s === APPLICATION_STATUS.SCREENING) out.push({ to: APPLICATION_STATUS.INTERVIEWING, label: "Move to interviewing", icon: Check });
+  if (s === APPLICATION_STATUS.INTERVIEWING) out.push({ to: APPLICATION_STATUS.HIRED, label: "Mark hired", icon: Check });
+  if (s !== APPLICATION_STATUS.REJECTED && s !== APPLICATION_STATUS.HIRED) out.push({ to: APPLICATION_STATUS.REJECTED, label: "Reject", icon: X, danger: true });
+  if (s === APPLICATION_STATUS.REJECTED || s === APPLICATION_STATUS.HIRED) out.push({ to: APPLICATION_STATUS.NEW, label: "Reopen", icon: RotateCcw });
+  return out;
 }
 
 // Applicant-supplied URLs are rendered as links, which makes them a click away
@@ -54,31 +77,39 @@ function SafeLink({ href, icon: Icon, label }) {
 
   if (!safe) {
     return (
-      <span className="flex items-center gap-1 text-white/30" title="not a valid link">
-        <Icon size={10} /> {label}
+      <span className="inline-flex items-center gap-1.5 font-sans text-sm text-white/35" title="not a valid link">
+        <Icon size={13} /> {label} <span className="text-xs">(not a valid link: {href})</span>
       </span>
     );
   }
   return (
     <a href={safe} target="_blank" rel="noopener noreferrer"
-      className="flex items-center gap-1 hover:underline" style={{ color: "#00FFFF" }}>
-      <Icon size={10} /> {label}
+      className="inline-flex items-center gap-1.5 font-sans text-sm hover:underline" style={{ color: KIT.cyan }}>
+      <Icon size={13} /> {label}
     </a>
   );
 }
 
+function Field({ label, children }) {
+  return (
+    <div className="min-w-0">
+      <p className="font-sans text-[11px] text-white/40 mb-0.5">{label}</p>
+      <div className="font-sans text-sm text-white/80 break-words">{children}</div>
+    </div>
+  );
+}
+
 export function JobApplicationsPanel() {
-  const [filter, setFilter] = useState(APPLICATION_STATUS.NEW);
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState("");
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState("");
+  const [openId, setOpenId] = useState(null);
 
   useEffect(() => {
     let alive = true;
-    setError("");
-    fetchApplications()
-      .then((r) => { if (alive) setRows(r); })
+    fetchApplications(APPLICATION_CAP)
+      .then((r) => { if (alive) { setRows(r); setError(""); } })
       .catch((e) => {
         if (!alive) return;
         setRows([]);
@@ -92,7 +123,9 @@ export function JobApplicationsPanel() {
     setError("");
     try {
       await setApplicationStatus(id, next);
+      const row = rows?.find((r) => r.id === id);
       setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: next } : r)));
+      logAdminActivity(`set job application ${next}`, `${row?.name || id} - ${row ? roleLabel(row) : ""}`, "careers");
     } catch (e) {
       setError(e?.message || "Could not update that application.");
     } finally {
@@ -100,152 +133,151 @@ export function JobApplicationsPanel() {
     }
   };
 
-  const newCount = rows?.filter((r) => r.status === APPLICATION_STATUS.NEW).length || 0;
-  const visible = rows?.filter((r) => filter === "all" || r.status === filter) || [];
+  const loading = rows === null;
+  const list = rows || [];
+  const count = (s) => list.filter((r) => r.status === s).length;
+  const inPipeline = count(APPLICATION_STATUS.SCREENING) + count(APPLICATION_STATUS.INTERVIEWING);
+  const roleOptions = [...new Map(list.map((r) => [r.jobId, roleLabel(r)])).entries()]
+    .map(([value, label]) => ({ value: value || "", label }))
+    .filter((o) => o.value)
+    .sort((a, b) => a.label.localeCompare(b.label));
+  // Derived from rows, so a status change made from the drawer shows in it at once.
+  const open = openId ? list.find((r) => r.id === openId) : null;
+  const openMeta = open ? (STATUS_META[open.status] || STATUS_META[APPLICATION_STATUS.NEW]) : null;
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {FILTERS.map((f) => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
-            className="font-mono text-[10px] tracking-wider px-3 py-1.5 rounded-lg transition-colors"
-            style={{
-              color: filter === f.key ? f.color : "rgba(255,255,255,0.3)",
-              background: filter === f.key ? `${f.color}12` : "rgba(255,255,255,0.03)",
-              border: `1px solid ${filter === f.key ? `${f.color}40` : "rgba(255,255,255,0.06)"}`,
-            }}>
-            {f.label}{f.key === APPLICATION_STATUS.NEW && newCount > 0 ? ` (${newCount})` : ""}
-          </button>
-        ))}
-        <button onClick={() => setNonce((n) => n + 1)}
-          className="ml-auto font-mono text-[10px] text-white/35 flex items-center gap-1.5 px-2.5 py-1.5">
-          <RefreshCw size={10} /> refresh
-        </button>
-      </div>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Applications", value: list.length, sub: list.length >= APPLICATION_CAP ? `latest ${APPLICATION_CAP} loaded` : `${roleOptions.length} roles`, icon: Inbox, color: KIT.cyan, loading },
+        { label: "New", value: count(APPLICATION_STATUS.NEW), sub: "Awaiting first review", icon: FileText, color: KIT.orange, loading },
+        { label: "In pipeline", value: inPipeline, sub: `${count(APPLICATION_STATUS.INTERVIEWING)} interviewing`, icon: Users, color: KIT.purple, loading },
+        { label: "Hired", value: count(APPLICATION_STATUS.HIRED), sub: `${count(APPLICATION_STATUS.REJECTED)} rejected`, icon: Trophy, color: KIT.green, loading },
+      ]} />
 
       {error && (
-        <p className="font-mono text-[10.5px] mb-3 px-3 py-2 rounded-lg"
-          style={{ color: "#FF9A9A", background: "rgba(255,80,80,0.06)", border: "1px solid rgba(255,80,80,0.2)" }}>
+        <p className="font-sans text-sm px-3 py-2 rounded-lg"
+          style={{ color: KIT.red, background: `${KIT.red}0F`, border: `1px solid ${KIT.red}33` }}>
           {error}
         </p>
       )}
 
-      {rows === null ? (
-        <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
-      ) : visible.length === 0 ? (
-        <p className="font-mono text-xs text-white/25">No {filter === "all" ? "" : `${filter} `}applications.</p>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((r) => {
+      <DataTable title="Job applications" icon={Inbox} defaultFilters={{ status: "new" }}
+        subtitle="Candidates from careers.devert.in. Open a row for the full application and status actions."
+        rows={list} loading={loading}
+        searchKeys={["name", "email", "jobTitle", "jobId", "devertHandle", "phone"]} searchPlaceholder="Search candidates..."
+        filters={[
+          { key: "status", label: "All statuses", options: Object.entries(STATUS_META).map(([value, m]) => ({ value, label: m.label })) },
+          ...(roleOptions.length ? [{ key: "jobId", label: "All roles", options: roleOptions }] : []),
+        ]}
+        toolbarExtra={(
+          <button onClick={() => setNonce((n) => n + 1)}
+            className="ml-auto inline-flex items-center gap-1.5 font-sans text-xs text-white/50 hover:text-white px-2 py-2">
+            <RefreshCw size={12} /> Refresh
+          </button>
+        )}
+        onRowClick={(r) => setOpenId(r.id)}
+        emptyText="No applications yet."
+        columns={[
+          { key: "name", label: "Candidate", render: (r) => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate flex items-center gap-1.5">
+                {r.name || "(no name)"}
+                {r.uid && <UserCheck size={12} className="flex-shrink-0" style={{ color: KIT.green }} aria-label="applied while signed in to DeVert" />}
+              </p>
+              <p className="font-sans text-xs text-white/40 truncate">{r.email}</p>
+            </div>
+          ) },
+          { key: "jobTitle", label: "Role", sort: roleLabel, render: (r) => (
+            <div className="min-w-0 max-w-[240px]">
+              <p className="font-sans text-sm text-white/75 truncate">{roleLabel(r)}</p>
+              {r.jobId !== GENERAL_INTEREST_JOB_ID && <p className="font-sans text-xs text-white/40 truncate">/{r.jobId}</p>}
+            </div>
+          ) },
+          { key: "status", label: "Status", render: (r) => {
             const meta = STATUS_META[r.status] || STATUS_META[APPLICATION_STATUS.NEW];
-            const general = r.jobId === GENERAL_INTEREST_JOB_ID;
-            return (
-              <div key={r.id} className="p-3.5 rounded-lg"
-                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div className="flex items-start gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[240px]">
-                    <p className="font-mono text-[12px] text-white/85 flex items-center gap-2 flex-wrap">
-                      {r.name || "(no name)"}
-                      <span className="font-mono text-[9px] px-2 py-0.5 rounded"
-                        style={{ color: meta.color, background: `${meta.color}12` }}>
-                        {meta.label}
-                      </span>
-                      {r.uid && (
-                        <span className="font-mono text-[9px] px-2 py-0.5 rounded flex items-center gap-1"
-                          style={{ color: "#00FF41", background: "rgba(0,255,65,0.1)" }}
-                          title="applied while signed in to DeVert">
-                          <UserCheck size={9} /> MEMBER
-                        </span>
-                      )}
-                    </p>
+            return <Pill color={meta.color}>{meta.label}</Pill>;
+          } },
+          { key: "createdAt", label: "Applied", sort: (r) => tsMillis(r.createdAt), render: (r) => (
+            <span className="font-sans text-xs text-white/55">{fmtWhen(r.createdAt)}</span>
+          ) },
+        ]}
+        rowActions={(r) => [
+          { icon: Eye, label: "View application", onClick: () => setOpenId(r.id) },
+          ...nextActions(r).map((a) => ({
+            icon: a.icon, label: a.label, danger: a.danger, disabled: busy === r.id,
+            onClick: () => decide(r.id, a.to),
+          })),
+        ]}
+      />
 
-                    <p className="font-mono text-[10.5px] text-white/40 mt-0.5">
-                      {general
-                        ? "general application - no specific role"
-                        : `${r.jobTitle || "(role deleted)"} · careers.devert.in/${r.jobId}`}
-                      {r.devertHandle ? ` · @${r.devertHandle}` : ""}
-                    </p>
-
-                    <p className="font-mono text-[10.5px] mt-1.5 flex items-center gap-3 flex-wrap">
-                      <a href={`mailto:${r.email}`} className="flex items-center gap-1 hover:underline" style={{ color: "#00FFFF" }}>
-                        <Mail size={10} /> {r.email}
-                      </a>
-                      {r.phone && (
-                        <span className="flex items-center gap-1 text-white/40">
-                          <Phone size={10} /> {r.phone}
-                        </span>
-                      )}
-                    </p>
-
-                    <p className="font-mono text-[10.5px] mt-1.5 flex items-center gap-3 flex-wrap">
-                      <SafeLink href={r.resumeUrl} icon={FileText} label="resume" />
-                      <SafeLink href={r.githubUrl} icon={Github} label="github" />
-                      <SafeLink href={r.linkedinUrl} icon={Linkedin} label="linkedin" />
-                      <SafeLink href={r.portfolioUrl} icon={ExternalLink} label="portfolio" />
-                    </p>
-
-                    {r.coverNote && (
-                      <p className="font-mono text-[10.5px] text-white/45 mt-2 leading-relaxed whitespace-pre-line">
-                        {r.coverNote}
-                      </p>
-                    )}
-
-                    <p className="font-mono text-[9.5px] text-white/20 mt-2">
-                      {fmtWhen(r.createdAt)}{r.source ? ` · via ${r.source}` : ""}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                    {r.status === APPLICATION_STATUS.NEW && (
-                      <button onClick={() => decide(r.id, APPLICATION_STATUS.SCREENING)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "#00FFFF", border: "1px solid rgba(0,255,255,0.3)", background: "rgba(0,255,255,0.06)" }}>
-                        {busy === r.id ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} screening
-                      </button>
-                    )}
-                    {r.status === APPLICATION_STATUS.SCREENING && (
-                      <button onClick={() => decide(r.id, APPLICATION_STATUS.INTERVIEWING)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "#C77DFF", border: "1px solid rgba(199,125,255,0.3)", background: "rgba(199,125,255,0.06)" }}>
-                        {busy === r.id ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} interviewing
-                      </button>
-                    )}
-                    {r.status === APPLICATION_STATUS.INTERVIEWING && (
-                      <button onClick={() => decide(r.id, APPLICATION_STATUS.HIRED)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "#00FF41", border: "1px solid rgba(0,255,65,0.3)", background: "rgba(0,255,65,0.06)" }}>
-                        {busy === r.id ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} hired
-                      </button>
-                    )}
-                    {r.status !== APPLICATION_STATUS.REJECTED && r.status !== APPLICATION_STATUS.HIRED && (
-                      <button onClick={() => decide(r.id, APPLICATION_STATUS.REJECTED)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "#FF5050", border: "1px solid rgba(255,80,80,0.3)" }}>
-                        <X size={10} /> reject
-                      </button>
-                    )}
-                    {(r.status === APPLICATION_STATUS.REJECTED || r.status === APPLICATION_STATUS.HIRED) && (
-                      <button onClick={() => decide(r.id, APPLICATION_STATUS.NEW)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.15)" }}>
-                        <RotateCcw size={10} /> reopen
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <p className="font-mono text-[10px] text-white/25 mt-4 leading-relaxed">
-        <Inbox size={10} className="inline mr-1 -mt-0.5" />
+      <p className="font-sans text-xs text-white/35 leading-relaxed">
+        <Inbox size={12} className="inline mr-1 -mt-0.5" />
         These arrive from the unauthenticated form on careers.devert.in and each role page - firestore.rules
         whitelists the fields it can write and pins status to &quot;new&quot;, so nothing here can be
         forged by the applicant. Links are applicant-supplied: they open in a new tab with no referrer,
         and anything that isn&apos;t an http(s) URL is shown as plain text rather than made clickable.
       </p>
+
+      <Drawer open={!!open} onClose={() => setOpenId(null)} width={640}
+        title={open ? (open.name || "(no name)") : ""}
+        subtitle={open ? `${roleLabel(open)} - applied ${fmtWhen(open.createdAt)}${open.source ? ` via ${open.source}` : ""}` : ""}
+        footer={open && <>
+          <div className="mr-auto"><Pill color={openMeta.color}>{openMeta.label}</Pill></div>
+          <SecondaryButton onClick={() => setOpenId(null)}>Close</SecondaryButton>
+          {nextActions(open).map((a) => (a.to === APPLICATION_STATUS.REJECTED || a.to === APPLICATION_STATUS.NEW ? (
+            <SecondaryButton key={a.to} icon={a.icon} disabled={busy === open.id} onClick={() => decide(open.id, a.to)}>{a.label}</SecondaryButton>
+          ) : (
+            <PrimaryButton key={a.to} icon={a.icon} busy={busy === open.id} onClick={() => decide(open.id, a.to)}>{a.label}</PrimaryButton>
+          )))}
+        </>}>
+        {open && (
+          <>
+            <DrawerSection title="Candidate">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Field label="Email">
+                  <a href={`mailto:${open.email}`} className="inline-flex items-center gap-1.5 hover:underline" style={{ color: KIT.cyan }}>
+                    <Mail size={13} /> {open.email}
+                  </a>
+                </Field>
+                <Field label="Phone">
+                  {open.phone ? <span className="inline-flex items-center gap-1.5"><Phone size={13} /> {open.phone}</span> : "-"}
+                </Field>
+                <Field label="DeVert account">
+                  {open.uid
+                    ? <span className="inline-flex items-center gap-1.5" style={{ color: KIT.green }}><UserCheck size={13} /> Member{open.devertHandle ? ` - @${open.devertHandle}` : ""}</span>
+                    : open.devertHandle ? `@${open.devertHandle} (not signed in)` : "Not signed in"}
+                </Field>
+                <Field label="Role">
+                  {open.jobId === GENERAL_INTEREST_JOB_ID
+                    ? "General application - no specific role"
+                    : `${open.jobTitle || "(role deleted)"} - careers.devert.in/${open.jobId}`}
+                </Field>
+              </div>
+            </DrawerSection>
+
+            <DrawerSection title="Links" hint="Applicant-supplied. Opened in a new tab with no referrer.">
+              {open.resumeUrl || open.githubUrl || open.linkedinUrl || open.portfolioUrl ? (
+                <div className="flex flex-col gap-2">
+                  <SafeLink href={open.resumeUrl} icon={FileText} label="Resume" />
+                  <SafeLink href={open.githubUrl} icon={Github} label="GitHub" />
+                  <SafeLink href={open.linkedinUrl} icon={Linkedin} label="LinkedIn" />
+                  <SafeLink href={open.portfolioUrl} icon={ExternalLink} label="Portfolio" />
+                </div>
+              ) : (
+                <p className="font-sans text-sm text-white/35">No links provided.</p>
+              )}
+            </DrawerSection>
+
+            <DrawerSection title="Cover note">
+              {open.coverNote
+                ? <p className="font-sans text-sm text-white/75 leading-relaxed whitespace-pre-line break-words">{open.coverNote}</p>
+                : <p className="font-sans text-sm text-white/35">No cover note.</p>}
+            </DrawerSection>
+
+            <p className="font-sans text-xs text-white/30">Application ID {open.id} - {fmt(list.filter((r) => r.email && r.email === open.email).length)} application(s) from this email in the loaded set.</p>
+          </>
+        )}
+      </Drawer>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useIntro } from "@/context/IntroContext";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notification-bell";
 import { NAV_ROUTES } from "@/lib/navConfig";
+import { useFeatureFlags, isHrefDisabled } from "@/lib/featureFlags";
 
 // Mobile-only now (lg:hidden on the root <nav> below) - components/top-navbar.jsx
 // is the desktop nav, a floating top pill with grouped dropdowns, mirroring
@@ -45,7 +46,8 @@ const NAV_ITEMS = NAV_ROUTES.filter(r => r.mobile);
 export function Navbar() {
   const pathname = usePathname();
   const { hasShownIntro } = useIntro();
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
+  const flags = useFeatureFlags();
   const navRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -129,13 +131,12 @@ export function Navbar() {
                 <Wallet size={12} /> Wallet
               </div>
             </Link>
-            {/* Global Super Admin only - same link/gate as top-navbar.jsx's
-                ProfileMenu, which had this on desktop only; a super-admin on
-                a narrow viewport had no in-UI path to it at all. */}
-            {isSuperAdmin && (
-              <Link href="/manage" onClick={() => setProfileOpen(false)}>
+            {/* Admins only - same link/gate as top-navbar.jsx's ProfileMenu,
+                so an admin on a narrow viewport has an in-UI path too. */}
+            {isAdmin && (
+              <Link href="/admin" onClick={() => setProfileOpen(false)}>
                 <div className="flex items-center gap-2.5 px-4 py-3 font-mono text-xs text-white/55 hover:text-neon-green hover:bg-white/3 transition-colors cursor-pointer">
-                  <Globe size={12} /> Manage
+                  <Globe size={12} /> Admin
                 </div>
               </Link>
             )}
@@ -191,7 +192,7 @@ export function Navbar() {
           }}
         >
 
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter(item => !isHrefDisabled(flags, item.href)).map((item) => {
             // Pure pathname matching. This used to also consult the window
             // manager - Home stayed active while a window floated over it, so it
             // needed `!focusedId` too - which no longer applies now that every

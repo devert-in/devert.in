@@ -43,6 +43,11 @@
           "type": 301
         },
         {
+          "source": "/manage",
+          "destination": "/admin?tab=platform&section=features",
+          "type": 301
+        },
+        {
           "source": "/hackathons",
           "destination": "/events",
           "type": 301

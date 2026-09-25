@@ -2,6 +2,9 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+// From devert-frontend via the @/* fallback - inline-styled on purpose,
+// since this app has no @source for devert-frontend classes.
+import { FeatureGate } from "@/components/feature-gate";
 
 // Self-hosted at build time by next/font, so there is no render-blocking
 // request to Google's CDN and no layout shift - both of which matter more here
@@ -70,7 +73,7 @@ export default function RootLayout({ children }) {
           Skip to content
         </a>
         <SiteHeader />
-        <main id="main">{children}</main>
+        <main id="main"><FeatureGate feature="careers">{children}</FeatureGate></main>
         <SiteFooter />
       </body>
     </html>

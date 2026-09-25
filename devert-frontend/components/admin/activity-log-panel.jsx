@@ -1,48 +1,90 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ClipboardList, Users, CalendarClock, Activity } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { KIT, StatGrid, DataTable, Pill } from "@/components/admin/admin-kit";
 
-// Shared by app/admin/page.jsx's Overview tab and /manage's Audit Log section -
+const LOG_LIMIT = 50;
+
+const when = (t) => (t?.toDate ? t.toDate() : null);
+
+// Rendered on app/admin/page.jsx's Overview tab -
 // same collection, same live query, no product filter (a global control
 // center's whole point is seeing everything, not a scoped subset - and
 // avoids needing a new composite index for a where("product",...) query).
+// Product/action filtering is therefore done client-side by the DataTable,
+// over the same newest-50 window the live query returns.
+//
+// Read-only on purpose: an audit trail an admin can edit from the console
+// isn't an audit trail.
 export function ActivityLogPanel() {
   const [logs,    setLogs]    = useState([]);
   const [loading, setLoading] = useState(true);
+  // Start of the local day, captured when a snapshot lands rather than read
+  // during render (render must stay pure), so "today" stays in step with the data.
+  const [dayStart, setDayStart] = useState(0);
 
   useEffect(() => {
     const unsub = onSnapshot(
-      query(collection(db, "admin_activity_log"), orderBy("createdAt", "desc"), limit(50)),
-      snap => { setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); },
+      query(collection(db, "admin_activity_log"), orderBy("createdAt", "desc"), limit(LOG_LIMIT)),
+      snap => {
+        const midnight = new Date();
+        midnight.setHours(0, 0, 0, 0);
+        setDayStart(midnight.getTime());
+        setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
       () => setLoading(false),
     );
     return unsub;
   }, []);
 
-  const timeLabel = (ts) => {
-    if (!ts?.toDate) return "";
-    return ts.toDate().toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
-  };
+  const stats = useMemo(() => {
+    const actors = new Set(logs.map(l => l.actor).filter(Boolean));
+    const today = logs.filter(l => (when(l.createdAt)?.getTime() || 0) >= dayStart).length;
+    const counts = {};
+    logs.forEach(l => { if (l.action) counts[l.action] = (counts[l.action] || 0) + 1; });
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    return { actors: actors.size, today, top };
+  }, [logs, dayStart]);
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+  const productOf = (l) => l.product || "core";
+  const products = [...new Set(logs.map(productOf))].sort();
+  const actions = [...new Set(logs.map(l => l.action).filter(Boolean))].sort();
 
   return (
-    <div className="space-y-2 max-h-[500px] overflow-y-auto">
-      {logs.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no admin activity logged yet</p>}
-      {logs.map(log => (
-        <div key={log.id} className="flex items-start gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-          <span className="font-mono text-[9px] text-white/25 flex-shrink-0 mt-0.5 w-28">{timeLabel(log.createdAt)}</span>
-          <div className="flex-1 min-w-0">
-            <span className="font-mono text-[9px] px-1.5 py-0.5 rounded mr-2" style={{ color: "#00FF41", background: "rgba(0,255,65,0.06)" }}>{log.action}</span>
-            {log.product && log.product !== "core" && (
-              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded mr-2" style={{ color: "#00FFFF", background: "rgba(0,255,255,0.06)" }}>{log.product}</span>
-            )}
-            <span className="font-mono text-xs text-white/60">{log.detail}</span>
-          </div>
-        </div>
-      ))}
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Entries loaded", value: logs.length, sub: `Newest ${LOG_LIMIT}, live`, icon: ClipboardList, color: KIT.cyan, loading },
+        { label: "Distinct actors", value: stats.actors, sub: "Admins in this window", icon: Users, color: KIT.purple, loading },
+        { label: "Today", value: stats.today, sub: "Actions since midnight", icon: CalendarClock, color: KIT.green, loading },
+        { label: "Most common action", value: stats.top ? stats.top[0] : "-", sub: stats.top ? `${stats.top[1]} of ${logs.length} entries` : "No entries yet", icon: Activity, color: KIT.orange, loading },
+      ]} />
+
+      <DataTable title="Admin activity" icon={ClipboardList}
+        subtitle="Every logged admin action, newest first. Updates live as other admins work."
+        rows={logs} loading={loading}
+        searchKeys={["action", "detail", "actor"]} searchPlaceholder="Search action, detail or actor..."
+        filters={[
+          { key: "product", label: "All products", get: productOf, options: products.map(p => ({ value: p, label: p })) },
+          { key: "action", label: "All actions", options: actions.map(a => ({ value: a, label: a })) },
+        ]}
+        emptyText="No admin activity logged yet."
+        columns={[
+          { key: "action", label: "Action", render: l => <Pill color={KIT.green}>{l.action || "-"}</Pill> },
+          { key: "detail", label: "Detail", render: l => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm text-white/80 truncate" title={l.detail || ""}>{l.detail || "-"}</p>
+            </div>
+          ) },
+          { key: "actor", label: "Actor", render: l => <span className="font-sans text-xs text-white/60 break-all">{l.actor || "-"}</span> },
+          { key: "product", label: "Product", sort: productOf, render: l => <Pill color={productOf(l) === "core" ? KIT.muted : KIT.cyan}>{productOf(l)}</Pill> },
+          { key: "createdAt", label: "Time", sort: l => when(l.createdAt)?.getTime() || 0,
+            render: l => <span className="font-sans text-xs text-white/50 whitespace-nowrap">{when(l.createdAt)?.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) || "-"}</span> },
+        ]}
+      />
     </div>
   );
 }

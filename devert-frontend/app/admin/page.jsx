@@ -9,10 +9,10 @@ import {
   Plus, Trash2, Check, X, ChevronDown, ChevronUp, LogOut,
   Tv2, GitCommit, Radio, Activity, BookOpen, Wallet, ShieldCheck,
   Bell, BarChart3, ExternalLink, Trophy, Megaphone, Anchor, Gavel,
-  Coins, Medal, Crosshair, Command, Flag, MessageSquare, Eye, ClipboardList,
+  Coins, Medal, Crosshair, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
   Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network, Inbox, Heart,
-  Hammer, Globe, Server, Smartphone, Bot,
+  Hammer, Globe, Server, Smartphone, Bot, Power, Search, Menu, ChevronRight, ChevronLeft, Database,
 } from "lucide-react";
 import {
   db, auth
@@ -50,6 +50,9 @@ import {
 import { StringListField, McqListField } from "@/components/campus/campus-daily-learning-editor";
 import { SeModulesPanel } from "@/components/admin/se-panel";
 import { AmbassadorPanel } from "@/components/admin/ambassador-panel";
+import { FeatureSwitchesPanel, RolesPanel } from "@/components/admin/platform-panels";
+import { ApiServicesPanel, DatabasePanel } from "@/components/admin/platform-ops";
+import { DashboardPanel } from "@/components/admin/dashboard-panel";
 import { DemoRequestsPanel } from "@/components/admin/demo-requests-panel";
 import { CareersPanel } from "@/components/admin/careers-panel";
 import { JobApplicationsPanel } from "@/components/admin/job-applications-panel";
@@ -63,12 +66,15 @@ import { withVersionSnapshot } from "@/lib/contentVersioning";
 import { LanguageLogo } from "@/components/campus/language-logo";
 import { logAdminActivity } from "@/lib/adminActivityLog";
 import { ActivityLogPanel } from "@/components/admin/activity-log-panel";
-import { Input, Textarea, Section } from "@/components/admin/admin-ui";
+import { Input, Textarea } from "@/components/admin/admin-ui";
+import {
+  KIT, StatGrid, DataTable, Drawer, DrawerSection, Pill, Toggle, ProgressBar, PrimaryButton, SecondaryButton, IconButton,
+  difficultyColor, fmt,
+} from "@/components/admin/admin-kit";
 import { subjectIcon } from "@/lib/subjectIcon";
 import {
   collection, query, orderBy, where, getDocs, addDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, updateDoc, limit, increment, onSnapshot, writeBatch, runTransaction,
-  getCountFromServer, getAggregateFromServer, sum,
 } from "firebase/firestore";
 
 const ADMIN_EMAIL = "devert.contact@gmail.com";
@@ -121,6 +127,8 @@ function MissionsPanel() {
     tags: "",
   };
   const [form, setForm] = useState(blank);
+  // null = closed, "new" = create, otherwise the id being edited.
+  const [editingId, setEditingId] = useState(null);
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
 
   const STATUS_OPTS = [
@@ -145,11 +153,22 @@ function MissionsPanel() {
 
   useEffect(() => { load(); }, []);
 
+  const toForm = (m) => ({
+    codename: m.codename || "", objective: m.objective || "", prize: m.prize || "", deadline: m.deadline || "",
+    team: String(m.team ?? 2), slots: String(m.slots ?? 10), filled: String(m.filled ?? 0),
+    status: m.status || "OPEN", statusColor: m.statusColor || "#00FF41",
+    classification: m.classification || "UNCLASSIFIED",
+    difficulty: m.difficulty || "MEDIUM", diffColor: m.diffColor || "#FF9500",
+    tags: (m.tags || []).join(", "),
+  });
+  const openCreate = () => { setForm(blank); setError(""); setEditingId("new"); };
+  const openEdit = (m) => { setForm(toForm(m)); setError(""); setEditingId(m.id); };
+
   const handleAdd = async () => {
     if (!form.codename.trim() || !form.objective.trim()) return setError("Codename and objective are required.");
     setSaving(true); setError("");
     try {
-      await addDoc(collection(db, "missions"), {
+      const data = {
         codename:       form.codename.trim(),
         objective:      form.objective.trim(),
         prize:          form.prize.trim(),
@@ -163,9 +182,16 @@ function MissionsPanel() {
         difficulty:     form.difficulty,
         diffColor:      form.diffColor,
         tags:           form.tags.split(",").map(t => t.trim()).filter(Boolean),
-        createdAt:      serverTimestamp(),
-      });
+      };
+      if (editingId && editingId !== "new") {
+        await updateDoc(doc(db, "missions", editingId), data);
+        logAdminActivity("updated mission", data.codename);
+      } else {
+        await addDoc(collection(db, "missions"), { ...data, createdAt: serverTimestamp() });
+        logAdminActivity("created mission", data.codename);
+      }
       setForm(blank);
+      setEditingId(null);
       load();
     } catch (err) { setError(err.message); }
     finally { setSaving(false); }
@@ -174,31 +200,86 @@ function MissionsPanel() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this mission?")) return;
     await deleteDoc(doc(db, "missions", id));
+    logAdminActivity("deleted mission", missions.find(m => m.id === id)?.codename || id);
     load();
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Existing missions */}
-      {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p> : (
-        <div className="space-y-2">
-          {missions.length === 0 && <p className="font-mono text-xs text-white/20">No missions yet.</p>}
-          {missions.map(m => (
-            <div key={m.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-3">
-              <span className="font-mono text-xs text-white/70 flex-1 truncate">{m.codename}</span>
-              <span className="font-mono text-[10px]" style={{ color: m.statusColor }}>{m.status}</span>
-              <span className="font-mono text-[10px] text-neon-cyan">{m.prize}</span>
-              <button onClick={() => handleDelete(m.id)} className="text-white/20 hover:text-red-400 transition-colors ml-2">
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+  // Copies as LOCKED so a duplicate is never open to applicants by accident.
+  const handleDuplicate = async (m) => {
+    const { id: _id, ...data } = m;
+    await addDoc(collection(db, "missions"), {
+      ...data, codename: `${m.codename} (copy)`, filled: 0,
+      status: "LOCKED", statusColor: "#555", createdAt: serverTimestamp(),
+    });
+    load();
+  };
 
-      {/* Add form */}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-cyan tracking-wider mb-2">// add mission</p>
+  const setOpen = async (m, open) => {
+    const o = open ? STATUS_OPTS[0] : STATUS_OPTS[1];
+    await updateDoc(doc(db, "missions", m.id), { status: o.v, statusColor: o.c });
+    load();
+  };
+
+  const openMissions = missions.filter(m => m.status === "OPEN").length;
+  const slots = missions.reduce((n, m) => n + (m.slots || 0), 0);
+  const filled = missions.reduce((n, m) => n + (m.filled || 0), 0);
+
+  return (
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Total missions", value: missions.length, sub: "All time", icon: Target, color: KIT.green, loading },
+        { label: "Open now", value: openMissions, sub: `${missions.length - openMissions} locked or classified`, icon: Zap, color: KIT.cyan, loading },
+        { label: "Slots filled", value: `${fmt(filled)} / ${fmt(slots)}`, sub: "Across all missions", icon: Users, color: KIT.orange, loading },
+        { label: "Fill rate", value: slots ? `${Math.round((100 * filled) / slots)}%` : "-", sub: "Filled of total slots", icon: BarChart3, color: KIT.purple, loading },
+      ]} />
+
+      <DataTable
+        title="All missions" icon={Target} subtitle="Bounty-style missions shown on /missions."
+        rows={missions} loading={loading}
+        searchKeys={["codename", "objective", "tags", "prize"]} searchPlaceholder="Search missions..."
+        filters={[
+          { key: "status", label: "All statuses", options: STATUS_OPTS.map(o => ({ value: o.v, label: o.v[0] + o.v.slice(1).toLowerCase() })) },
+          { key: "difficulty", label: "All difficulties", options: DIFF_OPTS.map(o => ({ value: o.v, label: o.v[0] + o.v.slice(1).toLowerCase() })) },
+        ]}
+        primaryAction={{ label: "Create mission", icon: Plus, onClick: openCreate }}
+        onRowClick={openEdit}
+        emptyText="No missions yet - create the first one."
+        columns={[
+          { key: "codename", label: "Mission", render: m => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{m.codename}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{m.objective}</p>
+            </div>
+          ) },
+          { key: "difficulty", label: "Difficulty", render: m => <Pill color={difficultyColor(m.difficulty)}>{m.difficulty ? m.difficulty[0] + m.difficulty.slice(1).toLowerCase() : "-"}</Pill> },
+          { key: "prize", label: "Reward", render: m => <span className="font-sans text-sm text-white/80">{m.prize || "-"}</span> },
+          { key: "filled", label: "Slots", sort: m => (m.slots ? (m.filled || 0) / m.slots : 0),
+            render: m => <ProgressBar value={m.slots ? (100 * (m.filled || 0)) / m.slots : 0} /> },
+          { key: "deadline", label: "Deadline", render: m => <span className="font-sans text-sm text-white/60">{m.deadline || "-"}</span> },
+          { key: "status", label: "Status", render: m => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={m.status === "OPEN"} label={`Open ${m.codename}`} onChange={on => setOpen(m, on)} />
+              <span className="font-sans text-xs" style={{ color: m.status === "OPEN" ? KIT.green : "rgba(255,255,255,0.45)" }}>
+                {m.status ? m.status[0] + m.status.slice(1).toLowerCase() : "-"}
+              </span>
+            </div>
+          ) },
+        ]}
+        rowActions={m => [
+          { icon: Pencil, label: "Edit", onClick: () => openEdit(m) },
+          { icon: Copy, label: "Duplicate", onClick: () => handleDuplicate(m) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(m.id) },
+        ]}
+      />
+
+      <Drawer open={!!editingId} onClose={() => setEditingId(null)}
+        title={editingId === "new" ? "Create mission" : form.codename || "Edit mission"}
+        subtitle={editingId === "new" ? "Shown on /missions as soon as it is saved with status Open." : "Changes go live on /missions immediately."}
+        footer={<>
+          <SecondaryButton onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleAdd}>{editingId === "new" ? "Create mission" : "Save changes"}</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
         <div className="grid sm:grid-cols-2 gap-3">
           <Input label="CODENAME" value={form.codename} onChange={f("codename")} placeholder="OPERATION: ZERO LATENCY" />
           <Input label="PRIZE / REWARD" value={form.prize} onChange={f("prize")} placeholder="₹50,000"
@@ -246,14 +327,9 @@ function MissionsPanel() {
             </div>
           </div>
         </div>
-        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleAdd} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Plus size={12} /> {saving ? "adding..." : "add mission"}
-        </motion.button>
-      </div>
+          {error && <p className="font-sans text-xs text-red-400">{error}</p>}
+        </div>
+      </Drawer>
     </div>
   );
 }
@@ -342,143 +418,190 @@ function ChallengeForm({ ch, onChange, onRemove, index, problems }) {
   );
 }
 
-function GrindPanel() {
-  const [date,       setDate]       = useState(todayIST());
-  const [challenges, setChallenges] = useState([{ ...BLANK_CHALLENGE }]);
-  const [saving,     setSaving]     = useState(false);
-  const [saved,      setSaved]      = useState(false);
-  const [loading,    setLoading]    = useState(false);
+// Shared by Daily Grind and Arena: both store an ARRAY of challenges in one
+// doc (dailyGrind/{date}, system/arena). The table edits a single challenge
+// at a time in the drawer; every save writes the whole array back, so the
+// doc is never left half-edited.
+const cleanChallenge = (c) => ({
+  ...c,
+  xp: parseInt(c.xp) || 0,
+  tags: typeof c.tags === "string" ? c.tags.split(",").map(t => t.trim()).filter(Boolean) : (c.tags || []),
+});
+const toEditable = (c) => ({ ...c, tags: Array.isArray(c.tags) ? c.tags.join(", ") : (c.tags || "") });
 
-  const loadDate = async (d) => {
-    setLoading(true);
-    try {
-      const snap = await getDoc(doc(db, "dailyGrind", d));
-      if (snap.exists()) setChallenges(snap.data().challenges.map(c => ({ ...c, tags: (c.tags || []).join(", ") })));
-      else setChallenges([{ ...BLANK_CHALLENGE }]);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+function ChallengeSetTable({ title, subtitle, rows, loading, onSaveAll, problems, emptyText }) {
+  const [editIdx, setEditIdx] = useState(null); // null closed, -1 new, n editing
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => { loadDate(date); }, [date]);
-
-  const updateCh = (i, k, v) => setChallenges(prev => prev.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
-  const removeCh = (i) => setChallenges(prev => prev.filter((_, idx) => idx !== i));
-  const addCh    = () => setChallenges(prev => [...prev, { ...BLANK_CHALLENGE }]);
-
-  const handleSave = async () => {
-    setSaving(true); setSaved(false);
-    try {
-      const cleaned = challenges.map(c => ({
-        ...c,
-        xp:   parseInt(c.xp) || 0,
-        tags: typeof c.tags === "string" ? c.tags.split(",").map(t => t.trim()).filter(Boolean) : c.tags,
-      }));
-      await setDoc(doc(db, "dailyGrind", date), { challenges: cleaned, updatedAt: serverTimestamp() });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) { console.error(err); }
+  const withIdx = (rows || []).map((c, i) => ({ ...c, id: String(i), _i: i }));
+  const open = (i) => { setDraft(i === -1 ? { ...BLANK_CHALLENGE } : toEditable(rows[i])); setError(""); setEditIdx(i); };
+  const persist = async (next) => {
+    setSaving(true); setError("");
+    try { await onSaveAll(next.map(cleanChallenge)); return true; }
+    catch (e) { setError(e?.message || "Could not save."); return false; }
     finally { setSaving(false); }
   };
+  const saveDraft = async () => {
+    if (!draft.title?.trim()) return setError("A title is required.");
+    const next = [...rows];
+    if (editIdx === -1) next.push(draft); else next[editIdx] = draft;
+    if (await persist(next)) setEditIdx(null);
+  };
+  const remove = (i) => { if (confirm(`Remove "${rows[i].title || "this challenge"}"?`)) persist(rows.filter((_, j) => j !== i)); };
+  const duplicate = (i) => persist([...rows.slice(0, i + 1), { ...rows[i], title: `${rows[i].title} (copy)` }, ...rows.slice(i + 1)]);
+  const problemTitle = (id) => problems?.find(p => p.id === id)?.title;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <Input label="DATE (YYYY-MM-DD)" value={date} onChange={d => { setDate(d); }} placeholder={todayIST()} />
-        </div>
-        <p className="font-mono text-[10px] text-white/20 mt-5">IST midnight reset</p>
+    <>
+      <DataTable title={title} subtitle={subtitle} icon={Zap} rows={withIdx} loading={loading}
+        searchKeys={["title", "description", "type"]} searchPlaceholder="Search challenges..."
+        filters={[
+          { key: "type", label: "All types", options: TYPE_OPTS.map(o => ({ value: o.v, label: o.v.replace("_", " ") })) },
+          { key: "difficulty", label: "All difficulties", options: DIFF_OPTS2.map(o => ({ value: o.v, label: o.v[0] + o.v.slice(1).toLowerCase() })) },
+        ]}
+        primaryAction={{ label: "Add challenge", icon: Plus, onClick: () => open(-1) }}
+        onRowClick={r => open(r._i)} emptyText={emptyText}
+        columns={[
+          { key: "title", label: "Challenge", render: c => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{c.title || "Untitled"}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{c.description}</p>
+            </div>
+          ) },
+          { key: "type", label: "Type", render: c => <Pill color={KIT.cyan}>{(c.type || "-").replace("_", " ")}</Pill> },
+          { key: "difficulty", label: "Difficulty", render: c => <Pill color={difficultyColor(c.difficulty)}>{c.difficulty ? c.difficulty[0] + c.difficulty.slice(1).toLowerCase() : "-"}</Pill> },
+          { key: "xp", label: "XP", sort: c => parseInt(c.xp) || 0, render: c => <span className="font-sans text-sm text-white/80 tabular-nums">{fmt(parseInt(c.xp) || 0)}</span> },
+          { key: "time", label: "Time", render: c => <span className="font-sans text-sm text-white/60">{c.time || "-"}</span> },
+          ...(problems ? [{ key: "problemId", label: "CodeLab link", sortable: false, render: c => c.problemId
+            ? <span className="font-sans text-xs text-white/70 truncate block max-w-[180px]">{problemTitle(c.problemId) || "Linked"}</span>
+            : <Pill color={KIT.orange}>Not linked</Pill> }] : []),
+        ]}
+        rowActions={c => [
+          { icon: Pencil, label: "Edit", onClick: () => open(c._i) },
+          { icon: Copy, label: "Duplicate", onClick: () => duplicate(c._i), disabled: saving },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => remove(c._i), disabled: saving },
+        ]}
+      />
+      {error && editIdx === null && <p className="font-sans text-sm text-red-400">{error}</p>}
+      <Drawer open={editIdx !== null} onClose={() => setEditIdx(null)}
+        title={editIdx === -1 ? "Add challenge" : draft?.title || "Edit challenge"}
+        subtitle="Saved straight to the live list."
+        footer={<>
+          <SecondaryButton onClick={() => setEditIdx(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={saveDraft}>{editIdx === -1 ? "Add challenge" : "Save changes"}</PrimaryButton>
+        </>}>
+        {draft && (
+          <>
+            <ChallengeForm ch={draft} index={0} problems={problems}
+              onChange={(_, k, v) => setDraft(d => ({ ...d, [k]: v }))} onRemove={() => setEditIdx(null)} />
+            {error && <p className="font-sans text-xs text-red-400 mt-3">{error}</p>}
+          </>
+        )}
+      </Drawer>
+    </>
+  );
+}
+
+function GrindPanel() {
+  const [date, setDate] = useState(todayIST());
+  const [challenges, setChallenges] = useState(null);
+  const [schedule, setSchedule] = useState(null);
+
+  const loadSchedule = () => getDocs(collection(db, "dailyGrind"))
+    .then(snap => setSchedule(snap.docs.map(d => ({ id: d.id, n: (d.data().challenges || []).length }))))
+    .catch(() => setSchedule([]));
+  useEffect(() => { loadSchedule(); }, []);
+
+  useEffect(() => {
+    let alive = true;
+    getDoc(doc(db, "dailyGrind", date))
+      .then(snap => alive && setChallenges(snap.exists() ? (snap.data().challenges || []) : []))
+      .catch(() => alive && setChallenges([]));
+    return () => { alive = false; };
+  }, [date]);
+
+  const saveAll = async (next) => {
+    await setDoc(doc(db, "dailyGrind", date), { challenges: next, updatedAt: serverTimestamp() });
+    setChallenges(next);
+    logAdminActivity("updated daily grind", `${date}: ${next.length} challenge(s)`);
+    loadSchedule();
+  };
+
+  const today = todayIST();
+  const next7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(`${today}T00:00:00`); d.setDate(d.getDate() + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { iso, label: i === 0 ? "Today" : d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" }) };
+  });
+  const byDate = Object.fromEntries((schedule || []).map(d => [d.id, d.n]));
+  const upcoming = (schedule || []).filter(d => d.id >= today && d.n > 0).length;
+  const gaps = next7.filter(d => !byDate[d.iso]).length;
+
+  return (
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Days scheduled", value: schedule?.length, sub: "All time", icon: ListChecks, color: KIT.green, loading: !schedule },
+        { label: "Upcoming days ready", value: upcoming, sub: "Today onwards", icon: Zap, color: KIT.cyan, loading: !schedule },
+        { label: "Gaps this week", value: gaps, sub: gaps ? "Days with no challenges" : "Every day covered", icon: Target, color: gaps ? KIT.orange : KIT.green, loading: !schedule },
+        { label: "Selected day", value: challenges?.length, sub: `${date} · resets at IST midnight`, icon: Trophy, color: KIT.purple, loading: !challenges },
+      ]} />
+
+      <div className="flex flex-wrap items-center gap-2">
+        {next7.map(d => (
+          <button key={d.iso} onClick={() => setDate(d.iso)}
+            className="font-sans text-sm px-3 py-1.5 rounded-lg border transition-colors"
+            style={date === d.iso
+              ? { background: "rgba(0,255,65,0.1)", borderColor: "rgba(0,255,65,0.4)", color: "#fff" }
+              : { borderColor: "rgba(255,255,255,0.1)", color: byDate[d.iso] ? "rgba(255,255,255,0.75)" : KIT.orange }}>
+            {d.label}{!byDate[d.iso] && " ·  empty"}
+          </button>
+        ))}
+        <input type="date" value={date} onChange={e => e.target.value && setDate(e.target.value)}
+          className="font-sans text-sm text-white/80 px-3 py-1.5 rounded-lg border border-white/10 outline-none [color-scheme:dark]"
+          style={{ background: "rgba(255,255,255,0.03)" }} aria-label="Pick any date" />
       </div>
 
-      {loading ? (
-        <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {challenges.map((ch, i) => (
-              <ChallengeForm key={i} ch={ch} onChange={updateCh} onRemove={removeCh} index={i} />
-            ))}
-          </div>
-          <button onClick={addCh}
-            className="w-full font-mono text-xs text-white/30 border border-dashed border-white/10 py-2 hover:text-white/50 hover:border-white/20 transition-colors flex items-center justify-center gap-2"
-          >
-            <Plus size={11} /> add challenge
-          </button>
-          <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-            onClick={handleSave} disabled={saving}
-            className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            style={saved
-              ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-              : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
-            }
-          >
-            {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save challenges for this date"}
-          </motion.button>
-        </>
-      )}
+      <ChallengeSetTable title={`Challenges for ${date}`} subtitle="What every user sees on /grind that day."
+        rows={challenges || []} loading={!challenges} onSaveAll={saveAll}
+        emptyText="Nothing scheduled for this day - add the first challenge." />
     </div>
   );
 }
 
-// ── Arena challenges panel ────────────────────────────────────────────────────
-
 function ArenaPanel() {
-  const [challenges, setChallenges] = useState([{ ...BLANK_CHALLENGE }]);
-  const [problems,   setProblems]   = useState([]);
-  const [saving,     setSaving]     = useState(false);
-  const [saved,      setSaved]      = useState(false);
+  const [challenges, setChallenges] = useState(null);
+  const [problems, setProblems] = useState([]);
 
   useEffect(() => {
     getDoc(doc(db, "system", "arena"))
-      .then(snap => {
-        if (snap.exists()) setChallenges(snap.data().challenges.map(c => ({ ...c, tags: (c.tags || []).join(", ") })));
-      })
-      .catch(console.error);
+      .then(snap => setChallenges(snap.exists() ? (snap.data().challenges || []) : []))
+      .catch(() => setChallenges([]));
     // Solo challenges are only playable once linked to a real, published CodeLab
     // problem - see GradingService.gradeArenaSubmission, which grades against
     // exactly this collection.
     fetchPublishedProblems().then(setProblems).catch(console.error);
   }, []);
 
-  const updateCh = (i, k, v) => setChallenges(prev => prev.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
-  const removeCh = (i) => setChallenges(prev => prev.filter((_, idx) => idx !== i));
-
-  const handleSave = async () => {
-    setSaving(true); setSaved(false);
-    try {
-      const cleaned = challenges.map(c => ({
-        ...c,
-        xp:   parseInt(c.xp) || 0,
-        tags: typeof c.tags === "string" ? c.tags.split(",").map(t => t.trim()).filter(Boolean) : c.tags,
-      }));
-      await setDoc(doc(db, "system", "arena"), { challenges: cleaned, updatedAt: serverTimestamp() });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) { console.error(err); }
-    finally { setSaving(false); }
+  const saveAll = async (next) => {
+    await setDoc(doc(db, "system", "arena"), { challenges: next, updatedAt: serverTimestamp() });
+    setChallenges(next);
+    logAdminActivity("updated arena challenges", `${next.length} challenge(s)`);
   };
 
+  const linked = (challenges || []).filter(c => c.problemId).length;
   return (
-    <div className="space-y-4">
-      <div className="space-y-3">
-        {challenges.map((ch, i) => (
-          <ChallengeForm key={i} ch={ch} onChange={updateCh} onRemove={removeCh} index={i} problems={problems} />
-        ))}
-      </div>
-      <button onClick={() => setChallenges(prev => [...prev, { ...BLANK_CHALLENGE }])}
-        className="w-full font-mono text-xs text-white/30 border border-dashed border-white/10 py-2 hover:text-white/50 hover:border-white/20 transition-colors flex items-center justify-center gap-2"
-      >
-        <Plus size={11} /> add challenge
-      </button>
-      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-        onClick={handleSave} disabled={saving}
-        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        style={saved
-          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
-        }
-      >
-        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save arena challenges"}
-      </motion.button>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Arena challenges", value: challenges?.length, sub: "In the solo pool", icon: Swords, color: KIT.orange, loading: !challenges },
+        { label: "Playable", value: linked, sub: "Linked to a CodeLab problem", icon: Check, color: KIT.green, loading: !challenges },
+        { label: "Not linked", value: challenges ? challenges.length - linked : null, sub: "Can't be graded until linked", icon: Target, color: (challenges?.length || 0) - linked ? KIT.red : KIT.green, loading: !challenges },
+        { label: "Published problems", value: problems.length, sub: "Available to link", icon: Code2, color: KIT.cyan },
+      ]} />
+      <ChallengeSetTable title="Arena challenge pool" subtitle="Solo Arena challenges. Each must link to a published CodeLab problem to be graded."
+        rows={challenges || []} loading={!challenges} onSaveAll={saveAll} problems={problems}
+        emptyText="No Arena challenges yet." />
     </div>
   );
 }
@@ -561,59 +684,105 @@ function BuildChallengeForm({ ch, onChange, onRemove, index }) {
 }
 
 function BuildChallengesPanel() {
-  const [challenges, setChallenges] = useState([{ ...BLANK_BUILD_CHALLENGE }]);
-  const [saving,     setSaving]     = useState(false);
-  const [saved,      setSaved]      = useState(false);
+  const [challenges, setChallenges] = useState(null);
+  const [editIdx, setEditIdx] = useState(null); // null closed, -1 new, n editing
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     getDoc(doc(db, "system", "build"))
-      .then(snap => {
-        if (snap.exists()) {
-          setChallenges(snap.data().challenges.map(c => ({ ...c, stack: (c.stack || []).join(", ") })));
-        }
-      })
-      .catch(console.error);
+      .then(snap => setChallenges(snap.exists() ? (snap.data().challenges || []) : []))
+      .catch(() => setChallenges([]));
   }, []);
 
-  const updateCh = (i, k, v) => setChallenges(prev => prev.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
-  const removeCh = (i) => setChallenges(prev => prev.filter((_, idx) => idx !== i));
-
-  const handleSave = async () => {
-    setSaving(true); setSaved(false);
+  // Same one-doc-array shape as Grind/Arena: every save writes the whole list.
+  const persist = async (next) => {
+    setSaving(true); setError("");
     try {
-      const cleaned = challenges.map(c => ({
+      const cleaned = next.map(c => ({
         ...c,
-        stack: typeof c.stack === "string" ? c.stack.split(",").map(t => t.trim()).filter(Boolean) : c.stack,
+        stack: typeof c.stack === "string" ? c.stack.split(",").map(t => t.trim()).filter(Boolean) : (c.stack || []),
       }));
       await setDoc(doc(db, "system", "build"), { challenges: cleaned, updatedAt: serverTimestamp() });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) { console.error(err); }
+      setChallenges(cleaned);
+      logAdminActivity("updated build challenges", `${cleaned.length} challenge(s)`);
+      return true;
+    } catch (e) { setError(e?.message || "Could not save."); return false; }
     finally { setSaving(false); }
   };
+  const open = (i) => {
+    const c = i === -1 ? { ...BLANK_BUILD_CHALLENGE } : challenges[i];
+    setDraft({ ...c, stack: Array.isArray(c.stack) ? c.stack.join(", ") : (c.stack || "") });
+    setError(""); setEditIdx(i);
+  };
+  const saveDraft = async () => {
+    if (!draft.title?.trim()) return setError("A title is required.");
+    const next = [...challenges];
+    if (editIdx === -1) next.push(draft); else next[editIdx] = draft;
+    if (await persist(next)) setEditIdx(null);
+  };
+  const setLocked = (i, locked) => persist(challenges.map((c, j) => (j === i ? { ...c, locked } : c)));
+
+  const rows = (challenges || []).map((c, i) => ({ ...c, _i: i, _key: String(i) }));
+  const locked = rows.filter(c => c.locked).length;
+  const cats = [...new Set(rows.map(c => c.category).filter(Boolean))];
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-3">
-        {challenges.map((ch, i) => (
-          <BuildChallengeForm key={i} ch={ch} onChange={updateCh} onRemove={removeCh} index={i} />
-        ))}
-      </div>
-      <button onClick={() => setChallenges(prev => [...prev, { ...BLANK_BUILD_CHALLENGE }])}
-        className="w-full font-mono text-xs text-white/30 border border-dashed border-white/10 py-2 hover:text-white/50 hover:border-white/20 transition-colors flex items-center justify-center gap-2"
-      >
-        <Plus size={11} /> add challenge
-      </button>
-      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-        onClick={handleSave} disabled={saving}
-        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        style={saved
-          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
-        }
-      >
-        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save build challenges"}
-      </motion.button>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Build challenges", value: challenges?.length, sub: "On /build", icon: Hammer, color: KIT.green, loading: !challenges },
+        { label: "Open", value: challenges ? rows.length - locked : null, sub: "Builders can start these", icon: Check, color: KIT.cyan, loading: !challenges },
+        { label: "Locked", value: challenges ? locked : null, sub: "Visible but not startable", icon: LockIcon, color: KIT.orange, loading: !challenges },
+        { label: "Categories", value: challenges ? cats.length : null, sub: cats.slice(0, 3).join(", "), icon: Layers, color: KIT.purple, loading: !challenges },
+      ]} />
+      <DataTable title="All build challenges" icon={Hammer} subtitle="Project-based challenges shown on /build."
+        rows={rows} loading={!challenges} rowKey={r => r._key}
+        searchKeys={["title", "brief", "description", "id"]} searchPlaceholder="Search challenges..."
+        filters={[
+          { key: "category", label: "All categories", options: BUILD_CATEGORY_OPTS.map(o => ({ value: o.v, label: o.label })) },
+          { key: "difficulty", label: "All levels", options: BUILD_DIFF_OPTS.map(o => ({ value: o.v, label: o.v[0] + o.v.slice(1).toLowerCase() })) },
+        ]}
+        primaryAction={{ label: "Add challenge", icon: Plus, onClick: () => open(-1) }}
+        onRowClick={r => open(r._i)} emptyText="No build challenges yet."
+        columns={[
+          { key: "title", label: "Challenge", render: c => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{c.title || "Untitled"}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{c.brief}</p>
+            </div>
+          ) },
+          { key: "category", label: "Category", render: c => <Pill color={KIT.cyan}>{BUILD_CATEGORY_OPTS.find(o => o.v === c.category)?.label || c.category || "-"}</Pill> },
+          { key: "difficulty", label: "Level", render: c => <Pill color={BUILD_DIFF_OPTS.find(o => o.v === c.difficulty)?.c || KIT.muted}>{c.difficulty ? c.difficulty[0] + c.difficulty.slice(1).toLowerCase() : "-"}</Pill> },
+          { key: "stack", label: "Stack", sortable: false, render: c => <span className="font-sans text-xs text-white/55 truncate block max-w-[200px]">{(c.stack || []).join(", ") || "-"}</span> },
+          { key: "locked", label: "Status", render: c => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={!c.locked} label={`Open ${c.title}`} disabled={saving} onChange={on => setLocked(c._i, !on)} />
+              <span className="font-sans text-xs" style={{ color: c.locked ? "rgba(255,255,255,0.45)" : KIT.green }}>{c.locked ? "Locked" : "Open"}</span>
+            </div>
+          ) },
+        ]}
+        rowActions={c => [
+          { icon: Pencil, label: "Edit", onClick: () => open(c._i) },
+          { icon: Copy, label: "Duplicate", disabled: saving, onClick: () => persist([...challenges.slice(0, c._i + 1), { ...challenges[c._i], id: `${challenges[c._i].id || "challenge"}-copy`, title: `${c.title} (copy)`, locked: true }, ...challenges.slice(c._i + 1)]) },
+          { icon: Trash2, label: "Delete", danger: true, disabled: saving, onClick: () => confirm(`Remove "${c.title}"?`) && persist(challenges.filter((_, j) => j !== c._i)) },
+        ]}
+      />
+      {error && editIdx === null && <p className="font-sans text-sm text-red-400">{error}</p>}
+      <Drawer open={editIdx !== null} onClose={() => setEditIdx(null)}
+        title={editIdx === -1 ? "Add build challenge" : draft?.title || "Edit build challenge"}
+        subtitle="Saved straight to /build."
+        footer={<>
+          <SecondaryButton onClick={() => setEditIdx(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={saveDraft}>{editIdx === -1 ? "Add challenge" : "Save changes"}</PrimaryButton>
+        </>}>
+        {draft && (
+          <>
+            <BuildChallengeForm ch={draft} index={0} onChange={(_, k, v) => setDraft(d => ({ ...d, [k]: v }))} onRemove={() => setEditIdx(null)} />
+            {error && <p className="font-sans text-xs text-red-400 mt-3">{error}</p>}
+          </>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -636,6 +805,7 @@ function InstitutionsPanel() {
   const [adminFeedback, setAdminFeedback] = useState({});
   const [adminsByInst, setAdminsByInst] = useState({});
   const [removingAdmin, setRemovingAdmin] = useState(null); // `${institutionId}_${uid}` currently confirming
+  const [drawer, setDrawer] = useState(null); // "new" | institution id | null
 
   // Admin docs only carry {uid, role, addedAt} (see addInstitutionAdmin) -
   // resolve each uid against users/{uid} for a human-readable handle/name,
@@ -701,6 +871,8 @@ function InstitutionsPanel() {
         accessMode: form.accessMode,
       });
       setForm({ slug: "", name: "", location: "", website: "", accessMode: "public" });
+      logAdminActivity("created institution", `${form.name.trim()} (${slug})`);
+      setDrawer(slug);
       load();
     } catch (e) {
       setError(e.message || "Failed to create institution.");
@@ -735,6 +907,7 @@ function InstitutionsPanel() {
   const toggleStatus = async (inst) => {
     const next = inst.status === "active" ? "suspended" : "active";
     await updateDoc(doc(db, "institutions", inst.id), { status: next });
+    logAdminActivity(next === "active" ? "activated institution" : "suspended institution", inst.name || inst.id);
     load();
   };
 
@@ -749,103 +922,132 @@ function InstitutionsPanel() {
     }
   };
 
+  const sel = drawer && drawer !== "new" ? institutions.find(i => i.id === drawer) : null;
+  const active = institutions.filter(i => i.status === "active").length;
+  const students = institutions.reduce((n, i) => n + (i.studentCount || 0), 0);
+  const noAdmin = institutions.filter(i => !(adminsByInst[i.id] || []).length).length;
+  const MODE_C = { public: KIT.green, invite_only: KIT.orange, private: KIT.purple };
+
   return (
     <div className="space-y-5">
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Input label="SLUG (used as campus.devert.in/<slug>)" value={form.slug} onChange={v => setForm(p => ({ ...p, slug: v }))} placeholder="mrcet" />
-        <Input label="COLLEGE NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Malla Reddy College of Engineering & Technology" />
-        <Input label="LOCATION" value={form.location} onChange={v => setForm(p => ({ ...p, location: v }))} placeholder="Hyderabad, Telangana" />
-        <Input label="WEBSITE" value={form.website} onChange={v => setForm(p => ({ ...p, website: v }))} placeholder="https://mrcet.ac.in" />
-        <div>
-          <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">ACCESS MODE</p>
-          <Dropdown value={form.accessMode} onChange={v => setForm(p => ({ ...p, accessMode: v }))}
-            options={ACCESS_MODES}
-            className="w-full"
-            buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.1]"
-            />
-        </div>
-      </div>
-      {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-      <button onClick={handleCreate} disabled={creating}
-        className="font-mono text-xs px-4 py-2 rounded-lg border border-neon-green/30 text-neon-green hover:bg-neon-green/8 transition-colors disabled:opacity-50">
-        {creating ? "creating..." : "+ create institution"}
-      </button>
+      <StatGrid stats={[
+        { label: "Institutions", value: institutions.length, sub: `${active} active`, icon: Building2, color: KIT.cyan, loading },
+        { label: "Students", value: students, sub: institutions.length ? `${fmt(Math.round(students / institutions.length))} per college` : "", icon: Users, color: KIT.green, loading },
+        { label: "Suspended", value: institutions.length - active, sub: "Access paused", icon: X, color: institutions.length - active ? KIT.red : KIT.muted, loading },
+        { label: "Without an admin", value: noAdmin, sub: noAdmin ? "Nobody can run these yet" : "Every college has one", icon: ShieldCheck, color: noAdmin ? KIT.orange : KIT.green, loading },
+      ]} />
 
-      <div className="border-t border-white/6 pt-4 space-y-2">
-        {loading ? (
-          <p className="font-mono text-xs text-white/25">loading...</p>
-        ) : institutions.length === 0 ? (
-          <p className="font-mono text-xs text-white/25">No institutions yet.</p>
-        ) : institutions.map(inst => (
-          <div key={inst.id} className="rounded-lg border border-white/6 p-3 space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-xs text-white/80">{inst.name}</span>
-              <span className="font-mono text-[10px] text-white/25">campus.devert.in/{inst.id}</span>
-              <span className="font-mono text-[9px] px-2 py-0.5 rounded"
-                style={{ color: inst.status === "active" ? "#00FF41" : "#FF5050", background: inst.status === "active" ? "rgba(0,255,65,0.08)" : "rgba(255,80,80,0.08)" }}>
-                {inst.status?.toUpperCase()}
-              </span>
-              <Dropdown value={inst.accessMode || "public"} onChange={v => handleChangeAccessMode(inst, v)}
-                options={ACCESS_MODES} className="w-32"
-                buttonClassName="font-mono text-[10px] px-2 py-1 rounded bg-white/[0.04] border border-white/[0.1] text-white/70" />
-              <span className="font-mono text-[10px] text-white/25 ml-auto">{inst.studentCount || 0} students</span>
-              <button onClick={() => toggleStatus(inst)}
-                className="font-mono text-[10px] px-2 py-1 rounded border border-white/10 text-white/50 hover:text-white/80 transition-colors">
-                {inst.status === "active" ? "suspend" : "activate"}
-              </button>
+      <DataTable title="Campus institutions" icon={Building2} subtitle="Each college's workspace at campus.devert.in/<slug>."
+        rows={institutions} loading={loading}
+        searchKeys={["name", "id", "location", "website"]} searchPlaceholder="Search colleges..."
+        filters={[
+          { key: "status", label: "All statuses", options: [{ value: "active", label: "Active" }, { value: "suspended", label: "Suspended" }] },
+          { key: "accessMode", label: "All access modes", get: i => i.accessMode || "public", options: ACCESS_MODES.map(m => ({ value: m, label: m.replace("_", " ") })) },
+        ]}
+        primaryAction={{ label: "Add institution", icon: Plus, onClick: () => { setError(""); setDrawer("new"); } }}
+        onRowClick={i => setDrawer(i.id)} emptyText="No institutions yet."
+        columns={[
+          { key: "name", label: "Institution", render: i => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{i.name}</p>
+              <p className="font-sans text-xs text-white/40 truncate">campus.devert.in/{i.id}{i.location ? ` · ${i.location}` : ""}</p>
             </div>
-            <p className="font-mono text-[9px] text-white/18">
-              public = anyone can request to join, you approve each one. invite_only = self-serve requests are blocked, only you can add students (bulk roster import or direct approval). private = hidden from the /campus directory entirely - only admins and already-approved students can reach it.
-            </p>
-            <div className="flex items-center gap-2">
-              <input value={adminHandle[inst.id] || ""} onChange={e => setAdminHandle(p => ({ ...p, [inst.id]: e.target.value }))}
-                placeholder="handle of first admin (faculty/placement officer)"
-                className="flex-1 font-mono text-[11px] text-white/70 px-2.5 py-1.5 rounded outline-none"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
-              <button onClick={() => handleAddAdmin(inst.id)} disabled={working[inst.id]}
-                className="font-mono text-[10px] px-2.5 py-1.5 rounded border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/8 transition-colors disabled:opacity-50 flex-shrink-0">
-                + add admin
-              </button>
+          ) },
+          { key: "studentCount", label: "Students", sort: i => i.studentCount || 0, render: i => <span className="font-sans text-sm text-white/80 tabular-nums">{fmt(i.studentCount || 0)}</span> },
+          { key: "admins", label: "Admins", sort: i => (adminsByInst[i.id] || []).length,
+            render: i => (adminsByInst[i.id] || []).length ? <span className="font-sans text-sm text-white/70 tabular-nums">{(adminsByInst[i.id] || []).length}</span> : <Pill color={KIT.orange}>None</Pill> },
+          { key: "accessMode", label: "Access", render: i => <Pill color={MODE_C[i.accessMode || "public"] || KIT.muted}>{(i.accessMode || "public").replace("_", " ")}</Pill> },
+          { key: "status", label: "Status", render: i => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={i.status === "active"} label={`Activate ${i.name}`} onChange={() => toggleStatus(i)} />
+              <span className="font-sans text-xs" style={{ color: i.status === "active" ? KIT.green : KIT.red }}>{i.status === "active" ? "Active" : "Suspended"}</span>
             </div>
-            {adminFeedback[inst.id] && (
-              <p className="font-mono text-[10px]" style={{ color: adminFeedback[inst.id].type === "success" ? "#00FF41" : "#FF5050" }}>
-                {adminFeedback[inst.id].text}
-              </p>
-            )}
-            <div className="space-y-1.5">
-              {(adminsByInst[inst.id] || []).length === 0 ? (
-                <p className="font-mono text-[10px] text-white/20">No admins yet - add one above.</p>
-              ) : adminsByInst[inst.id].map(a => {
-                const key = `${inst.id}_${a.uid}`;
-                return (
-                  <div key={a.uid} className="flex items-center gap-2 px-2.5 py-1.5 rounded" style={{ background: "rgba(255,255,255,0.02)" }}>
-                    <span className="font-mono text-[11px] text-white/70 flex-1 min-w-0 truncate">
-                      {a.displayName || "(no name)"} {a.handle && <span className="text-white/30">@{a.handle}</span>}
-                    </span>
-                    <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{a.role}</span>
-                    {removingAdmin === key ? (
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button onClick={() => handleRemoveAdmin(inst.id, a.uid)} disabled={working[key]}
-                          className="font-mono text-[10px] px-2 py-1 rounded border border-red-400/30 text-red-400 hover:bg-red-400/8 transition-colors disabled:opacity-50">
-                          {working[key] ? "removing..." : "confirm"}
-                        </button>
-                        <button onClick={() => setRemovingAdmin(null)} className="font-mono text-[10px] px-1.5 text-white/30 hover:text-white/50">
-                          cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setRemovingAdmin(key)}
-                        className="font-mono text-[10px] px-2 py-1 rounded border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 transition-colors flex-shrink-0">
-                        remove as admin
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+          ) },
+        ]}
+        rowActions={i => [
+          { icon: Pencil, label: "Manage", onClick: () => setDrawer(i.id) },
+          { icon: ExternalLink, label: "Open campus page", onClick: () => window.open(`https://campus.devert.in/${i.id}`, "_blank", "noopener") },
+        ]}
+      />
+
+      <Drawer open={drawer === "new"} onClose={() => setDrawer(null)} width={600} title="Add institution"
+        subtitle="Creates the college's workspace. Add its first admin right after."
+        footer={<>
+          <SecondaryButton onClick={() => setDrawer(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Plus} busy={creating} onClick={handleCreate}>Create institution</PrimaryButton>
+        </>}>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="SLUG (campus.devert.in/<slug>)" value={form.slug} onChange={v => setForm(p => ({ ...p, slug: v }))} placeholder="mrcet" />
+          <Input label="COLLEGE NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Malla Reddy College of Engineering & Technology" />
+          <Input label="LOCATION" value={form.location} onChange={v => setForm(p => ({ ...p, location: v }))} placeholder="Hyderabad, Telangana" />
+          <Input label="WEBSITE" value={form.website} onChange={v => setForm(p => ({ ...p, website: v }))} placeholder="https://mrcet.ac.in" />
+          <div>
+            <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">ACCESS MODE</p>
+            <Dropdown value={form.accessMode} onChange={v => setForm(p => ({ ...p, accessMode: v }))} options={ACCESS_MODES} className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.1]" />
           </div>
-        ))}
-      </div>
+        </div>
+        {error && <p className="font-sans text-xs text-red-400 mt-3">{error}</p>}
+      </Drawer>
+
+      <Drawer open={!!sel} onClose={() => { setDrawer(null); setRemovingAdmin(null); }} width={640}
+        title={sel?.name || ""} subtitle={sel ? `campus.devert.in/${sel.id} · ${fmt(sel.studentCount || 0)} students` : ""}>
+        {sel && (
+          <div className="space-y-4">
+            <DrawerSection title="Access mode" hint="public: anyone can request to join, you approve each. invite_only: only admins add students (roster import or direct approval). private: hidden from the directory - only admins and approved students can reach it.">
+              <Dropdown value={sel.accessMode || "public"} onChange={v => handleChangeAccessMode(sel, v)} options={ACCESS_MODES} className="w-48"
+                buttonClassName="font-mono text-xs px-3 py-2 rounded bg-white/[0.04] border border-white/[0.1] text-white/80" />
+            </DrawerSection>
+
+            <DrawerSection title="Status">
+              <label className="flex items-center gap-3">
+                <Toggle on={sel.status === "active"} label="Institution active" onChange={() => toggleStatus(sel)} />
+                <span className="font-sans text-sm text-white/70">{sel.status === "active" ? "Active - students and staff can use it" : "Suspended - access is paused"}</span>
+              </label>
+            </DrawerSection>
+
+            <DrawerSection title="Admins" hint="Faculty or placement officers who run this college's workspace.">
+              <div className="flex gap-2">
+                <input value={adminHandle[sel.id] || ""} onChange={e => setAdminHandle(p => ({ ...p, [sel.id]: e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && handleAddAdmin(sel.id)} placeholder="DeVert handle, e.g. priya"
+                  className="flex-1 font-sans text-sm text-white/85 px-3 py-2 rounded-lg outline-none border border-white/10 focus:border-white/25"
+                  style={{ background: "rgba(255,255,255,0.03)" }} />
+                <PrimaryButton icon={Plus} busy={working[sel.id]} onClick={() => handleAddAdmin(sel.id)}>Add admin</PrimaryButton>
+              </div>
+              {adminFeedback[sel.id] && (
+                <p className="font-sans text-xs" style={{ color: adminFeedback[sel.id].type === "success" ? KIT.green : KIT.red }}>{adminFeedback[sel.id].text}</p>
+              )}
+              <div className="rounded-lg border divide-y overflow-hidden" style={{ borderColor: KIT.line }}>
+                {(adminsByInst[sel.id] || []).length === 0 ? (
+                  <p className="font-sans text-sm text-white/35 px-3 py-3">No admins yet.</p>
+                ) : adminsByInst[sel.id].map(a => {
+                  const key = `${sel.id}_${a.uid}`;
+                  return (
+                    <div key={a.uid} className="flex items-center gap-3 px-3 py-2.5" style={{ borderColor: KIT.line }}>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-sans text-sm text-white truncate">{a.displayName || "(no name)"}</p>
+                        {a.handle && <p className="font-sans text-xs text-white/40">@{a.handle}</p>}
+                      </div>
+                      <Pill color={KIT.cyan}>{a.role}</Pill>
+                      {removingAdmin === key ? (
+                        <>
+                          <SecondaryButton onClick={() => setRemovingAdmin(null)}>Cancel</SecondaryButton>
+                          <button onClick={() => handleRemoveAdmin(sel.id, a.uid)} disabled={working[key]}
+                            className="font-sans text-sm font-semibold px-3 py-2 rounded-lg disabled:opacity-50" style={{ background: KIT.red, color: "#05080F" }}>
+                            {working[key] ? "Removing..." : "Remove"}
+                          </button>
+                        </>
+                      ) : (
+                        <IconButton icon={Trash2} label="Remove as admin" danger onClick={() => setRemovingAdmin(key)} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </DrawerSection>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -853,7 +1055,6 @@ function InstitutionsPanel() {
 function UsersPanel() {
   const [users,    setUsers]    = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [search,   setSearch]   = useState("");
   const [expanded, setExpanded] = useState(null);
   const [detail,   setDetail]   = useState({});
   const [xpDelta,  setXpDelta]  = useState({});
@@ -869,14 +1070,7 @@ function UsersPanel() {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = users.filter(u =>
-    !search ||
-    u.handle?.toLowerCase().includes(search.toLowerCase()) ||
-    u.email?.toLowerCase().includes(search.toLowerCase())
-  );
-
   const handleExpand = async (uid) => {
-    if (expanded === uid) { setExpanded(null); return; }
     setExpanded(uid);
     if (detail[uid]) return;
     const [earningsSnap, postsSnap, projectsSnap] = await Promise.allSettled([
@@ -929,114 +1123,89 @@ function UsersPanel() {
     finally { setWorking(p => ({ ...p, [`xp-${uid}`]: false })); }
   };
 
+  const u = users.find(x => x.uid === expanded);
+  const d = u ? detail[u.uid] : null;
+  const joined = (x) => (x.joinedAt?.toDate ? x.joinedAt.toDate() : null);
+  const week = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const tiers = [...new Set(users.map(x => x.tier?.name).filter(Boolean))];
+  const campus = users.filter(x => (x.institutionId || "").trim()).length;
+  const totalXp = users.reduce((n, x) => n + (x.xp || 0), 0);
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <Input label="SEARCH" value={search} onChange={setSearch} placeholder="handle or email..." />
-        </div>
-        <span className="font-mono text-[10px] text-white/25 mt-5 flex-shrink-0">{users.length} users</span>
-      </div>
-      {loading ? (
-        <p className="font-mono text-xs text-white/25 animate-pulse">loading users...</p>
-      ) : (
-        <div className="space-y-1">
-          {filtered.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no users found</p>}
-          {filtered.map(u => (
-            <div key={u.uid} className="border border-white/6 rounded-lg overflow-hidden">
-              <button
-                onClick={() => handleExpand(u.uid)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/2 transition-colors text-left"
-              >
-                <span className="font-mono text-xs text-white flex-shrink-0">@{u.handle}</span>
-                <span className="font-mono text-[10px] text-white/35 truncate flex-1">{u.email}</span>
-                <span className="font-mono text-xs text-neon-cyan flex-shrink-0">{(u.xp || 0).toLocaleString()} XP</span>
-                <span className="font-mono text-[9px] flex-shrink-0" style={{ color: u.tier?.color || "#666" }}>{u.tier?.name || "RECRUIT"}</span>
-                {expanded === u.uid
-                  ? <ChevronUp size={11} className="text-white/30 flex-shrink-0" />
-                  : <ChevronDown size={11} className="text-white/30 flex-shrink-0" />}
-              </button>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Total users", value: users.length, sub: `${fmt(users.filter(x => joined(x)?.getTime() > week).length)} joined this week`, icon: Users, color: KIT.green, loading },
+        { label: "Campus students", value: campus, sub: "Linked to an institution", icon: Building2, color: KIT.cyan, loading },
+        { label: "Total XP", value: totalXp, sub: users.length ? `${fmt(Math.round(totalXp / users.length))} per user` : "", icon: Zap, color: KIT.purple, loading },
+        { label: "Arena wins", value: users.reduce((n, x) => n + (x.arenaWins || 0), 0), sub: "Across all users", icon: Swords, color: KIT.orange, loading },
+      ]} />
 
-              <AnimatePresence initial={false}>
-                {expanded === u.uid && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-4 pb-4 pt-2 space-y-3 border-t border-white/5">
-                      {/* Stats grid */}
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                        {[
-                          { label: "XP",        val: (u.xp || 0).toLocaleString(),           color: "#00FFFF" },
-                          { label: "SHIPS",      val: u.ships || 0,                            color: "#C77DFF" },
-                          { label: "ARENA_W",    val: u.arenaWins || 0,                        color: "#FF9500" },
-                          { label: "POSTS",      val: detail[u.uid]?.postCount ?? "…",         color: "#00FF41" },
-                          { label: "COINS",      val: (u.coins || 0).toLocaleString(),          color: "#FFD700" },
-                          { label: "FOLLOWERS",  val: u.followersCount || 0,                   color: "#FF6430" },
-                        ].map(s => (
-                          <div key={s.label} className="border border-white/6 rounded p-2 text-center">
-                            <p className="font-mono text-[8px] text-white/25 tracking-wider">{s.label}</p>
-                            <p className="font-mono text-xs mt-0.5" style={{ color: s.color }}>{s.val}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Earnings + projects */}
-                      {detail[u.uid] && (
-                        <p className="font-mono text-[10px] text-white/40">
-                          EARNINGS:{" "}
-                          <span style={{ color: "#00FF41" }}>
-                            ₹{(detail[u.uid].earnings?.totalInr || 0).toFixed(2)}
-                          </span>
-                          {" · "}projects: {detail[u.uid].projectCount}
-                        </p>
-                      )}
-
-                      {/* UID + Bio */}
-                      <div className="space-y-1">
-                        <p className="font-mono text-[10px] text-white/25 break-all">UID: {u.uid}</p>
-                        {u.bio && <p className="font-mono text-[10px] text-white/35 leading-relaxed">{u.bio}</p>}
-                      </div>
-
-                      {/* Actions row */}
-                      <div className="flex gap-2 flex-wrap items-center">
-                        <input
-                          type="number"
-                          value={xpDelta[u.uid] ?? "100"}
-                          onChange={e => setXpDelta(p => ({ ...p, [u.uid]: e.target.value }))}
-                          className="font-mono text-[10px] text-white/70 w-16 px-2 py-1 rounded outline-none text-center"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
-                        />
-                        <button
-                          onClick={() => handleXP(u.uid, 1)}
-                          disabled={working[`xp-${u.uid}`]}
-                          className="font-mono text-[10px] px-2.5 py-1 text-neon-green border border-neon-green/25 hover:bg-neon-green/8 transition-colors disabled:opacity-50"
-                        >+XP</button>
-                        <button
-                          onClick={() => handleXP(u.uid, -1)}
-                          disabled={working[`xp-${u.uid}`]}
-                          className="font-mono text-[10px] px-2.5 py-1 text-red-400 border border-red-500/25 hover:bg-red-500/8 transition-colors disabled:opacity-50"
-                        >-XP</button>
-                        <a
-                          href={`/u/${u.handle}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-mono text-[10px] px-2.5 py-1 text-neon-cyan border border-neon-cyan/25 hover:bg-neon-cyan/8 transition-colors flex items-center gap-1"
-                        >
-                          <ExternalLink size={9} /> view profile
-                        </a>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+      <DataTable title="All users" icon={Users} subtitle="Every account, highest XP first. Click a user for details and XP adjustments."
+        rows={users} loading={loading} rowKey={x => x.uid || x.id} pageSize={15}
+        searchKeys={["handle", "email", "displayName", "uid"]} searchPlaceholder="Search handle, email, name or UID..."
+        filters={[
+          { key: "tier", label: "All tiers", get: x => x.tier?.name || "RECRUIT", options: [...new Set(["RECRUIT", ...tiers])].map(t => ({ value: t, label: t[0] + t.slice(1).toLowerCase() })) },
+          { key: "campus", label: "All accounts", get: x => ((x.institutionId || "").trim() ? "campus" : "individual"), options: [{ value: "campus", label: "Campus students" }, { value: "individual", label: "Individual" }] },
+        ]}
+        onRowClick={x => handleExpand(x.uid)}
+        columns={[
+          { key: "handle", label: "User", render: x => (
+            <div className="min-w-0 w-[240px] xl:w-[300px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{x.displayName || `@${x.handle || "?"}`}</p>
+              <p className="font-sans text-xs text-white/40 truncate">@{x.handle || "?"} · {x.email || "no email"}</p>
             </div>
-          ))}
-        </div>
-      )}
+          ) },
+          { key: "tier", label: "Tier", sort: x => x.xp || 0, render: x => <Pill color={x.tier?.color || KIT.muted}>{x.tier?.name || "RECRUIT"}</Pill> },
+          { key: "xp", label: "XP", sort: x => x.xp || 0, render: x => <span className="font-sans text-sm text-white/85 tabular-nums">{fmt(x.xp || 0)}</span> },
+          { key: "arenaWins", label: "Arena wins", sort: x => x.arenaWins || 0, render: x => <span className="font-sans text-sm text-white/65 tabular-nums">{fmt(x.arenaWins || 0)}</span> },
+          { key: "ships", label: "Ships", sort: x => x.ships || 0, render: x => <span className="font-sans text-sm text-white/65 tabular-nums">{fmt(x.ships || 0)}</span> },
+          { key: "joinedAt", label: "Joined", sort: x => joined(x)?.getTime() || 0,
+            render: x => <span className="font-sans text-xs text-white/50">{joined(x)?.toLocaleDateString("en-IN", { dateStyle: "medium" }) || "-"}</span> },
+        ]}
+        rowActions={x => [
+          { icon: Eye, label: "Details", onClick: () => handleExpand(x.uid) },
+          { icon: ExternalLink, label: "Open profile", onClick: () => window.open(`/u/${x.handle}`, "_blank", "noopener") },
+        ]}
+      />
+
+      <Drawer open={!!u} onClose={() => setExpanded(null)} title={u ? (u.displayName || `@${u.handle}`) : ""}
+        subtitle={u ? `@${u.handle} · ${u.email || "no email"}` : ""}>
+        {u && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                ["XP", fmt(u.xp || 0)], ["Tier", u.tier?.name || "RECRUIT"], ["Arena wins", fmt(u.arenaWins || 0)],
+                ["Ships", fmt(u.ships || 0)], ["Pulse posts", d ? fmt(d.postCount) : "..."], ["Projects", d ? fmt(d.projectCount) : "..."],
+                ["Coins", fmt(u.coins || 0)], ["Followers", fmt(u.followersCount || 0)], ["Earnings", d ? `₹${(d.earnings?.totalInr || 0).toFixed(2)}` : "..."],
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-lg border p-3" style={{ borderColor: KIT.line }}>
+                  <p className="font-sans text-[11px] text-white/45">{k}</p>
+                  <p className="font-sans text-base font-semibold text-white tabular-nums mt-0.5">{v}</p>
+                </div>
+              ))}
+            </div>
+
+            <DrawerSection title="Adjust XP" hint="Atomic, and recorded in the reward_grants ledger with you as the granter - it shows on the user's Reward Timeline.">
+              <div className="flex flex-wrap items-center gap-2">
+                <input type="number" min="1" value={xpDelta[u.uid] ?? "100"}
+                  onChange={e => setXpDelta(p => ({ ...p, [u.uid]: e.target.value }))}
+                  className="font-sans text-sm text-white/85 w-28 px-3 py-2 rounded-lg outline-none border border-white/10 focus:border-white/25"
+                  style={{ background: "rgba(255,255,255,0.03)" }} aria-label="XP amount" />
+                <PrimaryButton icon={Plus} busy={working[`xp-${u.uid}`]} onClick={() => handleXP(u.uid, 1)}>Grant XP</PrimaryButton>
+                <SecondaryButton onClick={() => handleXP(u.uid, -1)} disabled={working[`xp-${u.uid}`]}>Remove XP</SecondaryButton>
+              </div>
+            </DrawerSection>
+
+            <DrawerSection title="Account">
+              <p className="font-mono text-xs text-white/55 break-all">UID: {u.uid}</p>
+              {u.institutionId && <p className="font-sans text-xs text-white/55">Institution: <span className="font-mono">{u.institutionId}</span></p>}
+              {joined(u) && <p className="font-sans text-xs text-white/55">Joined {joined(u).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}</p>}
+              {u.bio && <p className="font-sans text-sm text-white/65 leading-relaxed">{u.bio}</p>}
+              <div><SecondaryButton icon={ExternalLink} onClick={() => window.open(`/u/${u.handle}`, "_blank", "noopener")}>Open public profile</SecondaryButton></div>
+            </DrawerSection>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -1054,6 +1223,7 @@ function BroadcastPanel() {
   const [liveUrl,     setLiveUrl]     = useState("");
   const [liveInput,   setLiveInput]   = useState("");
   const [liveLoading, setLiveLoading] = useState(false);
+  const [adding,      setAdding]      = useState(false);
 
   const blankEp = { ep: "", title: "", duration: "", views: "", date: "", tag: "", url: "" };
   const [form, setForm] = useState(blankEp);
@@ -1087,7 +1257,9 @@ function BroadcastPanel() {
     setSaving(true); setError("");
     try {
       await addDoc(collection(db, "broadcasts"), { ...form, createdAt: serverTimestamp() });
+      logAdminActivity("added broadcast episode", form.title.trim());
       setForm(blankEp);
+      setAdding(false);
       loadData();
     } catch (err) { setError(err.message); }
     finally { setSaving(false); }
@@ -1120,6 +1292,7 @@ function BroadcastPanel() {
       await setDoc(doc(db, "system", "broadcast"), { liveUrl: url, isLive: true, liveUpdatedAt: serverTimestamp() }, { merge: true });
       setLiveUrl(url);
       setIsLive(true);
+      logAdminActivity("went live", url);
     } catch (err) { console.error(err); }
     finally { setLiveLoading(false); }
   };
@@ -1129,90 +1302,72 @@ function BroadcastPanel() {
     try {
       await setDoc(doc(db, "system", "broadcast"), { liveUrl: "", isLive: false, liveUpdatedAt: serverTimestamp() }, { merge: true });
       setLiveUrl(""); setIsLive(false); setLiveInput("");
+      logAdminActivity("ended live stream", "");
     } catch (err) { console.error(err); }
     finally { setLiveLoading(false); }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Live stream control */}
-      <div className="border rounded-lg p-4 space-y-3" style={{ borderColor: isLive ? "rgba(239,68,68,0.35)" : "rgba(239,68,68,0.15)" }}>
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Stream", value: isLive ? "Live" : "Offline", sub: isLive ? "Broadcasting now" : "Not streaming", icon: Radio, color: isLive ? KIT.red : KIT.muted, loading },
+        { label: "Episodes", value: episodes.length, sub: "Past recordings", icon: Tv2, color: KIT.cyan, loading },
+        { label: "Upcoming", value: upcoming.length, sub: "Scheduled streams", icon: Flag, color: KIT.orange, loading },
+        { label: "Registrations", value: upcoming.reduce((n, u) => n + (parseInt(u.registered) || 0), 0), sub: "For upcoming streams", icon: Users, color: KIT.purple, loading },
+      ]} />
+
+      <div className="rounded-xl border p-4 sm:p-5" style={{ background: KIT.surface, borderColor: isLive ? "rgba(255,80,80,0.45)" : KIT.line }}>
+        <div className="flex items-start gap-3 mb-3">
+          <span className="relative flex h-2.5 w-2.5 mt-1.5">
             {isLive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />}
-            <span className={`relative inline-flex rounded-full h-2 w-2 ${isLive ? "bg-red-500" : "bg-white/15"}`} />
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isLive ? "bg-red-500" : "bg-white/20"}`} />
           </span>
-          <p className="font-mono text-[10px] text-red-400/80 tracking-wider">// live stream control</p>
-          {isLive && <span className="font-mono text-[9px] text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded ml-auto">LIVE NOW</span>}
+          <div className="flex-1 min-w-0">
+            <h2 className="font-sans text-base font-semibold text-white">Live stream</h2>
+            <p className="font-sans text-xs text-white/45 mt-0.5">{isLive ? "Everyone on /broadcast sees this stream right now." : "Paste a YouTube Live link and go live - /broadcast switches over instantly."}</p>
+          </div>
+          {isLive && <Pill color={KIT.red}>Live now</Pill>}
         </div>
         {isLive ? (
-          <div className="space-y-2">
-            <p className="font-mono text-[10px] text-white/35 break-all">{liveUrl}</p>
-            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-              onClick={handleEndStream} disabled={liveLoading}
-              className="w-full font-mono text-xs py-2.5 text-red-400 border border-red-500/30 hover:bg-red-500/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {liveLoading ? "ending..." : "[ END STREAM ]"}
-            </motion.button>
+          <div className="flex flex-wrap items-center gap-3">
+            <a href={liveUrl} target="_blank" rel="noreferrer" className="font-mono text-xs text-white/60 hover:text-white break-all flex-1 min-w-0">{liveUrl}</a>
+            <SecondaryButton icon={X} onClick={handleEndStream} disabled={liveLoading}>{liveLoading ? "Ending..." : "End stream"}</SecondaryButton>
           </div>
         ) : (
-          <div className="space-y-2">
-            <Input label="YOUTUBE LIVE URL" value={liveInput} onChange={setLiveInput} placeholder="https://youtube.com/live/... or youtu.be/..." />
-            <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-              onClick={handleGoLive} disabled={liveLoading || !liveInput.trim()}
-              className="w-full font-mono text-xs py-2.5 text-red-400 border border-red-500/30 hover:bg-red-500/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Radio size={11} /> {liveLoading ? "going live..." : "[ GO LIVE ]"}
-            </motion.button>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[240px]"><Input label="YOUTUBE LIVE URL" value={liveInput} onChange={setLiveInput} placeholder="https://youtube.com/live/... or youtu.be/..." /></div>
+            <PrimaryButton icon={Radio} busy={liveLoading} disabled={!liveInput.trim()} onClick={handleGoLive}>Go live</PrimaryButton>
           </div>
         )}
       </div>
 
-      {/* Episodes list */}
-      <div>
-        <p className="font-mono text-[10px] text-white/25 mb-2 tracking-wider">// past episodes</p>
-        {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p> : (
-          <div className="space-y-2 mb-4">
-            {episodes.length === 0 && <p className="font-mono text-xs text-white/20">No episodes yet.</p>}
-            {episodes.map(ep => (
-              <div key={ep.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-                {ep.ep && <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">{ep.ep}</span>}
-                <span className="font-mono text-xs text-white/70 flex-1 truncate">{ep.title}</span>
-                <span className="font-mono text-[10px] text-white/28 flex-shrink-0">{ep.date}</span>
-                <button onClick={() => handleDeleteEpisode(ep.id)} className="text-white/20 hover:text-red-400 transition-colors ml-1">
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
+      <DataTable title="Past episodes" icon={Tv2} subtitle="Recordings listed on /broadcast, newest first."
+        rows={episodes} loading={loading}
+        searchKeys={["title", "ep", "tag"]} searchPlaceholder="Search episodes..."
+        primaryAction={{ label: "Add episode", icon: Plus, onClick: () => { setForm(blankEp); setError(""); setAdding(true); } }}
+        emptyText="No episodes yet."
+        columns={[
+          { key: "ep", label: "Ep", render: e => <span className="font-mono text-xs text-white/60">{e.ep || "-"}</span> },
+          { key: "title", label: "Title", render: e => <span className="font-sans text-sm font-medium text-white truncate block w-[260px] xl:w-[340px]">{e.title}</span> },
+          { key: "tag", label: "Tag", render: e => e.tag ? <Pill color={KIT.cyan}>{e.tag}</Pill> : <span className="font-sans text-xs text-white/30">-</span> },
+          { key: "duration", label: "Duration", render: e => <span className="font-sans text-xs text-white/60">{e.duration || "-"}</span> },
+          { key: "views", label: "Views", render: e => <span className="font-sans text-xs text-white/60">{e.views || "-"}</span> },
+          { key: "date", label: "Date", render: e => <span className="font-sans text-xs text-white/60">{e.date || "-"}</span> },
+        ]}
+        rowActions={e => [
+          e.url && { icon: ExternalLink, label: "Watch", onClick: () => window.open(e.url, "_blank", "noopener") },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDeleteEpisode(e.id) },
+        ]}
+      />
+
+      <div className="rounded-xl border p-4 sm:p-5 space-y-3" style={{ background: KIT.surface, borderColor: KIT.line }}>
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <h2 className="font-sans text-base font-semibold text-white">Upcoming streams</h2>
+            <p className="font-sans text-xs text-white/45 mt-0.5">The schedule shown on /broadcast. Rows with no title are dropped on save.</p>
           </div>
-        )}
-        {/* Add episode form */}
-        <div className="border border-white/6 rounded-lg p-4 space-y-3">
-          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">// add episode</p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Input label="EPISODE #" value={form.ep} onChange={f("ep")} placeholder="E13" />
-            <Input label="TAG" value={form.tag} onChange={f("tag")} placeholder="Backend" />
-          </div>
-          <Input label="TITLE" value={form.title} onChange={f("title")} placeholder="Building a Rate Limiter..." />
-          <div className="grid sm:grid-cols-3 gap-3">
-            <Input label="DURATION" value={form.duration} onChange={f("duration")} placeholder="1h 24m" />
-            <Input label="VIEWS" value={form.views} onChange={f("views")} placeholder="2.4k" />
-            <Input label="DATE" value={form.date} onChange={f("date")} placeholder="Jun 18" />
-          </div>
-          <Input label="URL (optional)" value={form.url} onChange={f("url")} placeholder="https://youtube.com/..." />
-          {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-          <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-            onClick={handleAddEpisode} disabled={saving}
-            className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Plus size={12} /> {saving ? "adding..." : "add episode"}
-          </motion.button>
+          <PrimaryButton icon={Check} busy={saving && !adding} onClick={handleSaveUpcoming}>{saved ? "Saved" : "Save schedule"}</PrimaryButton>
         </div>
-      </div>
-
-      {/* Upcoming streams */}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-cyan tracking-wider mb-2">// upcoming streams (saved to system/broadcast)</p>
         {upForm.map((u, i) => (
           <div key={i} className="flex items-center gap-2 border border-white/5 rounded-lg p-3 relative">
             <div className="flex-1 grid sm:grid-cols-3 gap-2">
@@ -1230,17 +1385,28 @@ function BroadcastPanel() {
         >
           <Plus size={11} /> add upcoming stream
         </button>
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleSaveUpcoming} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          style={saved
-            ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-            : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
-          }
-        >
-          {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save upcoming schedule"}
-        </motion.button>
       </div>
+
+      <Drawer open={adding} onClose={() => setAdding(false)} width={600} title="Add episode" subtitle="Listed on /broadcast immediately."
+        footer={<>
+          <SecondaryButton onClick={() => setAdding(false)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleAddEpisode}>Add episode</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input label="EPISODE #" value={form.ep} onChange={f("ep")} placeholder="E13" />
+            <Input label="TAG" value={form.tag} onChange={f("tag")} placeholder="Backend" />
+          </div>
+          <Input label="TITLE" value={form.title} onChange={f("title")} placeholder="Building a Rate Limiter..." />
+          <div className="grid sm:grid-cols-3 gap-3">
+            <Input label="DURATION" value={form.duration} onChange={f("duration")} placeholder="1h 24m" />
+            <Input label="VIEWS" value={form.views} onChange={f("views")} placeholder="2.4k" />
+            <Input label="DATE" value={form.date} onChange={f("date")} placeholder="Jun 18" />
+          </div>
+          <Input label="URL (optional)" value={form.url} onChange={f("url")} placeholder="https://youtube.com/..." />
+          {error && <p className="font-sans text-xs text-red-400">{error}</p>}
+        </div>
+      </Drawer>
     </div>
   );
 }
@@ -1254,6 +1420,7 @@ function LogsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
+  const [editingId, setEditingId] = useState(null); // null closed, "new", or an id
 
   const blank = { hash: "", type: "feat", msg: "", detail: "", date: "", author: "The Duo" };
   const [form, setForm] = useState(blank);
@@ -1273,8 +1440,15 @@ function LogsPanel() {
     if (!form.hash.trim() || !form.msg.trim()) return setError("Version hash and message are required.");
     setSaving(true); setError("");
     try {
-      await addDoc(collection(db, "changelog"), { ...form, createdAt: serverTimestamp() });
+      if (editingId && editingId !== "new") {
+        await updateDoc(doc(db, "changelog", editingId), { ...form });
+        logAdminActivity("updated changelog entry", form.hash);
+      } else {
+        await addDoc(collection(db, "changelog"), { ...form, createdAt: serverTimestamp() });
+        logAdminActivity("added changelog entry", form.hash);
+      }
       setForm(blank);
+      setEditingId(null);
       load();
     } catch (err) { setError(err.message); }
     finally { setSaving(false); }
@@ -1286,28 +1460,50 @@ function LogsPanel() {
     load();
   };
 
+  const TYPE_C = { feat: KIT.cyan, fix: KIT.red, perf: KIT.green, chore: KIT.muted, docs: KIT.purple, refactor: KIT.orange };
+  const openEdit = (log) => {
+    setForm({ hash: log.hash || "", type: log.type || "feat", msg: log.msg || "", detail: log.detail || "", date: log.date || "", author: log.author || "" });
+    setError(""); setEditingId(log.id);
+  };
+
   return (
-    <div className="space-y-4">
-      {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p> : (
-        <div className="space-y-2 max-h-64 overflow-y-auto">
-          {logs.length === 0 && <p className="font-mono text-xs text-white/20">No log entries yet.</p>}
-          {logs.map(log => (
-            <div key={log.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-              <span className="font-mono text-[10px] text-white/28 flex-shrink-0">{log.hash}</span>
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
-                style={{ color: log.type === "feat" ? "#00FFFF" : log.type === "fix" ? "#FF5050" : "#00FF41", background: "rgba(255,255,255,0.04)" }}>
-                {log.type}
-              </span>
-              <span className="font-mono text-xs text-white/60 flex-1 truncate">{log.msg}</span>
-              <button onClick={() => handleDelete(log.id)} className="text-white/20 hover:text-red-400 transition-colors ml-1">
-                <Trash2 size={13} />
-              </button>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Changelog entries", value: logs.length, sub: "Shown on /logs", icon: GitCommit, color: KIT.green, loading },
+        { label: "Features", value: logs.filter(l => l.type === "feat").length, sub: "type: feat", icon: Zap, color: KIT.cyan, loading },
+        { label: "Fixes", value: logs.filter(l => l.type === "fix").length, sub: "type: fix", icon: Hammer, color: KIT.red, loading },
+        { label: "Latest", value: logs[0]?.hash || "-", sub: logs[0]?.date || "", icon: Flag, color: KIT.purple, loading },
+      ]} />
+      <DataTable title="Changelog" icon={GitCommit} subtitle="Public release notes on /logs, newest first."
+        rows={logs} loading={loading}
+        searchKeys={["hash", "msg", "detail", "author"]} searchPlaceholder="Search entries..."
+        filters={[{ key: "type", label: "All types", options: LOG_TYPE_OPTS.map(t => ({ value: t, label: t })) }]}
+        primaryAction={{ label: "Add entry", icon: Plus, onClick: () => { setForm(blank); setError(""); setEditingId("new"); } }}
+        onRowClick={openEdit} emptyText="No changelog entries yet."
+        columns={[
+          { key: "hash", label: "Version", render: l => <span className="font-mono text-sm text-white/85">{l.hash}</span> },
+          { key: "type", label: "Type", render: l => <Pill color={TYPE_C[l.type] || KIT.muted}>{l.type}</Pill> },
+          { key: "msg", label: "Message", render: l => (
+            <div className="min-w-0 w-[260px] xl:w-[340px]">
+              <p className="font-sans text-sm text-white truncate">{l.msg}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{l.detail}</p>
             </div>
-          ))}
-        </div>
-      )}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-cyan tracking-wider">// add changelog entry</p>
+          ) },
+          { key: "date", label: "Date", render: l => <span className="font-sans text-xs text-white/55">{l.date || "-"}</span> },
+          { key: "author", label: "Author", render: l => <span className="font-sans text-xs text-white/55">{l.author || "-"}</span> },
+        ]}
+        rowActions={l => [
+          { icon: Pencil, label: "Edit", onClick: () => openEdit(l) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(l.id) },
+        ]}
+      />
+      <Drawer open={!!editingId} onClose={() => setEditingId(null)} width={600}
+        title={editingId === "new" ? "Add changelog entry" : `Edit ${form.hash}`} subtitle="Published on /logs."
+        footer={<>
+          <SecondaryButton onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleAdd}>{editingId === "new" ? "Add entry" : "Save changes"}</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
         <div className="grid sm:grid-cols-2 gap-3">
           <Input label="VERSION / HASH" value={form.hash} onChange={f("hash")} placeholder="v2.1.0" />
           <Input label="DATE" value={form.date} onChange={f("date")} placeholder="Jun 24, 2026" />
@@ -1332,14 +1528,9 @@ function LogsPanel() {
             </div>
           </div>
         </div>
-        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleAdd} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Plus size={12} /> {saving ? "adding..." : "add log entry"}
-        </motion.button>
-      </div>
+          {error && <p className="font-sans text-xs text-red-400">{error}</p>}
+        </div>
+      </Drawer>
     </div>
   );
 }
@@ -1390,6 +1581,7 @@ function OpportunitiesPanel() {
       const data = { ...form, status: publishAndNotify ? "published" : form.status };
       await saveOpportunity(id, data);
       if (publishAndNotify && !wasPublished) await notifyNewOpportunity({ ...data, id });
+      logAdminActivity(publishAndNotify ? "published opportunity" : "saved opportunity", data.title);
       setEditingId(null); setAdding(false); setForm(blankOpportunityForm());
       load();
     } finally {
@@ -1408,15 +1600,69 @@ function OpportunitiesPanel() {
     setForm({ ...blankOpportunityForm(), ...o, title: o.title + " (copy)", status: "draft" });
   };
 
-  return (
-    <div className="space-y-4">
-      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
-        style={{ background: "rgba(0,255,65,0.08)", color: "#00FF41", border: "1px solid rgba(0,255,65,0.25)" }}>
-        <Plus size={12} /> Add Opportunity
-      </button>
+  const STATUS_C = { published: KIT.green, draft: KIT.muted, archived: KIT.red };
+  const pub = opportunities.filter(o => o.status === "published");
+  const views = opportunities.reduce((n, o) => n + (o.views || 0), 0);
+  const clicks = opportunities.reduce((n, o) => n + (o.applyClicks || 0), 0);
+  const types = [...new Set(opportunities.map(o => o.type).filter(Boolean))];
+  const setPublished = async (o, on) => {
+    // Status only: merging the whole row back would overwrite view/apply
+    // counters that moved since this list loaded.
+    await saveOpportunity(o.id, { status: on ? "published" : "draft" });
+    load();
+  };
+  const canSave = !saving && form.title.trim() && form.registrationUrl.trim();
 
-      {(adding || editingId) && (
-        <div className="p-3 rounded space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+  return (
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Opportunities", value: opportunities.length, sub: `${pub.length} published`, icon: Briefcase, color: KIT.green, loading },
+        { label: "Views", value: views, sub: "Detail page views", icon: Eye, color: KIT.cyan, loading },
+        { label: "Apply clicks", value: clicks, sub: views ? `${Math.round((100 * clicks) / views)}% of views` : "", icon: ExternalLink, color: KIT.orange, loading },
+        { label: "Saves", value: opportunities.reduce((n, o) => n + (o.saveCount || 0), 0), sub: "Bookmarked by students", icon: Star, color: KIT.purple, loading },
+      ]} />
+      <DataTable title="All opportunities" icon={Briefcase} subtitle="Internships, jobs and programs on /opportunities."
+        rows={opportunities} loading={loading}
+        searchKeys={["title", "organizationName", "type", "shortDescription"]} searchPlaceholder="Search opportunities..."
+        filters={[
+          { key: "status", label: "All statuses", options: ["published", "draft", "archived"].map(v => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })) },
+          ...(types.length ? [{ key: "type", label: "All types", options: types.map(t => ({ value: t, label: t })) }] : []),
+        ]}
+        primaryAction={{ label: "Add opportunity", icon: Plus, onClick: startAdd }}
+        onRowClick={startEdit} emptyText="No opportunities yet."
+        columns={[
+          { key: "title", label: "Opportunity", render: o => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{o.title}{o.featured && <Star size={12} className="inline ml-1.5 -mt-0.5" style={{ color: KIT.gold }} />}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{o.organizationName}</p>
+            </div>
+          ) },
+          { key: "type", label: "Type", render: o => <Pill color={KIT.cyan}>{o.type || "-"}</Pill> },
+          { key: "views", label: "Views", sort: o => o.views || 0, render: o => <span className="font-sans text-sm text-white/70 tabular-nums">{fmt(o.views || 0)}</span> },
+          { key: "applyClicks", label: "Applies", sort: o => o.applyClicks || 0, render: o => <span className="font-sans text-sm text-white/70 tabular-nums">{fmt(o.applyClicks || 0)}</span> },
+          { key: "registrationDeadline", label: "Deadline", render: o => <span className="font-sans text-xs text-white/55">{o.registrationDeadline ? new Date(o.registrationDeadline).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "-"}</span> },
+          { key: "status", label: "Status", render: o => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={o.status === "published"} label={`Publish ${o.title}`} onChange={on => setPublished(o, on)} />
+              <span className="font-sans text-xs" style={{ color: STATUS_C[o.status] || KIT.muted }}>{o.status ? o.status[0].toUpperCase() + o.status.slice(1) : "Draft"}</span>
+            </div>
+          ) },
+        ]}
+        rowActions={o => [
+          { icon: Pencil, label: "Edit", onClick: () => startEdit(o) },
+          { icon: Copy, label: "Duplicate", onClick: () => handleDuplicate(o) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(o.id) },
+        ]}
+      />
+      <Drawer open={adding || !!editingId} onClose={() => { setEditingId(null); setAdding(false); }}
+        title={editingId ? `Edit ${form.title || "opportunity"}` : "Add opportunity"}
+        subtitle="Publishing for the first time also sends an in-app notification."
+        footer={<>
+          <SecondaryButton onClick={() => { setEditingId(null); setAdding(false); }}>Cancel</SecondaryButton>
+          <SecondaryButton onClick={() => handleSave(false)} disabled={!canSave}>Save as draft</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} disabled={!canSave} onClick={() => handleSave(true)}>Publish & notify</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
           <p className="font-mono text-[10px] text-white/40 tracking-widest">BASIC INFORMATION</p>
           <div className="grid grid-cols-2 gap-2.5">
             <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="GeeksforGeeks x MongoDB Campus Mantri - Level 2" />
@@ -1494,54 +1740,8 @@ function OpportunitiesPanel() {
           </div>
           <p className="font-mono text-[10px] text-white/20">Note: no push/email notification pipeline exists yet - &quot;Publish &amp; Notify&quot; sends an in-app notification only.</p>
 
-          <div className="flex gap-2 pt-1">
-            <button onClick={() => handleSave(false)} disabled={saving || !form.title.trim() || !form.registrationUrl.trim()}
-              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "rgba(255,255,255,0.08)", color: "white" }}>
-              {saving ? "Saving..." : "Save as Draft"}
-            </button>
-            <button onClick={() => handleSave(true)} disabled={saving || !form.title.trim() || !form.registrationUrl.trim()}
-              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
-              {saving ? "Saving..." : "Publish & Notify"}
-            </button>
-            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
         </div>
-      )}
-
-      {loading ? (
-        <p className="font-mono text-xs text-white/30">Loading...</p>
-      ) : opportunities.length === 0 ? (
-        <p className="font-mono text-xs text-white/30">No opportunities yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {opportunities.map(o => (
-            <div key={o.id} className="flex items-center gap-3 p-3 rounded flex-wrap"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <b className="font-mono text-xs text-white/80">{o.title}</b>
-                  {o.featured && <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,215,0,0.1)", color: "#FFD700" }}>FEATURED</span>}
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: o.status === "published" ? "rgba(0,255,65,0.1)" : o.status === "archived" ? "rgba(255,80,80,0.1)" : "rgba(255,255,255,0.08)",
-                      color: o.status === "published" ? "#00FF41" : o.status === "archived" ? "#FF5050" : "rgba(255,255,255,0.4)" }}>
-                    {o.status?.toUpperCase() || "DRAFT"}
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] text-white/30">{o.organizationName} · {o.type} · {o.views || 0} views · {o.applyClicks || 0} apply-clicks · {o.saveCount || 0} saves</span>
-              </div>
-              <button onClick={() => handleDuplicate(o)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#00FFFF" }}>
-                <Copy size={11} /> Duplicate
-              </button>
-              <button onClick={() => startEdit(o)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FFD700" }}>
-                <Pencil size={11} /> Edit
-              </button>
-              <button onClick={() => handleDelete(o.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FF5050" }}>
-                <Trash2 size={11} /> Delete
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      </Drawer>
     </div>
   );
 }
@@ -1556,6 +1756,7 @@ function IntelPanel() {
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
   const [error,      setError]      = useState("");
+  const [drawer,     setDrawer]     = useState(null); // "news" | "job" | null
 
   const blankNews = { title: "", signal: "HIGH", source: "", tag: "", url: "" };
   const [newsForm, setNewsForm] = useState(blankNews);
@@ -1592,6 +1793,7 @@ function IntelPanel() {
     try {
       const items = tickerRaw.split("\n").map(s => s.trim()).filter(Boolean);
       await setDoc(doc(db, "system", "intel"), { ticker: items, repos, updatedAt: serverTimestamp() }, { merge: true });
+      setTicker(items);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) { console.error(err); }
@@ -1603,7 +1805,9 @@ function IntelPanel() {
     setSaving(true); setError("");
     try {
       await addDoc(collection(db, "intel_news"), { ...newsForm, createdAt: serverTimestamp() });
+      logAdminActivity("added intel news", newsForm.title.trim());
       setNewsForm(blankNews);
+      setDrawer(null);
       loadData();
     } catch (err) { setError(err.message); }
     finally { setSaving(false); }
@@ -1620,7 +1824,9 @@ function IntelPanel() {
     setSaving(true); setError("");
     try {
       await addDoc(collection(db, "intel_jobs"), { ...jobForm, createdAt: serverTimestamp() });
+      logAdminActivity("added intel job", `${jobForm.company.trim()} - ${jobForm.role.trim()}`);
       setJobForm(blankJob);
+      setDrawer(null);
       loadData();
     } catch (err) { setError(err.message); }
     finally { setSaving(false); }
@@ -1632,48 +1838,78 @@ function IntelPanel() {
     loadData();
   };
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  const SIGNAL_C = { HIGH: KIT.green, MED: KIT.orange, LOW: KIT.muted };
+  const when = (t) => (t?.toDate ? t.toDate() : null);
 
   return (
-    <div className="space-y-6">
-      {/* Ticker */}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-cyan tracking-wider">// ticker items (one per line)</p>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "News articles", value: news.length, sub: `${news.filter(n => n.signal === "HIGH").length} high signal`, icon: Radio, color: KIT.cyan, loading },
+        { label: "Job listings", value: jobs.length, sub: `${jobs.filter(j => j.hot).length} marked hot`, icon: Briefcase, color: KIT.green, loading },
+        { label: "Ticker items", value: ticker.length, sub: "Scrolling headline bar", icon: Tv2, color: KIT.orange, loading },
+        { label: "Internships", value: jobs.filter(j => j.type === "Internship").length, sub: "Of the job listings", icon: GraduationCap, color: KIT.purple, loading },
+      ]} />
+
+      <div className="rounded-xl border p-4 sm:p-5 space-y-3" style={{ background: KIT.surface, borderColor: KIT.line }}>
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <h2 className="font-sans text-base font-semibold text-white">Headline ticker</h2>
+            <p className="font-sans text-xs text-white/45 mt-0.5">The scrolling bar at the top of /intel. One headline per line.</p>
+          </div>
+          <PrimaryButton icon={Check} busy={saving && !drawer} onClick={handleSaveTicker}>{saved ? "Saved" : "Save ticker"}</PrimaryButton>
+        </div>
         <Textarea label="TICKER ITEMS" value={tickerRaw} onChange={setTickerRaw}
-          placeholder={"RUST SURPASSES GO IN BACKEND ADOPTION\nOPENAI DROPS GPT-5 API..."} rows={5} />
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleSaveTicker} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          style={saved
-            ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-            : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
-          }
-        >
-          {saved ? <><Check size={12} /> saved!</> : "save ticker"}
-        </motion.button>
+          placeholder={"RUST SURPASSES GO IN BACKEND ADOPTION\nOPENAI DROPS GPT-5 API..."} rows={4} />
       </div>
 
-      {/* News */}
-      <div>
-        <p className="font-mono text-[10px] text-white/25 mb-2 tracking-wider">// intel news</p>
-        <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
-          {news.length === 0 && <p className="font-mono text-xs text-white/20">No news yet.</p>}
-          {news.map(n => (
-            <div key={n.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded flex-shrink-0"
-                style={{ color: n.signal === "HIGH" ? "#00FF41" : n.signal === "MED" ? "#FF9500" : "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)" }}>
-                {n.signal}
-              </span>
-              <span className="font-mono text-xs text-white/60 flex-1 truncate">{n.title}</span>
-              <span className="font-mono text-[10px] text-white/25 flex-shrink-0">{n.source}</span>
-              <button onClick={() => handleDeleteNews(n.id)} className="text-white/20 hover:text-red-400 transition-colors ml-1">
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="border border-white/6 rounded-lg p-4 space-y-3">
-          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">// add news article</p>
+      <DataTable title="News articles" icon={Radio} subtitle="Stories on the /intel feed, newest first."
+        rows={news} loading={loading}
+        searchKeys={["title", "source", "tag"]} searchPlaceholder="Search news..."
+        filters={[{ key: "signal", label: "All signals", options: SIGNAL_OPTS.map(v => ({ value: v, label: v })) }]}
+        primaryAction={{ label: "Add article", icon: Plus, onClick: () => { setNewsForm(blankNews); setError(""); setDrawer("news"); } }}
+        emptyText="No news yet."
+        columns={[
+          { key: "title", label: "Headline", render: n => <span className="font-sans text-sm font-medium text-white truncate block w-[280px] xl:w-[380px]">{n.title}</span> },
+          { key: "signal", label: "Signal", render: n => <Pill color={SIGNAL_C[n.signal] || KIT.muted}>{n.signal || "-"}</Pill> },
+          { key: "source", label: "Source", render: n => <span className="font-sans text-xs text-white/60">{n.source || "-"}</span> },
+          { key: "tag", label: "Tag", render: n => n.tag ? <Pill color={KIT.cyan}>{n.tag}</Pill> : <span className="font-sans text-xs text-white/30">-</span> },
+          { key: "createdAt", label: "Added", sort: n => when(n.createdAt)?.getTime() || 0, render: n => <span className="font-sans text-xs text-white/50">{when(n.createdAt)?.toLocaleDateString("en-IN", { dateStyle: "medium" }) || "-"}</span> },
+        ]}
+        rowActions={n => [
+          n.url && { icon: ExternalLink, label: "Open article", onClick: () => window.open(n.url, "_blank", "noopener") },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDeleteNews(n.id) },
+        ]}
+      />
+
+      <DataTable title="Job listings" icon={Briefcase} subtitle="Roles on the /intel jobs board."
+        rows={jobs} loading={loading}
+        searchKeys={["company", "role", "stack", "ctc"]} searchPlaceholder="Search jobs..."
+        filters={[
+          { key: "type", label: "All types", options: [{ value: "Full-time", label: "Full-time" }, { value: "Internship", label: "Internship" }] },
+          { key: "hot", label: "Any priority", get: j => (j.hot ? "hot" : "normal"), options: [{ value: "hot", label: "Hot only" }, { value: "normal", label: "Not hot" }] },
+        ]}
+        primaryAction={{ label: "Add job", icon: Plus, onClick: () => { setJobForm(blankJob); setError(""); setDrawer("job"); } }}
+        emptyText="No jobs yet."
+        columns={[
+          { key: "company", label: "Company", render: j => <span className="font-sans text-sm font-medium text-white">{j.company}</span> },
+          { key: "role", label: "Role", render: j => <span className="font-sans text-sm text-white/75 truncate block max-w-[240px]">{j.role}</span> },
+          { key: "type", label: "Type", render: j => <Pill color={j.type === "Internship" ? KIT.purple : KIT.cyan}>{j.type || "-"}</Pill> },
+          { key: "ctc", label: "CTC", render: j => <span className="font-sans text-sm text-white/75">{j.ctc || "-"}</span> },
+          { key: "hot", label: "Hot", sort: j => (j.hot ? 1 : 0), render: j => j.hot ? <Pill color={KIT.orange}>Hot</Pill> : <span className="font-sans text-xs text-white/30">-</span> },
+        ]}
+        rowActions={j => [
+          j.url && { icon: ExternalLink, label: "Open listing", onClick: () => window.open(j.url, "_blank", "noopener") },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDeleteJob(j.id) },
+        ]}
+      />
+
+      <Drawer open={drawer === "news"} onClose={() => setDrawer(null)} width={600} title="Add news article" subtitle="Appears on /intel immediately."
+        footer={<>
+          <SecondaryButton onClick={() => setDrawer(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleAddNews}>Add article</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
           <Input label="TITLE" value={newsForm.title} onChange={nf("title")} placeholder="Why Microservices Are Making Things Worse" />
           <div className="grid sm:grid-cols-2 gap-3">
             <Input label="SOURCE" value={newsForm.source} onChange={nf("source")} placeholder="martinfowler.com" />
@@ -1694,34 +1930,16 @@ function IntelPanel() {
               ))}
             </div>
           </div>
-          {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-          <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-            onClick={handleAddNews} disabled={saving}
-            className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Plus size={12} /> {saving ? "adding..." : "add news"}
-          </motion.button>
+          <Input label="URL (optional)" value={newsForm.url} onChange={nf("url")} placeholder="https://..." />
+          {error && <p className="font-sans text-xs text-red-400">{error}</p>}
         </div>
-      </div>
-
-      {/* Jobs */}
-      <div>
-        <p className="font-mono text-[10px] text-white/25 mb-2 tracking-wider">// job listings</p>
-        <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
-          {jobs.length === 0 && <p className="font-mono text-xs text-white/20">No jobs yet.</p>}
-          {jobs.map(j => (
-            <div key={j.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-              <span className="font-sans text-xs text-white/70 flex-shrink-0">{j.company}</span>
-              <span className="font-mono text-xs text-white/45 flex-1 truncate">{j.role}</span>
-              <span className="font-mono text-[10px]" style={{ color: "#00FF41" }}>{j.ctc}</span>
-              <button onClick={() => handleDeleteJob(j.id)} className="text-white/20 hover:text-red-400 transition-colors ml-1">
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="border border-white/6 rounded-lg p-4 space-y-3">
-          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">// add job listing</p>
+      </Drawer>
+      <Drawer open={drawer === "job"} onClose={() => setDrawer(null)} width={600} title="Add job listing" subtitle="Appears on the /intel jobs board immediately."
+        footer={<>
+          <SecondaryButton onClick={() => setDrawer(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleAddJob}>Add job</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
           <div className="grid sm:grid-cols-2 gap-3">
             <Input label="COMPANY" value={jobForm.company} onChange={jf("company")} placeholder="Razorpay" />
             <Input label="ROLE" value={jobForm.role} onChange={jf("role")} placeholder="SDE-2 Backend" />
@@ -1759,15 +1977,10 @@ function IntelPanel() {
               </button>
             </div>
           </div>
-          {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-          <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-            onClick={handleAddJob} disabled={saving}
-            className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Plus size={12} /> {saving ? "adding..." : "add job"}
-          </motion.button>
+          <Input label="APPLY URL (optional)" value={jobForm.url} onChange={jf("url")} placeholder="https://..." />
+          {error && <p className="font-sans text-xs text-red-400">{error}</p>}
         </div>
-      </div>
+      </Drawer>
     </div>
   );
 }
@@ -1782,6 +1995,7 @@ function PulsePanel() {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
+  const [creating, setCreating] = useState(false);
 
   const blank = { type: "tip", title: "", body: "", code: "", codeLang: "", tags: "", url: "", featured: false };
   const [form, setForm] = useState(blank);
@@ -1816,6 +2030,8 @@ function PulsePanel() {
       });
       updateDoc(doc(db, "users", user.uid), { pulsePostsCount: increment(1) }).catch(() => {});
       setForm(blank);
+      setCreating(false);
+      logAdminActivity("published pulse post", form.title.trim());
       load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -1824,83 +2040,91 @@ function PulsePanel() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this pulse post?")) return;
     await deleteDoc(doc(db, "pulse_posts", id));
+    logAdminActivity("deleted pulse post", posts.find(x => x.id === id)?.title || id);
     load();
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Existing posts */}
-      {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p> : (
-        <div className="space-y-2 max-h-72 overflow-y-auto">
-          {posts.length === 0 && <p className="font-mono text-xs text-white/20">No posts yet.</p>}
-          {posts.map(p => (
-            <div key={p.id} className="flex items-start gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0"
-                style={{ color: "#00FF41", background: "rgba(0,255,65,0.06)", border: "1px solid rgba(0,255,65,0.15)" }}>
-                {p.type}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="font-mono text-xs text-white/70 truncate">{p.title}</p>
-                <p className="font-mono text-[10px] text-white/28 truncate mt-0.5">{p.body}</p>
-              </div>
-              <button onClick={() => handleDelete(p.id)} className="text-white/20 hover:text-red-400 transition-colors mt-0.5 flex-shrink-0">
-                <Trash2 size={13} />
-              </button>
-            </div>
+  const when = (t) => (t?.toDate ? t.toDate() : null);
+  const setFeatured = async (p, featured) => {
+    await updateDoc(doc(db, "pulse_posts", p.id), { featured });
+    setPosts(prev => prev.map(x => x.id === p.id ? { ...x, featured } : x));
+  };
+  const STATUS_C = { approved: KIT.green, pending: KIT.orange, rejected: KIT.red };
+  const statuses = [...new Set(posts.map(x => x.status).filter(Boolean))];
+
+  // The create form, moved verbatim into the drawer.
+  const createForm = (
+    <div className="space-y-3">
+      <div>
+        <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">TYPE</p>
+        <div className="flex gap-1.5 flex-wrap">
+          {PULSE_TYPES.map(t => (
+            <button key={t} onClick={() => setForm(p => ({ ...p, type: t }))}
+              className="font-sans text-xs px-2.5 py-1 rounded-full transition-colors"
+              style={{
+                color: form.type === t ? "#00FF41" : "rgba(255,255,255,0.45)",
+                background: form.type === t ? "rgba(0,255,65,0.08)" : "rgba(255,255,255,0.03)",
+                border: form.type === t ? "1px solid rgba(0,255,65,0.3)" : "1px solid rgba(255,255,255,0.08)",
+              }}
+            >{t}</button>
           ))}
         </div>
-      )}
-
-      {/* New post form */}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-green tracking-wider">// create pulse post</p>
-
-        {/* Type selector */}
-        <div>
-          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">TYPE</p>
-          <div className="flex gap-1.5 flex-wrap">
-            {PULSE_TYPES.map(t => (
-              <button key={t} onClick={() => setForm(p => ({ ...p, type: t }))}
-                className="font-mono text-[10px] px-2.5 py-1 rounded-full transition-colors"
-                style={{
-                  color: form.type === t ? "#00FF41" : "rgba(255,255,255,0.3)",
-                  background: form.type === t ? "rgba(0,255,65,0.08)" : "rgba(255,255,255,0.03)",
-                  border: form.type === t ? "1px solid rgba(0,255,65,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                }}
-              >{t.toUpperCase()}</button>
-            ))}
-          </div>
-        </div>
-
-        <Input label="TITLE" value={form.title} onChange={f("title")} placeholder="e.g. Why senior devs prefer boring tech" maxLength={120} />
-        <Textarea label="BODY" value={form.body} onChange={f("body")} placeholder="The insight in 1-3 sentences..." rows={3} maxLength={400} />
-        <Textarea label="CODE SNIPPET (optional)" value={form.code} onChange={f("code")} placeholder="// paste code here" rows={4} />
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="CODE LANGUAGE" value={form.codeLang} onChange={f("codeLang")} placeholder="javascript" />
-          <Input label="SOURCE URL (optional)" value={form.url} onChange={f("url")} placeholder="https://..." />
-        </div>
-        <Input label="TAGS (comma-separated)" value={form.tags} onChange={f("tags")} placeholder="react, performance, career" />
-
-        {/* Featured toggle */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => setForm(p => ({ ...p, featured: !p.featured }))}
-            className="w-9 h-5 rounded-full transition-all relative"
-            style={{ background: form.featured ? "rgba(0,255,65,0.3)" : "rgba(255,255,255,0.08)", border: `1px solid ${form.featured ? "rgba(0,255,65,0.5)" : "rgba(255,255,255,0.12)"}` }}
-          >
-            <span className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
-              style={{ left: form.featured ? "calc(100% - 1.1rem)" : "0.1rem", background: form.featured ? "#00FF41" : "rgba(255,255,255,0.3)" }} />
-          </button>
-          <p className="font-mono text-[10px] text-white/40">featured post</p>
-        </div>
-
-        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleAdd} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Plus size={12} /> {saving ? "publishing..." : "publish post"}
-        </motion.button>
       </div>
+      <Input label="TITLE" value={form.title} onChange={f("title")} placeholder="e.g. Why senior devs prefer boring tech" maxLength={120} />
+      <Textarea label="BODY" value={form.body} onChange={f("body")} placeholder="The insight in 1-3 sentences..." rows={3} maxLength={400} />
+      <Textarea label="CODE SNIPPET (optional)" value={form.code} onChange={f("code")} placeholder="// paste code here" rows={4} />
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Input label="CODE LANGUAGE" value={form.codeLang} onChange={f("codeLang")} placeholder="javascript" />
+        <Input label="SOURCE URL (optional)" value={form.url} onChange={f("url")} placeholder="https://..." />
+      </div>
+      <Input label="TAGS (comma-separated)" value={form.tags} onChange={f("tags")} placeholder="react, performance, career" />
+      <label className="flex items-center gap-3">
+        <Toggle on={form.featured} label="Featured post" onChange={v => setForm(p => ({ ...p, featured: v }))} />
+        <span className="font-sans text-sm text-white/60">Feature this post</span>
+      </label>
+      {error && <p className="font-sans text-xs text-red-400">{error}</p>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Pulse posts", value: posts.length, sub: "All time", icon: Activity, color: KIT.green, loading },
+        { label: "Featured", value: posts.filter(x => x.featured).length, sub: "Pinned to the top", icon: Star, color: KIT.gold, loading },
+        { label: "Awaiting review", value: posts.filter(x => x.status === "pending").length, sub: "In the moderation queue", icon: ShieldCheck, color: KIT.orange, loading },
+        { label: "Likes", value: posts.reduce((n, x) => n + (x.likeCount || 0), 0), sub: "Across all posts", icon: Heart, color: KIT.red, loading },
+      ]} />
+      <DataTable title="Pulse feed" icon={Activity} subtitle="Every post on /pulse. Pending posts are reviewed in Moderation > Pulse queue."
+        rows={posts} loading={loading} pageSize={15}
+        searchKeys={["title", "body", "handle", "tags"]} searchPlaceholder="Search posts..."
+        filters={[
+          { key: "type", label: "All types", options: PULSE_TYPES.map(t => ({ value: t, label: t })) },
+          { key: "status", label: "All statuses", options: statuses.map(v => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })) },
+        ]}
+        primaryAction={{ label: "New post", icon: Plus, onClick: () => { setForm(blank); setError(""); setCreating(true); } }}
+        emptyText="No posts yet."
+        columns={[
+          { key: "title", label: "Post", render: x => (
+            <div className="min-w-0 w-[260px] xl:w-[340px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{x.title || (x.body || "").slice(0, 60)}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{x.body}</p>
+            </div>
+          ) },
+          { key: "type", label: "Type", render: x => <Pill color={KIT.cyan}>{x.type || "-"}</Pill> },
+          { key: "likeCount", label: "Likes", sort: x => x.likeCount || 0, render: x => <span className="font-sans text-sm text-white/70 tabular-nums">{fmt(x.likeCount || 0)}</span> },
+          { key: "status", label: "Status", render: x => <Pill color={STATUS_C[x.status] || KIT.muted}>{x.status ? x.status[0].toUpperCase() + x.status.slice(1) : "-"}</Pill> },
+          { key: "featured", label: "Featured", sort: x => (x.featured ? 1 : 0), render: x => <Toggle on={!!x.featured} label={`Feature ${x.title}`} onChange={v => setFeatured(x, v)} /> },
+          { key: "createdAt", label: "Posted", sort: x => when(x.createdAt)?.getTime() || 0, render: x => <span className="font-sans text-xs text-white/50">{when(x.createdAt)?.toLocaleDateString("en-IN", { dateStyle: "medium" }) || "-"}</span> },
+        ]}
+        rowActions={x => [{ icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(x.id) }]}
+      />
+      <Drawer open={creating} onClose={() => setCreating(false)} title="New Pulse post" subtitle="Published immediately as approved, under your account."
+        footer={<>
+          <SecondaryButton onClick={() => setCreating(false)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleAdd}>Publish post</PrimaryButton>
+        </>}>
+        {createForm}
+      </Drawer>
     </div>
   );
 }
@@ -1923,6 +2147,7 @@ function CommunitiesPanel() {
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState("");
   const [editingId,   setEditingId]   = useState(null);
+  const [drawerOpen,  setDrawerOpen]  = useState(false);
   const [form, setForm] = useState(blankCommunityForm);
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -1940,8 +2165,10 @@ function CommunitiesPanel() {
     setEditingId(c.id);
     setError("");
     setForm({ slug: c.id, name: c.name || "", topic: c.topic || "", description: c.description || "" });
+    setDrawerOpen(true);
   };
-  const cancelEdit = () => { setEditingId(null); setForm(blankCommunityForm()); setError(""); };
+  const startCreate = () => { setEditingId(null); setForm(blankCommunityForm()); setError(""); setDrawerOpen(true); };
+  const cancelEdit = () => { setEditingId(null); setForm(blankCommunityForm()); setError(""); setDrawerOpen(false); };
 
   const handleSave = async () => {
     if (!editingId && !form.slug.trim()) return setError("Slug is required.");
@@ -1956,6 +2183,7 @@ function CommunitiesPanel() {
           ...payload, memberCount: 0, createdAt: serverTimestamp(),
         });
       }
+      logAdminActivity(editingId ? "updated community" : "created community", payload.name);
       cancelEdit();
       load();
     } catch (e) { setError(e.message); }
@@ -1969,47 +2197,58 @@ function CommunitiesPanel() {
     load();
   };
 
+  const members = communities.reduce((n, c) => n + (c.memberCount || 0), 0);
+  const topics = [...new Set(communities.map(c => c.topic).filter(Boolean))];
+
   return (
     <div className="space-y-5">
-      {loading ? (
-        <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
-      ) : (
-        <div className="space-y-2">
-          {communities.length === 0 && <p className="font-mono text-xs text-white/20">No communities yet.</p>}
-          {communities.map(c => (
-            <div key={c.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-3">
-              <span className="font-mono text-[10px] text-white/35 flex-shrink-0">{c.id}</span>
-              <span className="font-mono text-xs text-white/75 flex-1 truncate">{c.name}</span>
-              <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">{c.memberCount ?? 0} members</span>
-              <button onClick={() => startEdit(c)} className="text-white/20 hover:text-yellow-400 transition-colors flex-shrink-0"><Pencil size={12} /></button>
-              <button onClick={() => handleDelete(c.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0"><Trash2 size={13} /></button>
+      <StatGrid stats={[
+        { label: "Communities", value: communities.length, sub: "On /community", icon: Users, color: KIT.green, loading },
+        { label: "Members", value: members, sub: "Total memberships", icon: Users, color: KIT.cyan, loading },
+        { label: "Avg size", value: communities.length ? Math.round(members / communities.length) : 0, sub: "Members per community", icon: BarChart3, color: KIT.purple, loading },
+        { label: "Topics", value: topics.length, sub: topics.slice(0, 3).join(", "), icon: Layers, color: KIT.orange, loading },
+      ]} />
+      <DataTable title="All communities" icon={Users} subtitle="Dev communities people can join on /community."
+        rows={communities} loading={loading}
+        searchKeys={["name", "id", "topic", "description"]} searchPlaceholder="Search communities..."
+        filters={topics.length ? [{ key: "topic", label: "All topics", options: topics.map(t => ({ value: t, label: t })) }] : []}
+        primaryAction={{ label: "Create community", icon: Plus, onClick: startCreate }}
+        onRowClick={startEdit} emptyText="No communities yet."
+        columns={[
+          { key: "name", label: "Community", render: c => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{c.name}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{c.description}</p>
             </div>
-          ))}
+          ) },
+          { key: "id", label: "Slug", render: c => <span className="font-mono text-xs text-white/55">{c.id}</span> },
+          { key: "topic", label: "Topic", render: c => c.topic ? <Pill color={KIT.cyan}>{c.topic}</Pill> : <span className="font-sans text-xs text-white/30">-</span> },
+          { key: "memberCount", label: "Members", sort: c => c.memberCount || 0, render: c => <span className="font-sans text-sm text-white/80 tabular-nums">{fmt(c.memberCount || 0)}</span> },
+        ]}
+        rowActions={c => [
+          { icon: Pencil, label: "Edit", onClick: () => startEdit(c) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(c.id) },
+        ]}
+      />
+      <Drawer open={drawerOpen} onClose={cancelEdit} width={600}
+        title={editingId ? `Edit ${form.name || editingId}` : "Create community"}
+        subtitle={editingId ? "The slug is the document ID, so it can't change." : "The slug becomes the community's URL."}
+        footer={<>
+          <SecondaryButton onClick={cancelEdit}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleSave}>{editingId ? "Save changes" : "Create community"}</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            {editingId
+              ? <div><p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">SLUG</p><p className="font-mono text-sm text-white/70 py-2">{editingId}</p></div>
+              : <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="ai-builders" />}
+            <Input label="NAME" value={form.name} onChange={f("name")} placeholder="AI Builders" />
+          </div>
+          <Input label="TOPIC (optional)" value={form.topic} onChange={f("topic")} placeholder="ai" />
+          <Textarea label="DESCRIPTION" value={form.description} onChange={f("description")} placeholder="What's this community about?" rows={3} />
+          {error && <p className="font-sans text-xs text-red-400">{error}</p>}
         </div>
-      )}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">{editingId ? `// editing ${editingId}` : "// create community"}</p>
-          {editingId && (
-            <button onClick={cancelEdit} className="font-mono text-[10px] text-white/30 hover:text-white/55 flex items-center gap-1">
-              <X size={10} /> cancel
-            </button>
-          )}
-        </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="SLUG (doc ID)" value={form.slug} onChange={f("slug")} placeholder="ai-builders" hint={editingId ? "locked once created" : undefined} />
-          <Input label="NAME" value={form.name} onChange={f("name")} placeholder="AI Builders" />
-        </div>
-        <Input label="TOPIC (optional)" value={form.topic} onChange={f("topic")} placeholder="ai" />
-        <Textarea label="DESCRIPTION" value={form.description} onChange={f("description")} placeholder="What's this community about?" rows={2} />
-        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleSave} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Plus size={12} /> {saving ? "saving..." : editingId ? "save changes" : "create community"}
-        </motion.button>
-      </div>
+      </Drawer>
     </div>
   );
 }
@@ -2052,6 +2291,7 @@ function ResourcesPanel() {
   const [urls,      setUrls]      = useState({});
   const [saving,    setSaving]    = useState({});
   const [saved,     setSaved]     = useState({});
+  const [openId,    setOpenId]    = useState(null);
 
   useEffect(() => {
     getDocs(collection(db, "intel_resources"))
@@ -2084,55 +2324,52 @@ function ResourcesPanel() {
     finally { setSaving(p => ({ ...p, [moduleId]: false })); }
   };
 
+  const rows = ADMIN_RESOURCE_BUNDLES.flatMap(bundle => bundle.modules.map((mod, i) => ({
+    id: mod.id, n: i + 1, title: mod.title, type: mod.type, bundle: bundle.title, bundleId: bundle.id, color: bundle.color,
+    live: resources[mod.id]?.status === "available" && !!resources[mod.id]?.url, url: resources[mod.id]?.url || "",
+  })));
+  const live = rows.filter(r => r.live).length;
+  const sel = rows.find(r => r.id === openId);
+
   return (
-    <div className="space-y-6">
-      {ADMIN_RESOURCE_BUNDLES.map(bundle => (
-        <div key={bundle.id}>
-          <p className="font-mono text-[10px] mb-3 tracking-wider" style={{ color: bundle.color }}>
-            // {bundle.title}
-          </p>
-          <div className="space-y-2">
-            {bundle.modules.map((mod, i) => {
-              const res     = resources[mod.id];
-              const isAvail = res?.status === "available" && res?.url;
-              return (
-                <div key={mod.id} className="flex flex-wrap items-center gap-2 border border-white/6 rounded-lg px-3 py-2">
-                  <span className="font-mono text-[9px] text-white/18 w-4 flex-shrink-0 text-right">{i + 1}</span>
-                  <span className="font-mono text-xs text-white/55 flex-1 min-w-0 truncate">{mod.title}</span>
-                  <span className="font-mono text-[9px] text-white/22 flex-shrink-0">{mod.type}</span>
-                  <span className="font-mono text-[9px] flex-shrink-0 w-8 text-center"
-                    style={{ color: isAvail ? "#00FF41" : "rgba(255,255,255,0.18)" }}>
-                    {isAvail ? "LIVE" : "SOON"}
-                  </span>
-                  <input
-                    type="text"
-                    value={urls[mod.id] || ""}
-                    onChange={e => setUrls(p => ({ ...p, [mod.id]: e.target.value }))}
-                    placeholder="https://drive.google.com/..."
-                    className="font-mono text-[10px] text-white/70 px-2 py-1 rounded outline-none w-full sm:w-[220px] flex-shrink-0"
-                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-                    onFocus={e => (e.target.style.borderColor = `${bundle.color}50`)}
-                    onBlur={e  => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
-                  />
-                  <button
-                    onClick={() => handleSave(mod.id)}
-                    disabled={saving[mod.id]}
-                    className="font-mono text-[9px] px-2.5 py-1 rounded transition-colors flex-shrink-0 disabled:opacity-50"
-                    style={saved[mod.id]
-                      ? { color: "#00FF41", background: "rgba(0,255,65,0.08)",   border: "1px solid rgba(0,255,65,0.25)"           }
-                      : { color: bundle.color, background: `${bundle.color}08`, border: `1px solid ${bundle.color}25` }}
-                  >
-                    {saved[mod.id] ? <span className="inline-flex items-center gap-1"><Check size={10} /> OK</span> : saving[mod.id] ? "..." : "SAVE"}
-                  </button>
-                </div>
-              );
-            })}
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Resource modules", value: rows.length, sub: `${ADMIN_RESOURCE_BUNDLES.length} bundles`, icon: BookOpen, color: KIT.cyan },
+        { label: "Live", value: live, sub: "Have a download link", icon: Check, color: KIT.green },
+        { label: "Coming soon", value: rows.length - live, sub: "Waiting for a link", icon: Target, color: rows.length - live ? KIT.orange : KIT.green },
+        { label: "Coverage", value: rows.length ? `${Math.round((100 * live) / rows.length)}%` : "-", sub: "Modules with a link", icon: BarChart3, color: KIT.purple },
+      ]} />
+      <DataTable title="Intel resources" icon={BookOpen} subtitle="Saving a link flips a module to Live on /intel; clearing it flips it back to Coming soon."
+        rows={rows} pageSize={20}
+        searchKeys={["title", "bundle", "type"]} searchPlaceholder="Search modules..."
+        filters={[
+          { key: "bundleId", label: "All bundles", options: ADMIN_RESOURCE_BUNDLES.map(bd => ({ value: bd.id, label: bd.title })) },
+          { key: "live", label: "Any status", get: r => (r.live ? "live" : "soon"), options: [{ value: "live", label: "Live" }, { value: "soon", label: "Coming soon" }] },
+        ]}
+        onRowClick={r => setOpenId(r.id)}
+        columns={[
+          { key: "title", label: "Module", render: r => <span className="font-sans text-sm font-medium text-white truncate block w-[240px] xl:w-[320px]">{r.title}</span> },
+          { key: "bundle", label: "Bundle", render: r => <Pill color={r.color}>{r.bundle}</Pill> },
+          { key: "type", label: "Type", render: r => <span className="font-sans text-xs text-white/55">{r.type}</span> },
+          { key: "live", label: "Status", sort: r => (r.live ? 1 : 0), render: r => r.live ? <Pill color={KIT.green}>Live</Pill> : <Pill color={KIT.muted}>Coming soon</Pill> },
+        ]}
+        rowActions={r => [
+          { icon: Pencil, label: "Set link", onClick: () => setOpenId(r.id) },
+          r.live && { icon: ExternalLink, label: "Open link", onClick: () => window.open(r.url, "_blank", "noopener") },
+        ]}
+      />
+      <Drawer open={!!sel} onClose={() => setOpenId(null)} width={560} title={sel?.title || ""} subtitle={sel ? `${sel.bundle} · ${sel.type}` : ""}
+        footer={sel && <>
+          <SecondaryButton onClick={() => setOpenId(null)}>Close</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving[sel.id]} onClick={() => handleSave(sel.id)}>{saved[sel.id] ? "Saved" : "Save link"}</PrimaryButton>
+        </>}>
+        {sel && (
+          <div className="space-y-3">
+            <Input label="DOWNLOAD URL" value={urls[sel.id] || ""} onChange={v => setUrls(p => ({ ...p, [sel.id]: v }))}
+              placeholder="https://drive.google.com/..." hint="Any direct link - Google Drive, S3, etc. Leave empty to mark it Coming soon." />
           </div>
-        </div>
-      ))}
-      <p className="font-mono text-[10px] text-white/18">
-        Paste a direct Google Drive / S3 / any URL. Status flips to LIVE automatically when a URL is saved.
-      </p>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -2142,7 +2379,7 @@ function ResourcesPanel() {
 function PayoutsPanel() {
   const [requests, setRequests] = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState("pending");
+  const [openId,   setOpenId]   = useState(null);
   const [working,  setWorking]  = useState({});
 
   const load = () => {
@@ -2231,89 +2468,81 @@ function PayoutsPanel() {
     finally { setWorking(p => ({ ...p, [req.id]: false })); }
   };
 
-  const filtered = requests.filter(r => filter === "all" || r.status === filter);
-  const pendingCount = requests.filter(r => r.status === "pending").length;
+  const STATUS_C = { pending: KIT.orange, approved: KIT.green, rejected: KIT.red };
+  const pending = requests.filter(r => r.status === "pending");
+  const approved = requests.filter(r => r.status === "approved");
+  const inr = (list) => list.reduce((n, r) => n + (r.inrAmount || 0), 0);
+  const money = (n) => `₹${(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const when = (t) => (t?.toDate ? t.toDate() : null);
+  const sel = requests.find(r => r.id === openId);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
-        {["pending", "approved", "rejected", "all"].map(s => (
-          <button key={s} onClick={() => setFilter(s)}
-            className="font-mono text-[10px] px-2.5 py-1 rounded transition-colors"
-            style={{
-              color:      filter === s ? "#00FFFF" : "rgba(255,255,255,0.3)",
-              background: filter === s ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
-              border:     filter === s ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
-            }}
-          >{s}</button>
-        ))}
-        <span className="ml-auto font-mono text-[10px] text-white/22 self-center">
-          {pendingCount} pending
-        </span>
-      </div>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Pending requests", value: pending.length, sub: `${money(inr(pending))} waiting`, icon: Wallet, color: pending.length ? KIT.orange : KIT.green, loading },
+        { label: "Paid out", value: money(inr(approved)), sub: `${fmt(approved.length)} approved requests`, icon: Check, color: KIT.green, loading },
+        { label: "Rejected", value: requests.filter(r => r.status === "rejected").length, sub: "Coins refunded", icon: X, color: KIT.red, loading },
+        { label: "All requests", value: requests.length, sub: "All time", icon: ClipboardList, color: KIT.cyan, loading },
+      ]} />
 
-      {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p> : (
-        <div className="space-y-3 max-h-[600px] overflow-y-auto">
-          {filtered.length === 0 && <p className="font-mono text-xs text-white/20">No requests.</p>}
-          {filtered.map(req => (
-            <div key={req.id} className="border border-white/6 rounded-lg p-4 space-y-3">
-              {/* Header */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-xs text-white/80">@{req.handle}</span>
-                <span className="font-mono text-[10px] text-white/35 truncate">{req.email}</span>
-                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded"
-                  style={{
-                    color:      req.status === "approved" ? "#00FF41" : req.status === "rejected" ? "#FF5050" : "#FF9500",
-                    background: req.status === "approved" ? "rgba(0,255,65,0.08)" : req.status === "rejected" ? "rgba(255,59,59,0.08)" : "rgba(255,149,0,0.08)",
-                    border:     `1px solid ${req.status === "approved" ? "rgba(0,255,65,0.2)" : req.status === "rejected" ? "rgba(255,59,59,0.2)" : "rgba(255,149,0,0.2)"}`,
-                  }}>
-                  {req.status.toUpperCase()}
-                </span>
-              </div>
-
-              {/* Amount */}
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-semibold" style={{ color: "#00FFFF" }}>
-                  ₹{(req.inrAmount || 0).toFixed(2)}
-                </span>
-                <span className="font-mono text-xs text-white/35">{(req.coins || 0).toLocaleString()} coins</span>
-                <span className="font-mono text-[10px] border border-white/8 px-1.5 py-0.5 rounded text-white/40">{req.method}</span>
-              </div>
-
-              {/* Payment details */}
-              <div className="font-mono text-[10px] text-white/30 space-y-0.5">
-                {req.method === "upi" && req.upiId && (
-                  <p>UPI ID: <span className="text-white/55">{req.upiId}</span></p>
-                )}
-                {req.method === "bank" && (
-                  <>
-                    {req.bankName      && <p>Bank:  <span className="text-white/55">{req.bankName}</span></p>}
-                    {req.accountNumber && <p>A/C:   <span className="text-white/55">{req.accountNumber}</span></p>}
-                    {req.ifscCode      && <p>IFSC:  <span className="text-white/55">{req.ifscCode}</span></p>}
-                  </>
-                )}
-              </div>
-
-              {req.status === "rejected" && req.note && (
-                <p className="font-mono text-[10px] text-red-400/60">Reason: {req.note}</p>
-              )}
-
-              {req.status === "pending" && (
-                <div className="flex gap-2">
-                  <button onClick={() => handleApprove(req)} disabled={working[req.id]}
-                    className="flex-1 font-mono text-[10px] py-1.5 text-neon-green border border-neon-green/25 hover:bg-neon-green/8 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1">
-                    {working[req.id] ? "..." : <><Check size={10} /> APPROVE</>}
-                  </button>
-                  <button onClick={() => handleReject(req)} disabled={working[req.id]}
-                    className="flex-1 font-mono text-[10px] py-1.5 text-red-400 border border-red-500/25 hover:bg-red-500/8 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1">
-                    {working[req.id] ? "..." : <><X size={10} /> REJECT</>}
-                  </button>
-                </div>
-              )}
+      <DataTable title="Payout requests" icon={Wallet}
+        subtitle="Approving re-checks the user's live coin balance and deducts it in one transaction, so a duplicate request can never pay out twice."
+        rows={requests} loading={loading}
+        searchKeys={["handle", "email", "upiId", "accountNumber"]} searchPlaceholder="Search handle, email, UPI or account..."
+        filters={[
+          { key: "status", label: "All statuses", options: ["pending", "approved", "rejected"].map(v => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })) },
+          { key: "method", label: "All methods", options: [{ value: "upi", label: "UPI" }, { value: "bank", label: "Bank transfer" }] },
+        ]}
+        onRowClick={r => setOpenId(r.id)} emptyText="No payout requests yet."
+        columns={[
+          { key: "handle", label: "User", render: r => (
+            <div className="min-w-0 w-[220px]">
+              <p className="font-sans text-sm font-medium text-white truncate">@{r.handle}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{r.email}</p>
             </div>
-          ))}
-        </div>
-      )}
+          ) },
+          { key: "inrAmount", label: "Amount", sort: r => r.inrAmount || 0, render: r => <span className="font-sans text-sm font-semibold text-white tabular-nums">{money(r.inrAmount)}</span> },
+          { key: "coins", label: "Coins", sort: r => r.coins || 0, render: r => <span className="font-sans text-sm text-white/60 tabular-nums">{fmt(r.coins || 0)}</span> },
+          { key: "method", label: "Method", render: r => <Pill color={KIT.cyan}>{r.method === "bank" ? "Bank" : "UPI"}</Pill> },
+          { key: "createdAt", label: "Requested", sort: r => when(r.createdAt)?.getTime() || 0,
+            render: r => <span className="font-sans text-xs text-white/50">{when(r.createdAt)?.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) || "-"}</span> },
+          { key: "status", label: "Status", render: r => <Pill color={STATUS_C[r.status] || KIT.muted}>{r.status ? r.status[0].toUpperCase() + r.status.slice(1) : "-"}</Pill> },
+        ]}
+        rowActions={r => r.status === "pending" ? [
+          { icon: Check, label: "Approve", disabled: working[r.id], onClick: () => handleApprove(r) },
+          { icon: X, label: "Reject", danger: true, disabled: working[r.id], onClick: () => handleReject(r) },
+        ] : [{ icon: Eye, label: "Details", onClick: () => setOpenId(r.id) }]}
+      />
+
+      <Drawer open={!!sel} onClose={() => setOpenId(null)} width={560}
+        title={sel ? `${money(sel.inrAmount)} to @${sel.handle}` : ""}
+        subtitle={sel ? `${fmt(sel.coins || 0)} coins · ${sel.status}` : ""}
+        footer={sel?.status === "pending" ? <>
+          <SecondaryButton icon={X} onClick={() => handleReject(sel)} disabled={working[sel.id]}>Reject & refund</SecondaryButton>
+          <PrimaryButton icon={Check} busy={working[sel.id]} onClick={() => handleApprove(sel)}>Approve payout</PrimaryButton>
+        </> : null}>
+        {sel && (
+          <div className="space-y-4">
+            <DrawerSection title="Pay to">
+              <dl className="grid grid-cols-[120px_1fr] gap-y-2 font-sans text-sm">
+                <dt className="text-white/45">Method</dt><dd className="text-white/85">{sel.method === "bank" ? "Bank transfer" : "UPI"}</dd>
+                {sel.upiId && <><dt className="text-white/45">UPI ID</dt><dd className="font-mono text-white/85 break-all">{sel.upiId}</dd></>}
+                {sel.bankName && <><dt className="text-white/45">Bank</dt><dd className="text-white/85">{sel.bankName}</dd></>}
+                {sel.accountNumber && <><dt className="text-white/45">Account</dt><dd className="font-mono text-white/85 break-all">{sel.accountNumber}</dd></>}
+                {sel.ifscCode && <><dt className="text-white/45">IFSC</dt><dd className="font-mono text-white/85">{sel.ifscCode}</dd></>}
+              </dl>
+            </DrawerSection>
+            <DrawerSection title="Request">
+              <dl className="grid grid-cols-[120px_1fr] gap-y-2 font-sans text-sm">
+                <dt className="text-white/45">User</dt><dd className="text-white/85">@{sel.handle} · {sel.email}</dd>
+                <dt className="text-white/45">Requested</dt><dd className="text-white/85">{when(sel.createdAt)?.toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" }) || "-"}</dd>
+                {when(sel.processedAt) && <><dt className="text-white/45">Processed</dt><dd className="text-white/85">{when(sel.processedAt).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}</dd></>}
+                {sel.note && <><dt className="text-white/45">Reason</dt><dd className="text-red-300">{sel.note}</dd></>}
+              </dl>
+            </DrawerSection>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -2327,6 +2556,7 @@ function PulseModerationPanel() {
   const [filter,  setFilter]  = useState("pending");
   const [selected, setSelected] = useState(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [q,        setQ]        = useState("");
 
   const load = () => {
     setLoading(true);
@@ -2452,231 +2682,140 @@ function PulseModerationPanel() {
     finally { setBulkBusy(false); }
   };
 
+  const isPending = (p) => !p.status || p.status === "pending";
+  const needle = q.trim().toLowerCase();
   const filtered = posts.filter(p => {
-    if (filter === "all")     return true;
-    if (filter === "pending") return !p.status || p.status === "pending";
-    return p.status === filter;
+    if (filter === "pending" && !isPending(p)) return false;
+    if (filter !== "all" && filter !== "pending" && p.status !== filter) return false;
+    return !needle || `${p.handle || ""} ${p.caption || ""} ${(p.tags || []).join(" ")}`.toLowerCase().includes(needle);
   });
-
-  const pendingCount = posts.filter(p => !p.status || p.status === "pending").length;
-
-  const statusColor = (s) => {
-    if (!s || s === "pending")  return { color: "#FF9500", bg: "rgba(255,149,0,0.08)",   border: "rgba(255,149,0,0.25)"  };
-    if (s === "approved")       return { color: "#00FF41", bg: "rgba(0,255,65,0.08)",    border: "rgba(0,255,65,0.25)"   };
-    return                             { color: "#FF5050", bg: "rgba(255,59,59,0.08)",   border: "rgba(255,59,59,0.25)"  };
+  const counts = {
+    pending: posts.filter(isPending).length,
+    approved: posts.filter(p => p.status === "approved").length,
+    rejected: posts.filter(p => p.status === "rejected").length,
+    all: posts.length,
   };
+  const STATUS_C = { pending: KIT.orange, approved: KIT.green, rejected: KIT.red };
+  const pendingVisible = filtered.filter(isPending);
+  const allSelected = pendingVisible.length > 0 && pendingVisible.every(p => selected.has(p.id));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(pendingVisible.map(p => p.id)));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
-        {["pending", "approved", "rejected", "all"].map(s => (
-          <button key={s} onClick={() => setFilter(s)}
-            className="font-mono text-[10px] px-2.5 py-1 rounded transition-colors"
-            style={{
-              color:      filter === s ? "#00FF41" : "rgba(255,255,255,0.3)",
-              background: filter === s ? "rgba(0,255,65,0.08)" : "rgba(255,255,255,0.03)",
-              border:     filter === s ? "1px solid rgba(0,255,65,0.3)" : "1px solid rgba(255,255,255,0.06)",
-            }}
-          >{s}</button>
-        ))}
-        <span className="ml-auto font-mono text-[10px] text-neon-green/50 self-center">{pendingCount} pending review</span>
-      </div>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Awaiting review", value: counts.pending, sub: counts.pending ? "Oldest first is fairest" : "Queue is clear", icon: ShieldCheck, color: counts.pending ? KIT.orange : KIT.green, loading },
+        { label: "Approved", value: counts.approved, sub: "Live on Pulse", icon: Check, color: KIT.green, loading },
+        { label: "Rejected", value: counts.rejected, sub: "Author was notified", icon: X, color: KIT.red, loading },
+        { label: "Approval rate", value: counts.approved + counts.rejected ? `${Math.round((100 * counts.approved) / (counts.approved + counts.rejected))}%` : "-", sub: "Of reviewed posts", icon: BarChart3, color: KIT.purple, loading },
+      ]} />
 
-      {selected.size > 0 && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(0,255,65,0.06)", border: "1px solid rgba(0,255,65,0.2)" }}>
-          <span className="font-mono text-[10px] text-neon-green/70">{selected.size} selected</span>
-          <button onClick={handleBulkApprove} disabled={bulkBusy}
-            className="ml-auto font-mono text-[10px] px-3 py-1 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50 inline-flex items-center gap-1">
-            {bulkBusy ? "..." : <><Check size={10} /> approve selected</>}
-          </button>
-          <button onClick={handleBulkReject} disabled={bulkBusy}
-            className="font-mono text-[10px] px-3 py-1 text-red-400 border border-red-500/30 hover:bg-red-500/8 transition-colors disabled:opacity-50 inline-flex items-center gap-1">
-            {bulkBusy ? "..." : <><X size={10} /> reject selected</>}
-          </button>
-          <button onClick={() => setSelected(new Set())} className="font-mono text-[10px] text-white/30 hover:text-white/60 px-2">clear</button>
+      <div className="rounded-xl border overflow-hidden" style={{ background: KIT.surface, borderColor: KIT.line }}>
+        <div className="px-4 sm:px-5 py-3 border-b flex flex-wrap items-center gap-2" style={{ borderColor: KIT.line }}>
+          <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: KIT.line }} role="tablist">
+            {["pending", "approved", "rejected", "all"].map(sv => (
+              <button key={sv} role="tab" aria-selected={filter === sv} onClick={() => { setFilter(sv); setSelected(new Set()); }}
+                className="font-sans text-sm px-3.5 py-1.5 transition-colors border-r last:border-r-0"
+                style={{ borderColor: KIT.line, color: filter === sv ? "#fff" : "rgba(255,255,255,0.5)", background: filter === sv ? "rgba(255,255,255,0.07)" : "transparent" }}>
+                {sv[0].toUpperCase() + sv.slice(1)} <span className="tabular-nums text-white/40 ml-1">{counts[sv]}</span>
+              </button>
+            ))}
+          </div>
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/35" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search author, caption or tag..."
+              className="w-full font-sans text-sm text-white/85 pl-9 pr-3 py-2 rounded-lg outline-none border border-white/10 focus:border-white/25 placeholder:text-white/30"
+              style={{ background: "rgba(255,255,255,0.03)" }} />
+          </div>
+          {pendingVisible.length > 0 && (
+            <label className="flex items-center gap-2 font-sans text-sm text-white/60 ml-auto cursor-pointer">
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-green-500" />
+              Select all pending
+            </label>
+          )}
         </div>
-      )}
 
-      {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p> : (
-        <div className="space-y-3 max-h-[700px] overflow-y-auto">
-          {filtered.length === 0 && <p className="font-mono text-xs text-white/20">Nothing here.</p>}
-          {filtered.map(post => {
-            const sc = statusColor(post.status);
-            return (
-              <div key={post.id} className="border border-white/6 rounded-lg p-4 space-y-3">
-                {/* Header */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {(!post.status || post.status === "pending") && (
-                    <input type="checkbox" checked={selected.has(post.id)} onChange={() => toggleSelect(post.id)}
-                      className="w-3.5 h-3.5 accent-green-500 flex-shrink-0" />
-                  )}
-                  {post.photoURL
-                    ? <img src={post.photoURL} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                    : <div className="w-6 h-6 rounded-full flex items-center justify-center font-mono text-[10px] flex-shrink-0"
-                        style={{ background: "rgba(0,255,65,0.1)", color: "#00FF41" }}>
-                        {(post.handle || "?")[0].toUpperCase()}
+        {selected.size > 0 && (
+          <div className="px-4 sm:px-5 py-2.5 border-b flex flex-wrap items-center gap-2" style={{ borderColor: KIT.line, background: "rgba(0,255,65,0.05)" }}>
+            <span className="font-sans text-sm text-white/80">{selected.size} selected</span>
+            <div className="ml-auto flex items-center gap-2">
+              <SecondaryButton onClick={() => setSelected(new Set())}>Clear</SecondaryButton>
+              <SecondaryButton icon={X} onClick={handleBulkReject} disabled={bulkBusy}>Reject selected</SecondaryButton>
+              <PrimaryButton icon={Check} busy={bulkBusy} onClick={handleBulkApprove}>Approve selected</PrimaryButton>
+            </div>
+          </div>
+        )}
+
+        <div className="p-4 sm:p-5">
+          {loading ? (
+            <div className="space-y-3">{[0, 1, 2].map(n => <div key={n} className="h-28 rounded-lg bg-white/[0.03] animate-pulse" />)}</div>
+          ) : filtered.length === 0 ? (
+            <p className="font-sans text-sm text-white/35 text-center py-12">{filter === "pending" && !needle ? "Nothing waiting for review." : "No posts match."}</p>
+          ) : (
+            <div className="grid lg:grid-cols-2 gap-4">
+              {filtered.map(post => {
+                const st = post.status || "pending";
+                return (
+                  <article key={post.id} className="rounded-xl border p-4 flex flex-col gap-3"
+                    style={{ borderColor: selected.has(post.id) ? "rgba(0,255,65,0.4)" : KIT.line, background: "rgba(255,255,255,0.015)" }}>
+                    <header className="flex items-center gap-2.5">
+                      {isPending(post) && (
+                        <input type="checkbox" checked={selected.has(post.id)} onChange={() => toggleSelect(post.id)}
+                          className="w-4 h-4 accent-green-500 flex-shrink-0" aria-label={`Select post by ${post.handle}`} />
+                      )}
+                      {post.photoURL
+                        ? <img src={post.photoURL} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                        : <div className="w-8 h-8 rounded-full flex items-center justify-center font-sans text-sm font-semibold flex-shrink-0"
+                            style={{ background: "rgba(0,255,65,0.1)", color: KIT.green }}>{(post.handle || "?")[0].toUpperCase()}</div>}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-sans text-sm font-medium text-white truncate">@{post.handle}</p>
+                        <p className="font-sans text-xs text-white/40">{post.createdAt?.toDate ? post.createdAt.toDate().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : ""}</p>
                       </div>
-                  }
-                  <span className="font-mono text-xs text-white/75">@{post.handle}</span>
-                  {post.category && (
-                    <span className="font-mono text-[9px] px-1.5 py-0.5 rounded-full border border-white/10 text-white/40">{post.category}</span>
-                  )}
-                  <span className="font-mono text-[9px] px-1.5 py-0.5 rounded"
-                    style={{ color: sc.color, background: sc.bg, border: `1px solid ${sc.border}` }}>
-                    {(post.status || "PENDING").toUpperCase()}
-                  </span>
-                  <span className="font-mono text-[9px] text-white/22 ml-auto">
-                    {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleString("en-IN") : ""}
-                  </span>
-                </div>
+                      {post.category && <Pill color={KIT.cyan}>{post.category}</Pill>}
+                      <Pill color={STATUS_C[st] || KIT.muted}>{st[0].toUpperCase() + st.slice(1)}</Pill>
+                    </header>
 
-                {/* Caption */}
-                <p className="font-sans text-sm text-white/75 leading-relaxed">{post.caption}</p>
+                    {post.caption && <p className="font-sans text-sm text-white/80 leading-relaxed whitespace-pre-wrap break-words">{post.caption}</p>}
+                    {post.imageUrl && <img src={post.imageUrl} alt="" className="rounded-lg max-h-56 object-cover w-full" />}
+                    {post.code && (
+                      <pre className="font-mono text-[11px] text-white/70 p-3 rounded-lg overflow-x-auto max-h-32 leading-relaxed"
+                        style={{ background: "rgba(0,0,0,0.4)", border: `1px solid ${KIT.line}` }}>
+                        {post.code.slice(0, 400)}{post.code.length > 400 ? "..." : ""}
+                      </pre>
+                    )}
+                    {post.linkUrl && <a href={post.linkUrl} target="_blank" rel="noreferrer" className="font-sans text-xs text-neon-cyan/80 hover:underline truncate">{post.linkUrl}</a>}
+                    {post.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">{post.tags.map(t => <span key={t} className="font-sans text-xs text-white/45">#{t}</span>)}</div>
+                    )}
+                    {post.rejectionNote && (
+                      <p className="font-sans text-xs text-red-300 rounded-lg px-3 py-2" style={{ background: "rgba(255,80,80,0.06)", border: "1px solid rgba(255,80,80,0.2)" }}>
+                        Rejected: {post.rejectionNote}
+                      </p>
+                    )}
 
-                {/* Image preview */}
-                {post.imageUrl && (
-                  <img src={post.imageUrl} alt="" className="rounded-lg max-h-48 object-cover w-full" />
-                )}
-
-                {/* Code preview */}
-                {post.code && (
-                  <pre className="font-mono text-[10px] text-neon-green/65 p-3 rounded-lg overflow-x-auto max-h-28 leading-relaxed"
-                    style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,255,65,0.1)" }}>
-                    {post.code.slice(0, 300)}{post.code.length > 300 ? "…" : ""}
-                  </pre>
-                )}
-
-                {/* Link */}
-                {post.linkUrl && (
-                  <p className="font-mono text-[10px] text-neon-cyan/60 truncate">{post.linkUrl}</p>
-                )}
-
-                {/* Tags */}
-                {post.tags?.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {post.tags.map(t => (
-                      <span key={t} className="font-mono text-[9px] text-white/28 border border-white/8 px-1.5 py-0.5 rounded">#{t}</span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Rejection note */}
-                {post.rejectionNote && (
-                  <p className="font-mono text-[10px] text-red-400/70 border border-red-500/15 rounded px-2 py-1 flex items-center gap-1">
-                    <X size={10} className="flex-shrink-0" /> Rejected: {post.rejectionNote}
-                  </p>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-1">
-                  {(!post.status || post.status === "pending") && (
-                    <>
-                      <button disabled={working[post.id]} onClick={() => handleApprove(post)}
-                        className="flex-1 font-mono text-[11px] py-1.5 text-neon-green border border-neon-green/25 hover:bg-neon-green/8 transition-colors disabled:opacity-40 inline-flex items-center justify-center gap-1">
-                        {working[post.id] ? "..." : <><Check size={11} /> APPROVE</>}
-                      </button>
-                      <button disabled={working[post.id]} onClick={() => handleReject(post)}
-                        className="flex-1 font-mono text-[11px] py-1.5 text-red-400 border border-red-500/25 hover:bg-red-500/8 transition-colors disabled:opacity-40 inline-flex items-center justify-center gap-1">
-                        {working[post.id] ? "..." : <><X size={11} /> REJECT</>}
-                      </button>
-                    </>
-                  )}
-                  {post.status === "approved" && (
-                    <button disabled={working[post.id]} onClick={() => handleReject(post)}
-                      className="font-mono text-[11px] py-1.5 px-4 text-red-400/60 border border-red-500/15 hover:bg-red-500/5 transition-colors disabled:opacity-40">
-                      revoke
-                    </button>
-                  )}
-                  <button onClick={() => handleDelete(post)}
-                    className="font-mono text-[11px] py-1.5 px-3 text-white/20 hover:text-red-400 border border-white/6 transition-colors">
-                    <Trash2 size={11} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                    <footer className="flex items-center gap-2 pt-1 mt-auto">
+                      {isPending(post) && (
+                        <>
+                          <PrimaryButton icon={Check} busy={working[post.id]} onClick={() => handleApprove(post)}>Approve</PrimaryButton>
+                          <SecondaryButton icon={X} onClick={() => handleReject(post)} disabled={working[post.id]}>Reject</SecondaryButton>
+                        </>
+                      )}
+                      {post.status === "approved" && (
+                        <SecondaryButton icon={X} onClick={() => handleReject(post)} disabled={working[post.id]}>Revoke</SecondaryButton>
+                      )}
+                      <div className="ml-auto"><IconButton icon={Trash2} label="Delete permanently" danger onClick={() => handleDelete(post)} /></div>
+                    </footer>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 // ── Stats panel ───────────────────────────────────────────────────────────────
-
-function StatsPanel() {
-  const [stats,   setStats]   = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Previously fetched EVERY user document just to derive a count, a sum,
-    // and a top-5 - fine at a few hundred users, a real and growing cost
-    // once the platform has thousands. All three are now computed server-
-    // side: totalUsers/totalXP via Firestore's count()/sum() aggregation
-    // (no documents transferred at all), topBuilders via a proper indexed
-    // top-5 query instead of client-side sort-then-slice over the full set.
-    const load = async () => {
-      const usersCol = collection(db, "users");
-      const [userCountSnap, xpSumSnap, topBuildersSnap, postsSnap, missionsSnap, broadcastsSnap, payoutsSnap] = await Promise.allSettled([
-        getCountFromServer(usersCol),
-        getAggregateFromServer(usersCol, { total: sum("xp") }),
-        getDocs(query(usersCol, orderBy("xp", "desc"), limit(5))),
-        getCountFromServer(collection(db, "pulse_posts")),
-        getCountFromServer(query(collection(db, "missions"), where("status", "==", "OPEN"))),
-        getCountFromServer(collection(db, "broadcasts")),
-        getCountFromServer(query(collection(db, "payout_requests"), where("status", "==", "pending"))),
-      ]);
-      setStats({
-        totalUsers:     userCountSnap.status === "fulfilled"    ? userCountSnap.value.data().count : 0,
-        totalXP:        xpSumSnap.status === "fulfilled"        ? (xpSumSnap.value.data().total || 0) : 0,
-        topBuilders:    topBuildersSnap.status === "fulfilled"  ? topBuildersSnap.value.docs.map(d => d.data()) : [],
-        pulsePosts:     postsSnap.status === "fulfilled"        ? postsSnap.value.data().count      : 0,
-        openMissions:   missionsSnap.status === "fulfilled"     ? missionsSnap.value.data().count   : 0,
-        broadcasts:     broadcastsSnap.status === "fulfilled"   ? broadcastsSnap.value.data().count : 0,
-        pendingPayouts: payoutsSnap.status === "fulfilled"      ? payoutsSnap.value.data().count    : 0,
-      });
-      setLoading(false);
-    };
-    load().catch(e => { console.error(e); setLoading(false); });
-  }, []);
-
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading stats...</p>;
-  if (!stats)  return <p className="font-mono text-xs text-white/25">failed to load stats.</p>;
-
-  const cards = [
-    { label: "TOTAL USERS",     val: stats.totalUsers,                 color: "#C77DFF" },
-    { label: "TOTAL XP",        val: stats.totalXP.toLocaleString(),   color: "#00FFFF" },
-    { label: "PULSE POSTS",     val: stats.pulsePosts,                 color: "#00FF41" },
-    { label: "OPEN MISSIONS",   val: stats.openMissions,               color: "#FF9500" },
-    { label: "BROADCASTS",      val: stats.broadcasts,                 color: "#FF6430" },
-    { label: "PENDING PAYOUTS", val: stats.pendingPayouts,             color: stats.pendingPayouts > 0 ? "#FF3B3B" : "#00FF41" },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {cards.map(c => (
-          <div key={c.label} className="border border-white/6 rounded-lg p-4">
-            <p className="font-mono text-[9px] text-white/25 tracking-wider mb-2">{c.label}</p>
-            <p className="font-mono text-2xl font-bold leading-none" style={{ color: c.color }}>{c.val}</p>
-          </div>
-        ))}
-      </div>
-      <div>
-        <p className="font-mono text-[10px] text-white/25 mb-3 tracking-wider">// top builders by xp</p>
-        <div className="space-y-2">
-          {stats.topBuilders.map((u, i) => (
-            <div key={u.uid || i} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-              <span className="font-mono text-[10px] text-white/25 w-4 flex-shrink-0">{i + 1}</span>
-              <span className="font-mono text-xs text-white/75 flex-1 truncate">@{u.handle}</span>
-              <span className="font-mono text-xs" style={{ color: "#00FFFF" }}>{(u.xp || 0).toLocaleString()} XP</span>
-              <span className="font-mono text-[9px]" style={{ color: u.tier?.color || "#666" }}>{u.tier?.name || "RECRUIT"}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Learning panel (Course -> Module -> Task + Quiz) ──────────────────────────
 
@@ -2697,6 +2836,7 @@ function LearningPanel() {
   const [savingModule, setSavingModule] = useState(false);
   const [taskForm, setTaskForm] = useState(blankTaskForm());
   const [savingTask, setSavingTask] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const loadCourses = () => {
     setLoading(true);
@@ -2747,6 +2887,7 @@ function LearningPanel() {
       });
       setCourseForm({ title: "", description: "", category: "", color: "#00FFFF" });
       logAdminActivity("created course", courseForm.title.trim());
+      setCreating(false);
       loadCourses();
     } catch (e) { console.error(e); }
     finally { setSavingCourse(false); }
@@ -2762,6 +2903,8 @@ function LearningPanel() {
         await deleteDoc(m.ref);
       }
       await deleteDoc(doc(db, "courses", courseId));
+      logAdminActivity("deleted course", courses.find(c => c.id === courseId)?.title || courseId);
+      if (expandedCourse === courseId) setExpandedCourse(null);
       loadCourses();
     } catch (e) { console.error(e); }
   };
@@ -2828,28 +2971,74 @@ function LearningPanel() {
   const addQuestion = () => setTaskForm(p => ({ ...p, quiz: [...p.quiz, blankQuizQuestion()] }));
   const removeQuestion = (i) => setTaskForm(p => ({ ...p, quiz: p.quiz.filter((_, idx) => idx !== i) }));
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  const course = courses.find(c => c.id === expandedCourse);
+  const cats = [...new Set(courses.map(c => c.category).filter(Boolean))];
+  const published = courses.filter(c => (c.status || "published") === "published").length;
+  const openCourse = (id) => { if (expandedCourse !== id) toggleCourse(id); };
+  const setCourseStatus = async (c, on) => {
+    await updateDoc(doc(db, "courses", c.id), { status: on ? "published" : "draft" });
+    logAdminActivity(on ? "published course" : "unpublished course", c.title);
+    loadCourses();
+  };
 
   return (
-    <div className="space-y-4">
-      <p className="font-mono text-[10px] text-white/18">
-        Course -&gt; Module -&gt; Task(+Quiz). Tasks unlock sequentially for learners - Task 2 stays locked until Task 1&apos;s quiz is passed.
-      </p>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Courses", value: courses.length, sub: "Learning paths", icon: GraduationCap, color: KIT.green, loading },
+        { label: "Published", value: published, sub: `${courses.length - published} hidden`, icon: Eye, color: KIT.cyan, loading },
+        { label: "Categories", value: cats.length, sub: cats.slice(0, 3).join(", "), icon: Layers, color: KIT.orange, loading },
+        { label: "Modules loaded", value: course ? (modules[course.id] || []).length : "-", sub: course ? `In ${course.title}` : "Open a course to see", icon: ListChecks, color: KIT.purple },
+      ]} />
+      <DataTable title="Learning paths" icon={GraduationCap}
+        subtitle="Course -> Module -> Task (+ quiz). Tasks unlock in order - Task 2 stays locked until Task 1's quiz is passed."
+        rows={courses} loading={loading}
+        searchKeys={["title", "description", "category"]} searchPlaceholder="Search courses..."
+        filters={cats.length ? [{ key: "category", label: "All categories", options: cats.map(c => ({ value: c, label: c })) }] : []}
+        primaryAction={{ label: "Add course", icon: Plus, onClick: () => setCreating(true) }}
+        onRowClick={c => openCourse(c.id)} emptyText="No courses yet."
+        columns={[
+          { key: "title", label: "Course", render: c => (
+            <div className="min-w-0 w-[260px] xl:w-[340px]">
+              <p className="font-sans text-sm font-medium text-white truncate flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color || KIT.green }} />{c.title}
+              </p>
+              <p className="font-sans text-xs text-white/40 truncate">{c.description}</p>
+            </div>
+          ) },
+          { key: "category", label: "Category", render: c => c.category ? <Pill color={KIT.cyan}>{c.category}</Pill> : <span className="font-sans text-xs text-white/30">-</span> },
+          { key: "order", label: "Order", sort: c => c.order ?? 0, render: c => <span className="font-sans text-sm text-white/60 tabular-nums">{(c.order ?? 0) + 1}</span> },
+          { key: "status", label: "Status", render: c => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={(c.status || "published") === "published"} label={`Publish ${c.title}`} onChange={on => setCourseStatus(c, on)} />
+              <span className="font-sans text-xs text-white/55">{(c.status || "published") === "published" ? "Live" : "Hidden"}</span>
+            </div>
+          ) },
+        ]}
+        rowActions={c => [
+          { icon: Pencil, label: "Modules & tasks", onClick: () => openCourse(c.id) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDeleteCourse(c.id) },
+        ]}
+      />
 
-      {courses.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no courses yet</p>}
+      <Drawer open={creating} onClose={() => setCreating(false)} width={600} title="Add course" subtitle="Published immediately; add modules and tasks after."
+        footer={<>
+          <SecondaryButton onClick={() => setCreating(false)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Plus} busy={savingCourse} disabled={!courseForm.title.trim()} onClick={handleAddCourse}>Add course</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="COURSE TITLE" value={courseForm.title} onChange={v => setCourseForm(p => ({ ...p, title: v }))} placeholder="DSA Fundamentals" />
+          <Input label="CATEGORY" value={courseForm.category} onChange={v => setCourseForm(p => ({ ...p, category: v }))} placeholder="DSA" />
+        </div>
+        <Textarea label="DESCRIPTION" value={courseForm.description} onChange={v => setCourseForm(p => ({ ...p, description: v }))} rows={2} placeholder="What will learners get out of this course?" />
+        </div>
+      </Drawer>
 
-      {courses.map(course => (
-        <div key={course.id} className="border border-white/8 rounded-lg overflow-hidden">
-          <button onClick={() => toggleCourse(course.id)} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/2 transition-colors text-left">
-            <GraduationCap size={13} style={{ color: course.color || "#00FF41" }} />
-            <span className="font-sans text-sm text-white/80 flex-1">{course.title}</span>
-            {course.category && <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded">{course.category}</span>}
-            <button onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course.id); }} className="text-white/20 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
-            {expandedCourse === course.id ? <ChevronUp size={12} className="text-white/30" /> : <ChevronDown size={12} className="text-white/30" />}
-          </button>
-
-          {expandedCourse === course.id && (
-            <div className="px-4 pb-4 space-y-3 border-t border-white/6 pt-3">
+      <Drawer open={!!course} onClose={() => setExpandedCourse(null)} width={820}
+        title={course?.title || ""} subtitle={course ? `${course.category || "Uncategorised"} · ${(modules[course.id] || []).length} modules` : ""}>
+        {course && (
+          <div className="space-y-3">
               {(modules[course.id] || []).map(mod => (
                 <div key={mod.id} className="border border-white/6 rounded-lg overflow-hidden ml-2">
                   <button onClick={() => toggleModule(course.id, mod.id)} className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/2 transition-colors text-left">
@@ -2920,23 +3109,9 @@ function LearningPanel() {
                   {savingModule ? "saving..." : "add module"}
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-      ))}
-
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-green tracking-wider">// add course</p>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="COURSE TITLE" value={courseForm.title} onChange={v => setCourseForm(p => ({ ...p, title: v }))} placeholder="DSA Fundamentals" />
-          <Input label="CATEGORY" value={courseForm.category} onChange={v => setCourseForm(p => ({ ...p, category: v }))} placeholder="DSA" />
-        </div>
-        <Textarea label="DESCRIPTION" value={courseForm.description} onChange={v => setCourseForm(p => ({ ...p, description: v }))} rows={2} placeholder="What will learners get out of this course?" />
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleAddCourse} disabled={savingCourse}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
-          <Plus size={12} className="inline mr-1" /> {savingCourse ? "adding..." : "add course"}
-        </motion.button>
-      </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -3061,6 +3236,7 @@ function AptitudePanel() {
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const loadTopics = () => {
     setLoading(true);
@@ -3098,6 +3274,7 @@ function AptitudePanel() {
       });
       setTopicForm(blankTopicForm());
       logAdminActivity("created aptitude topic", topicForm.name.trim());
+      setCreating(false);
       loadTopics();
     } catch (e) { console.error(e); }
     finally { setSavingTopic(false); }
@@ -3173,35 +3350,76 @@ function AptitudePanel() {
     finally { setImporting(false); }
   };
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  const topic = topics.find(t => t.id === expandedTopic);
+  const openTopic = (id) => { if (expandedTopic !== id) toggleTopic(id); };
+  const usedCats = APTITUDE_CATEGORIES.filter(c => topics.some(t => t.category === c));
+  const setTopicStatus = async (t, on) => {
+    await updateDoc(doc(db, "aptitude_topics", t.id), { status: on ? "published" : "draft" });
+    logAdminActivity(on ? "published aptitude topic" : "unpublished aptitude topic", t.name);
+    loadTopics();
+  };
 
   return (
-    <div className="space-y-4">
-      <p className="font-mono text-[10px] text-white/18">
-        Topic -&gt; Question bank. No sequential unlock - students practice any topic, any order, unlimited attempts.
-      </p>
-
-      {topics.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no topics yet</p>}
-
-      {APTITUDE_CATEGORIES.map(cat => {
-        const catTopics = topics.filter(t => t.category === cat);
-        if (catTopics.length === 0) return null;
-        return (
-          <div key={cat}>
-            <p className="font-mono text-[9px] text-white/25 tracking-widest mb-1.5">{cat.toUpperCase()}</p>
-            <div className="space-y-2 mb-3">
-              {catTopics.map(topic => (
-                <div key={topic.id} className="border border-white/8 rounded-lg overflow-hidden">
-                  <button onClick={() => toggleTopic(topic.id)} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/2 transition-colors text-left">
-                    <ListChecks size={13} className="text-neon-cyan/60" />
-                    <span className="font-sans text-sm text-white/80 flex-1">{topic.name}</span>
-                    <span className="font-mono text-[9px] text-white/25">{(questions[topic.id] || []).length || ""}</span>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic.id); }} className="text-white/20 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
-                    {expandedTopic === topic.id ? <ChevronUp size={12} className="text-white/30" /> : <ChevronDown size={12} className="text-white/30" />}
-                  </button>
-
-                  {expandedTopic === topic.id && (
-                    <div className="px-4 pb-4 space-y-3 border-t border-white/6 pt-3">
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Topics", value: topics.length, sub: `${usedCats.length} categories`, icon: ListChecks, color: KIT.cyan, loading },
+        { label: "Published", value: topics.filter(t => (t.status || "published") === "published").length, sub: "Open for practice", icon: Eye, color: KIT.green, loading },
+        { label: "Categories", value: usedCats.length, sub: usedCats.slice(0, 3).join(", "), icon: Layers, color: KIT.orange, loading },
+        { label: "Questions loaded", value: topic ? (questions[topic.id] || []).length : "-", sub: topic ? `In ${topic.name}` : "Open a topic to see", icon: BrainCircuit, color: KIT.purple },
+      ]} />
+      <DataTable title="Aptitude question bank" icon={ListChecks}
+        subtitle="Topic -> question bank. No sequential unlock - students practise any topic, in any order, unlimited attempts."
+        rows={topics} loading={loading}
+        searchKeys={["name", "description", "category"]} searchPlaceholder="Search topics..."
+        filters={[{ key: "category", label: "All categories", options: APTITUDE_CATEGORIES.map(c => ({ value: c, label: c })) }]}
+        primaryAction={{ label: "Add topic", icon: Plus, onClick: () => setCreating(true) }}
+        onRowClick={t => openTopic(t.id)} emptyText="No topics yet."
+        columns={[
+          { key: "name", label: "Topic", render: t => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{t.name}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{t.description}</p>
+            </div>
+          ) },
+          { key: "category", label: "Category", render: t => <Pill color={KIT.cyan}>{t.category}</Pill> },
+          { key: "order", label: "Order", sort: t => t.order ?? 0, render: t => <span className="font-sans text-sm text-white/55 tabular-nums">{(t.order ?? 0) + 1}</span> },
+          { key: "status", label: "Status", render: t => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={(t.status || "published") === "published"} label={`Publish ${t.name}`} onChange={on => setTopicStatus(t, on)} />
+              <span className="font-sans text-xs text-white/55">{(t.status || "published") === "published" ? "Live" : "Hidden"}</span>
+            </div>
+          ) },
+        ]}
+        rowActions={t => [
+          { icon: Pencil, label: "Questions", onClick: () => openTopic(t.id) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDeleteTopic(t.id) },
+        ]}
+      />
+      <Drawer open={creating} onClose={() => setCreating(false)} width={600} title="Add topic" subtitle="Published immediately; add questions after."
+        footer={<>
+          <SecondaryButton onClick={() => setCreating(false)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Plus} busy={savingTopic} disabled={!topicForm.name.trim()} onClick={handleAddTopic}>Add topic</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
+            <Dropdown value={topicForm.category} onChange={v => setTopicForm(p => ({ ...p, category: v }))}
+              options={APTITUDE_CATEGORIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
+          </div>
+          <Input label="TOPIC NAME" value={topicForm.name} onChange={v => setTopicForm(p => ({ ...p, name: v }))} placeholder="Percentages" />
+        </div>
+        <Textarea label="DESCRIPTION" value={topicForm.description} onChange={v => setTopicForm(p => ({ ...p, description: v }))} rows={2} placeholder="What this topic covers..." />
+        </div>
+      </Drawer>
+      <Drawer open={!!topic} onClose={() => setExpandedTopic(null)} width={800}
+        title={topic?.name || ""} subtitle={topic ? `${topic.category} · ${(questions[topic.id] || []).length} questions` : ""}>
+        {topic && (
+          <div className="space-y-3">
                       {(questions[topic.id] || []).map((q, i) => (
                         <div key={q.id} className="flex items-center gap-2 border border-white/6 rounded px-3 py-2">
                           <span className="font-mono text-[9px] text-white/25 w-5">{i + 1}</span>
@@ -3300,34 +3518,9 @@ function AptitudePanel() {
                           {importing ? "importing..." : "import CSV"}
                         </button>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
           </div>
-        );
-      })}
-
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-green tracking-wider">// add topic</p>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div>
-            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
-            <Dropdown value={topicForm.category} onChange={v => setTopicForm(p => ({ ...p, category: v }))}
-              options={APTITUDE_CATEGORIES}
-              className="w-full"
-              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
-              />
-          </div>
-          <Input label="TOPIC NAME" value={topicForm.name} onChange={v => setTopicForm(p => ({ ...p, name: v }))} placeholder="Percentages" />
-        </div>
-        <Textarea label="DESCRIPTION" value={topicForm.description} onChange={v => setTopicForm(p => ({ ...p, description: v }))} rows={2} placeholder="What this topic covers..." />
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleAddTopic} disabled={savingTopic}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
-          <Plus size={12} className="inline mr-1" /> {savingTopic ? "adding..." : "add topic"}
-        </motion.button>
-      </div>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -3373,7 +3566,11 @@ function AptitudeTopicsPanel() {
     if (!editingId) return;
     setSaving(true);
     try {
-      await saveAptitudeTopic(editingId, form);
+      // The form is seeded from the whole loaded doc - drop the fields the
+      // save helper or other writers own, so a stale copy never lands back.
+      const { id: _id, updatedAt: _u, createdAt: _c, ...data } = form;
+      await saveAptitudeTopic(editingId, data);
+      logAdminActivity("updated aptitude lesson", topics.find(t => t.id === editingId)?.name || editingId);
       setEditingId(null);
       load();
     } finally {
@@ -3381,17 +3578,45 @@ function AptitudeTopicsPanel() {
     }
   };
 
-  const grouped = APTITUDE_CATEGORIES.map(cat => ({ cat, items: topics.filter(t => t.category === cat) }));
+
+  const hasContent = (t) => !!(t.concept?.trim() || t.keyPoints?.length);
+  const withContent = topics.filter(hasContent).length;
+  const editing = topics.find(t => t.id === editingId);
 
   return (
-    <div className="space-y-4">
-      <p className="font-mono text-[11px] text-white/40">
-        Adds lesson content (concept, key points, quiz, rewards) to topics already created above. Editing an existing topic only - use the ADD TOPIC form above to create a brand new one first.
-      </p>
-
-      {editingId && (
-        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <h4 className="font-mono text-sm" style={{ color: "#00FFFF" }}>Editing: {topics.find(t => t.id === editingId)?.name}</h4>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Topics", value: topics.length, sub: "From the question bank", icon: ListChecks, color: KIT.cyan, loading },
+        { label: "Lessons written", value: withContent, sub: topics.length ? `${Math.round((100 * withContent) / topics.length)}% of topics` : "", icon: BookOpen, color: KIT.green, loading },
+        { label: "Missing lessons", value: topics.length - withContent, sub: "No concept or key points yet", icon: Pencil, color: topics.length - withContent ? KIT.orange : KIT.green, loading },
+        { label: "Practice MCQs", value: topics.reduce((n, t) => n + (t.mcqs?.length || 0), 0), sub: "Across all lessons", icon: BrainCircuit, color: KIT.purple, loading },
+      ]} />
+      <DataTable title="Aptitude lessons" icon={GraduationCap}
+        subtitle="Lesson content (concept, key points, quiz, rewards) for topics created in Aptitude questions."
+        rows={topics} loading={loading}
+        searchKeys={["name", "category"]} searchPlaceholder="Search topics..."
+        filters={[
+          { key: "category", label: "All categories", options: APTITUDE_CATEGORIES.map(c => ({ value: c, label: c })) },
+          { key: "content", label: "Any content", get: t => (hasContent(t) ? "yes" : "no"), options: [{ value: "no", label: "Missing a lesson" }, { value: "yes", label: "Lesson written" }] },
+        ]}
+        onRowClick={startEdit} emptyText="No topics yet - create them in Aptitude questions first."
+        columns={[
+          { key: "name", label: "Topic", render: t => <span className="font-sans text-sm font-medium text-white truncate block w-[240px] xl:w-[300px]">{t.name}</span> },
+          { key: "category", label: "Category", render: t => <Pill color={KIT.cyan}>{t.category}</Pill> },
+          { key: "difficulty", label: "Level", render: t => t.difficulty ? <Pill color={difficultyColor(t.difficulty === "Beginner" ? "easy" : t.difficulty === "Advanced" ? "hard" : "medium")}>{t.difficulty}</Pill> : <span className="font-sans text-xs text-white/30">-</span> },
+          { key: "mcqs", label: "MCQs", sort: t => t.mcqs?.length || 0, render: t => <span className="font-sans text-sm text-white/70 tabular-nums">{fmt(t.mcqs?.length || 0)}</span> },
+          { key: "content", label: "Lesson", sort: t => (hasContent(t) ? 1 : 0), render: t => hasContent(t) ? <Pill color={KIT.green}>Written</Pill> : <Pill color={KIT.orange}>Missing</Pill> },
+          { key: "status", label: "Status", render: t => <Pill color={(t.status || "published") === "published" ? KIT.green : KIT.muted}>{(t.status || "published") === "published" ? "Published" : "Draft"}</Pill> },
+        ]}
+        rowActions={t => [{ icon: Pencil, label: "Edit lesson", onClick: () => startEdit(t) }]}
+      />
+      <Drawer open={!!editingId} onClose={() => setEditingId(null)} width={820}
+        title={editing ? `Lesson: ${editing.name}` : ""} subtitle={editing?.category || ""}
+        footer={<>
+          <SecondaryButton onClick={() => setEditingId(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleSave}>Save lesson</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
               <p className="font-mono text-[10px] text-white/30 mb-1 tracking-wider">DIFFICULTY</p>
@@ -3417,44 +3642,8 @@ function AptitudeTopicsPanel() {
             <Input label="XP REWARD" type="number" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: Number(v) || 0 }))} />
             <Input label="COIN REWARD" type="number" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: Number(v) || 0 }))} />
           </div>
-          <div className="flex gap-2">
-            <button onClick={handleSave} disabled={saving} className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button onClick={() => setEditingId(null)} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
         </div>
-      )}
-
-      {loading ? (
-        <p className="font-mono text-xs text-white/30">Loading...</p>
-      ) : (
-        <div className="space-y-4">
-          {grouped.map(({ cat, items }) => items.length > 0 && (
-            <div key={cat}>
-              <p className="font-mono text-[10px] text-white/25 tracking-widest mb-1.5">{cat.toUpperCase()}</p>
-              <div className="space-y-1.5">
-                {items.map(t => (
-                  <div key={t.id} className="flex items-center gap-3 p-2.5 rounded flex-wrap"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="flex-1 min-w-0"><span className="font-mono text-xs text-white/80">{t.name}</span></div>
-                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                      style={{ background: t.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: t.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
-                      {(t.status || "published").toUpperCase()}
-                    </span>
-                    {!(t.concept?.trim() || t.keyPoints?.length) && (
-                      <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO CONTENT</span>
-                    )}
-                    <button onClick={() => startEdit(t)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FFD700" }}>
-                      <Pencil size={11} /> Edit Content
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      </Drawer>
     </div>
   );
 }
@@ -3548,7 +3737,12 @@ function ProgrammingLanguagesPanel() {
     setSaving(true);
     try {
       const id = editingId || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      await saveLanguage(id, form);
+      // Never write back fields other code maintains: topicCount moves as
+      // topics are added/removed, and a stale updatedAt from the loaded doc
+      // would overwrite the fresh timestamp the save helper sets.
+      const { id: _id, updatedAt: _u, topicCount: _t, createdAt: _c, ...data } = form;
+      await saveLanguage(id, data);
+      logAdminActivity(editingId ? "updated language" : "created language", form.name.trim());
       setEditingId(null); setAdding(false); setForm(blankLanguageForm());
       load();
     } finally {
@@ -3559,6 +3753,7 @@ function ProgrammingLanguagesPanel() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this language and all of its topics? This can't be undone.")) return;
     await deleteLanguage(id);
+    logAdminActivity("deleted language", languages.find(x => x.id === id)?.name || id);
     load();
   };
 
@@ -3567,15 +3762,68 @@ function ProgrammingLanguagesPanel() {
     return <ProgrammingTopicsPanel langId={managingTopicsFor} langName={lang?.name} onBack={() => setManagingTopicsFor(null)} />;
   }
 
-  return (
-    <div className="space-y-4">
-      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
-        style={{ background: "rgba(0,255,255,0.08)", color: "#00FFFF", border: "1px solid rgba(0,255,255,0.25)" }}>
-        <Plus size={12} /> Add Language
-      </button>
+  const STATUS_C = { published: KIT.green, draft: KIT.muted, archived: KIT.red };
+  const pub = languages.filter(x => x.status === "published").length;
+  const topics = languages.reduce((n, x) => n + (x.topicCount || 0), 0);
+  const setPublished = async (x, on) => {
+    await saveLanguage(x.id, { status: on ? "published" : "draft" });
+    logAdminActivity(on ? "published language" : "unpublished language", x.name);
+    load();
+  };
+  const closeForm = () => { setEditingId(null); setAdding(false); };
 
-      {(adding || editingId) && (
-        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+  return (
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Languages", value: languages.length, sub: `${pub} published`, icon: CodeXml, color: KIT.cyan, loading },
+        { label: "Topics", value: topics, sub: languages.length ? `${Math.round(topics / languages.length)} per language` : "", icon: Layers, color: KIT.green, loading },
+        { label: "Drafts", value: languages.filter(x => (x.status || "draft") === "draft").length, sub: "Not visible to students", icon: Pencil, color: KIT.orange, loading },
+        { label: "Archived", value: languages.filter(x => x.status === "archived").length, sub: "Retired roadmaps", icon: Flag, color: KIT.purple, loading },
+      ]} />
+      <DataTable title="Programming languages" icon={CodeXml} subtitle="Language roadmaps. Click a language to manage its topics."
+        rows={languages} loading={loading}
+        searchKeys={["name", "difficulty", "placementRelevance"]} searchPlaceholder="Search languages..."
+        filters={[
+          { key: "status", label: "All statuses", get: x => x.status || "draft", options: ["published", "draft", "archived"].map(v => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })) },
+          { key: "difficulty", label: "All levels", options: PROGRAMMING_DIFFICULTIES.map(d => ({ value: d, label: d })) },
+        ]}
+        primaryAction={{ label: "Add language", icon: Plus, onClick: startAdd }}
+        onRowClick={x => setManagingTopicsFor(x.id)} emptyText="No languages yet."
+        columns={[
+          { key: "name", label: "Language", render: x => (
+            <div className="min-w-0 w-[240px] xl:w-[300px] flex items-center gap-3">
+              <LanguageLogo name={x.name} size={20} className="flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-medium text-white truncate">{x.name}</p>
+                <p className="font-sans text-xs text-white/40 truncate">{x.estimatedDuration || "-"}</p>
+              </div>
+            </div>
+          ) },
+          { key: "difficulty", label: "Level", render: x => <Pill color={difficultyColor(x.difficulty)}>{x.difficulty || "-"}</Pill> },
+          { key: "topicCount", label: "Topics", sort: x => x.topicCount || 0, render: x => <span className="font-sans text-sm text-white/80 tabular-nums">{fmt(x.topicCount || 0)}</span> },
+          { key: "order", label: "Order", sort: x => x.order ?? 0, render: x => <span className="font-sans text-sm text-white/55 tabular-nums">{x.order ?? 0}</span> },
+          
+          { key: "status", label: "Status", render: x => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={x.status === "published"} label={`Publish ${x.name}`} onChange={on => setPublished(x, on)} />
+              <span className="font-sans text-xs" style={{ color: STATUS_C[x.status || "draft"] }}>{(x.status || "draft")[0].toUpperCase() + (x.status || "draft").slice(1)}</span>
+            </div>
+          ) },
+        ]}
+        rowActions={x => [
+          { icon: Layers, label: "Topics", onClick: () => setManagingTopicsFor(x.id) },
+          { icon: Pencil, label: "Edit details", onClick: () => startEdit(x) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(x.id) },
+        ]}
+      />
+      <Drawer open={adding || !!editingId} onClose={closeForm} width={720}
+        title={editingId ? `Edit ${form.name || "language"}` : "Add language"}
+        subtitle="Topics are managed from the table - click a row."
+        footer={<>
+          <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} disabled={!form.name.trim()} onClick={handleSave}>Save</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
           <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Java" />
           <p className="font-mono text-[10px] text-white/30 -mt-1.5">Icon is picked automatically from the name - no emoji, matches the rest of the app.</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -3594,51 +3842,8 @@ function ProgrammingLanguagesPanel() {
             <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
             <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-40" />
           </div>
-          <div className="flex gap-2">
-            <button onClick={handleSave} disabled={saving || !form.name.trim()}
-              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
         </div>
-      )}
-
-      {loading ? (
-        <p className="font-mono text-xs text-white/30">Loading...</p>
-      ) : languages.length === 0 ? (
-        <p className="font-mono text-xs text-white/30">No languages yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {languages.map(lang => {
-            return (
-            <div key={lang.id} className="flex items-center gap-3 p-3 rounded flex-wrap"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <LanguageLogo name={lang.name} size={18} className="flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <b className="font-mono text-xs text-white/80">{lang.name}</b>
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: lang.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: lang.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
-                    {lang.status?.toUpperCase() || "DRAFT"}
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] text-white/30">{lang.difficulty} · {lang.estimatedDuration} · {lang.topicCount || 0} topics</span>
-              </div>
-              <button onClick={() => setManagingTopicsFor(lang.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1 rounded" style={{ color: "#00FFFF" }}>
-                <Layers size={11} /> Topics
-              </button>
-              <button onClick={() => startEdit(lang)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FFD700" }}>
-                <Pencil size={11} /> Edit
-              </button>
-              <button onClick={() => handleDelete(lang.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FF5050" }}>
-                <Trash2 size={11} /> Delete
-              </button>
-            </div>
-            );
-          })}
-        </div>
-      )}
+      </Drawer>
     </div>
   );
 }
@@ -3713,18 +3918,60 @@ function ProgrammingTopicsPanel({ langId, langName, onBack }) {
     load();
   };
 
+  // No inline publish toggle here on purpose: the parent's topicCount is
+  // recomputed from PUBLISHED topics on every save/delete (see handleSave),
+  // so status changes go through the drawer's Save to keep that count true.
+  const hasContent = (t) => !!(t.concept?.trim() || t.keyPoints?.length);
+  const pub = topics.filter(t => t.status === "published").length;
+  const written = topics.filter(hasContent).length;
+  const modulesList = [...new Set(topics.map(t => t.module).filter(Boolean))];
+  const closeForm = () => { setEditingId(null); setAdding(false); };
+
   return (
-    <div className="space-y-4">
-      <button onClick={onBack} className="font-mono text-xs text-white/40">&larr; Back to Languages</button>
-      <h4 className="font-mono text-sm" style={{ color: "#00FFFF" }}>{langName} - Topics ({topics.length})</h4>
-
-      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
-        style={{ background: "rgba(0,255,255,0.08)", color: "#00FFFF", border: "1px solid rgba(0,255,255,0.25)" }}>
-        <Plus size={12} /> Add Topic
-      </button>
-
-      {(adding || editingId) && (
-        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <SecondaryButton icon={ChevronLeft} onClick={onBack}>Back to languages</SecondaryButton>
+        <h2 className="font-sans text-base font-semibold text-white">{langName} <span className="text-white/40 font-normal">topics</span></h2>
+      </div>
+      <StatGrid stats={[
+        { label: "Topics", value: topics.length, sub: `${modulesList.length} modules`, icon: Layers, color: KIT.cyan, loading },
+        { label: "Published", value: pub, sub: "Counted in the roadmap", icon: Eye, color: KIT.green, loading },
+        { label: "Lessons written", value: written, sub: topics.length ? `${Math.round((100 * written) / topics.length)}% of topics` : "", icon: BookOpen, color: KIT.purple, loading },
+        { label: "Missing content", value: topics.length - written, sub: "No concept or key points", icon: Pencil, color: topics.length - written ? KIT.orange : KIT.green, loading },
+      ]} />
+      <DataTable title="Topics" icon={Layers} subtitle="In roadmap order. Click a topic to edit its lesson."
+        rows={topics} loading={loading}
+        searchKeys={["title", "module"]} searchPlaceholder="Search topics..."
+        filters={[
+          ...(modulesList.length ? [{ key: "module", label: "All modules", options: modulesList.map(m => ({ value: m, label: m })) }] : []),
+          { key: "status", label: "All statuses", get: t => t.status || "draft", options: [{ value: "published", label: "Published" }, { value: "draft", label: "Draft" }] },
+          { key: "content", label: "Any content", get: t => (hasContent(t) ? "yes" : "no"), options: [{ value: "no", label: "Missing content" }, { value: "yes", label: "Written" }] },
+        ]}
+        primaryAction={{ label: "Add topic", icon: Plus, onClick: startAdd }}
+        onRowClick={startEdit} emptyText="No topics yet."
+        columns={[
+          { key: "order", label: "Order", sort: t => t.order ?? 0, render: t => <span className="font-sans text-sm text-white/50 tabular-nums">{t.order ?? "-"}</span> },
+          { key: "title", label: "Topic", render: t => (
+            <div className="min-w-0 w-[240px] xl:w-[300px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{t.title}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{t.module || "No module"}</p>
+            </div>
+          ) },
+          { key: "content", label: "Lesson", sort: t => (hasContent(t) ? 1 : 0), render: t => hasContent(t) ? <Pill color={KIT.green}>Written</Pill> : <Pill color={KIT.orange}>Missing</Pill> },
+          { key: "status", label: "Status", render: t => <Pill color={t.status === "published" ? KIT.green : KIT.muted}>{t.status === "published" ? "Published" : "Draft"}</Pill> },
+        ]}
+        rowActions={t => [
+          { icon: Pencil, label: "Edit", onClick: () => startEdit(t) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(t.id) },
+        ]}
+      />
+      <Drawer open={adding || !!editingId} onClose={closeForm} width={820}
+        title={editingId ? `Edit ${form.title || "topic"}` : "Add topic"} subtitle={langName}
+        footer={<>
+          <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} disabled={!form.title.trim()} onClick={handleSave}>Save topic</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2.5">
             <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Arrays" />
             <Input label="MODULE (groups topics in the roadmap tree)" value={form.module} onChange={v => setForm(p => ({ ...p, module: v }))} placeholder="Fundamentals" />
@@ -3770,47 +4017,8 @@ function ProgrammingTopicsPanel({ langId, langName, onBack }) {
             <Input label="COIN REWARD" type="number" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: Number(v) || 0 }))} />
           </div>
 
-          <div className="flex gap-2">
-            <button onClick={handleSave} disabled={saving || !form.title.trim()}
-              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
         </div>
-      )}
-
-      {loading ? (
-        <p className="font-mono text-xs text-white/30">Loading...</p>
-      ) : topics.length === 0 ? (
-        <p className="font-mono text-xs text-white/30">No topics yet.</p>
-      ) : (
-        <div className="space-y-1.5">
-          {topics.map(t => (
-            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded flex-wrap"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">#{t.order}</span>
-              <div className="flex-1 min-w-0">
-                <span className="font-mono text-xs text-white/80">{t.title}</span>
-                <span className="font-mono text-[10px] text-white/30 ml-2">{t.module}</span>
-              </div>
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                style={{ background: t.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: t.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
-                {t.status?.toUpperCase() || "DRAFT"}
-              </span>
-              {!(t.concept?.trim() || t.keyPoints?.length) && (
-                <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO CONTENT</span>
-              )}
-              <button onClick={() => startEdit(t)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FFD700" }}>
-                <Pencil size={11} /> Edit
-              </button>
-              <button onClick={() => handleDelete(t.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FF5050" }}>
-                <Trash2 size={11} /> Delete
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      </Drawer>
     </div>
   );
 }
@@ -3852,7 +4060,12 @@ function CsCoreSubjectsPanel() {
     setSaving(true);
     try {
       const id = editingId || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      await saveSubject(id, form);
+      // Never write back fields other code maintains: topicCount moves as
+      // topics are added/removed, and a stale updatedAt from the loaded doc
+      // would overwrite the fresh timestamp the save helper sets.
+      const { id: _id, updatedAt: _u, topicCount: _t, createdAt: _c, ...data } = form;
+      await saveSubject(id, data);
+      logAdminActivity(editingId ? "updated subject" : "created subject", form.name.trim());
       setEditingId(null); setAdding(false); setForm(blankSubjectForm());
       load();
     } finally {
@@ -3863,6 +4076,7 @@ function CsCoreSubjectsPanel() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this subject and all of its topics? This can't be undone.")) return;
     await deleteSubject(id);
+    logAdminActivity("deleted subject", subjects.find(x => x.id === id)?.name || id);
     load();
   };
 
@@ -3871,15 +4085,68 @@ function CsCoreSubjectsPanel() {
     return <CsCoreTopicsPanel subjectId={managingTopicsFor} subjectName={subject?.name} onBack={() => setManagingTopicsFor(null)} />;
   }
 
-  return (
-    <div className="space-y-4">
-      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
-        style={{ background: "rgba(167,139,250,0.08)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.25)" }}>
-        <Plus size={12} /> Add Subject
-      </button>
+  const STATUS_C = { published: KIT.green, draft: KIT.muted, archived: KIT.red };
+  const pub = subjects.filter(x => x.status === "published").length;
+  const topics = subjects.reduce((n, x) => n + (x.topicCount || 0), 0);
+  const setPublished = async (x, on) => {
+    await saveSubject(x.id, { status: on ? "published" : "draft" });
+    logAdminActivity(on ? "published subject" : "unpublished subject", x.name);
+    load();
+  };
+  const closeForm = () => { setEditingId(null); setAdding(false); };
 
-      {(adding || editingId) && (
-        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+  return (
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Subjects", value: subjects.length, sub: `${pub} published`, icon: BrainCircuit, color: KIT.cyan, loading },
+        { label: "Topics", value: topics, sub: subjects.length ? `${Math.round(topics / subjects.length)} per subject` : "", icon: Layers, color: KIT.green, loading },
+        { label: "Drafts", value: subjects.filter(x => (x.status || "draft") === "draft").length, sub: "Not visible to students", icon: Pencil, color: KIT.orange, loading },
+        { label: "With an intro", value: subjects.filter(x => x.overview?.trim()).length, sub: "Overview tab written", icon: BookOpen, color: KIT.purple, loading },
+      ]} />
+      <DataTable title="CS Core subjects" icon={BrainCircuit} subtitle="Core computer science subjects. Click a subject to manage its topics."
+        rows={subjects} loading={loading}
+        searchKeys={["name", "difficulty", "placementRelevance"]} searchPlaceholder="Search subjects..."
+        filters={[
+          { key: "status", label: "All statuses", get: x => x.status || "draft", options: ["published", "draft", "archived"].map(v => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })) },
+          { key: "difficulty", label: "All levels", options: CS_CORE_DIFFICULTIES.map(d => ({ value: d, label: d })) },
+        ]}
+        primaryAction={{ label: "Add subject", icon: Plus, onClick: startAdd }}
+        onRowClick={x => setManagingTopicsFor(x.id)} emptyText="No subjects yet."
+        columns={[
+          { key: "name", label: "Subject", render: x => (
+            <div className="min-w-0 w-[240px] xl:w-[300px] flex items-center gap-3">
+              {(() => { const SubjIcon = subjectIcon(x.name); return <SubjIcon size={20} className="flex-shrink-0" style={{ color: KIT.purple }} />; })()}
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-medium text-white truncate">{x.name}</p>
+                <p className="font-sans text-xs text-white/40 truncate">{x.estimatedDuration || "-"}</p>
+              </div>
+            </div>
+          ) },
+          { key: "difficulty", label: "Level", render: x => <Pill color={difficultyColor(x.difficulty)}>{x.difficulty || "-"}</Pill> },
+          { key: "topicCount", label: "Topics", sort: x => x.topicCount || 0, render: x => <span className="font-sans text-sm text-white/80 tabular-nums">{fmt(x.topicCount || 0)}</span> },
+          { key: "order", label: "Order", sort: x => x.order ?? 0, render: x => <span className="font-sans text-sm text-white/55 tabular-nums">{x.order ?? 0}</span> },
+          { key: "overview", label: "Intro", sort: x => (x.overview?.trim() ? 1 : 0), render: x => x.overview?.trim() ? <Pill color={KIT.green}>Written</Pill> : <Pill color={KIT.muted}>None</Pill> },
+          { key: "status", label: "Status", render: x => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={x.status === "published"} label={`Publish ${x.name}`} onChange={on => setPublished(x, on)} />
+              <span className="font-sans text-xs" style={{ color: STATUS_C[x.status || "draft"] }}>{(x.status || "draft")[0].toUpperCase() + (x.status || "draft").slice(1)}</span>
+            </div>
+          ) },
+        ]}
+        rowActions={x => [
+          { icon: Layers, label: "Topics", onClick: () => setManagingTopicsFor(x.id) },
+          { icon: Pencil, label: "Edit details", onClick: () => startEdit(x) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(x.id) },
+        ]}
+      />
+      <Drawer open={adding || !!editingId} onClose={closeForm} width={720}
+        title={editingId ? `Edit ${form.name || "subject"}` : "Add subject"}
+        subtitle="Topics are managed from the table - click a row."
+        footer={<>
+          <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} disabled={!form.name.trim()} onClick={handleSave}>Save</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
           <Input label="NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Operating Systems" />
           <p className="font-mono text-[10px] text-white/30 -mt-1.5">Icon is picked automatically from the name - no emoji, matches the rest of the app.</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -3921,57 +4188,8 @@ function CsCoreSubjectsPanel() {
             <p className="font-mono text-[10px] text-white/30 tracking-wider">STATUS</p>
             <Dropdown value={form.status} onChange={v => setForm(p => ({ ...p, status: v }))} options={["draft", "published", "archived"]} className="w-40" />
           </div>
-          <div className="flex gap-2">
-            <button onClick={handleSave} disabled={saving || !form.name.trim()}
-              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
         </div>
-      )}
-
-      {loading ? (
-        <p className="font-mono text-xs text-white/30">Loading...</p>
-      ) : subjects.length === 0 ? (
-        <p className="font-mono text-xs text-white/30">No subjects yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {subjects.map(s => {
-            const SubjIcon = subjectIcon(s.name);
-            return (
-            <div key={s.id} className="flex items-center gap-3 p-3 rounded flex-wrap"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <SubjIcon size={18} className="flex-shrink-0" style={{ color: "#A78BFA" }} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <b className="font-mono text-xs text-white/80">{s.name}</b>
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: s.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: s.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
-                    {s.status?.toUpperCase() || "DRAFT"}
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] text-white/30">
-                  {s.difficulty} · {s.estimatedDuration} · {s.topicCount || 0} topics
-                  {/* Whether the Overview tab has anything behind it - the one
-                      thing about a subject you can't tell from its name here. */}
-                  {s.overview?.trim() ? " · intro" : " · no intro"}
-                </span>
-              </div>
-              <button onClick={() => setManagingTopicsFor(s.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1 rounded" style={{ color: "#A78BFA" }}>
-                <Layers size={11} /> Topics
-              </button>
-              <button onClick={() => startEdit(s)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FFD700" }}>
-                <Pencil size={11} /> Edit
-              </button>
-              <button onClick={() => handleDelete(s.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2.5 py-1" style={{ color: "#FF5050" }}>
-                <Trash2 size={11} /> Delete
-              </button>
-            </div>
-            );
-          })}
-        </div>
-      )}
+      </Drawer>
     </div>
   );
 }
@@ -4041,18 +4259,60 @@ function CsCoreTopicsPanel({ subjectId, subjectName, onBack }) {
     load();
   };
 
+  // No inline publish toggle here on purpose: the parent's topicCount is
+  // recomputed from PUBLISHED topics on every save/delete (see handleSave),
+  // so status changes go through the drawer's Save to keep that count true.
+  const hasContent = (t) => !!(t.concept?.trim() || t.keyPoints?.length);
+  const pub = topics.filter(t => t.status === "published").length;
+  const written = topics.filter(hasContent).length;
+  const modulesList = [...new Set(topics.map(t => t.module).filter(Boolean))];
+  const closeForm = () => { setEditingId(null); setAdding(false); };
+
   return (
-    <div className="space-y-4">
-      <button onClick={onBack} className="font-mono text-xs text-white/40">&larr; Back to Subjects</button>
-      <h4 className="font-mono text-sm" style={{ color: "#A78BFA" }}>{subjectName} - Topics ({topics.length})</h4>
-
-      <button onClick={startAdd} className="flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded"
-        style={{ background: "rgba(167,139,250,0.08)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.25)" }}>
-        <Plus size={12} /> Add Topic
-      </button>
-
-      {(adding || editingId) && (
-        <div className="p-3 rounded space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <SecondaryButton icon={ChevronLeft} onClick={onBack}>Back to subjects</SecondaryButton>
+        <h2 className="font-sans text-base font-semibold text-white">{subjectName} <span className="text-white/40 font-normal">topics</span></h2>
+      </div>
+      <StatGrid stats={[
+        { label: "Topics", value: topics.length, sub: `${modulesList.length} modules`, icon: Layers, color: KIT.cyan, loading },
+        { label: "Published", value: pub, sub: "Counted in the roadmap", icon: Eye, color: KIT.green, loading },
+        { label: "Lessons written", value: written, sub: topics.length ? `${Math.round((100 * written) / topics.length)}% of topics` : "", icon: BookOpen, color: KIT.purple, loading },
+        { label: "Missing content", value: topics.length - written, sub: "No concept or key points", icon: Pencil, color: topics.length - written ? KIT.orange : KIT.green, loading },
+      ]} />
+      <DataTable title="Topics" icon={Layers} subtitle="In roadmap order. Click a topic to edit its lesson."
+        rows={topics} loading={loading}
+        searchKeys={["title", "module"]} searchPlaceholder="Search topics..."
+        filters={[
+          ...(modulesList.length ? [{ key: "module", label: "All modules", options: modulesList.map(m => ({ value: m, label: m })) }] : []),
+          { key: "status", label: "All statuses", get: t => t.status || "draft", options: [{ value: "published", label: "Published" }, { value: "draft", label: "Draft" }] },
+          { key: "content", label: "Any content", get: t => (hasContent(t) ? "yes" : "no"), options: [{ value: "no", label: "Missing content" }, { value: "yes", label: "Written" }] },
+        ]}
+        primaryAction={{ label: "Add topic", icon: Plus, onClick: startAdd }}
+        onRowClick={startEdit} emptyText="No topics yet."
+        columns={[
+          { key: "order", label: "Order", sort: t => t.order ?? 0, render: t => <span className="font-sans text-sm text-white/50 tabular-nums">{t.order ?? "-"}</span> },
+          { key: "title", label: "Topic", render: t => (
+            <div className="min-w-0 w-[240px] xl:w-[300px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{t.title}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{t.module || "No module"}</p>
+            </div>
+          ) },
+          { key: "content", label: "Lesson", sort: t => (hasContent(t) ? 1 : 0), render: t => hasContent(t) ? <Pill color={KIT.green}>Written</Pill> : <Pill color={KIT.orange}>Missing</Pill> },
+          { key: "status", label: "Status", render: t => <Pill color={t.status === "published" ? KIT.green : KIT.muted}>{t.status === "published" ? "Published" : "Draft"}</Pill> },
+        ]}
+        rowActions={t => [
+          { icon: Pencil, label: "Edit", onClick: () => startEdit(t) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(t.id) },
+        ]}
+      />
+      <Drawer open={adding || !!editingId} onClose={closeForm} width={820}
+        title={editingId ? `Edit ${form.title || "topic"}` : "Add topic"} subtitle={subjectName}
+        footer={<>
+          <SecondaryButton onClick={closeForm}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} disabled={!form.title.trim()} onClick={handleSave}>Save topic</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2.5">
             <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="CPU Scheduling" />
             <Input label="MODULE (groups topics in the roadmap tree)" value={form.module} onChange={v => setForm(p => ({ ...p, module: v }))} placeholder="Process Management" />
@@ -4098,47 +4358,8 @@ function CsCoreTopicsPanel({ subjectId, subjectName, onBack }) {
             <Input label="COIN REWARD" type="number" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: Number(v) || 0 }))} />
           </div>
 
-          <div className="flex gap-2">
-            <button onClick={handleSave} disabled={saving || !form.title.trim()}
-              className="font-mono text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ background: "#00FF41", color: "#000" }}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button onClick={() => { setEditingId(null); setAdding(false); }} className="font-mono text-xs px-3 py-1.5 text-white/40">Cancel</button>
-          </div>
         </div>
-      )}
-
-      {loading ? (
-        <p className="font-mono text-xs text-white/30">Loading...</p>
-      ) : topics.length === 0 ? (
-        <p className="font-mono text-xs text-white/30">No topics yet.</p>
-      ) : (
-        <div className="space-y-1.5">
-          {topics.map(t => (
-            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded flex-wrap"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <span className="font-mono text-[10px] text-white/20 w-8 flex-shrink-0">#{t.order}</span>
-              <div className="flex-1 min-w-0">
-                <span className="font-mono text-xs text-white/80">{t.title}</span>
-                <span className="font-mono text-[10px] text-white/30 ml-2">{t.module}</span>
-              </div>
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                style={{ background: t.status === "published" ? "rgba(0,255,65,0.1)" : "rgba(255,255,255,0.08)", color: t.status === "published" ? "#00FF41" : "rgba(255,255,255,0.4)" }}>
-                {t.status?.toUpperCase() || "DRAFT"}
-              </span>
-              {!(t.concept?.trim() || t.keyPoints?.length) && (
-                <span className="font-mono text-[10px]" style={{ color: "#FF9500" }}>NO CONTENT</span>
-              )}
-              <button onClick={() => startEdit(t)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FFD700" }}>
-                <Pencil size={11} /> Edit
-              </button>
-              <button onClick={() => handleDelete(t.id)} className="flex items-center gap-1 font-mono text-[10.5px] px-2 py-1" style={{ color: "#FF5050" }}>
-                <Trash2 size={11} /> Delete
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      </Drawer>
     </div>
   );
 }
@@ -4152,6 +4373,7 @@ function CompanyPrepPanel() {
   const [saving, setSaving] = useState(false);
   const [formFeedback, setFormFeedback] = useState(null);
   const [rowFeedback, setRowFeedback] = useState({});
+  const [creating, setCreating] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -4187,6 +4409,7 @@ function CompanyPrepPanel() {
       setRoadmapDays([]);
       setFormFeedback({ type: "success", text: `"${name}" added as a draft - publish it from the row below once its rounds/questions are ready.` });
       logAdminActivity("added company prep entry", name);
+      setCreating(false);
       load();
     } catch (e) {
       console.error(e);
@@ -4221,29 +4444,60 @@ function CompanyPrepPanel() {
     }
   };
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  const sel = companies.find(c => c.id === expandedCompany);
+  const published = companies.filter(c => c.status === "published").length;
+  const roadmapped = companies.filter(c => (c.prepRoadmap || []).length).length;
 
   return (
-    <div className="space-y-4">
-      <p className="font-mono text-[10px] text-white/18">
-        Company -&gt; Round -&gt; Category -&gt; Question. Drafts (and everything nested under them) stay admin-only until published.
-      </p>
-
-      {companies.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no companies yet</p>}
-
-      <div className="space-y-2">
-        {companies.map(company => (
-          <CompanyPrepRow key={company.id} company={company}
-            expanded={expandedCompany === company.id}
-            onToggle={() => setExpandedCompany(p => (p === company.id ? null : company.id))}
-            onDelete={() => handleDeleteCompany(company.id, company.name)}
-            onTogglePublish={() => handleTogglePublish(company)}
-            feedback={rowFeedback[company.id]} />
-        ))}
-      </div>
-
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-green tracking-wider">// add company</p>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Companies", value: companies.length, sub: `${published} published`, icon: Briefcase, color: KIT.cyan, loading },
+        { label: "Drafts", value: companies.length - published, sub: "Admin-only until published", icon: Pencil, color: companies.length - published ? KIT.orange : KIT.muted, loading },
+        { label: "With a roadmap", value: roadmapped, sub: "Day-by-day prep plan", icon: ListChecks, color: KIT.green, loading },
+        { label: "Resources", value: companies.reduce((n, c) => n + (c.resources?.length || 0), 0), sub: "Linked prep material", icon: BookOpen, color: KIT.purple, loading },
+      ]} />
+      {formFeedback && !creating && (
+        <p className="font-sans text-sm" style={{ color: formFeedback.type === "success" ? KIT.green : KIT.red }}>{formFeedback.text}</p>
+      )}
+      <DataTable title="Company prep" icon={Briefcase}
+        subtitle="Company -> Round -> Category -> Question. Drafts (and everything under them) stay admin-only until published."
+        rows={companies} loading={loading}
+        searchKeys={["name", "description", "ctc", "hiringOverview"]} searchPlaceholder="Search companies..."
+        filters={[
+          { key: "status", label: "All statuses", get: c => c.status || "draft", options: [{ value: "published", label: "Published" }, { value: "draft", label: "Draft" }] },
+          { key: "difficulty", label: "All difficulties", options: COMPANY_QUESTION_DIFFICULTIES.map(d => ({ value: d, label: d })) },
+        ]}
+        primaryAction={{ label: "Add company", icon: Plus, onClick: () => { setFormFeedback(null); setCreating(true); } }}
+        onRowClick={c => setExpandedCompany(c.id)} emptyText="No companies yet."
+        columns={[
+          { key: "name", label: "Company", render: c => (
+            <div className="min-w-0 w-[240px] xl:w-[300px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{c.name}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{c.description}</p>
+            </div>
+          ) },
+          { key: "ctc", label: "CTC", render: c => <span className="font-sans text-sm text-white/70">{c.ctc || "-"}</span> },
+          { key: "difficulty", label: "Difficulty", render: c => <Pill color={difficultyColor(c.difficulty)}>{c.difficulty || "-"}</Pill> },
+          { key: "prepRoadmap", label: "Roadmap", sort: c => c.prepRoadmap?.length || 0, render: c => <span className="font-sans text-sm text-white/65 tabular-nums">{c.prepRoadmap?.length ? `${c.prepRoadmap.length} days` : "-"}</span> },
+          { key: "status", label: "Status", render: c => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={c.status === "published"} label={`Publish ${c.name}`} onChange={() => handleTogglePublish(c)} />
+              <span className="font-sans text-xs" style={{ color: c.status === "published" ? KIT.green : "rgba(255,255,255,0.45)" }}>{c.status === "published" ? "Published" : "Draft"}</span>
+            </div>
+          ) },
+        ]}
+        rowActions={c => [
+          { icon: Pencil, label: "Rounds & questions", onClick: () => setExpandedCompany(c.id) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDeleteCompany(c.id, c.name) },
+        ]}
+      />
+      <Drawer open={creating} onClose={() => setCreating(false)} width={760} title="Add company" subtitle="Added as a draft - publish it once its rounds and questions are ready."
+        footer={<>
+          <SecondaryButton onClick={() => setCreating(false)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Plus} busy={saving} disabled={!form.name.trim()} onClick={handleAddCompany}>Add company</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
         <div className="grid sm:grid-cols-2 gap-3">
           <Input label="COMPANY NAME" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Cognizant" />
           <Input label="LOGO URL (optional)" value={form.logo} onChange={v => setForm(p => ({ ...p, logo: v }))} placeholder="https://..." />
@@ -4285,16 +4539,20 @@ function CompanyPrepPanel() {
           </button>
         </div>
 
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleAddCompany} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors disabled:opacity-50">
-          <Plus size={12} className="inline mr-1" /> {saving ? "adding..." : "add company"}
-        </motion.button>
-        {formFeedback && (
-          <p className="font-mono text-[10px]" style={{ color: formFeedback.type === "success" ? "#00FF41" : "#FF5050" }}>
-            {formFeedback.text}
-          </p>
+          {formFeedback && <p className="font-sans text-xs" style={{ color: formFeedback.type === "success" ? KIT.green : KIT.red }}>{formFeedback.text}</p>}
+        </div>
+      </Drawer>
+      {/* CompanyPrepRow owns the whole rounds -> categories -> questions
+          editor and its own loading; it is reused as-is, pinned open. */}
+      <Drawer open={!!sel} onClose={() => setExpandedCompany(null)} width={820}
+        title={sel?.name || ""} subtitle={sel ? `${sel.status === "published" ? "Published" : "Draft"} · ${sel.ctc || "CTC not set"}` : ""}>
+        {sel && (
+          <CompanyPrepRow key={sel.id} company={sel} expanded onToggle={() => {}}
+            onDelete={() => handleDeleteCompany(sel.id, sel.name)}
+            onTogglePublish={() => handleTogglePublish(sel)}
+            feedback={rowFeedback[sel.id]} />
         )}
-      </div>
+      </Drawer>
     </div>
   );
 }
@@ -4918,6 +5176,7 @@ function ContestsPanel() {
   const [form, setForm] = useState(blankContestForm());
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
+  const [drawer, setDrawer] = useState(null); // { mode: "create" } | { mode: "edit", id }
 
   const [qForm, setQForm] = useState(blankContestQuestionForm());
   const [savingQ, setSavingQ] = useState(false);
@@ -5014,6 +5273,7 @@ function ContestsPanel() {
       });
       setForm(blankContestForm());
       logAdminActivity("created contest", form.title.trim());
+      setDrawer(null);
       load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -5155,46 +5415,127 @@ function ContestsPanel() {
   };
   function toDate(v) { return v ? (typeof v.toDate === "function" ? v.toDate() : new Date(v)) : null; }
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  const openEdit = (id) => { if (expanded !== id) toggleExpand(id); setDrawer({ mode: "edit", id }); };
+  const closeDrawer = () => { setDrawer(null); setExpanded(null); };
+  const editing = drawer?.mode === "edit" ? contests.find(c => c.id === drawer.id) : null;
+  const PHASE_C = { live: KIT.green, upcoming: KIT.cyan, closed: KIT.orange, past: KIT.muted };
+  const statusC = (v) => (CONTEST_STATUSES.find(s => s.v === v) || CONTEST_STATUSES[0]).c;
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "TOTAL", v: stats.total, c: "#00FFFF" },
-          { label: "LIVE", v: stats.live, c: "#00FF41" },
-          { label: "UPCOMING", v: stats.upcoming, c: "#FF9500" },
-          { label: "REGISTRATIONS", v: stats.registrations, c: "#C77DFF" },
-        ].map(s => (
-          <div key={s.label} className="border border-white/6 rounded-lg p-3 text-center">
-            <p className="font-mono text-lg font-bold" style={{ color: s.c }}>{s.v}</p>
-            <p className="font-mono text-[9px] text-white/25 tracking-wider mt-0.5">{s.label}</p>
+      <StatGrid stats={[
+        { label: "Contests", value: stats.total, sub: `${stats.draft} drafts`, icon: Trophy, color: KIT.cyan, loading },
+        { label: "Live now", value: stats.live, sub: "Running at this moment", icon: Zap, color: KIT.green, loading },
+        { label: "Upcoming", value: stats.upcoming, sub: "Published, not started", icon: Flag, color: KIT.orange, loading },
+        { label: "Registrations", value: stats.registrations, sub: "Across all contests", icon: Users, color: KIT.purple, loading },
+      ]} />
+
+      <DataTable title="All contests" icon={Trophy} subtitle="Timed contests on /contest. Click one to manage questions, registrations and announcements."
+        rows={contests} loading={loading}
+        searchKeys={["title", "category", "organizer", "description"]} searchPlaceholder="Search contests..."
+        filters={[
+          { key: "status", label: "All statuses", options: CONTEST_STATUSES.map(s => ({ value: s.v, label: s.v[0].toUpperCase() + s.v.slice(1) })) },
+          { key: "phase", label: "Any phase", get: c => contestPhase(c), options: ["upcoming", "closed", "live", "past"].map(v => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })) },
+          { key: "category", label: "All categories", options: CONTEST_CATEGORIES.map(c => ({ value: c, label: c })) },
+        ]}
+        primaryAction={{ label: "Create contest", icon: Plus, onClick: () => { setForm(blankContestForm()); setError(""); setDrawer({ mode: "create" }); } }}
+        onRowClick={c => openEdit(c.id)} emptyText="No contests yet."
+        columns={[
+          { key: "title", label: "Contest", render: c => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{c.title}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{c.category} · {c.difficulty}</p>
+            </div>
+          ) },
+          { key: "contestStart", label: "Starts", sort: c => toDate(c.contestStart)?.getTime() || 0,
+            render: c => <span className="font-sans text-xs text-white/60">{toDate(c.contestStart)?.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) || "-"}</span> },
+          { key: "phase", label: "Phase", sort: c => contestPhase(c), render: c => <Pill color={PHASE_C[contestPhase(c)] || KIT.muted}>{contestPhase(c)}</Pill> },
+          { key: "questionCount", label: "Questions", sort: c => c.questionCount || 0, render: c => <span className="font-sans text-sm text-white/75 tabular-nums">{fmt(c.questionCount || 0)}</span> },
+          { key: "participantCount", label: "Registered", sort: c => c.participantCount || 0, render: c => <span className="font-sans text-sm text-white/75 tabular-nums">{fmt(c.participantCount || 0)}</span> },
+          { key: "status", label: "Status", render: c => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={c.status === "published"} label={`Publish ${c.title}`} onChange={on => handleSetStatus(c.id, on ? "published" : "draft")} />
+              <span className="font-sans text-xs" style={{ color: statusC(c.status) }}>{c.status ? c.status[0].toUpperCase() + c.status.slice(1) : "-"}</span>
+            </div>
+          ) },
+        ]}
+        rowActions={c => [
+          { icon: Pencil, label: "Manage", onClick: () => openEdit(c.id) },
+          { icon: Copy, label: "Duplicate", onClick: () => handleDuplicate(c) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(c.id, c.title) },
+        ]}
+      />
+
+      <Drawer open={!!drawer} onClose={closeDrawer} width={800}
+        title={drawer?.mode === "create" ? "Create contest" : editing?.title || "Contest"}
+        subtitle={drawer?.mode === "create" ? "Contests no longer grant platform XP/coins - describe any real prize in the form." : editing ? `${editing.category} · ${contestPhase(editing)} · ${fmt(editing.questionCount || 0)} questions · ${fmt(editing.participantCount || 0)} registered` : ""}>
+        {drawer?.mode === "create" && (
+          <div className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Java Fundamentals Contest #1" />
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
+            <Dropdown value={form.category} onChange={v => setForm(p => ({ ...p, category: v }))}
+              options={CONTEST_CATEGORIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
           </div>
-        ))}
-      </div>
-
-      {contests.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no contests yet</p>}
-
-      <div className="space-y-2">
-        {contests.map(contest => {
-          const sc = CONTEST_STATUSES.find(s => s.v === contest.status) || CONTEST_STATUSES[0];
-          const phase = contestPhase(contest);
-          return (
-            <div key={contest.id} className="border border-white/8 rounded-lg overflow-hidden">
-              <button onClick={() => toggleExpand(contest.id)} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/2 transition-colors text-left flex-wrap">
-                <Trophy size={13} className="text-neon-cyan/60 flex-shrink-0" />
-                <span className="font-sans text-sm text-white/80 flex-1 min-w-0 truncate">{contest.title}</span>
-                <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded flex-shrink-0">{contest.category}</span>
-                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: sc.c, background: `${sc.c}15` }}>{contest.status.toUpperCase()}</span>
-                {contest.status === "published" && (
-                  <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{phase.toUpperCase()}</span>
-                )}
-                <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{contest.questionCount || 0}q · {contest.participantCount || 0} reg</span>
-                {expanded === contest.id ? <ChevronUp size={12} className="text-white/30 flex-shrink-0" /> : <ChevronDown size={12} className="text-white/30 flex-shrink-0" />}
-              </button>
-
-              {expanded === contest.id && (
-                <div className="px-4 pb-4 space-y-4 border-t border-white/6 pt-3">
+        </div>
+        <Textarea label="DESCRIPTION" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} rows={2} placeholder="What this contest covers..." />
+        <Textarea label="RULES" value={form.rules} onChange={v => setForm(p => ({ ...p, rules: v }))} rows={2} placeholder="No external tools, one attempt per participant..." />
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+            <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
+              options={CONTEST_DIFFICULTIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
+          </div>
+          <Input label="ELIGIBILITY" value={form.eligibility} onChange={v => setForm(p => ({ ...p, eligibility: v }))} placeholder="Open to all" />
+          <Input label="ORGANIZER" value={form.organizer} onChange={v => setForm(p => ({ ...p, organizer: v }))} placeholder="DeVert" />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="BANNER URL (optional)" value={form.bannerUrl} onChange={v => setForm(p => ({ ...p, bannerUrl: v }))} placeholder="https://..." />
+          <Input label="TAGS (comma separated)" value={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="DSA, Interview Prep" />
+        </div>
+        <p className="font-mono text-[9px] text-white/25 tracking-wider mt-2">SCHEDULE (leave registration blank to allow registering until contest start)</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="REGISTRATION START" type="datetime-local" value={form.registrationStart} onChange={v => setForm(p => ({ ...p, registrationStart: v }))} />
+          <Input label="REGISTRATION END" type="datetime-local" value={form.registrationEnd} onChange={v => setForm(p => ({ ...p, registrationEnd: v }))} />
+          <Input label="CONTEST START" type="datetime-local" value={form.contestStart} onChange={v => setForm(p => ({ ...p, contestStart: v }))} />
+          <Input label="CONTEST END" type="datetime-local" value={form.contestEnd} onChange={v => setForm(p => ({ ...p, contestEnd: v }))} />
+        </div>
+        <Input label="DURATION (minutes)" value={form.durationMinutes} onChange={v => setForm(p => ({ ...p, durationMinutes: v }))} placeholder="60" />
+        <p className="font-mono text-[9px] text-white/25 tracking-wider">
+          CONTESTS NO LONGER GRANT PLATFORM XP/COINS (ONLY DAILY LEARNING, PROGRAMMING, AND CS CORE DO) - DESCRIBE ANY REAL PRIZE BELOW
+        </p>
+        <Input label="PRIZE TEXT (optional)" value={form.prizeText} onChange={v => setForm(p => ({ ...p, prizeText: v }))} placeholder="Top 3 get DeVert merch" />
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
+          <div className="flex gap-2">
+            {CONTEST_STATUSES.map(s => (
+              <button key={s.v} onClick={() => setForm(p => ({ ...p, status: s.v }))}
+                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
+                style={{
+                  color: form.status === s.v ? s.c : "rgba(255,255,255,0.3)",
+                  background: form.status === s.v ? `${s.c}12` : "rgba(255,255,255,0.03)",
+                  border: form.status === s.v ? `1px solid ${s.c}35` : "1px solid rgba(255,255,255,0.06)",
+                }}>{s.v.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
+        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleCreate} disabled={saving}
+          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+          <Plus size={12} /> {saving ? "creating..." : "create contest"}
+        </motion.button>
+          </div>
+        )}
+        {editing && (contest => (
+          <div className="space-y-4">
                   {/* Lifecycle actions */}
                   <div className="flex flex-wrap gap-2">
                     {contest.status !== "published" && (
@@ -5371,77 +5712,9 @@ function ContestsPanel() {
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Create contest */}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-green tracking-wider">// create contest</p>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Java Fundamentals Contest #1" />
-          <div>
-            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
-            <Dropdown value={form.category} onChange={v => setForm(p => ({ ...p, category: v }))}
-              options={CONTEST_CATEGORIES}
-              className="w-full"
-              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
-              />
           </div>
-        </div>
-        <Textarea label="DESCRIPTION" value={form.description} onChange={v => setForm(p => ({ ...p, description: v }))} rows={2} placeholder="What this contest covers..." />
-        <Textarea label="RULES" value={form.rules} onChange={v => setForm(p => ({ ...p, rules: v }))} rows={2} placeholder="No external tools, one attempt per participant..." />
-        <div className="grid sm:grid-cols-3 gap-3">
-          <div>
-            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
-            <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
-              options={CONTEST_DIFFICULTIES}
-              className="w-full"
-              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
-              />
-          </div>
-          <Input label="ELIGIBILITY" value={form.eligibility} onChange={v => setForm(p => ({ ...p, eligibility: v }))} placeholder="Open to all" />
-          <Input label="ORGANIZER" value={form.organizer} onChange={v => setForm(p => ({ ...p, organizer: v }))} placeholder="DeVert" />
-        </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="BANNER URL (optional)" value={form.bannerUrl} onChange={v => setForm(p => ({ ...p, bannerUrl: v }))} placeholder="https://..." />
-          <Input label="TAGS (comma separated)" value={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="DSA, Interview Prep" />
-        </div>
-        <p className="font-mono text-[9px] text-white/25 tracking-wider mt-2">SCHEDULE (leave registration blank to allow registering until contest start)</p>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="REGISTRATION START" type="datetime-local" value={form.registrationStart} onChange={v => setForm(p => ({ ...p, registrationStart: v }))} />
-          <Input label="REGISTRATION END" type="datetime-local" value={form.registrationEnd} onChange={v => setForm(p => ({ ...p, registrationEnd: v }))} />
-          <Input label="CONTEST START" type="datetime-local" value={form.contestStart} onChange={v => setForm(p => ({ ...p, contestStart: v }))} />
-          <Input label="CONTEST END" type="datetime-local" value={form.contestEnd} onChange={v => setForm(p => ({ ...p, contestEnd: v }))} />
-        </div>
-        <Input label="DURATION (minutes)" value={form.durationMinutes} onChange={v => setForm(p => ({ ...p, durationMinutes: v }))} placeholder="60" />
-        <p className="font-mono text-[9px] text-white/25 tracking-wider">
-          CONTESTS NO LONGER GRANT PLATFORM XP/COINS (ONLY DAILY LEARNING, PROGRAMMING, AND CS CORE DO) - DESCRIBE ANY REAL PRIZE BELOW
-        </p>
-        <Input label="PRIZE TEXT (optional)" value={form.prizeText} onChange={v => setForm(p => ({ ...p, prizeText: v }))} placeholder="Top 3 get DeVert merch" />
-        <div>
-          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
-          <div className="flex gap-2">
-            {CONTEST_STATUSES.map(s => (
-              <button key={s.v} onClick={() => setForm(p => ({ ...p, status: s.v }))}
-                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
-                style={{
-                  color: form.status === s.v ? s.c : "rgba(255,255,255,0.3)",
-                  background: form.status === s.v ? `${s.c}12` : "rgba(255,255,255,0.03)",
-                  border: form.status === s.v ? `1px solid ${s.c}35` : "1px solid rgba(255,255,255,0.06)",
-                }}>{s.v.toUpperCase()}</button>
-            ))}
-          </div>
-        </div>
-        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleCreate} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-          <Plus size={12} /> {saving ? "creating..." : "create contest"}
-        </motion.button>
-      </div>
+        ))(editing)}
+      </Drawer>
     </div>
   );
 }
@@ -5453,6 +5726,16 @@ const CODELAB_STATUSES = [
   { v: "published", c: "#00FF41" },
   { v: "archived",  c: "#FF9500" },
 ];
+
+function basicsFormFromProblem(p) {
+  if (!p) return null;
+  return {
+    title: p.title || "", category: p.category || CODELAB_CATEGORIES[0], difficulty: p.difficulty || "Easy",
+    tags: (p.tags || []).join(", "), statement: p.statement || "", constraints: p.constraints || "",
+    examplesText: p.examplesText || "", hints: (p.hints || []).join("\n"),
+    estimatedTime: String(p.estimatedTime ?? 15), xpReward: String(p.xpReward ?? 0), coinReward: String(p.coinReward ?? 0),
+  };
+}
 
 function blankProblemForm() {
   return {
@@ -5592,6 +5875,13 @@ function CodingProblemsPanel() {
   const [structureForm, setStructureForm] = useState(null);
   const [savingStructure, setSavingStructure] = useState(false);
 
+  // Drawer: { mode: "create" } or { mode: "edit", id }. The per-problem
+  // editor that used to expand inline under each row now lives in here.
+  const [drawer, setDrawer] = useState(null);
+  const [basicsForm, setBasicsForm] = useState(null);
+  const [savingBasics, setSavingBasics] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -5623,7 +5913,68 @@ function CodingProblemsPanel() {
     setSimpleForm(simpleFormFromProblem(problems.find(p => p.id === problemId)));
     setCompaniesForm(companiesFormFromProblem(problems.find(p => p.id === problemId)));
     setStructureForm(structureFormFromProblem(problems.find(p => p.id === problemId)));
+    setBasicsForm(basicsFormFromProblem(problems.find(p => p.id === problemId)));
     if (!sampleTests[problemId]) loadTests(problemId);
+  };
+
+  const openEdit = (problemId) => {
+    if (expanded !== problemId) toggleExpand(problemId);
+    setDrawer({ mode: "edit", id: problemId });
+  };
+  const openCreate = () => {
+    setForm(blankProblemForm());
+    setError("");
+    setDrawer({ mode: "create" });
+  };
+  const closeDrawer = () => { setDrawer(null); setExpanded(null); };
+
+  // Title, statement, category... were settable only at creation before -
+  // there was no way to fix a typo in a live problem's statement.
+  const handleSaveBasics = async (problemId) => {
+    if (!basicsForm.title.trim() || !basicsForm.statement.trim()) return;
+    setSavingBasics(true);
+    try {
+      const existing = problems.find(p => p.id === problemId);
+      await updateDoc(doc(db, "problems", problemId), {
+        ...withVersionSnapshot(existing),
+        title: basicsForm.title.trim(), category: basicsForm.category, difficulty: basicsForm.difficulty,
+        tags: basicsForm.tags.split(",").map(t => t.trim()).filter(Boolean),
+        statement: basicsForm.statement.trim(), constraints: basicsForm.constraints.trim(),
+        examplesText: basicsForm.examplesText.trim(),
+        hints: basicsForm.hints.split("\n").map(h => h.trim()).filter(Boolean),
+        estimatedTime: parseInt(basicsForm.estimatedTime) || 15,
+        xpReward: parseInt(basicsForm.xpReward) || 0, coinReward: parseInt(basicsForm.coinReward) || 0,
+      });
+      logAdminActivity("updated coding problem", basicsForm.title.trim());
+      load();
+    } catch (e) { console.error(e); }
+    finally { setSavingBasics(false); }
+  };
+
+  // Copies the problem AND its sample/hidden tests, as a fresh draft with
+  // zeroed counters - a duplicate must never go live by accident or inherit
+  // the original's submission stats.
+  const handleDuplicate = async (problem) => {
+    setBusyId(problem.id);
+    try {
+      const { id: _id, ...data } = problem;
+      const ref = await addDoc(collection(db, "problems"), {
+        ...data, title: `${problem.title} (copy)`, status: "draft",
+        totalSubmissions: 0, acceptedSubmissions: 0,
+        createdAt: serverTimestamp(), createdBy: auth.currentUser?.email || ADMIN_EMAIL,
+      });
+      const [sSnap, hSnap] = await Promise.all([
+        getDocs(collection(db, "problems", problem.id, "sampleTests")),
+        getDocs(collection(db, "problems", problem.id, "hiddenTests")),
+      ]);
+      const batch = writeBatch(db);
+      sSnap.docs.forEach(d => batch.set(doc(collection(db, "problems", ref.id, "sampleTests")), d.data()));
+      hSnap.docs.forEach(d => batch.set(doc(collection(db, "problems", ref.id, "hiddenTests")), d.data()));
+      await batch.commit();
+      logAdminActivity("duplicated coding problem", problem.title);
+      load();
+    } catch (e) { console.error(e); }
+    finally { setBusyId(null); }
   };
 
   const handleSaveCompanies = async (problemId) => {
@@ -5709,6 +6060,7 @@ function CodingProblemsPanel() {
       });
       setForm(blankProblemForm());
       logAdminActivity("created coding problem", form.title.trim());
+      setDrawer(null);
       load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -5773,35 +6125,161 @@ function CodingProblemsPanel() {
     finally { setImporting(false); }
   };
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+  const editing = drawer?.mode === "edit" ? problems.find(p => p.id === drawer.id) : null;
+  const totalSubs = problems.reduce((n, p) => n + (p.totalSubmissions || 0), 0);
+  const accepted = problems.reduce((n, p) => n + (p.acceptedSubmissions || 0), 0);
+  const published = problems.filter(p => p.status === "published").length;
+  const rate = (p) => (p.totalSubmissions ? (100 * (p.acceptedSubmissions || 0)) / p.totalSubmissions : 0);
 
   return (
     <div className="space-y-5">
-      <p className="font-mono text-[10px] text-white/18">
-        Sample tests are shown to solvers in the problem statement. Hidden tests are NEVER sent to the browser -
-        devert-backend reads them server-side to grade submissions.
-      </p>
+      <StatGrid stats={[
+        { label: "Total problems", value: problems.length, sub: `${published} published`, icon: Code2, color: KIT.green, loading },
+        { label: "Published", value: published, sub: `${problems.length - published} draft or archived`, icon: Eye, color: KIT.cyan, loading },
+        { label: "Total submissions", value: totalSubs, sub: "Across all problems", icon: Activity, color: KIT.orange, loading },
+        { label: "Acceptance rate", value: totalSubs ? `${Math.round((100 * accepted) / totalSubs)}%` : "-", sub: `${fmt(accepted)} accepted`, icon: BarChart3, color: KIT.purple, loading },
+      ]} />
 
-      {problems.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no problems yet</p>}
+      <DataTable
+        title="All problems" icon={Zap}
+        subtitle="Sample tests are shown to solvers. Hidden tests never reach the browser - devert-backend grades against them."
+        rows={problems} loading={loading}
+        searchKeys={["title", "category", "statement", "tags"]} searchPlaceholder="Search problems..."
+        filters={[
+          { key: "status", label: "All statuses", options: CODELAB_STATUSES.map(s => ({ value: s.v, label: s.v[0].toUpperCase() + s.v.slice(1) })) },
+          { key: "category", label: "All categories", options: CODELAB_CATEGORIES.map(c => ({ value: c, label: c })) },
+          { key: "difficulty", label: "All difficulties", options: CODELAB_DIFFICULTIES.map(d => ({ value: d, label: d })) },
+        ]}
+        primaryAction={{ label: "Create problem", icon: Plus, onClick: openCreate }}
+        onRowClick={p => openEdit(p.id)}
+        emptyText="No problems yet - create the first one."
+        columns={[
+          { key: "title", label: "Title", render: p => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{p.title}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{(p.statement || "").slice(0, 90)}</p>
+            </div>
+          ) },
+          { key: "category", label: "Category", render: p => <Pill color={KIT.cyan}>{p.category || "-"}</Pill> },
+          { key: "difficulty", label: "Difficulty", render: p => <Pill color={difficultyColor(p.difficulty)}>{p.difficulty || "-"}</Pill> },
+          { key: "totalSubmissions", label: "Submissions", sort: p => p.totalSubmissions || 0,
+            render: p => <span className="font-sans text-sm text-white/80 tabular-nums">{fmt(p.totalSubmissions || 0)}</span> },
+          { key: "rate", label: "Success rate", sort: rate, render: p => p.totalSubmissions ? <ProgressBar value={rate(p)} /> : <span className="font-sans text-xs text-white/30">No attempts</span> },
+          { key: "status", label: "Status", render: p => (
+            <div className="flex items-center gap-2.5">
+              <Toggle on={p.status === "published"} label={`Publish ${p.title}`}
+                onChange={on => handleSetStatus(p.id, on ? "published" : "draft")} />
+              <span className="font-sans text-xs" style={{ color: (CODELAB_STATUSES.find(s => s.v === p.status) || CODELAB_STATUSES[0]).c }}>
+                {p.status === "published" ? "Live" : p.status === "archived" ? "Archived" : "Draft"}
+              </span>
+            </div>
+          ) },
+        ]}
+        rowActions={p => [
+          { icon: Pencil, label: "Edit", onClick: () => openEdit(p.id) },
+          { icon: Copy, label: "Duplicate", onClick: () => handleDuplicate(p), disabled: busyId === p.id },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(p.id, p.title) },
+        ]}
+      />
 
-      <div className="space-y-2">
-        {problems.map(problem => {
-          const sc = CODELAB_STATUSES.find(s => s.v === problem.status) || CODELAB_STATUSES[0];
-          return (
-            <div key={problem.id} className="border border-white/8 rounded-lg overflow-hidden">
-              <button onClick={() => toggleExpand(problem.id)} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/2 transition-colors text-left flex-wrap">
-                <Code2 size={13} className="text-neon-cyan/60 flex-shrink-0" />
-                <span className="font-sans text-sm text-white/80 flex-1 min-w-0 truncate">{problem.title}</span>
-                <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded flex-shrink-0">{problem.category}</span>
-                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: sc.c, background: `${sc.c}15` }}>{problem.status.toUpperCase()}</span>
-                <span className="font-mono text-[9px] text-white/25 flex-shrink-0">
-                  {(sampleTests[problem.id]?.length || 0)}s / {(hiddenTests[problem.id]?.length || 0)}h tests
-                </span>
-                {expanded === problem.id ? <ChevronUp size={12} className="text-white/30 flex-shrink-0" /> : <ChevronDown size={12} className="text-white/30 flex-shrink-0" />}
-              </button>
-
-              {expanded === problem.id && (
-                <div className="px-4 pb-4 space-y-4 border-t border-white/6 pt-3">
+      <Drawer open={!!drawer} onClose={closeDrawer}
+        title={drawer?.mode === "create" ? "Create problem" : editing?.title || "Problem"}
+        subtitle={drawer?.mode === "create" ? "New problems start as drafts unless you pick another status." : `${editing?.category || ""} · ${editing?.difficulty || ""} · ${(sampleTests[editing?.id]?.length || 0)} sample / ${(hiddenTests[editing?.id]?.length || 0)} hidden tests`}>
+        {drawer?.mode === "create" && (
+          <div className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Two Sum" />
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
+            <Dropdown value={form.category} onChange={v => setForm(p => ({ ...p, category: v }))}
+              options={CODELAB_CATEGORIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
+          </div>
+        </div>
+        <Textarea label="PROBLEM STATEMENT" value={form.statement} onChange={v => setForm(p => ({ ...p, statement: v }))} rows={4} placeholder="Given an array of integers..." />
+        <Textarea label="CONSTRAINTS" value={form.constraints} onChange={v => setForm(p => ({ ...p, constraints: v }))} rows={2} placeholder="1 <= n <= 10^5" />
+        <Textarea label="EXAMPLES" value={form.examplesText} onChange={v => setForm(p => ({ ...p, examplesText: v }))} rows={3} placeholder={"Input: [2,7,11,15], target=9\nOutput: [0,1]"} />
+        <Textarea label="HINTS (one per line)" value={form.hints} onChange={v => setForm(p => ({ ...p, hints: v }))} rows={2} placeholder={"Try a hash map.\nThink about complements."} />
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+            <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
+              options={CODELAB_DIFFICULTIES}
+              className="w-full"
+              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
+              />
+          </div>
+          <Input label="TAGS (comma separated)" value={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="Array, Hash Map" />
+        </div>
+        <Input label="COMPANIES (comma separated, optional)" value={form.companies} onChange={v => setForm(p => ({ ...p, companies: v }))}
+          placeholder="Amazon, Google, Microsoft" hint={`e.g. ${COMPANY_TAG_SUGGESTIONS.slice(0, 6).join(", ")}...`} />
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Input label="ESTIMATED TIME (min)" value={form.estimatedTime} onChange={v => setForm(p => ({ ...p, estimatedTime: v }))} placeholder="15" />
+          <Input label="XP REWARD" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: v }))} placeholder="50" />
+          <Input label="COIN REWARD" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: v }))} placeholder="20" />
+        </div>
+        <div>
+          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
+          <div className="flex gap-2">
+            {CODELAB_STATUSES.map(s => (
+              <button key={s.v} onClick={() => setForm(p => ({ ...p, status: s.v }))}
+                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
+                style={{
+                  color: form.status === s.v ? s.c : "rgba(255,255,255,0.3)",
+                  background: form.status === s.v ? `${s.c}12` : "rgba(255,255,255,0.03)",
+                  border: form.status === s.v ? `1px solid ${s.c}35` : "1px solid rgba(255,255,255,0.06)",
+                }}>{s.v.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
+        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleCreate} disabled={saving}
+          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+          <Plus size={12} /> {saving ? "creating..." : "create problem"}
+        </motion.button>
+          </div>
+        )}
+        {editing && (
+          <div className="space-y-4">
+            {basicsForm && (
+              <DrawerSection title="Basics" hint="What solvers see first. Saving keeps a version snapshot of the previous text.">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Input label="TITLE" value={basicsForm.title} onChange={v => setBasicsForm(p => ({ ...p, title: v }))} />
+                  <div>
+                    <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
+                    <Dropdown value={basicsForm.category} onChange={v => setBasicsForm(p => ({ ...p, category: v }))}
+                      options={CODELAB_CATEGORIES} className="w-full"
+                      buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]" />
+                  </div>
+                </div>
+                <Textarea label="PROBLEM STATEMENT" value={basicsForm.statement} onChange={v => setBasicsForm(p => ({ ...p, statement: v }))} rows={5} />
+                <Textarea label="CONSTRAINTS" value={basicsForm.constraints} onChange={v => setBasicsForm(p => ({ ...p, constraints: v }))} rows={2} />
+                <Textarea label="EXAMPLES" value={basicsForm.examplesText} onChange={v => setBasicsForm(p => ({ ...p, examplesText: v }))} rows={3} />
+                <Textarea label="HINTS (one per line)" value={basicsForm.hints} onChange={v => setBasicsForm(p => ({ ...p, hints: v }))} rows={2} />
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
+                    <Dropdown value={basicsForm.difficulty} onChange={v => setBasicsForm(p => ({ ...p, difficulty: v }))}
+                      options={CODELAB_DIFFICULTIES} className="w-full"
+                      buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]" />
+                  </div>
+                  <Input label="TAGS (comma separated)" value={basicsForm.tags} onChange={v => setBasicsForm(p => ({ ...p, tags: v }))} />
+                </div>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <Input label="ESTIMATED TIME (min)" value={basicsForm.estimatedTime} onChange={v => setBasicsForm(p => ({ ...p, estimatedTime: v }))} />
+                  <Input label="XP REWARD" value={basicsForm.xpReward} onChange={v => setBasicsForm(p => ({ ...p, xpReward: v }))} />
+                  <Input label="COIN REWARD" value={basicsForm.coinReward} onChange={v => setBasicsForm(p => ({ ...p, coinReward: v }))} />
+                </div>
+                <div className="flex justify-end">
+                  <PrimaryButton icon={Check} busy={savingBasics} onClick={() => handleSaveBasics(editing.id)}
+                    disabled={!basicsForm.title.trim() || !basicsForm.statement.trim()}>Save basics</PrimaryButton>
+                </div>
+              </DrawerSection>
+            )}
+            {(problem => (
+              <>
                   <div className="flex flex-wrap gap-2">
                     {problem.status !== "published" && (
                       <button onClick={() => handleSetStatus(problem.id, "published")} className="font-mono text-[10px] px-2.5 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/8 transition-colors">publish</button>
@@ -6001,69 +6479,11 @@ function CodingProblemsPanel() {
                       </button>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Create problem */}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <p className="font-mono text-[10px] text-neon-green tracking-wider">// create problem</p>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="TITLE" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Two Sum" />
-          <div>
-            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">CATEGORY</p>
-            <Dropdown value={form.category} onChange={v => setForm(p => ({ ...p, category: v }))}
-              options={CODELAB_CATEGORIES}
-              className="w-full"
-              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
-              />
+              </>
+            ))(editing)}
           </div>
-        </div>
-        <Textarea label="PROBLEM STATEMENT" value={form.statement} onChange={v => setForm(p => ({ ...p, statement: v }))} rows={4} placeholder="Given an array of integers..." />
-        <Textarea label="CONSTRAINTS" value={form.constraints} onChange={v => setForm(p => ({ ...p, constraints: v }))} rows={2} placeholder="1 <= n <= 10^5" />
-        <Textarea label="EXAMPLES" value={form.examplesText} onChange={v => setForm(p => ({ ...p, examplesText: v }))} rows={3} placeholder={"Input: [2,7,11,15], target=9\nOutput: [0,1]"} />
-        <Textarea label="HINTS (one per line)" value={form.hints} onChange={v => setForm(p => ({ ...p, hints: v }))} rows={2} placeholder={"Try a hash map.\nThink about complements."} />
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div>
-            <p className="font-mono text-[10px] text-white/28 mb-1 tracking-widest">DIFFICULTY</p>
-            <Dropdown value={form.difficulty} onChange={v => setForm(p => ({ ...p, difficulty: v }))}
-              options={CODELAB_DIFFICULTIES}
-              className="w-full"
-              buttonClassName="font-mono text-xs text-white/80 px-3 py-2 rounded bg-white/[0.04] border border-white/[0.08]"
-              />
-          </div>
-          <Input label="TAGS (comma separated)" value={form.tags} onChange={v => setForm(p => ({ ...p, tags: v }))} placeholder="Array, Hash Map" />
-        </div>
-        <Input label="COMPANIES (comma separated, optional)" value={form.companies} onChange={v => setForm(p => ({ ...p, companies: v }))}
-          placeholder="Amazon, Google, Microsoft" hint={`e.g. ${COMPANY_TAG_SUGGESTIONS.slice(0, 6).join(", ")}...`} />
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Input label="ESTIMATED TIME (min)" value={form.estimatedTime} onChange={v => setForm(p => ({ ...p, estimatedTime: v }))} placeholder="15" />
-          <Input label="XP REWARD" value={form.xpReward} onChange={v => setForm(p => ({ ...p, xpReward: v }))} placeholder="50" />
-          <Input label="COIN REWARD" value={form.coinReward} onChange={v => setForm(p => ({ ...p, coinReward: v }))} placeholder="20" />
-        </div>
-        <div>
-          <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">STATUS</p>
-          <div className="flex gap-2">
-            {CODELAB_STATUSES.map(s => (
-              <button key={s.v} onClick={() => setForm(p => ({ ...p, status: s.v }))}
-                className="flex-1 font-mono text-[10px] py-1.5 rounded transition-colors"
-                style={{
-                  color: form.status === s.v ? s.c : "rgba(255,255,255,0.3)",
-                  background: form.status === s.v ? `${s.c}12` : "rgba(255,255,255,0.03)",
-                  border: form.status === s.v ? `1px solid ${s.c}35` : "1px solid rgba(255,255,255,0.06)",
-                }}>{s.v.toUpperCase()}</button>
-            ))}
-          </div>
-        </div>
-        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={handleCreate} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-          <Plus size={12} /> {saving ? "creating..." : "create problem"}
-        </motion.button>
-      </div>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -6127,6 +6547,7 @@ function HackathonsPanel() {
   const [saving,     setSaving]     = useState(false);
   const [error,      setError]      = useState("");
   const [editingId,  setEditingId]  = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [form, setForm] = useState(blankHackathonForm);
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
@@ -6146,6 +6567,7 @@ function HackathonsPanel() {
 
   const startEdit = (h) => {
     setEditingId(h.id);
+    setDrawerOpen(true);
     setError("");
     setForm({
       slug: h.id, title: h.title || "", tagline: h.tagline || "",
@@ -6176,7 +6598,8 @@ function HackathonsPanel() {
     });
   };
 
-  const cancelEdit = () => { setEditingId(null); setForm(blankHackathonForm()); setError(""); };
+  const cancelEdit = () => { setEditingId(null); setForm(blankHackathonForm()); setError(""); setDrawerOpen(false); };
+  const startCreate = () => { setEditingId(null); setForm(blankHackathonForm()); setError(""); setDrawerOpen(true); };
 
   const handleSave = async () => {
     if (!editingId && !form.slug.trim()) return setError("Slug is required.");
@@ -6221,6 +6644,7 @@ function HackathonsPanel() {
           ...payload, registrationCount: 0, submissionCount: 0, createdAt: serverTimestamp(),
         });
       }
+      logAdminActivity(editingId ? "updated event" : "created event", form.title?.trim() || form.slug);
       cancelEdit();
       load();
     } catch (e) { setError(e.message); }
@@ -6245,6 +6669,7 @@ function HackathonsPanel() {
       await batch.commit();
     }
     if (editingId === id) cancelEdit();
+    logAdminActivity("deleted event", id);
     load();
   };
 
@@ -6257,57 +6682,65 @@ function HackathonsPanel() {
 
   const isHack = form.eventType === "hackathon";
 
+  const when = (v) => { const d = v?.toDate ? v.toDate() : v ? new Date(v) : null; return d && !isNaN(d) ? d : null; };
+  const typeOf = (h) => h.eventType || "hackathon";
+  const statusC = (v) => (HACKATHON_STATUSES.find(s => s.v === v) || HACKATHON_STATUSES[0]).c;
+  const regs = hackathons.reduce((n, h) => n + (h.registrationCount || 0), 0);
+  const subs = hackathons.reduce((n, h) => n + (h.submissionCount || 0), 0);
+  const live = hackathons.filter(h => h.status === "active").length;
+
   return (
     <div className="space-y-5">
-      {loading ? (
-        <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
-      ) : (
-        <div className="space-y-2">
-          {hackathons.length === 0 && <p className="font-mono text-xs text-white/20">No events yet.</p>}
-          {hackathons.map(h => {
-            const sc = HACKATHON_STATUSES.find(s => s.v === h.status) || HACKATHON_STATUSES[0];
-            const typeLabel = EVENT_TYPES.find(t => t.v === (h.eventType || "hackathon"))?.label || "Hackathon";
-            return (
-              <div key={h.id} className="border border-white/6 rounded-lg px-4 py-3 space-y-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-[10px] text-white/35 flex-shrink-0">{h.id}</span>
-                  <span className="font-mono text-xs text-white/75 flex-1 truncate">{h.title}</span>
-                  <span className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded flex-shrink-0">{typeLabel}</span>
-                  <span className="font-mono text-[10px] flex-shrink-0" style={{ color: sc.c }}>{(h.status || "upcoming").toUpperCase()}</span>
-                  <button onClick={() => startEdit(h)} className="flex items-center gap-1 font-mono text-[10.5px] px-1 flex-shrink-0" style={{ color: "#FFD700" }}>
-                    <Pencil size={12} />
-                  </button>
-                  <button onClick={() => handleDelete(h.id)} className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0">
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {HACKATHON_STATUSES.map(s => (
-                    <button key={s.v} onClick={() => handleSetStatus(h.id, s.v)}
-                      className="font-mono text-[9px] px-2 py-1 rounded transition-colors"
-                      style={{
-                        color:      h.status === s.v ? s.c : "rgba(255,255,255,0.3)",
-                        background: h.status === s.v ? `${s.c}12` : "rgba(255,255,255,0.03)",
-                        border:     h.status === s.v ? `1px solid ${s.c}35` : "1px solid rgba(255,255,255,0.06)",
-                      }}
-                    >{s.v.toUpperCase()}</button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      <div className="border border-white/6 rounded-lg p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="font-mono text-[10px] text-neon-cyan tracking-wider">{editingId ? `// editing ${editingId}` : "// create event"}</p>
-          {editingId && (
-            <button onClick={cancelEdit} className="font-mono text-[10px] text-white/30 hover:text-white/55 flex items-center gap-1">
-              <X size={10} /> cancel
-            </button>
-          )}
-        </div>
-
+      <StatGrid stats={[
+        { label: "Events", value: hackathons.length, sub: `${hackathons.filter(h => typeOf(h) === "hackathon").length} hackathons`, icon: Trophy, color: KIT.orange, loading },
+        { label: "Running now", value: live, sub: `${hackathons.filter(h => h.status === "upcoming").length} upcoming`, icon: Zap, color: KIT.green, loading },
+        { label: "Registrations", value: regs, sub: "Across all events", icon: Users, color: KIT.cyan, loading },
+        { label: "Submissions", value: subs, sub: regs ? `${Math.round((100 * subs) / regs)}% of registrants` : "", icon: Upload, color: KIT.purple, loading },
+      ]} />
+      <DataTable title="Events" icon={Trophy} subtitle="Hackathons, workshops, meetups and talks on /events."
+        rows={hackathons} loading={loading}
+        searchKeys={["title", "id", "organizer", "tagline"]} searchPlaceholder="Search events..."
+        filters={[
+          { key: "eventType", label: "All types", get: typeOf, options: EVENT_TYPES.map(t => ({ value: t.v, label: t.label })) },
+          { key: "status", label: "All statuses", get: h => h.status || "upcoming", options: HACKATHON_STATUSES.map(s => ({ value: s.v, label: s.v[0].toUpperCase() + s.v.slice(1) })) },
+        ]}
+        primaryAction={{ label: "Create event", icon: Plus, onClick: startCreate }}
+        onRowClick={startEdit} emptyText="No events yet."
+        columns={[
+          { key: "title", label: "Event", render: h => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{h.title}</p>
+              <p className="font-sans text-xs text-white/40 truncate">/events/{h.id}</p>
+            </div>
+          ) },
+          { key: "eventType", label: "Type", render: h => <Pill color={KIT.cyan}>{EVENT_TYPES.find(t => t.v === typeOf(h))?.label || "Hackathon"}</Pill> },
+          { key: "registrationCount", label: "Registered", sort: h => h.registrationCount || 0, render: h => <span className="font-sans text-sm text-white/80 tabular-nums">{fmt(h.registrationCount || 0)}</span> },
+          { key: "submissionCount", label: "Submitted", sort: h => h.submissionCount || 0, render: h => <span className="font-sans text-sm text-white/80 tabular-nums">{fmt(h.submissionCount || 0)}</span> },
+          { key: "submissionDeadline", label: "Deadline", sort: h => when(h.submissionDeadline)?.getTime() || 0,
+            render: h => <span className="font-sans text-xs text-white/55">{when(h.submissionDeadline)?.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) || "-"}</span> },
+          { key: "status", label: "Status", render: h => (
+            <select value={h.status || "upcoming"} onClick={e => e.stopPropagation()} onChange={e => handleSetStatus(h.id, e.target.value)}
+              aria-label={`Status of ${h.title}`}
+              className="font-sans text-xs font-medium pl-2 pr-6 py-1 rounded-md outline-none cursor-pointer appearance-none"
+              style={{ color: statusC(h.status), background: `${statusC(h.status)}14`, border: `1px solid ${statusC(h.status)}40` }}>
+              {HACKATHON_STATUSES.map(s => <option key={s.v} value={s.v} style={{ background: "#0b0f17", color: "#fff" }}>{s.v[0].toUpperCase() + s.v.slice(1)}</option>)}
+            </select>
+          ) },
+        ]}
+        rowActions={h => [
+          { icon: Pencil, label: "Edit", onClick: () => startEdit(h) },
+          { icon: ExternalLink, label: "View page", onClick: () => window.open(`/events/${h.id}`, "_blank", "noopener") },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(h.id) },
+        ]}
+      />
+      <Drawer open={drawerOpen} onClose={cancelEdit} width={760}
+        title={editingId ? `Edit ${form.title || editingId}` : "Create event"}
+        subtitle={editingId ? "Changes go live on /events immediately." : "The slug becomes the event's URL and can't change later."}
+        footer={<>
+          <SecondaryButton onClick={cancelEdit}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleSave}>{editingId ? "Save changes" : "Create event"}</PrimaryButton>
+        </>}>
+        <div className="space-y-3">
         <div>
           <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">EVENT TYPE</p>
           <div className="flex gap-2 flex-wrap">
@@ -6419,14 +6852,9 @@ function HackathonsPanel() {
             ))}
           </div>
         </div>
-        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleSave} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 text-neon-green border border-neon-green/30 hover:bg-neon-green/8 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Plus size={12} /> {saving ? "saving..." : editingId ? "save changes" : "create event"}
-        </motion.button>
-      </div>
+          {error && <p className="font-sans text-xs text-red-400">{error}</p>}
+        </div>
+      </Drawer>
     </div>
   );
 }
@@ -6447,6 +6875,7 @@ function NotificationsPanel() {
   const [saving,  setSaving]  = useState(false);
   const [sent,    setSent]    = useState(false);
   const [error,   setError]   = useState("");
+  const [composing, setComposing] = useState(false);
 
   const blank = { target: "all", uid: "", type: "info", title: "", body: "", ctaLabel: "", ctaHref: "" };
   const [form, setForm] = useState(blank);
@@ -6479,46 +6908,73 @@ function NotificationsPanel() {
       setForm(blank);
       setSent(true);
       setTimeout(() => setSent(false), 2500);
+      setComposing(false);
+      logAdminActivity("sent notification", `${form.target === "all" ? "all users" : form.uid.trim()}: ${form.title.trim()}`);
       load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
 
-  const typeObj = NOTIF_TYPES.find(t => t.v === form.type) || NOTIF_TYPES[0];
+
+  const when = (t) => (t?.toDate ? t.toDate() : null);
+  const typeC = (v) => NOTIF_TYPES.find(t => t.v === v)?.c || KIT.cyan;
+  const broadcasts = notifs.filter(n => n.targetUid === "all").length;
+  const week = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const handleDelete = async (n) => {
+    if (!confirm(`Delete "${n.title}"? It disappears from every recipient's bell.`)) return;
+    await deleteDoc(doc(db, "notifications", n.id));
+    logAdminActivity("deleted notification", n.title);
+    load();
+  };
+  const resend = (n) => {
+    setForm({ target: n.targetUid === "all" ? "all" : "specific", uid: n.targetUid === "all" ? "" : n.targetUid || "",
+      type: n.type || "info", title: n.title || "", body: n.body || "", ctaLabel: n.ctaLabel || "", ctaHref: n.ctaHref || "" });
+    setError(""); setComposing(true);
+  };
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="font-mono text-[10px] text-white/25 mb-2 tracking-wider">// sent notifications</p>
-        {loading ? (
-          <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
-        ) : (
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {notifs.length === 0 && <p className="font-mono text-xs text-white/20">No notifications sent yet.</p>}
-            {notifs.map(n => {
-              const tc = NOTIF_TYPES.find(t => t.v === n.type)?.c || "#00FFFF";
-              return (
-                <div key={n.id} className="flex items-start gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-                  <span className="font-mono text-[9px] px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0"
-                    style={{ color: tc, background: `${tc}12`, border: `1px solid ${tc}30` }}>
-                    {n.type}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-mono text-xs text-white/70 truncate">{n.title}</p>
-                    <p className="font-mono text-[10px] text-white/30 truncate mt-0.5">{n.body}</p>
-                  </div>
-                  <span className="font-mono text-[9px] text-white/20 flex-shrink-0">
-                    {n.targetUid === "all" ? "ALL" : `uid:${n.targetUid?.slice(0, 8)}…`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="border border-white/6 rounded-lg p-4 space-y-4">
-        <p className="font-mono text-[10px] text-neon-cyan tracking-wider">// send notification</p>
+      <StatGrid stats={[
+        { label: "Notifications", value: notifs.length, sub: "All time", icon: Bell, color: KIT.cyan, loading },
+        { label: "To everyone", value: broadcasts, sub: "Broadcast to all users", icon: Megaphone, color: KIT.purple, loading },
+        { label: "To one user", value: notifs.length - broadcasts, sub: "Targeted", icon: Users, color: KIT.green, loading },
+        { label: "Last 7 days", value: notifs.filter(n => when(n.createdAt)?.getTime() > week).length, sub: "Sent this week", icon: Activity, color: KIT.orange, loading },
+      ]} />
+      <DataTable title="Notifications" icon={Bell} subtitle="Every notification in users' bells - system-generated ones included."
+        rows={notifs} loading={loading} pageSize={15}
+        searchKeys={["title", "body", "targetUid"]} searchPlaceholder="Search title, body or user UID..."
+        filters={[
+          { key: "type", label: "All types", options: NOTIF_TYPES.map(t => ({ value: t.v, label: t.v })) },
+          { key: "audience", label: "All audiences", get: n => (n.targetUid === "all" ? "all" : "user"), options: [{ value: "all", label: "Everyone" }, { value: "user", label: "One user" }] },
+        ]}
+        primaryAction={{ label: "Send notification", icon: Bell, onClick: () => { setForm(blank); setError(""); setComposing(true); } }}
+        emptyText="No notifications sent yet."
+        columns={[
+          { key: "title", label: "Notification", render: n => (
+            <div className="min-w-0 w-[260px] xl:w-[340px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{n.title}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{n.body}</p>
+            </div>
+          ) },
+          { key: "type", label: "Type", render: n => <Pill color={typeC(n.type)}>{n.type || "-"}</Pill> },
+          { key: "targetUid", label: "Audience", render: n => n.targetUid === "all"
+            ? <span className="font-sans text-sm text-white/80">Everyone</span>
+            : <span className="font-mono text-xs text-white/55">{(n.targetUid || "").slice(0, 12)}{(n.targetUid || "").length > 12 ? "..." : ""}</span> },
+          { key: "ctaLabel", label: "Button", sortable: false, render: n => <span className="font-sans text-xs text-white/55">{n.ctaLabel || "-"}</span> },
+          { key: "createdAt", label: "Sent", sort: n => when(n.createdAt)?.getTime() || 0, render: n => <span className="font-sans text-xs text-white/50">{when(n.createdAt)?.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) || "-"}</span> },
+        ]}
+        rowActions={n => [
+          { icon: Copy, label: "Send again", onClick: () => resend(n) },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(n) },
+        ]}
+      />
+      <Drawer open={composing} onClose={() => setComposing(false)} width={600} title="Send notification"
+        subtitle="Appears in the bell immediately."
+        footer={<>
+          <SecondaryButton onClick={() => setComposing(false)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Bell} busy={saving} onClick={handleSend}>{sent ? "Sent" : "Send"}</PrimaryButton>
+        </>}>
+        <div className="space-y-4">
         <div>
           <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">TARGET</p>
           <div className="flex gap-2">
@@ -6558,18 +7014,9 @@ function NotificationsPanel() {
           <Input label="CTA LABEL (optional)" value={form.ctaLabel} onChange={f("ctaLabel")} placeholder="Learn more" />
           <Input label="CTA HREF (optional)" value={form.ctaHref} onChange={f("ctaHref")} placeholder="https://..." />
         </div>
-        {error && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-        <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={handleSend} disabled={saving}
-          className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          style={sent
-            ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-            : { color: typeObj.c, borderColor: `${typeObj.c}40`, background: `${typeObj.c}08` }
-          }
-        >
-          <Bell size={11} /> {sent ? "sent!" : saving ? "sending..." : "send notification"}
-        </motion.button>
-      </div>
+          {error && <p className="font-sans text-xs text-red-400">{error}</p>}
+        </div>
+      </Drawer>
     </div>
   );
 }
@@ -6585,7 +7032,7 @@ const SHIP_REACTIONS = [
 function ShipyardPanel() {
   const [projects, setProjects] = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [search,   setSearch]   = useState("");
+  const [openId,   setOpenId]   = useState(null);
   const [working,  setWorking]  = useState({});
 
   const load = () => {
@@ -6598,11 +7045,6 @@ function ShipyardPanel() {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = projects.filter(p =>
-    !search ||
-    p.name?.toLowerCase().includes(search.toLowerCase()) ||
-    p.ownerHandle?.toLowerCase().includes(search.toLowerCase())
-  );
 
   const handleReaction = async (p, reaction) => {
     setWorking(w => ({ ...w, [p.id]: true }));
@@ -6635,59 +7077,70 @@ function ShipyardPanel() {
       });
     }
     await batch.commit();
+    logAdminActivity("deleted shipyard project", p.name || p.id);
+    setOpenId(null);
     load();
   };
 
+  const when = (t) => (t?.toDate ? t.toDate() : null);
+  const sel = projects.find(x => x.id === openId);
+  const reacted = projects.filter(x => x.reaction).length;
+  const reactionColor = (v) => SHIP_REACTIONS.find(r => r.v === v)?.c || KIT.muted;
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <Input label="SEARCH" value={search} onChange={setSearch} placeholder="project name or owner handle..." />
-        </div>
-        <span className="font-mono text-[10px] text-white/25 mt-5 flex-shrink-0">{projects.length} projects</span>
-      </div>
-      {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p> : (
-        <div className="space-y-2 max-h-[600px] overflow-y-auto">
-          {filtered.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no projects found</p>}
-          {filtered.map(p => (
-            <div key={p.id} className="border border-white/6 rounded-lg p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-sans text-sm text-white/80 truncate">{p.name}</p>
-                  <p className="font-mono text-[10px] text-neon-green/60">@{p.ownerHandle}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="font-mono text-[9px] text-white/25 flex items-center gap-2">
-                    <Heart size={10} /> {p.likeCount ?? 0}
-                    <MessageSquare size={10} /> {p.commentCount ?? 0}
-                  </span>
-                  {p.url && (
-                    <a href={p.url} target="_blank" rel="noreferrer" className="text-white/20 hover:text-neon-cyan transition-colors">
-                      <ExternalLink size={12} />
-                    </a>
-                  )}
-                  <button onClick={() => handleDelete(p)} className="text-white/20 hover:text-red-400 transition-colors">
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
-              <p className="font-mono text-[10px] text-white/30 leading-relaxed">{p.description}</p>
-              <div className="flex gap-1.5">
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Projects", value: projects.length, sub: "Docked on Shipyard", icon: Anchor, color: KIT.cyan, loading },
+        { label: "Awaiting review", value: projects.length - reacted, sub: "No reaction yet", icon: Eye, color: projects.length - reacted ? KIT.orange : KIT.green, loading },
+        { label: "Likes", value: projects.reduce((n, x) => n + (x.likeCount || 0), 0), sub: "Across all projects", icon: Heart, color: KIT.red, loading },
+        { label: "Comments", value: projects.reduce((n, x) => n + (x.commentCount || 0), 0), sub: "Across all projects", icon: MessageSquare, color: KIT.purple, loading },
+      ]} />
+      <DataTable title="Shipyard projects" icon={Anchor} subtitle="Give each project a reaction; it shows on the project card."
+        rows={projects} loading={loading}
+        searchKeys={["name", "ownerHandle", "description"]} searchPlaceholder="Search project or owner..."
+        filters={[
+          { key: "reaction", label: "Any reaction", get: x => x.reaction || "none", options: [{ value: "none", label: "No reaction yet" }, ...SHIP_REACTIONS.map(r => ({ value: r.v, label: r.v }))] },
+        ]}
+        onRowClick={x => setOpenId(x.id)} emptyText="No projects docked yet."
+        columns={[
+          { key: "name", label: "Project", render: x => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{x.name}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{x.description}</p>
+            </div>
+          ) },
+          { key: "ownerHandle", label: "Owner", render: x => <span className="font-sans text-sm text-white/70">@{x.ownerHandle || "?"}</span> },
+          { key: "likeCount", label: "Likes", sort: x => x.likeCount || 0, render: x => <span className="font-sans text-sm text-white/70 tabular-nums">{fmt(x.likeCount || 0)}</span> },
+          { key: "commentCount", label: "Comments", sort: x => x.commentCount || 0, render: x => <span className="font-sans text-sm text-white/70 tabular-nums">{fmt(x.commentCount || 0)}</span> },
+          { key: "reaction", label: "Reaction", render: x => x.reaction ? <Pill color={reactionColor(x.reaction)}>{x.reaction}</Pill> : <span className="font-sans text-xs text-white/35">None yet</span> },
+          { key: "createdAt", label: "Docked", sort: x => when(x.createdAt)?.getTime() || 0, render: x => <span className="font-sans text-xs text-white/50">{when(x.createdAt)?.toLocaleDateString("en-IN", { dateStyle: "medium" }) || "-"}</span> },
+        ]}
+        rowActions={x => [
+          { icon: Eye, label: "Review", onClick: () => setOpenId(x.id) },
+          x.url && { icon: ExternalLink, label: "Open project", onClick: () => window.open(x.url, "_blank", "noopener") },
+          { icon: Trash2, label: "Delete", danger: true, onClick: () => handleDelete(x) },
+        ]}
+      />
+      <Drawer open={!!sel} onClose={() => setOpenId(null)} width={600} title={sel?.name || ""}
+        subtitle={sel ? `by @${sel.ownerHandle} · ${fmt(sel.likeCount || 0)} likes · ${fmt(sel.commentCount || 0)} comments` : ""}>
+        {sel && (
+          <div className="space-y-4">
+            {sel.description && <p className="font-sans text-sm text-white/70 leading-relaxed">{sel.description}</p>}
+            {sel.url && <SecondaryButton icon={ExternalLink} onClick={() => window.open(sel.url, "_blank", "noopener")}>Open project</SecondaryButton>}
+            <DrawerSection title="Reaction" hint="Shown on the project card. Pick one.">
+              <div className="flex flex-wrap gap-2">
                 {SHIP_REACTIONS.map(r => (
-                  <button key={r.v} disabled={working[p.id]} onClick={() => handleReaction(p, r.v)}
-                    className="font-mono text-[9px] px-2 py-1 rounded transition-colors disabled:opacity-50"
-                    style={{
-                      color:      p.reaction === r.v ? r.c : "rgba(255,255,255,0.3)",
-                      background: p.reaction === r.v ? `${r.c}12` : "rgba(255,255,255,0.03)",
-                      border:     p.reaction === r.v ? `1px solid ${r.c}35` : "1px solid rgba(255,255,255,0.06)",
-                    }}
-                  >{r.v}</button>
+                  <button key={r.v} disabled={working[sel.id]} onClick={() => handleReaction(sel, r.v)}
+                    className="font-sans text-sm px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
+                    style={sel.reaction === r.v ? { color: r.c, background: `${r.c}14`, borderColor: `${r.c}55` } : { color: "rgba(255,255,255,0.6)", borderColor: "rgba(255,255,255,0.1)" }}>
+                    {r.v}
+                  </button>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            </DrawerSection>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -6701,6 +7154,7 @@ function HackathonJudgingPanel() {
   const [loading,     setLoading]     = useState(false);
   const [drafts,      setDrafts]      = useState({});
   const [working,     setWorking]     = useState({});
+  const [openId,      setOpenId]      = useState(null);
 
   useEffect(() => {
     getDocs(query(collection(db, "hackathons"), orderBy("createdAt", "desc")))
@@ -6741,81 +7195,88 @@ function HackathonJudgingPanel() {
         rank:   d.rank  === "" ? null : parseInt(d.rank),
         winner: !!d.winner,
       });
+      logAdminActivity("scored hackathon submission", `${sub.projectName} (${slug}): ${d.score === "" ? "-" : d.score}`);
       loadSubmissions(slug);
     } catch (e) { console.error(e); }
     finally { setWorking(w => ({ ...w, [sub.id]: false })); }
   };
 
+  const scored = submissions.filter(s => s.score != null).length;
+  const winners = submissions.filter(s => s.winner).length;
+  const avg = scored ? submissions.filter(s => s.score != null).reduce((n, s) => n + s.score, 0) / scored : 0;
+  const sel = submissions.find(s => s.id === openId);
+  const d = sel ? drafts[sel.id] || {} : {};
+  const numCls = "w-full font-sans text-sm text-white/85 px-3 py-2 rounded-lg outline-none border border-white/10 focus:border-white/25 tabular-nums";
+
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="font-mono text-[10px] text-white/30 mb-2 tracking-wider">HACKATHON</p>
-        <div className="flex gap-2 flex-wrap">
-          {hackathons.length === 0 && <p className="font-mono text-xs text-white/20">No hackathons yet.</p>}
-          {hackathons.map(h => (
-            <button key={h.id} onClick={() => setSlug(h.id)}
-              className="font-mono text-[10px] px-2.5 py-1.5 rounded transition-colors"
-              style={{
-                color:      slug === h.id ? "#00FFFF" : "rgba(255,255,255,0.3)",
-                background: slug === h.id ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
-                border:     slug === h.id ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
-              }}
-            >{h.title}</button>
-          ))}
-        </div>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-sans text-sm text-white/55">Hackathon</span>
+        <select value={slug} onChange={e => setSlug(e.target.value)} aria-label="Hackathon to judge"
+          className="font-sans text-sm text-white/85 pl-3 pr-8 py-2 rounded-lg outline-none border border-white/10 min-w-[260px]"
+          style={{ background: "rgba(255,255,255,0.03)" }}>
+          {hackathons.length === 0 && <option value="">No hackathons yet</option>}
+          {hackathons.map(h => <option key={h.id} value={h.id} style={{ background: "#0b0f17" }}>{h.title}</option>)}
+        </select>
       </div>
 
-      {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading submissions...</p> : (
-        <div className="space-y-2 max-h-[600px] overflow-y-auto">
-          {slug && submissions.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no submissions yet</p>}
-          {submissions.map(sub => {
-            const d = drafts[sub.id] || {};
-            return (
-              <div key={sub.id} className="border border-white/6 rounded-lg p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-sans text-sm text-white/80 truncate">{sub.projectName}</p>
-                    <p className="font-mono text-[10px] text-neon-green/60">@{sub.handle}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <a href={sub.repoUrl} target="_blank" rel="noreferrer" className="font-mono text-[9px] text-neon-cyan/70 hover:text-neon-cyan flex items-center gap-1">
-                      <ExternalLink size={9} /> repo
-                    </a>
-                    {sub.demoUrl && (
-                      <a href={sub.demoUrl} target="_blank" rel="noreferrer" className="font-mono text-[9px] text-white/30 hover:text-white/60 flex items-center gap-1">
-                        <ExternalLink size={9} /> demo
-                      </a>
-                    )}
-                  </div>
-                </div>
-                {sub.description && <p className="font-mono text-[10px] text-white/30 leading-relaxed">{sub.description}</p>}
-                {sub.stack?.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {sub.stack.map(t => <span key={t} className="font-mono text-[9px] text-white/25 border border-white/8 px-1.5 py-0.5 rounded">{t}</span>)}
-                  </div>
-                )}
-                <div className="flex items-center gap-2 flex-wrap pt-1">
-                  <input type="number" value={d.score} onChange={e => setDraft(sub.id, "score", e.target.value)}
-                    placeholder="score" className="font-mono text-[10px] text-white/70 w-20 px-2 py-1 rounded outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }} />
-                  <input type="number" value={d.rank} onChange={e => setDraft(sub.id, "rank", e.target.value)}
-                    placeholder="rank" className="font-mono text-[10px] text-white/70 w-16 px-2 py-1 rounded outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }} />
-                  <button onClick={() => setDraft(sub.id, "winner", !d.winner)}
-                    className="font-mono text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1"
-                    style={d.winner
-                      ? { color: "#FFD700", background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)" }
-                      : { color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-                  ><Trophy size={9} /> winner</button>
-                  <button onClick={() => handleSave(sub)} disabled={working[sub.id]}
-                    className="font-mono text-[9px] px-2.5 py-1 text-neon-green border border-neon-green/25 hover:bg-neon-green/8 transition-colors disabled:opacity-50 ml-auto"
-                  >{working[sub.id] ? "..." : "save"}</button>
-                </div>
+      <StatGrid stats={[
+        { label: "Submissions", value: submissions.length, sub: "For this hackathon", icon: Upload, color: KIT.cyan, loading },
+        { label: "Scored", value: `${scored} / ${submissions.length}`, sub: submissions.length - scored ? `${submissions.length - scored} still to judge` : "All judged", icon: Gavel, color: submissions.length - scored ? KIT.orange : KIT.green, loading },
+        { label: "Average score", value: scored ? avg.toFixed(1) : "-", sub: "Of scored projects", icon: BarChart3, color: KIT.purple, loading },
+        { label: "Winners", value: winners, sub: "Marked as winner", icon: Trophy, color: KIT.gold, loading },
+      ]} />
+
+      <DataTable title="Submissions" icon={Gavel} subtitle="Highest score first. Click a project to review and score it."
+        rows={submissions} loading={loading}
+        searchKeys={["projectName", "handle", "description"]} searchPlaceholder="Search projects or builders..."
+        filters={[{ key: "judged", label: "All submissions", get: s => (s.score != null ? "scored" : "unscored"), options: [{ value: "unscored", label: "Not scored yet" }, { value: "scored", label: "Scored" }] }]}
+        onRowClick={s => setOpenId(s.id)} emptyText={slug ? "No submissions yet." : "Pick a hackathon."}
+        columns={[
+          { key: "projectName", label: "Project", render: s => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{s.projectName}{s.winner && <Trophy size={12} className="inline ml-1.5 -mt-0.5" style={{ color: KIT.gold }} />}</p>
+              <p className="font-sans text-xs text-white/40 truncate">@{s.handle}</p>
+            </div>
+          ) },
+          { key: "stack", label: "Stack", sortable: false, render: s => <span className="font-sans text-xs text-white/55 truncate block max-w-[200px]">{(s.stack || []).join(", ") || "-"}</span> },
+          { key: "score", label: "Score", sort: s => s.score ?? -1, render: s => s.score != null ? <span className="font-sans text-sm font-semibold text-white tabular-nums">{s.score}</span> : <Pill color={KIT.orange}>Not scored</Pill> },
+          { key: "rank", label: "Rank", sort: s => s.rank ?? 9999, render: s => <span className="font-sans text-sm text-white/70 tabular-nums">{s.rank ?? "-"}</span> },
+        ]}
+        rowActions={s => [
+          { icon: Gavel, label: "Score", onClick: () => setOpenId(s.id) },
+          s.repoUrl && { icon: ExternalLink, label: "Open repo", onClick: () => window.open(s.repoUrl, "_blank", "noopener") },
+        ]}
+      />
+
+      <Drawer open={!!sel} onClose={() => setOpenId(null)} width={620} title={sel?.projectName || ""} subtitle={sel ? `by @${sel.handle}` : ""}
+        footer={sel && <>
+          <SecondaryButton onClick={() => setOpenId(null)}>Close</SecondaryButton>
+          <PrimaryButton icon={Check} busy={working[sel.id]} onClick={() => handleSave(sel)}>Save score</PrimaryButton>
+        </>}>
+        {sel && (
+          <div className="space-y-4">
+            {sel.description && <p className="font-sans text-sm text-white/70 leading-relaxed">{sel.description}</p>}
+            <div className="flex flex-wrap gap-2">
+              {sel.repoUrl && <SecondaryButton icon={ExternalLink} onClick={() => window.open(sel.repoUrl, "_blank", "noopener")}>Repository</SecondaryButton>}
+              {sel.demoUrl && <SecondaryButton icon={ExternalLink} onClick={() => window.open(sel.demoUrl, "_blank", "noopener")}>Live demo</SecondaryButton>}
+            </div>
+            {sel.stack?.length > 0 && <div className="flex flex-wrap gap-1.5">{sel.stack.map(t => <Pill key={t} color={KIT.cyan}>{t}</Pill>)}</div>}
+            <DrawerSection title="Judging" hint="Leave score or rank empty to clear it.">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block"><span className="font-mono text-[10px] text-white/30 tracking-wider">SCORE</span>
+                  <input type="number" value={d.score} onChange={e => setDraft(sel.id, "score", e.target.value)} className={`${numCls} mt-1`} style={{ background: "rgba(255,255,255,0.03)" }} /></label>
+                <label className="block"><span className="font-mono text-[10px] text-white/30 tracking-wider">RANK</span>
+                  <input type="number" value={d.rank} onChange={e => setDraft(sel.id, "rank", e.target.value)} className={`${numCls} mt-1`} style={{ background: "rgba(255,255,255,0.03)" }} /></label>
               </div>
-            );
-          })}
-        </div>
-      )}
+              <label className="flex items-center gap-3">
+                <Toggle on={!!d.winner} label="Winner" onChange={v => setDraft(sel.id, "winner", v)} />
+                <span className="font-sans text-sm text-white/70">Mark as a winner</span>
+              </label>
+            </DrawerSection>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -6825,20 +7286,14 @@ function HackathonJudgingPanel() {
 function ArenaMatchesPanel() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter,  setFilter]  = useState("won");
   const [working, setWorking] = useState({});
 
-  const load = () => {
-    setLoading(true);
-    getDocs(query(collection(db, "arena_matches"), orderBy("finishedAt", "desc"), limit(100)))
+  useEffect(() => {
+    getDocs(query(collection(db, "arena_matches"), orderBy("finishedAt", "desc"), limit(300)))
       .then(snap => setMatches(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(console.error)
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const filtered = matches.filter(m => filter === "all" || m.status === filter);
+  }, []);
 
   const handleRevoke = async (m) => {
     if (!confirm(`Revoke this win by @${m.handle} (${m.xp} XP)?`)) return;
@@ -6848,56 +7303,71 @@ function ArenaMatchesPanel() {
       if (m.uid) {
         await updateDoc(doc(db, "users", m.uid), { xp: increment(-(m.xp || 0)), arenaWins: increment(-1) });
       }
+      logAdminActivity("revoked arena win", `@${m.handle} (${m.xp || 0} XP)`);
       setMatches(prev => prev.map(x => x.id === m.id ? { ...x, status: "revoked" } : x));
     } catch (e) { console.error(e); }
     finally { setWorking(w => ({ ...w, [m.id]: false })); }
   };
 
-  const STATUS_COLORS = { won: "#00FF41", forfeit: "rgba(255,255,255,0.3)", timeout: "#FF9500", revoked: "#FF5050" };
+  const STATUS_COLORS = { won: KIT.green, forfeit: "rgba(255,255,255,0.45)", timeout: KIT.orange, revoked: KIT.red };
+  const won = matches.filter(m => m.status === "won");
+  const xpAwarded = won.reduce((n, m) => n + (m.xp || 0), 0);
+  const when = (t) => (t?.toDate ? t.toDate() : null);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
-        {["won", "forfeit", "timeout", "revoked", "all"].map(s => (
-          <button key={s} onClick={() => setFilter(s)}
-            className="font-mono text-[10px] px-2.5 py-1 rounded transition-colors"
-            style={{
-              color:      filter === s ? "#00FFFF" : "rgba(255,255,255,0.3)",
-              background: filter === s ? "rgba(0,255,255,0.08)" : "rgba(255,255,255,0.03)",
-              border:     filter === s ? "1px solid rgba(0,255,255,0.3)" : "1px solid rgba(255,255,255,0.06)",
-            }}
-          >{s}</button>
-        ))}
-      </div>
-      {loading ? <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p> : (
-        <div className="space-y-2 max-h-[600px] overflow-y-auto">
-          {filtered.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no matches found</p>}
-          {filtered.map(m => (
-            <div key={m.id} className="flex items-center gap-3 border border-white/6 rounded-lg px-4 py-2.5">
-              <span className="font-mono text-xs text-white/70 flex-shrink-0">@{m.handle || "?"}</span>
-              <span className="font-mono text-[10px] text-white/35 flex-1 truncate">{m.challenge}</span>
-              <span className="font-mono text-[10px] flex-shrink-0" style={{ color: STATUS_COLORS[m.status] || "#666" }}>{(m.status || "").toUpperCase()}</span>
-              <span className="font-mono text-[10px] text-neon-cyan flex-shrink-0">+{m.xp || 0} XP</span>
-              {m.status === "won" && (
-                <button onClick={() => handleRevoke(m)} disabled={working[m.id]}
-                  className="font-mono text-[9px] px-2 py-1 text-red-400 border border-red-500/25 hover:bg-red-500/8 transition-colors disabled:opacity-50 flex-shrink-0"
-                >{working[m.id] ? "..." : "revoke"}</button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Matches loaded", value: matches.length, sub: "Most recent 300", icon: Crosshair, color: KIT.cyan, loading },
+        { label: "Wins", value: won.length, sub: matches.length ? `${Math.round((100 * won.length) / matches.length)}% of matches` : "", icon: Trophy, color: KIT.green, loading },
+        { label: "XP awarded", value: xpAwarded, sub: "From wins in this list", icon: Zap, color: KIT.purple, loading },
+        { label: "Revoked", value: matches.filter(m => m.status === "revoked").length, sub: "Wins taken back", icon: X, color: KIT.red, loading },
+      ]} />
+      <DataTable title="Arena matches" icon={Crosshair} subtitle="Finished matches, newest first. Revoking a win also takes back its XP."
+        rows={matches} loading={loading}
+        searchKeys={["handle", "challenge"]} searchPlaceholder="Search by player or challenge..."
+        filters={[{ key: "status", label: "All results", options: ["won", "forfeit", "timeout", "revoked"].map(v => ({ value: v, label: v[0].toUpperCase() + v.slice(1) })) }]}
+        emptyText="No matches yet."
+        columns={[
+          { key: "handle", label: "Player", render: m => <span className="font-sans text-sm font-medium text-white">@{m.handle || "?"}</span> },
+          { key: "challenge", label: "Challenge", render: m => <span className="font-sans text-sm text-white/65 truncate block max-w-[280px]">{m.challenge || "-"}</span> },
+          { key: "status", label: "Result", render: m => <Pill color={STATUS_COLORS[m.status] || KIT.muted}>{m.status ? m.status[0].toUpperCase() + m.status.slice(1) : "-"}</Pill> },
+          { key: "xp", label: "XP", sort: m => m.xp || 0, render: m => <span className="font-sans text-sm text-white/80 tabular-nums">+{fmt(m.xp || 0)}</span> },
+          { key: "finishedAt", label: "Finished", sort: m => when(m.finishedAt)?.getTime() || 0,
+            render: m => <span className="font-sans text-xs text-white/50">{when(m.finishedAt)?.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) || "-"}</span> },
+        ]}
+        rowActions={m => [m.status === "won" && { icon: X, label: "Revoke win", danger: true, disabled: working[m.id], onClick: () => handleRevoke(m) }]}
+      />
     </div>
   );
 }
 
 // ── Ranks ladder panel ────────────────────────────────────────────────────────
 
+// A titled settings block with its own save button - the admin console's
+// shape for config docs (system/economy, reward policy...), as opposed to
+// DataTable for collections.
+function SettingsCard({ title, subtitle, dirty, saving, saved, onSave, children }) {
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ background: KIT.surface, borderColor: KIT.line }}>
+      <div className="px-4 sm:px-5 py-4 border-b flex flex-wrap items-center gap-3" style={{ borderColor: KIT.line }}>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-sans text-base font-semibold text-white">{title}</h2>
+          {subtitle && <p className="font-sans text-xs text-white/45 mt-0.5 max-w-2xl">{subtitle}</p>}
+        </div>
+        {dirty && !saving && <span className="font-sans text-xs" style={{ color: KIT.orange }}>Unsaved changes</span>}
+        {onSave && <PrimaryButton icon={Check} busy={saving} disabled={!dirty && !saved} onClick={onSave}>{saved ? "Saved" : "Save changes"}</PrimaryButton>}
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </div>
+  );
+}
+
 function RanksPanel() {
   const [tiers,   setTiers]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
+  const [openIdx, setOpenIdx] = useState(null);
 
   useEffect(() => {
     getDoc(doc(db, "system", "ranks"))
@@ -6921,48 +7391,63 @@ function RanksPanel() {
         perks: perksRaw.split("\n").map(s => s.trim()).filter(Boolean),
       }));
       await setDoc(doc(db, "system", "ranks"), { tiers: cleaned, updatedAt: serverTimestamp() });
+      logAdminActivity("updated rank ladder", `${cleaned.length} tiers`);
+      setOpenIdx(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
   };
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  const rows = tiers.map((t, i) => ({ ...t, _i: i, _key: t.tier || String(i) }));
+  const sel = openIdx !== null ? tiers[openIdx] : null;
 
   return (
-    <div className="space-y-4">
-      <p className="font-mono text-[10px] text-white/18">
-        Edits the /ranks ladder display (color, requirement text, perks). XP thresholds that assign a user&apos;s tier are fixed in code and not changed here.
-      </p>
-      <div className="space-y-3">
-        {tiers.map((t, i) => (
-          <div key={t.tier} className="border border-white/8 rounded-lg p-4 space-y-3">
-            <p className="font-mono text-xs tracking-wider" style={{ color: t.color }}>{t.tier}</p>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Tiers", value: tiers.length, sub: "On the /ranks ladder", icon: Medal, color: KIT.gold, loading },
+        { label: "Locked tiers", value: tiers.filter(t => t.locked).length, sub: "Shown as locked", icon: LockIcon, color: KIT.orange, loading },
+        { label: "Perks", value: tiers.reduce((n, t) => n + (t.perksRaw || "").split("\n").filter(s => s.trim()).length, 0), sub: "Across all tiers", icon: Star, color: KIT.purple, loading },
+        { label: "Top tier", value: tiers[tiers.length - 1]?.tier || "-", sub: tiers[tiers.length - 1]?.xp || "", icon: Trophy, color: KIT.green, loading },
+      ]} />
+      <DataTable title="Rank ladder" icon={Medal}
+        subtitle="Edits how /ranks displays each tier. The XP thresholds that actually assign a user's tier live in code and don't change here."
+        rows={rows} loading={loading} rowKey={r => r._key} onRowClick={r => setOpenIdx(r._i)}
+        columns={[
+          { key: "tier", label: "Tier", sortable: false, render: t => (
+            <span className="inline-flex items-center gap-2 font-sans text-sm font-medium text-white">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />{t.tier}
+            </span>
+          ) },
+          { key: "xp", label: "XP", sortable: false, render: t => <span className="font-sans text-sm text-white/75 tabular-nums">{t.xp || "-"}</span> },
+          { key: "req", label: "Requirement", sortable: false, render: t => <span className="font-sans text-sm text-white/65 truncate block max-w-[260px]">{t.req || "-"}</span> },
+          { key: "perks", label: "Perks", sortable: false, render: t => <span className="font-sans text-sm text-white/60 tabular-nums">{(t.perksRaw || "").split("\n").filter(s => s.trim()).length}</span> },
+          { key: "locked", label: "Status", sortable: false, render: t => t.locked ? <Pill color={KIT.orange}>Locked</Pill> : <Pill color={KIT.green}>Unlocked</Pill> },
+        ]}
+        rowActions={t => [{ icon: Pencil, label: "Edit", onClick: () => setOpenIdx(t._i) }]}
+      />
+      <Drawer open={!!sel} onClose={() => setOpenIdx(null)} width={600} title={sel ? `Edit ${sel.tier}` : ""}
+        subtitle="Saving writes the whole ladder."
+        footer={<>
+          <SecondaryButton onClick={() => setOpenIdx(null)}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={saving} onClick={handleSave}>Save ladder</PrimaryButton>
+        </>}>
+        {sel && (
+          <div className="space-y-3">
             <div className="grid sm:grid-cols-3 gap-3">
-              <Input label="COLOR (hex)" value={t.color} onChange={v => update(i, "color", v)} placeholder="#00FFFF" />
-              <Input label="REQUIREMENT" value={t.req} onChange={v => update(i, "req", v)} placeholder="Win 1 Mission" />
-              <Input label="XP LABEL" value={t.xp} onChange={v => update(i, "xp", v)} placeholder="2,000+" />
+              <Input label="COLOR (hex)" value={sel.color} onChange={v => update(openIdx, "color", v)} placeholder="#00FFFF" />
+              <Input label="REQUIREMENT" value={sel.req} onChange={v => update(openIdx, "req", v)} placeholder="Win 1 Mission" />
+              <Input label="XP LABEL" value={sel.xp} onChange={v => update(openIdx, "xp", v)} placeholder="2,000+" />
             </div>
-            <Textarea label="PERKS (one per line)" value={t.perksRaw} onChange={v => update(i, "perksRaw", v)} rows={3} />
-            <button onClick={() => update(i, "locked", !t.locked)}
-              className="font-mono text-[10px] px-2.5 py-1 rounded transition-colors flex items-center gap-1.5 w-fit"
-              style={t.locked
-                ? { color: "#FF9500", background: "rgba(255,149,0,0.08)", border: "1px solid rgba(255,149,0,0.3)" }
-                : { color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-            ><Shield size={10} /> {t.locked ? "locked tier" : "unlocked tier"}</button>
+            <Textarea label="PERKS (one per line)" value={sel.perksRaw} onChange={v => update(openIdx, "perksRaw", v)} rows={5} />
+            <label className="flex items-center gap-3">
+              <Toggle on={!!sel.locked} label="Locked tier" onChange={v => update(openIdx, "locked", v)} />
+              <span className="font-sans text-sm text-white/65">Show this tier as locked</span>
+            </label>
           </div>
-        ))}
-      </div>
-      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-        onClick={handleSave} disabled={saving}
-        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        style={saved
-          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
-        }
-      >
-        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save rank ladder"}
-      </motion.button>
+        )}
+      </Drawer>
     </div>
   );
 }
@@ -6983,10 +7468,11 @@ function EconomyPanel() {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
+  const [initial, setInitial] = useState(null);
 
   useEffect(() => {
     getDoc(doc(db, "system", "economy"))
-      .then(snap => setForm({ ...DEFAULT_ECONOMY, ...(snap.exists() ? snap.data() : {}) }))
+      .then(snap => { const v = { ...DEFAULT_ECONOMY, ...(snap.exists() ? snap.data() : {}) }; setForm(v); setInitial(v); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -6996,34 +7482,49 @@ function EconomyPanel() {
     try {
       const cleaned = Object.fromEntries(ECONOMY_FIELDS.map(f => [f.k, parseInt(form[f.k]) || 0]));
       await setDoc(doc(db, "system", "economy"), { ...cleaned, updatedAt: serverTimestamp() });
+      logAdminActivity("updated wallet economy", ECONOMY_FIELDS.map(f => `${f.k}=${cleaned[f.k]}`).join(", "));
+      setInitial({ ...form, ...cleaned });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
   };
 
-  if (loading) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  const n = (k) => parseInt(form[k]) || 0;
+  const dirty = !!initial && ECONOMY_FIELDS.some(f => String(form[f.k] ?? "") !== String(initial[f.k] ?? ""));
+  const inrPerCoin = n("COINS_PER_INR") ? 1 / n("COINS_PER_INR") : 0;
+  const GROUPS = [
+    { title: "Earning rates", hint: "Coins a creator earns per engagement on their Pulse posts.", keys: ["PER_LIKE", "PER_COMMENT", "PER_SAVE"] },
+    { title: "Conversion & payouts", hint: "How coins turn into XP and real money on /wallet.", keys: ["XP_PER_COIN", "COINS_PER_INR", "MIN_PAYOUT"] },
+  ];
 
   return (
-    <div className="space-y-4">
-      <p className="font-mono text-[10px] text-white/18">
-        Drives the /wallet and /pulse coin-earning rates directly. Changes apply to new activity going forward.
-      </p>
-      <div className="grid sm:grid-cols-2 gap-3">
-        {ECONOMY_FIELDS.map(f => (
-          <Input key={f.k} label={f.label} type="number" value={form[f.k] ?? ""} onChange={v => setForm(p => ({ ...p, [f.k]: v }))} />
-        ))}
-      </div>
-      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-        onClick={handleSave} disabled={saving}
-        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        style={saved
-          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
-        }
-      >
-        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save economy config"}
-      </motion.button>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "1 coin is worth", value: inrPerCoin ? `₹${inrPerCoin.toFixed(inrPerCoin < 0.1 ? 3 : 2)}` : "-", sub: `${fmt(n("COINS_PER_INR"))} coins = ₹1`, icon: Coins, color: KIT.gold, loading },
+        { label: "Minimum payout", value: n("COINS_PER_INR") ? `₹${(n("MIN_PAYOUT") / n("COINS_PER_INR")).toFixed(2)}` : "-", sub: `${fmt(n("MIN_PAYOUT"))} coins`, icon: Wallet, color: KIT.green, loading },
+        { label: "A like earns", value: `${fmt(n("PER_LIKE"))} coins`, sub: `Comment ${fmt(n("PER_COMMENT"))} · save ${fmt(n("PER_SAVE"))}`, icon: Heart, color: KIT.red, loading },
+        { label: "1 coin gives", value: `${fmt(n("XP_PER_COIN"))} XP`, sub: "XP conversion rate", icon: Zap, color: KIT.purple, loading },
+      ]} />
+      <SettingsCard title="Wallet economy" dirty={dirty} saving={saving} saved={saved} onSave={handleSave}
+        subtitle="Drives /wallet and /pulse coin earning directly. Applies to new activity from the moment you save - past balances are not recalculated.">
+        {loading ? <div className="h-40 rounded-lg bg-white/[0.03] animate-pulse" /> : (
+          <div className="grid lg:grid-cols-2 gap-5">
+            {GROUPS.map(g => (
+              <div key={g.title} className="space-y-3">
+                <div>
+                  <h3 className="font-sans text-sm font-semibold text-white/90">{g.title}</h3>
+                  <p className="font-sans text-xs text-white/40">{g.hint}</p>
+                </div>
+                {ECONOMY_FIELDS.filter(f => g.keys.includes(f.k)).map(f => (
+                  <Input key={f.k} label={f.label} type="number" value={form[f.k] ?? ""} onChange={v => setForm(p => ({ ...p, [f.k]: v }))} />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </SettingsCard>
     </div>
   );
 }
@@ -7062,6 +7563,7 @@ function RewardPolicyPanel() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [initial, setInitial] = useState(null);
 
   useEffect(() => {
     loadRewardPolicy().then(policy => {
@@ -7072,6 +7574,7 @@ function RewardPolicyPanel() {
         flat[f.key] = { xp: mod.xp ?? policy.defaults.xp, coins: mod.coins ?? policy.defaults.coins };
       }
       setForm(flat);
+      setInitial(JSON.stringify(flat));
     }).catch(console.error);
   }, []);
 
@@ -7091,137 +7594,337 @@ function RewardPolicyPanel() {
         defaults: { xp: parseInt(form.defaults.xp) || 0, coins: parseInt(form.defaults.coins) || 0 },
         modules,
       });
+      logAdminActivity("updated reward policy", `default ${form.defaults.xp} XP / ${form.defaults.coins} coins`);
+      setInitial(JSON.stringify(form));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
   };
 
-  if (!form) return <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>;
+
+  const dirty = !!form && initial !== JSON.stringify(form);
+  const mods = form ? REWARD_MODULE_FIELDS.filter(f => f.key !== "defaults") : [];
+  const custom = form ? mods.filter(f => String(form[f.key].xp) !== String(form.defaults.xp) || String(form[f.key].coins) !== String(form.defaults.coins)).length : 0;
+  const cell = "w-full font-sans text-sm text-white/85 px-3 py-2 rounded-lg outline-none border border-white/10 focus:border-white/25 tabular-nums";
 
   return (
-    <div className="space-y-4">
-      <p className="font-mono text-[10px] text-white/18">
-        What a topic pays on a perfect paper - spread across its questions, wrong answers cost a fraction (see lib/rewardPolicy.js). An admin-set xpReward/coinReward on a specific topic still overrides these.
-      </p>
-      <div className="space-y-1.5">
-        <div className="grid grid-cols-[1fr_84px_84px] gap-3 px-1">
-          <span />
-          <p className="font-mono text-[9px] text-white/25 text-center tracking-wider">XP</p>
-          <p className="font-mono text-[9px] text-white/25 text-center tracking-wider">COINS</p>
-        </div>
-        {REWARD_MODULE_FIELDS.map(f => (
-          <div key={f.key} className="grid grid-cols-[1fr_84px_84px] items-center gap-3">
-            <p className="font-mono text-[11px] text-white/50 tracking-wide truncate" title={f.label}>{f.label}</p>
-            <input type="number" value={form[f.key]?.xp ?? ""}
-              onChange={e => setFieldValue(f.key, "xp", e.target.value)}
-              className="w-full font-mono text-xs text-white/80 px-2.5 py-1.5 rounded outline-none transition-colors"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-              onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
-              onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-            />
-            <input type="number" value={form[f.key]?.coins ?? ""}
-              onChange={e => setFieldValue(f.key, "coins", e.target.value)}
-              className="w-full font-mono text-xs text-white/80 px-2.5 py-1.5 rounded outline-none transition-colors"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-              onFocus={e => (e.target.style.borderColor = "rgba(0,255,255,0.35)")}
-              onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-            />
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Default reward", value: form ? `${fmt(parseInt(form.defaults.xp) || 0)} XP` : null, sub: form ? `${fmt(parseInt(form.defaults.coins) || 0)} coins per perfect topic` : "", icon: Trophy, color: KIT.green, loading: !form },
+        { label: "Modules", value: mods.length, sub: "With their own reward", icon: Layers, color: KIT.cyan },
+        { label: "Custom rates", value: form ? custom : null, sub: "Differ from the default", icon: Pencil, color: KIT.orange, loading: !form },
+        { label: "Highest XP", value: form ? Math.max(...REWARD_MODULE_FIELDS.map(f => parseInt(form[f.key].xp) || 0)) : null, sub: "Any single module", icon: Zap, color: KIT.purple, loading: !form },
+      ]} />
+      <SettingsCard title="Reward policy" dirty={dirty} saving={saving} saved={saved} onSave={handleSave}
+        subtitle="What a topic pays on a perfect paper, spread across its questions (wrong answers cost a fraction - see lib/rewardPolicy.js). A topic's own xpReward/coinReward still overrides these.">
+        {!form ? <div className="h-64 rounded-lg bg-white/[0.03] animate-pulse" /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px]">
+              <thead><tr className="border-b" style={{ borderColor: KIT.line }}>
+                <th className="font-sans text-[11px] font-semibold uppercase tracking-wider text-white/40 text-left py-2.5 pr-3">Module</th>
+                <th className="font-sans text-[11px] font-semibold uppercase tracking-wider text-white/40 text-left py-2.5 px-2 w-32">XP</th>
+                <th className="font-sans text-[11px] font-semibold uppercase tracking-wider text-white/40 text-left py-2.5 pl-2 w-32">Coins</th>
+              </tr></thead>
+              <tbody>
+                {REWARD_MODULE_FIELDS.map(f => (
+                  <tr key={f.key} className="border-b last:border-b-0" style={{ borderColor: KIT.line, background: f.key === "defaults" ? "rgba(0,255,65,0.03)" : undefined }}>
+                    <td className="py-2 pr-3 font-sans text-sm text-white/80">
+                      {f.label.replace(/ \(.*\)$/, "").toLowerCase().replace(/^\w/, c => c.toUpperCase())}
+                      {f.key === "defaults" && <span className="font-sans text-xs text-white/40 ml-2">fallback for any module</span>}
+                    </td>
+                    <td className="py-2 px-2"><input type="number" aria-label={`${f.label} XP`} value={form[f.key]?.xp ?? ""} onChange={e => setFieldValue(f.key, "xp", e.target.value)} className={cell} style={{ background: "rgba(255,255,255,0.03)" }} /></td>
+                    <td className="py-2 pl-2"><input type="number" aria-label={`${f.label} coins`} value={form[f.key]?.coins ?? ""} onChange={e => setFieldValue(f.key, "coins", e.target.value)} className={cell} style={{ background: "rgba(255,255,255,0.03)" }} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
-      <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-        onClick={handleSave} disabled={saving}
-        className="w-full font-mono text-xs py-2.5 border transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        style={saved
-          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.4)", background: "rgba(0,255,65,0.06)" }
-          : { color: "#00FFFF", borderColor: "rgba(0,255,255,0.3)" }
-        }
-      >
-        {saved ? <><Check size={12} /> saved!</> : saving ? "saving..." : "save reward policy"}
-      </motion.button>
+        )}
+      </SettingsCard>
     </div>
   );
 }
 
 // ── Main admin page ───────────────────────────────────────────────────────────
 
-const ADMIN_TABS = [
-  { key: "moderation", label: "MODERATION",  icon: ShieldCheck, color: "#00FF41" },
-  { key: "overview",   label: "OVERVIEW",    icon: BarChart3, color: "#00FFFF" },
-  { key: "challenges", label: "CHALLENGES",  icon: Zap,       color: "#FF9500" },
-  { key: "community",  label: "COMMUNITY",   icon: Users,     color: "#C77DFF" },
-  { key: "content",    label: "CONTENT",     icon: BookOpen,  color: "#A78BFA" },
-  { key: "economy",    label: "ECONOMY",     icon: Coins,     color: "#FFD700" },
-  { key: "ops",        label: "OPS",         icon: GitCommit, color: "#00FF41" },
+// ── Admin console shell ───────────────────────────────────────────────────────
+//
+// One registry drives the sidebar, the Ctrl/Cmd+K search, the breadcrumb and
+// the URL (/admin?tab=<group>&section=<section>). A new admin capability is
+// ONE entry here, inside the group that actually owns it - a group's name must
+// describe everything under it (the first version filed Campus sales and job
+// applications under "Community", and payouts beside database tools).
+// Section keys are unique across ALL groups, so an old link keeps working
+// after a section moves group: resolveLocation() finds it by key.
+// `superOnly` hides a section from anyone without the superAdmin claim.
+const ADMIN_NAV = [
+  { key: "overview", label: "Overview", icon: BarChart3, sections: [
+    { key: "dashboard", label: "Dashboard",    icon: BarChart3,     Panel: DashboardPanel,       desc: "Platform-wide numbers at a glance." },
+    { key: "activity",  label: "Activity log", icon: ClipboardList, Panel: ActivityLogPanel, desc: "Every admin action, newest first." },
+  ]},
+  { key: "moderation", label: "Moderation", icon: ShieldCheck, sections: [
+    { key: "pulse",    label: "Pulse queue", icon: ShieldCheck, Panel: PulseModerationPanel, desc: "Approve or reject posts waiting for review.", badge: "pending" },
+    { key: "shipyard", label: "Shipyard",    icon: Anchor,      Panel: ShipyardPanel,        desc: "Review projects submitted to Shipyard." },
+  ]},
+  { key: "users", label: "Users", icon: Users, sections: [
+    { key: "users",      label: "Users",      icon: Users, Panel: UsersPanel,      desc: "Search, inspect and manage accounts." },
+    { key: "notifications", label: "Notifications", icon: Megaphone, Panel: NotificationsPanel, desc: "Send notifications to users." },
+  ]},
+  { key: "community", label: "Community", icon: Activity, sections: [
+    { key: "pulse-feed",    label: "Pulse feed",    icon: Activity,  Panel: PulsePanel,         desc: "Published Pulse posts." },
+    { key: "communities",   label: "Communities",   icon: Users,     Panel: CommunitiesPanel,   desc: "Community spaces and their settings." },
+    { key: "portfolios", label: "Portfolios", icon: Star,  Panel: PortfoliosPanel, desc: "Featured developer portfolios." },
+  ]},
+  { key: "challenges", label: "Challenges", icon: Zap, sections: [
+    { key: "codelab",       label: "CodeLab problems",  icon: Code2,     Panel: CodingProblemsPanel,   desc: "Problems, test cases and publishing." },
+    { key: "missions",      label: "Missions",          icon: Target,    Panel: MissionsPanel,         desc: "Bounty-style missions with rewards." },
+    { key: "grind",         label: "Daily Grind",       icon: Zap,       Panel: GrindPanel,            desc: "The daily coding challenge rotation." },
+    { key: "arena",         label: "Arena challenges",  icon: Swords,    Panel: ArenaPanel,            desc: "Head-to-head Arena problems." },
+    { key: "arena-matches", label: "Arena matches",     icon: Crosshair, Panel: ArenaMatchesPanel,     desc: "Live and completed Arena matches." },
+    { key: "build",         label: "Build challenges",  icon: Hammer,    Panel: BuildChallengesPanel,  desc: "Project-based build challenges." },
+  ]},
+  { key: "events", label: "Events", icon: Trophy, sections: [
+    { key: "contests",      label: "Contests",          icon: Trophy,    Panel: ContestsPanel,         desc: "Timed coding contests." },
+    { key: "hackathons",    label: "Hackathons",        icon: Trophy,    Panel: HackathonsPanel,       desc: "Hackathon events and registrations." },
+    { key: "judging",       label: "Hackathon judging", icon: Gavel,     Panel: HackathonJudgingPanel, desc: "Score and rank hackathon submissions." },
+  ]},
+  { key: "learning", label: "Learning", icon: GraduationCap, sections: [
+    { key: "learning-paths",  label: "Learning paths",        icon: GraduationCap, Panel: LearningPanel,             desc: "Courses, modules and tasks. Tasks unlock in order for learners." },
+    { key: "se-fundamentals", label: "SE Fundamentals",       icon: Network,       Panel: SeModulesPanel,            desc: "The Software Engineering Fundamentals course." },
+    { key: "programming",     label: "Programming languages", icon: CodeXml,       Panel: ProgrammingLanguagesPanel, desc: "Language roadmaps and lessons." },
+    { key: "cs-core",         label: "CS Core subjects",      icon: BrainCircuit,  Panel: CsCoreSubjectsPanel,       desc: "Core computer science subjects." },
+    { key: "aptitude",        label: "Aptitude questions",    icon: ListChecks,    Panel: AptitudePanel,             desc: "Aptitude & reasoning question bank." },
+    { key: "aptitude-topics", label: "Aptitude lessons",      icon: GraduationCap, Panel: AptitudeTopicsPanel,       desc: "Per-topic aptitude lesson content." },
+    { key: "company-prep",    label: "Company prep",          icon: Briefcase,     Panel: CompanyPrepPanel,          desc: "Company-specific interview prep." },
+  ]},
+  { key: "gate", label: "GATE", icon: Layers, sections: [
+    { key: "gate-papers",    label: "Papers & syllabus",       icon: GraduationCap, Panel: GatePapersPanel,       desc: "Seed GATE papers from the official syllabus." },
+    { key: "gate-subjects",  label: "Subjects & lessons",      icon: Layers,        Panel: GateSubjectsPanel,     desc: "Subject, topic and lesson content." },
+    { key: "gate-import",    label: "Bulk lesson import",      icon: Upload,        Panel: GateLessonImportPanel, desc: "Import many lessons at once." },
+    { key: "gate-pyqs",      label: "Previous year questions", icon: ListChecks,    Panel: GatePyqPanel,          desc: "Review PYQ drafts before publishing." },
+    { key: "gate-tests",     label: "Tests & mocks",           icon: ClipboardList, Panel: GateTestsPanel,        desc: "Topic tests and full mocks." },
+    { key: "gate-formulas",  label: "Formula book",            icon: BookOpen,      Panel: GateFormulaPanel,      desc: "The GATE formula reference." },
+    { key: "gate-resources", label: "Resources & notices",     icon: Megaphone,     Panel: GateResourcesPanel,    desc: "GATE resources and announcements." },
+  ]},
+  { key: "campus", label: "Campus", icon: Building2, sections: [
+    { key: "institutions",  label: "Institutions",  icon: Building2, Panel: InstitutionsPanel, desc: "Campus institutions and their admins." },
+    { key: "demo-requests", label: "Demo requests", icon: Inbox,     Panel: DemoRequestsPanel, desc: "Colleges asking for a Campus demo." },
+    { key: "ambassadors",   label: "Ambassadors",   icon: Building2, Panel: AmbassadorPanel,   desc: "Campus ambassador applications." },
+  ]},
+  { key: "careers", label: "Careers", icon: Briefcase, sections: [
+    { key: "careers",       label: "Job openings",  icon: Briefcase, Panel: CareersPanel,       desc: "Roles listed on careers.devert.in." },
+    { key: "job-applications", label: "Job applications", icon: Inbox, Panel: JobApplicationsPanel, desc: "Candidates who applied on careers.devert.in." },
+  ]},
+  { key: "media", label: "News & media", icon: Radio, sections: [
+    { key: "intel",         label: "Intel feed",    icon: Radio,     Panel: IntelPanel,         desc: "Tech news on the Intel page." },
+    { key: "opportunities", label: "Opportunities", icon: Briefcase, Panel: OpportunitiesPanel, desc: "Internships, jobs and programs." },
+    { key: "resources",     label: "Resources",     icon: BookOpen,  Panel: ResourcesPanel,     desc: "Curated learning resources." },
+    { key: "broadcast",     label: "Broadcast",     icon: Tv2,       Panel: BroadcastPanel,     desc: "Broadcast page content." },
+  ]},
+  { key: "economy", label: "Economy", icon: Coins, sections: [
+    { key: "wallet",  label: "Wallet economy", icon: Coins,  Panel: EconomyPanel,      desc: "Coin reward amounts and conversion." },
+    { key: "rewards", label: "Reward policy",  icon: Trophy, Panel: RewardPolicyPanel, desc: "Rules for when rewards are granted." },
+    { key: "ranks",   label: "Rank ladder",    icon: Medal,  Panel: RanksPanel,        desc: "Tiers and the XP needed for each." },
+    { key: "payouts",  label: "Payout requests",     icon: Wallet,    Panel: PayoutsPanel,         desc: "Review and process wallet payouts." },
+  ]},
+  { key: "platform", label: "Platform", icon: Server, sections: [
+    { key: "features", label: "Feature switches",    icon: Power,     Panel: FeatureSwitchesPanel, desc: "Turn any DeVert feature on or off for every user." },
+    { key: "services", label: "APIs & services",     icon: Server,    Panel: ApiServicesPanel,     desc: "Live health of every service DeVert runs on, plus the Cloud Functions and backend inventory." },
+    { key: "database", label: "Database",            icon: Database,  Panel: DatabasePanel,        desc: "Every Firestore collection with live document counts. Browse read-only." },
+    { key: "logs",     label: "System logs",         icon: GitCommit, Panel: LogsPanel,            desc: "Changelog and system events." },
+    { key: "roles",    label: "Roles & permissions", icon: Shield,    Panel: RolesPanel,           desc: "Campus roles and the permission catalog.", superOnly: true },
+  ]},
 ];
 
-function AdminCommandPalette({ onClose, onNavigate }) {
-  const [query, setQuery] = useState("");
-  const results = ADMIN_TABS.filter(t => t.label.toLowerCase().includes(query.toLowerCase()));
+// One accent for "you are here" instead of a colour per tab.
+const ACCENT = "#00FF41";
+const BADGE_STYLE = { background: "#FF9500", color: "#05080F" };
+
+function visibleNav(isSuperAdmin) {
+  return ADMIN_NAV
+    .map(g => ({ ...g, sections: g.sections.filter(s => !s.superOnly || isSuperAdmin) }))
+    .filter(g => g.sections.length > 0);
+}
+
+// Old links were /admin?tab=<group> only - resolve those to the group's first
+// section so bookmarks keep working. Unknown values land on Overview.
+function resolveLocation(nav, tab, section) {
+  const owner = section && nav.find(g => g.sections.some(s => s.key === section));
+  if (owner) return { tab: owner.key, section };
+  const group = nav.find(g => g.key === tab) || nav[0];
+  return { tab: group.key, section: group.sections[0].key };
+}
+
+function AdminCommandPalette({ nav, onClose, onNavigate }) {
+  const [q, setQ] = useState("");
+  const [cursor, setCursor] = useState(0);
+  const all = nav.flatMap(g => g.sections.map(s => ({ ...s, group: g })));
+  const needle = q.trim().toLowerCase();
+  const results = needle
+    ? all.filter(s => `${s.label} ${s.group.label} ${s.sub || ""} ${s.desc}`.toLowerCase().includes(needle))
+    : all;
+  const active = Math.min(cursor, Math.max(results.length - 1, 0));
+
+  const go = (s) => { onNavigate(s.group.key, s.key); onClose(); };
+  const onKey = (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setCursor(Math.min(active + 1, results.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setCursor(Math.max(active - 1, 0)); }
+    else if (e.key === "Enter" && results[active]) go(results[active]);
+    else if (e.key === "Escape") onClose();
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[90] flex items-start justify-center pt-[15vh]"
-      style={{ background: "rgba(0,0,0,0.7)" }}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[90] flex items-start justify-center pt-[12vh] px-4"
+      style={{ background: "rgba(0,0,0,0.65)" }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <motion.div
-        initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-        className="terminal-window w-full max-w-md" onClick={e => e.stopPropagation()}
+      <motion.div initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+        className="w-full max-w-lg rounded-xl overflow-hidden border border-white/10"
+        style={{ background: "#0b0f17", boxShadow: "0 24px 48px rgba(0,0,0,0.6)" }}
+        onClick={e => e.stopPropagation()}
       >
-        <div className="terminal-header">
-          <span className="font-mono text-[10px] text-white/25 ml-2">admin_palette.sh</span>
+        <div className="flex items-center gap-2.5 px-4 border-b border-white/8">
+          <Search size={15} className="text-white/35" />
+          <input autoFocus value={q} onChange={e => { setQ(e.target.value); setCursor(0); }} onKeyDown={onKey}
+            placeholder="Search admin sections..."
+            className="flex-1 font-sans text-sm text-white/90 py-3.5 outline-none bg-transparent placeholder:text-white/30"
+          />
+          <kbd className="font-mono text-[10px] text-white/30 border border-white/10 rounded px-1.5 py-0.5">Esc</kbd>
         </div>
-        <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
-          placeholder="jump to section..."
-          className="w-full font-mono text-sm text-white/80 px-4 py-3 outline-none bg-transparent border-b border-white/6 placeholder:text-white/25"
-        />
-        <div className="p-2 max-h-72 overflow-y-auto">
-          {results.map(tab => {
-            const Icon = tab.icon;
+        <div className="p-1.5 max-h-80 overflow-y-auto">
+          {results.map((s, i) => {
+            const Icon = s.icon;
             return (
-              <button key={tab.key} onClick={() => { onNavigate(tab.key); onClose(); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-mono text-xs text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+              <button key={`${s.group.key}/${s.key}`} onClick={() => go(s)} onMouseEnter={() => setCursor(i)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors"
+                style={{ background: i === active ? "rgba(255,255,255,0.06)" : "transparent" }}
               >
-                <Icon size={13} style={{ color: tab.color }} /> {tab.label}
+                <Icon size={14} className="text-white/45 flex-shrink-0" />
+                <span className="font-sans text-sm text-white/85 truncate">{s.label}</span>
+                <span className="ml-auto font-sans text-xs text-white/30 flex-shrink-0">{s.group.label}{s.sub ? ` / ${s.sub}` : ""}</span>
               </button>
             );
           })}
-          {results.length === 0 && <p className="font-mono text-xs text-white/20 text-center py-4">no matches</p>}
+          {results.length === 0 && <p className="font-sans text-sm text-white/30 text-center py-6">No matching sections</p>}
         </div>
       </motion.div>
     </motion.div>
   );
 }
 
+function AdminSidebar({ nav, loc, openGroups, toggleGroup, onNavigate, pendingCount }) {
+  return (
+    <nav className="flex flex-col h-full">
+      <div className="h-14 flex items-center gap-2.5 px-5 border-b border-white/8 flex-shrink-0">
+        <img src="/Logo.png" alt="" className="w-6 h-6 object-contain" />
+        <span className="font-sans text-sm font-semibold text-white">DeVert</span>
+        <span className="font-sans text-[11px] text-white/45 border border-white/10 rounded px-1.5 py-px">Admin</span>
+      </div>
+      <div className="flex-1 overflow-y-auto no-scrollbar py-3 px-3 space-y-0.5">
+        {nav.map(g => {
+          const GIcon = g.icon;
+          const isOpen = openGroups.has(g.key);
+          const isActiveGroup = loc.tab === g.key;
+          const groupBadge = g.sections.some(s => s.badge === "pending") ? pendingCount : 0;
+          let lastSub = null;
+          return (
+            <div key={g.key}>
+              <button onClick={() => toggleGroup(g.key)} aria-expanded={isOpen}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md font-sans text-[13px] transition-colors hover:bg-white/5"
+                style={{ color: isActiveGroup ? "#fff" : "rgba(255,255,255,0.62)" }}
+              >
+                <GIcon size={15} style={{ color: isActiveGroup ? ACCENT : "rgba(255,255,255,0.4)" }} />
+                <span className="font-medium">{g.label}</span>
+                <span className="ml-auto flex items-center gap-2">
+                  {groupBadge > 0 && !isOpen && (
+                    <span className="font-mono text-[10px] font-semibold rounded-full px-1.5 min-w-[18px] text-center" style={BADGE_STYLE}>{groupBadge}</span>
+                  )}
+                  <ChevronDown size={13} className={`text-white/30 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+                </span>
+              </button>
+              {isOpen && (
+                <div className="ml-[18px] pl-3 border-l border-white/8 mt-0.5 mb-1.5 space-y-px">
+                  {g.sections.map(s => {
+                    const isActive = isActiveGroup && loc.section === s.key;
+                    const showSub = s.sub && s.sub !== lastSub;
+                    if (s.sub) lastSub = s.sub;
+                    return (
+                      <div key={s.key}>
+                        {showSub && (
+                          <p className="font-sans text-[10px] font-semibold uppercase tracking-wider text-white/30 px-2.5 pt-2.5 pb-1">{s.sub}</p>
+                        )}
+                        <button onClick={() => onNavigate(g.key, s.key)}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md font-sans text-[13px] text-left transition-colors ${isActive ? "" : "hover:bg-white/[0.04] hover:text-white/80"}`}
+                          style={{
+                            color: isActive ? "#fff" : "rgba(255,255,255,0.5)",
+                            background: isActive ? "rgba(0,255,65,0.09)" : undefined,
+                            boxShadow: isActive ? `inset 2px 0 0 ${ACCENT}` : "none",
+                          }}
+                        >
+                          <span className="truncate">{s.label}</span>
+                          {s.badge === "pending" && pendingCount > 0 && (
+                            <span className="ml-auto font-mono text-[10px] font-semibold rounded-full px-1.5 min-w-[18px] text-center" style={BADGE_STYLE}>{pendingCount}</span>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 function AdminPageInner() {
-  const { user, loading, isAdmin, adminChecked, logout } = useAuth();
+  const { user, loading, isAdmin, isSuperAdmin, adminChecked, logout } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => {
-    const fromUrl = searchParams.get("tab");
-    return ADMIN_TABS.some(t => t.key === fromUrl) ? fromUrl : "moderation";
-  });
+  const nav = visibleNav(isSuperAdmin);
+  const [loc, setLoc] = useState(() => resolveLocation(ADMIN_NAV, searchParams.get("tab"), searchParams.get("section")));
+  const [openGroups, setOpenGroups] = useState(() => new Set([loc.tab]));
   const [pendingCount, setPendingCount] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Refreshing the admin panel used to always drop back to Moderation,
-  // discarding whichever tab (Overview/Content/Community/Challenges/
-  // Economy/Ops) the admin was actually working in - a real cost on the
-  // single busiest internal screen. Bypasses Next.js's router (replaceState
-  // directly) for the same reason campus-app.jsx's own tab-sync effect
-  // does: updating the URL shouldn't trigger a navigation/re-render, just
-  // keep the address bar (and a refresh) in sync with client state.
+  const navigate = (tab, section) => {
+    setLoc({ tab, section });
+    setOpenGroups(prev => prev.has(tab) ? prev : new Set(prev).add(tab));
+    setDrawerOpen(false);
+    // pushState (not replaceState) so browser back/forward moves between
+    // sections. Bypasses Next's router for the same reason campus-app.jsx's
+    // tab sync does: this URL change is bookkeeping, not a navigation.
+    window.history.pushState(null, "", `/admin?tab=${tab}&section=${section}`);
+    document.getElementById("admin-main")?.scrollTo({ top: 0 });
+  };
+  const toggleGroup = (key) => setOpenGroups(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+
+  // Normalise the address bar once (a ?tab=-only link gains its section),
+  // then follow back/forward.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const url = `/admin?tab=${activeTab}`;
-    window.history.replaceState(null, "", url);
-  }, [activeTab]);
+    window.history.replaceState(null, "", `/admin?tab=${loc.tab}&section=${loc.section}`);
+    const onPop = () => {
+      const p = new URLSearchParams(window.location.search);
+      const next = resolveLocation(ADMIN_NAV, p.get("tab"), p.get("section"));
+      setLoc(next);
+      setOpenGroups(prev => new Set(prev).add(next.tab));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Live pending-moderation count, shown as a badge on the tab and a banner
-  // on Overview - this is the number admins care about above everything else.
+  // Live pending-moderation count - the number admins care about above
+  // everything else - shown in the sidebar and as a top-bar pill.
   useEffect(() => {
     if (!isAdmin) return;
     const unsub = onSnapshot(
@@ -7232,7 +7935,7 @@ function AdminPageInner() {
     return unsub;
   }, [isAdmin]);
 
-  // Cmd/Ctrl+K jumps between admin sections without touching the mouse.
+  // Cmd/Ctrl+K opens section search without touching the mouse.
   useEffect(() => {
     const onKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -7244,10 +7947,10 @@ function AdminPageInner() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Unauthorized visitors (logged out or logged in but not the admin
-  // account) never see any part of this UI - not an "access denied" screen,
-  // not a /login?next=/admin URL revealing the route exists. Straight to
-  // /pulse, silently, exactly like the route was never there.
+  // Unauthorized visitors (logged out or logged in but not an admin) never
+  // see any part of this UI - not an "access denied" screen, not a
+  // /login?next=/admin URL revealing the route exists. Straight to /pulse,
+  // silently, exactly like the route was never there.
   useEffect(() => {
     if (loading || !adminChecked) return;
     if (!user || !isAdmin) router.replace("/pulse");
@@ -7257,295 +7960,114 @@ function AdminPageInner() {
     return <main className="min-h-screen bg-background" />;
   }
 
-  const activeColor = ADMIN_TABS.find(t => t.key === activeTab)?.color || "#00FFFF";
+  // Re-resolved against the visible nav, so a superOnly section in the URL
+  // falls back to its group's first section for a plain admin.
+  const safe = resolveLocation(nav, loc.tab, loc.section);
+  const group = nav.find(g => g.key === safe.tab);
+  const section = group.sections.find(s => s.key === safe.section);
+  const { Panel } = section;
+  const SectionIcon = section.icon;
+
+  const sidebar = (
+    <AdminSidebar nav={nav} loc={safe} openGroups={openGroups} toggleGroup={toggleGroup}
+      onNavigate={navigate} pendingCount={pendingCount} />
+  );
 
   return (
-    <main className="min-h-screen pt-10 pb-32 px-6 relative">
-      <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
-
-      <div className="relative max-w-5xl mx-auto">
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="font-mono text-xs text-neon-green/55 mb-3 tracking-wider">// /admin - control_panel.sh</p>
-            <h1 className="font-sans font-bold tracking-tighter text-white leading-none" style={{ fontSize: "clamp(2rem,5vw,3.5rem)" }}>
-              ADMIN <span className="text-neon-cyan">PANEL</span>
-            </h1>
-            <p className="font-mono text-xs text-white/30 mt-2">{user.email}</p>
-          </div>
-          <div className="flex items-center gap-3 mt-2">
-            <button onClick={() => setPaletteOpen(true)}
-              className="font-mono text-[10px] text-white/25 hover:text-neon-cyan transition-colors flex items-center gap-1.5 border border-white/8 px-2.5 py-1.5 rounded-lg"
-            >
-              <Command size={11} /> ⌘K
-            </button>
-            <button onClick={async () => { await logout(); router.push("/"); }}
-              className="font-mono text-xs text-white/25 hover:text-red-400 transition-colors flex items-center gap-1.5"
-            >
-              <LogOut size={12} /> logout
-            </button>
-          </div>
-        </motion.div>
-
-        {pendingCount > 0 && activeTab !== "moderation" && (
-          <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setActiveTab("moderation")}
-            className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-lg font-mono text-xs transition-colors"
-            style={{ background: "rgba(255,149,0,0.08)", border: "1px solid rgba(255,149,0,0.3)", color: "#FF9500" }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-            Pending Approvals ({pendingCount}) - jump to moderation →
-          </motion.button>
+    <div className="fixed inset-0 flex" style={{ background: "rgba(5,7,12,0.6)" }}>
+      {/* Sidebar - a fixed column on desktop, a drawer below lg */}
+      <aside className="hidden lg:block w-64 flex-shrink-0 border-r border-white/8" style={{ background: "rgba(8,11,18,0.94)" }}>
+        {sidebar}
+      </aside>
+      <AnimatePresence>
+        {drawerOpen && (
+          <>
+            <motion.div key="scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="lg:hidden fixed inset-0 z-[70] bg-black/60" onClick={() => setDrawerOpen(false)} />
+            <motion.aside key="drawer" initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ duration: 0.18 }}
+              className="lg:hidden fixed inset-y-0 left-0 z-[80] w-72 border-r border-white/8" style={{ background: "#0a0e16" }}>
+              {sidebar}
+            </motion.aside>
+          </>
         )}
+      </AnimatePresence>
 
-        {/* Tab navigation */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="terminal-window mb-6 overflow-hidden"
-        >
-          <div className="terminal-header">
-            <span className="font-mono text-[10px] text-white/25 ml-2">control_panel.tabs</span>
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Top bar */}
+        <header className="h-14 flex-shrink-0 flex items-center gap-3 px-4 lg:px-6 border-b border-white/8" style={{ background: "rgba(8,11,18,0.9)" }}>
+          <button onClick={() => setDrawerOpen(true)} aria-label="Open menu"
+            className="lg:hidden p-1.5 -ml-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/5">
+            <Menu size={18} />
+          </button>
+          <div className="flex items-center gap-1.5 font-sans text-sm min-w-0">
+            <span className="text-white/40 hidden sm:inline">{group.label}</span>
+            {section.sub && (
+              <>
+                <ChevronRight size={13} className="text-white/20 hidden md:inline" />
+                <span className="text-white/40 hidden md:inline">{section.sub}</span>
+              </>
+            )}
+            <ChevronRight size={13} className="text-white/20 hidden sm:inline" />
+            <span className="text-white font-medium truncate">{section.label}</span>
           </div>
-          <div className="flex items-stretch overflow-x-auto no-scrollbar">
-            {ADMIN_TABS.map((tab, i) => {
-              const isActive = activeTab === tab.key;
-              const Icon = tab.icon;
-              return (
-                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className="relative flex items-center gap-2 px-5 py-3.5 font-mono text-[11px] tracking-wider flex-shrink-0 transition-all"
-                  style={{
-                    color: isActive ? tab.color : "rgba(255,255,255,0.3)",
-                    background: isActive ? `${tab.color}08` : "transparent",
-                    borderRight: i < ADMIN_TABS.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                  }}
-                >
-                  <Icon size={12} />
-                  {tab.label}
-                  {isActive && (
-                    <motion.div layoutId="adminTabIndicator"
-                      className="absolute bottom-0 left-0 right-0 h-[2px]"
-                      style={{ background: tab.color }}
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </motion.div>
 
-        {/* Tab content */}
-        <AnimatePresence mode="wait">
-          <motion.div key={activeTab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
+          <button onClick={() => setPaletteOpen(true)} aria-label="Search sections"
+            className="ml-auto flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-white/40 hover:text-white/70 hover:border-white/20 transition-colors md:w-64"
           >
-            {activeTab === "moderation" && (
-              <Section title="PULSE MODERATION" icon={ShieldCheck} color="#00FF41" defaultOpen={true}>
-                <PulseModerationPanel />
-              </Section>
-            )}
+            <Search size={14} />
+            <span className="font-sans text-[13px] hidden md:inline">Search sections</span>
+            <kbd className="ml-auto font-mono text-[10px] border border-white/10 rounded px-1.5 py-px hidden md:inline">Ctrl K</kbd>
+          </button>
 
-            {activeTab === "overview" && (
-              <>
-                <Section title="PLATFORM STATS" icon={BarChart3} color="#00FFFF" defaultOpen={true}>
-                  <StatsPanel />
-                </Section>
-                <Section title="ACTIVITY LOG" icon={ClipboardList} color="#C77DFF">
-                  <ActivityLogPanel />
-                </Section>
-              </>
-            )}
+          {pendingCount > 0 && (
+            <button onClick={() => navigate("moderation", "pulse")}
+              className="hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-sans text-xs transition-colors hover:brightness-125"
+              style={{ background: "rgba(255,149,0,0.1)", border: "1px solid rgba(255,149,0,0.3)", color: "#FF9500" }}
+            >
+              <Bell size={13} /> {pendingCount} pending
+            </button>
+          )}
 
-            {activeTab === "challenges" && (
-              <>
-                <Section title="MISSIONS" icon={Target} color="#00FFFF" defaultOpen={true}>
-                  <MissionsPanel />
-                </Section>
-                <Section title="DAILY GRIND CHALLENGES" icon={Zap} color="#00FF41">
-                  <GrindPanel />
-                </Section>
-                <Section title="ARENA CHALLENGES" icon={Swords} color="#FF9500">
-                  <ArenaPanel />
-                </Section>
-                <Section title="BUILD CHALLENGES" icon={Hammer} color="#FF9500">
-                  <BuildChallengesPanel />
-                </Section>
-                <Section title="CONTESTS" icon={Trophy} color="#00FFFF">
-                  <ContestsPanel />
-                </Section>
-                <Section title="CODELAB PROBLEMS" icon={Code2} color="#C77DFF">
-                  <CodingProblemsPanel />
-                </Section>
-                <Section title="HACKATHONS" icon={Trophy} color="#FF6430">
-                  <HackathonsPanel />
-                </Section>
-                <Section title="HACKATHON JUDGING" icon={Gavel} color="#FF6430">
-                  <HackathonJudgingPanel />
-                </Section>
-                <Section title="ARENA MATCHES" icon={Crosshair} color="#FF9500">
-                  <ArenaMatchesPanel />
-                </Section>
-              </>
-            )}
+          <div className="hidden md:flex items-center gap-2 pl-3 border-l border-white/8">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center font-sans text-xs font-semibold" style={{ background: "rgba(0,255,65,0.12)", color: ACCENT }}>
+              {(user.email || "?")[0].toUpperCase()}
+            </div>
+            <span className="font-sans text-xs text-white/50 max-w-[180px] truncate">{user.email}</span>
+          </div>
+          <button onClick={async () => { await logout(); router.push("/"); }} title="Log out" aria-label="Log out"
+            className="p-1.5 rounded-md text-white/40 hover:text-red-400 hover:bg-white/5 transition-colors">
+            <LogOut size={16} />
+          </button>
+        </header>
 
-            {activeTab === "community" && (
-              <>
-                <Section title="USERS" icon={Users} color="#C77DFF" defaultOpen={true}>
-                  <UsersPanel />
-                </Section>
-                {/* Sits directly above Institutions on purpose: a demo request from
-                    the public "Bring DeVert to your campus" pitch is the step
-                    BEFORE an institution row exists below - this is that sales
-                    inbox. */}
-                <Section title="CAMPUS DEMO REQUESTS" icon={Inbox} color="#FF9500" defaultOpen={true}>
-                  <DemoRequestsPanel />
-                </Section>
-                <Section title="CAMPUS INSTITUTIONS" icon={Building2} color="#0E7C86">
-                  <InstitutionsPanel />
-                </Section>
-                {/* Sits next to Institutions on purpose: an approved ambassador is
-                    the usual first step toward a new institution appearing above. */}
-                <Section title="CAMPUS AMBASSADORS" icon={Building2} color="#00FFFF">
-                  <AmbassadorPanel />
-                </Section>
-                {/* Third of the three inboxes, grouped with them rather than with
-                    the job-posting editor in CONTENT: working a queue of people
-                    is the same job as the two above it, and nothing like
-                    authoring a posting. */}
-                <Section title="JOB APPLICATIONS" icon={Inbox} color="#FF9500">
-                  <JobApplicationsPanel />
-                </Section>
-                <Section title="SHIPYARD MODERATION" icon={Anchor} color="#00FFFF">
-                  <ShipyardPanel />
-                </Section>
-                <Section title="PORTFOLIOS" icon={Star} color="#FFD700">
-                  <PortfoliosPanel />
-                </Section>
-                <Section title="PULSE FEED" icon={Activity} color="#00FF41">
-                  <PulsePanel />
-                </Section>
-                <Section title="COMMUNITIES" icon={Users} color="#00FF41">
-                  <CommunitiesPanel />
-                </Section>
-                <Section title="NOTIFICATIONS" icon={Megaphone} color="#C77DFF">
-                  <NotificationsPanel />
-                </Section>
-              </>
-            )}
+        {/* Content - one section at a time, no accordions */}
+        <main id="admin-main" className="flex-1 overflow-y-auto">
+          <div className="max-w-6xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
+            <div className="flex items-start gap-3 mb-6">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border border-white/10" style={{ background: "rgba(255,255,255,0.03)" }}>
+                <SectionIcon size={17} style={{ color: ACCENT }} />
+              </div>
+              <div className="min-w-0">
+                <h1 className="font-sans text-xl font-semibold text-white leading-tight">{section.label}</h1>
+                <p className="font-sans text-sm text-white/45 mt-0.5">{section.desc}</p>
+              </div>
+            </div>
 
-            {activeTab === "content" && (
-              <>
-                <Section title="LEARNING PATHS" icon={GraduationCap} color="#00FF41" defaultOpen={true}>
-                  <LearningPanel />
-                </Section>
-                <Section title="APTITUDE & REASONING" icon={ListChecks} color="#00FFFF">
-                  <AptitudePanel />
-                </Section>
-                <Section title="APTITUDE - TOPIC LESSON CONTENT" icon={GraduationCap} color="#00FFFF">
-                  <AptitudeTopicsPanel />
-                </Section>
-                <Section title="COMPANY PREP" icon={Briefcase} color="#FF9500">
-                  <CompanyPrepPanel />
-                </Section>
-                {/* DeVert own hiring, not a Campus learning module. It sits in
-                    CONTENT because a job posting IS authored content, and inside
-                    an existing tab rather than a new top-level one, per
-                    CLAUDE.md. Its applications inbox lives in COMMUNITY with the
-                    other queues. */}
-                <Section title="CAREERS - JOB OPENINGS" icon={Briefcase} color="#00FF41">
-                  <CareersPanel />
-                </Section>
-                <Section title="PROGRAMMING LANGUAGES" icon={CodeXml} color="#00FFFF">
-                  <ProgrammingLanguagesPanel />
-                </Section>
-                <Section title="CS CORE SUBJECTS" icon={BrainCircuit} color="#A78BFA">
-                  <CsCoreSubjectsPanel />
-                </Section>
-                {/* Software Engineering Fundamentals - the core-platform flagship
-                    course (app/fundamentals). Deliberately listed BEFORE the GATE
-                    block: it is a core DeVert product, not part of the Campus
-                    exam-prep vertical, and its curriculum seeder is the first
-                    thing a new deployment needs. */}
-                <Section title="SOFTWARE ENGINEERING FUNDAMENTALS" icon={Network} color="#7DD3FC">
-                  <SeModulesPanel />
-                </Section>
-                {/* GATE - seven sections inside the existing CONTENT tab rather than
-                    a new top-level admin tab, per CLAUDE.md. Papers comes first
-                    because everything else below is paper-scoped and nothing can be
-                    authored until a paper exists (one click, from the official
-                    transcribed syllabus). Bulk Lesson Import sits directly after the
-                    per-topic editor it scales up, so the two are found together. */}
-                <Section title="GATE PAPERS & SYLLABUS SEEDING" icon={GraduationCap} color="#00E5A0">
-                  <GatePapersPanel />
-                </Section>
-                <Section title="GATE SUBJECTS & LESSON CONTENT" icon={Layers} color="#00E5A0">
-                  <GateSubjectsPanel />
-                </Section>
-                <Section title="GATE BULK LESSON IMPORT" icon={Upload} color="#00E5A0">
-                  <GateLessonImportPanel />
-                </Section>
-                <Section title="GATE PREVIOUS YEAR QUESTIONS" icon={ListChecks} color="#00E5A0">
-                  <GatePyqPanel />
-                </Section>
-                <Section title="GATE TESTS & MOCKS" icon={ClipboardList} color="#00E5A0">
-                  <GateTestsPanel />
-                </Section>
-                <Section title="GATE FORMULA BOOK" icon={BookOpen} color="#00E5A0">
-                  <GateFormulaPanel />
-                </Section>
-                <Section title="GATE RESOURCES & ANNOUNCEMENTS" icon={Megaphone} color="#00E5A0">
-                  <GateResourcesPanel />
-                </Section>
-                <Section title="INTEL FEED" icon={Radio} color="#C77DFF">
-                  <IntelPanel />
-                </Section>
-                <Section title="INTEL - OPPORTUNITIES" icon={Briefcase} color="#00FF41">
-                  <OpportunitiesPanel />
-                </Section>
-                <Section title="INTEL RESOURCES" icon={BookOpen} color="#FF9500">
-                  <ResourcesPanel />
-                </Section>
-                <Section title="BROADCAST" icon={Tv2} color="#FF6430">
-                  <BroadcastPanel />
-                </Section>
-              </>
-            )}
-
-            {activeTab === "economy" && (
-              <>
-                <Section title="RANK LADDER" icon={Medal} color="#FFD700" defaultOpen={true}>
-                  <RanksPanel />
-                </Section>
-                <Section title="WALLET ECONOMY" icon={Coins} color="#00FF41">
-                  <EconomyPanel />
-                </Section>
-                <Section title="REWARD POLICY" icon={Trophy} color="#FF9500">
-                  <RewardPolicyPanel />
-                </Section>
-              </>
-            )}
-
-            {activeTab === "ops" && (
-              <>
-                <Section title="PAYOUT REQUESTS" icon={Wallet} color="#A78BFA" defaultOpen={true}>
-                  <PayoutsPanel />
-                </Section>
-                <Section title="SYSTEM LOGS" icon={GitCommit} color="#00FF41">
-                  <LogsPanel />
-                </Section>
-              </>
-            )}
-          </motion.div>
-        </AnimatePresence>
+            {/* No wrapper card: every section is built from the admin kit, which
+                brings its own cards (StatGrid, DataTable, SettingsCard...). */}
+            <motion.div key={`${safe.tab}/${safe.section}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
+              <Panel />
+            </motion.div>
+          </div>
+        </main>
       </div>
 
       <AnimatePresence>
         {paletteOpen && (
-          <AdminCommandPalette onClose={() => setPaletteOpen(false)} onNavigate={setActiveTab} />
+          <AdminCommandPalette nav={nav} onClose={() => setPaletteOpen(false)} onNavigate={navigate} />
         )}
       </AnimatePresence>
-    </main>
+    </div>
   );
 }
 

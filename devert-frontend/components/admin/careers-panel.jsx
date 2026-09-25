@@ -27,18 +27,23 @@
 import { useEffect, useState } from "react";
 import { serverTimestamp } from "firebase/firestore";
 import {
-  Briefcase, Check, Eye, EyeOff, Loader2, Plus, RefreshCw, Trash2, X,
+  Briefcase, Check, Copy, Eye, FileText, Inbox, Pencil, Plus, RefreshCw, Trash2, XCircle,
 } from "lucide-react";
 import { Input, Textarea } from "@/components/admin/admin-ui";
 import {
-  EMPLOYMENT_TYPES, JOB_STATUS, LOCATION_TYPES, deleteRole, fetchAllRoles,
-  saveRole, setRoleStatus, slugify,
+  KIT, fmt, StatGrid, Pill, Toggle, DataTable, Drawer, DrawerSection,
+  PrimaryButton, SecondaryButton,
+} from "@/components/admin/admin-kit";
+import { logAdminActivity } from "@/lib/adminActivityLog";
+import {
+  APPLICATION_STATUS, EMPLOYMENT_TYPES, JOB_STATUS, LOCATION_TYPES, deleteRole,
+  fetchAllRoles, fetchApplications, saveRole, setRoleStatus, slugify,
 } from "@/lib/careers";
 
 const STATUS_META = {
-  [JOB_STATUS.DRAFT]: { label: "DRAFT", color: "#FF9500" },
-  [JOB_STATUS.PUBLISHED]: { label: "PUBLISHED", color: "#00FF41" },
-  [JOB_STATUS.CLOSED]: { label: "CLOSED", color: "rgba(255,255,255,0.35)" },
+  [JOB_STATUS.DRAFT]: { label: "Draft", color: KIT.orange },
+  [JOB_STATUS.PUBLISHED]: { label: "Published", color: KIT.green },
+  [JOB_STATUS.CLOSED]: { label: "Closed", color: KIT.muted },
 };
 
 const EMPTY = {
@@ -48,10 +53,22 @@ const EMPTY = {
   order: "500", validThrough: "",
 };
 
+// fetchApplications() caps at this many docs; the applications stat says so
+// when it is hit rather than presenting a truncated count as the total.
+const APPLICATION_CAP = 200;
+
+const labelOf = (list, value) => list.find((o) => o.value === value)?.label || value || "-";
+
 // One item per line, the same shape every other array field in this console uses
 // (hackathon whyParticipate, coding-problem hints, ambassador tier perks).
 const toLines = (arr) => (arr || []).join("\n");
 const fromLines = (text) => (text || "").split("\n").map((s) => s.trim()).filter(Boolean);
+
+const tsMillis = (ts) => (ts?.toMillis ? ts.toMillis() : ts?.seconds ? ts.seconds * 1000 : 0);
+const fmtDate = (ts) => {
+  const ms = tsMillis(ts);
+  return ms ? new Date(ms).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+};
 
 function Select({ label, value, onChange, options }) {
   return (
@@ -68,8 +85,34 @@ function Select({ label, value, onChange, options }) {
   );
 }
 
+// Row -> form, shared by edit and duplicate.
+function formFromRole(r) {
+  return {
+    title: r.title || "",
+    team: r.team || "",
+    employmentType: r.employmentType || "full-time",
+    locationType: r.locationType || "hybrid",
+    location: r.location || "",
+    experience: r.experience || "",
+    blurb: r.blurb || "",
+    description: r.description || "",
+    responsibilities: toLines(r.responsibilities),
+    requirements: toLines(r.requirements),
+    niceToHave: toLines(r.niceToHave),
+    perks: toLines(r.perks),
+    order: String(Number.isFinite(r.order) ? r.order : 500),
+    // <input type="date"> needs yyyy-mm-dd; a Firestore Timestamp is neither.
+    validThrough: r.validThrough?.toDate
+      ? r.validThrough.toDate().toISOString().slice(0, 10)
+      : (r.validThrough || ""),
+  };
+}
+
 export function CareersPanel() {
   const [rows, setRows] = useState(null);
+  // Application counts per jobId. Loaded alongside the roles but failing on its
+  // own - a missing count must never hide the postings themselves.
+  const [apps, setApps] = useState(null);
   const [editing, setEditing] = useState(null); // slug being edited, or "" for a new role
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState("");
@@ -78,14 +121,16 @@ export function CareersPanel() {
 
   useEffect(() => {
     let alive = true;
-    setError("");
     fetchAllRoles()
-      .then((r) => { if (alive) setRows(r); })
+      .then((r) => { if (alive) { setRows(r); setError(""); } })
       .catch((e) => {
         if (!alive) return;
         setRows([]);
         setError(e?.message || "Could not load job openings.");
       });
+    fetchApplications(APPLICATION_CAP)
+      .then((a) => { if (alive) setApps(a); })
+      .catch(() => { if (alive) setApps([]); });
     return () => { alive = false; };
   }, [nonce]);
 
@@ -96,26 +141,18 @@ export function CareersPanel() {
   const startEdit = (r) => {
     setEditing(r.id);
     setError("");
-    setForm({
-      title: r.title || "",
-      team: r.team || "",
-      employmentType: r.employmentType || "full-time",
-      locationType: r.locationType || "hybrid",
-      location: r.location || "",
-      experience: r.experience || "",
-      blurb: r.blurb || "",
-      description: r.description || "",
-      responsibilities: toLines(r.responsibilities),
-      requirements: toLines(r.requirements),
-      niceToHave: toLines(r.niceToHave),
-      perks: toLines(r.perks),
-      order: String(Number.isFinite(r.order) ? r.order : 500),
-      // <input type="date"> needs yyyy-mm-dd; a Firestore Timestamp is neither.
-      validThrough: r.validThrough?.toDate
-        ? r.validThrough.toDate().toISOString().slice(0, 10)
-        : (r.validThrough || ""),
-    });
+    setForm(formFromRole(r));
   };
+
+  // A duplicate is a NEW role (editing = ""), so it gets its own slug from its
+  // own title and lands as a draft - the collision check in save() still applies.
+  const startDuplicate = (r) => {
+    setEditing("");
+    setError("");
+    setForm({ ...formFromRole(r), title: `${r.title || ""} (copy)` });
+  };
+
+  const closeDrawer = () => { setEditing(null); setError(""); };
 
   const save = async () => {
     if (!form.title.trim()) { setError("A role needs a title."); return; }
@@ -147,6 +184,9 @@ export function CareersPanel() {
         perks: fromLines(form.perks),
         order: Number(form.order) || 500,
         validThrough: form.validThrough ? new Date(form.validThrough) : null,
+        // Admin-only bookkeeping for the table's "Updated" column. Deliberately a
+        // separate field from postedAt - see the next comment.
+        updatedAt: serverTimestamp(),
         // Stamped once, on creation. A re-save must not move datePosted - that
         // field is what Google keys a JobPosting's freshness off, and quietly
         // bumping it every time a typo is fixed is the kind of thing that gets
@@ -154,6 +194,7 @@ export function CareersPanel() {
         ...(existing ? {} : { postedAt: serverTimestamp(), status: JOB_STATUS.DRAFT }),
       };
       await saveRole(slug, payload);
+      logAdminActivity(existing ? "updated job opening" : "created job opening", `${payload.title} (${slug})`, "careers");
       setEditing(null);
       setNonce((n) => n + 1);
     } catch (e) {
@@ -169,6 +210,7 @@ export function CareersPanel() {
     try {
       await setRoleStatus(slug, status);
       setRows((prev) => prev.map((r) => (r.id === slug ? { ...r, status } : r)));
+      logAdminActivity(`set job opening ${status}`, slug, "careers");
     } catch (e) {
       setError(e?.message || "Could not change that role's status.");
     } finally {
@@ -184,6 +226,8 @@ export function CareersPanel() {
     try {
       await deleteRole(slug);
       setRows((prev) => prev.filter((r) => r.id !== slug));
+      logAdminActivity("deleted job opening", slug, "careers");
+      if (editing === slug) setEditing(null);
     } catch (e) {
       setError(e?.message || "Could not delete that role.");
     } finally {
@@ -191,38 +235,126 @@ export function CareersPanel() {
     }
   };
 
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <button onClick={startNew}
-          className="font-mono text-[10px] tracking-wider px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-          style={{ color: "#00FF41", background: "rgba(0,255,65,0.08)", border: "1px solid rgba(0,255,65,0.3)" }}>
-          <Plus size={10} /> NEW ROLE
-        </button>
-        <button onClick={() => setNonce((n) => n + 1)}
-          className="ml-auto font-mono text-[10px] text-white/35 flex items-center gap-1.5 px-2.5 py-1.5">
-          <RefreshCw size={10} /> refresh
-        </button>
-      </div>
+  const loading = rows === null;
+  const list = rows || [];
+  const countBy = (s) => list.filter((r) => (r.status || JOB_STATUS.DRAFT) === s).length;
+  const appsByJob = (apps || []).reduce((m, a) => { m[a.jobId] = (m[a.jobId] || 0) + 1; return m; }, {});
+  const newApps = (apps || []).filter((a) => a.status === APPLICATION_STATUS.NEW).length;
+  const teams = [...new Set(list.map((r) => r.team).filter(Boolean))];
+  const editingRow = editing ? list.find((r) => r.id === editing) : null;
 
-      {error && (
-        <p className="font-mono text-[10.5px] mb-3 px-3 py-2 rounded-lg"
-          style={{ color: "#FF9A9A", background: "rgba(255,80,80,0.06)", border: "1px solid rgba(255,80,80,0.2)" }}>
+  return (
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "Job openings", value: list.length, sub: `${countBy(JOB_STATUS.DRAFT)} drafts`, icon: Briefcase, color: KIT.cyan, loading },
+        { label: "Published", value: countBy(JOB_STATUS.PUBLISHED), sub: "Listed on careers.devert.in", icon: Eye, color: KIT.green, loading },
+        { label: "Closed", value: countBy(JOB_STATUS.CLOSED), sub: "No longer listed", icon: XCircle, color: KIT.orange, loading },
+        {
+          label: "Applications", value: apps?.length ?? 0,
+          sub: apps && apps.length >= APPLICATION_CAP ? `latest ${APPLICATION_CAP} loaded - ${newApps} new` : `${newApps} awaiting review`,
+          icon: Inbox, color: KIT.purple, loading: apps === null,
+        },
+      ]} />
+
+      {error && editing === null && (
+        <p className="font-sans text-sm px-3 py-2 rounded-lg"
+          style={{ color: KIT.red, background: `${KIT.red}0F`, border: `1px solid ${KIT.red}33` }}>
           {error}
         </p>
       )}
 
-      {editing !== null && (
-        <div className="p-4 rounded-lg mb-5"
-          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(0,255,255,0.18)" }}>
-          <div className="flex items-center justify-between mb-4">
-            <p className="font-mono text-[11px]" style={{ color: "#00FFFF" }}>
-              {editing ? `EDIT / ${editing}` : "NEW ROLE"}
-            </p>
-            <button onClick={() => setEditing(null)} className="text-white/30"><X size={13} /></button>
-          </div>
+      <DataTable title="Job openings" icon={Briefcase}
+        subtitle="Roles on careers.devert.in. New roles start as drafts; publishing lists them immediately."
+        rows={list} loading={loading}
+        searchKeys={["title", "team", "id", "location", "blurb"]} searchPlaceholder="Search roles..."
+        filters={[
+          { key: "status", label: "All statuses", get: (r) => r.status || JOB_STATUS.DRAFT,
+            options: Object.entries(STATUS_META).map(([value, m]) => ({ value, label: m.label })) },
+          { key: "employmentType", label: "All types", options: EMPLOYMENT_TYPES.map((o) => ({ value: o.value, label: o.label })) },
+          { key: "locationType", label: "All locations", options: LOCATION_TYPES.map((o) => ({ value: o.value, label: o.label })) },
+          ...(teams.length ? [{ key: "team", label: "All teams", options: teams.map((t) => ({ value: t, label: t })) }] : []),
+        ]}
+        primaryAction={{ label: "New role", icon: Plus, onClick: startNew }}
+        toolbarExtra={(
+          <button onClick={() => setNonce((n) => n + 1)}
+            className="ml-auto inline-flex items-center gap-1.5 font-sans text-xs text-white/50 hover:text-white px-2 py-2">
+            <RefreshCw size={12} /> Refresh
+          </button>
+        )}
+        onRowClick={startEdit}
+        emptyText="No job openings yet. Seed some with scripts/seed-job-openings.mjs, or create one."
+        columns={[
+          { key: "title", label: "Role", render: (r) => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{r.title || "(untitled)"}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{r.team || "No team"} - careers.devert.in/{r.id}</p>
+            </div>
+          ) },
+          { key: "locationType", label: "Location", render: (r) => (
+            <div className="min-w-0">
+              <p className="font-sans text-sm text-white/75 truncate">{labelOf(LOCATION_TYPES, r.locationType)}{r.location ? `, ${r.location}` : ""}</p>
+              <p className="font-sans text-xs text-white/40">{labelOf(EMPLOYMENT_TYPES, r.employmentType)}</p>
+            </div>
+          ) },
+          { key: "applications", label: "Applications", sort: (r) => appsByJob[r.id] || 0, render: (r) => (
+            <span className="font-sans text-sm text-white/70 tabular-nums">{apps === null ? "-" : fmt(appsByJob[r.id] || 0)}</span>
+          ) },
+          { key: "updatedAt", label: "Updated", sort: (r) => tsMillis(r.updatedAt) || tsMillis(r.postedAt), render: (r) => (
+            <span className="font-sans text-xs text-white/55">{fmtDate(r.updatedAt || r.postedAt)}</span>
+          ) },
+          { key: "status", label: "Status", sort: (r) => r.status || JOB_STATUS.DRAFT, render: (r) => {
+            const meta = STATUS_META[r.status] || STATUS_META[JOB_STATUS.DRAFT];
+            const live = r.status === JOB_STATUS.PUBLISHED;
+            return (
+              <div className="flex items-center gap-2.5">
+                {/* On publishes; off CLOSES rather than returning to draft - a
+                    role that was live has been seen, and "closed" says so. */}
+                <Toggle on={live} disabled={busy === r.id} label={`${live ? "Close" : "Publish"} ${r.title || r.id}`}
+                  onChange={(on) => changeStatus(r.id, on ? JOB_STATUS.PUBLISHED : JOB_STATUS.CLOSED)} />
+                <Pill color={meta.color}>{meta.label}</Pill>
+              </div>
+            );
+          } },
+        ]}
+        rowActions={(r) => [
+          { icon: Pencil, label: "Edit", onClick: () => startEdit(r) },
+          { icon: Copy, label: "Duplicate", onClick: () => startDuplicate(r) },
+          { icon: Trash2, label: "Delete", danger: true, disabled: busy === r.id, onClick: () => remove(r.id) },
+        ]}
+      />
 
-          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+      <p className="font-sans text-xs text-white/35 leading-relaxed">
+        Publishing shows a role on careers.devert.in straight away - that list is a live query.
+        Its own careers.devert.in/&#123;slug&#125; page and its Google-indexable JobPosting markup are
+        built at deploy time (a SEPARATE app and Hosting target, devert-careers - so shipping a new
+        role URL means deploying that site, not this one).
+      </p>
+
+      <Drawer open={editing !== null} onClose={closeDrawer}
+        title={editing ? `Edit ${form.title || editing}` : "New role"}
+        subtitle={editing ? `careers.devert.in/${editing} - the slug is locked once created` : "Saved as a draft; publish it from the table."}
+        footer={<>
+          {editingRow && (
+            <div className="mr-auto">
+              <Pill color={(STATUS_META[editingRow.status] || STATUS_META[JOB_STATUS.DRAFT]).color}>
+                {(STATUS_META[editingRow.status] || STATUS_META[JOB_STATUS.DRAFT]).label}
+              </Pill>
+            </div>
+          )}
+          <SecondaryButton onClick={closeDrawer}>Cancel</SecondaryButton>
+          <PrimaryButton icon={Check} busy={busy === "save"} disabled={!form.title.trim()} onClick={save}>
+            {editing ? "Save changes" : "Create as draft"}
+          </PrimaryButton>
+        </>}>
+        {error && (
+          <p className="font-sans text-sm mb-4 px-3 py-2 rounded-lg"
+            style={{ color: KIT.red, background: `${KIT.red}0F`, border: `1px solid ${KIT.red}33` }}>
+            {error}
+          </p>
+        )}
+
+        <DrawerSection title="Role" hint="What the listing on careers.devert.in shows.">
+          <div className="grid sm:grid-cols-2 gap-3">
             <Input label="TITLE" value={form.title} onChange={set("title")}
               placeholder="Frontend Engineer" maxLength={120}
               hint={editing ? `slug locked: ${editing}` : `slug will be: ${slugify(form.title) || "..."}`} />
@@ -231,98 +363,35 @@ export function CareersPanel() {
             <Select label="LOCATION TYPE" value={form.locationType} onChange={set("locationType")} options={LOCATION_TYPES} />
             <Input label="LOCATION" value={form.location} onChange={set("location")} placeholder="Hyderabad" maxLength={80} />
             <Input label="EXPERIENCE" value={form.experience} onChange={set("experience")} placeholder="0-2 years" maxLength={40} />
+          </div>
+          <Input label="BLURB" value={form.blurb} onChange={set("blurb")} maxLength={200}
+            placeholder="One line shown on the careers list" hint={`${form.blurb.length}/200`} />
+        </DrawerSection>
+
+        <DrawerSection title="Listing" hint="Ordering and structured data.">
+          <div className="grid sm:grid-cols-2 gap-3">
             <Input label="ORDER" value={form.order} onChange={set("order")} type="number"
               hint="lower sorts first on careers.devert.in" />
             <Input label="VALID THROUGH" value={form.validThrough} onChange={set("validThrough")} type="date"
               hint="optional - used by JobPosting structured data" />
           </div>
+        </DrawerSection>
 
-          <div className="space-y-3">
-            <Input label="BLURB" value={form.blurb} onChange={set("blurb")} maxLength={200}
-              placeholder="One line shown on the careers list" hint={`${form.blurb.length}/200`} />
-            <Textarea label="DESCRIPTION" value={form.description} onChange={set("description")} rows={4}
-              placeholder="The full prose intro shown at the top of the role page." />
-            <Textarea label="RESPONSIBILITIES (one per line)" value={form.responsibilities} onChange={set("responsibilities")} rows={5} />
-            <Textarea label="REQUIREMENTS (one per line)" value={form.requirements} onChange={set("requirements")} rows={5} />
-            <Textarea label="NICE TO HAVE (one per line)" value={form.niceToHave} onChange={set("niceToHave")} rows={3} />
-            <Textarea label="WHAT YOU GET (one per line)" value={form.perks} onChange={set("perks")} rows={4} />
-          </div>
+        <DrawerSection title="Role page" hint="The body of careers.devert.in/{slug}. List fields take one item per line.">
+          <Textarea label="DESCRIPTION" value={form.description} onChange={set("description")} rows={4}
+            placeholder="The full prose intro shown at the top of the role page." />
+          <Textarea label="RESPONSIBILITIES (one per line)" value={form.responsibilities} onChange={set("responsibilities")} rows={5} />
+          <Textarea label="REQUIREMENTS (one per line)" value={form.requirements} onChange={set("requirements")} rows={5} />
+          <Textarea label="NICE TO HAVE (one per line)" value={form.niceToHave} onChange={set("niceToHave")} rows={3} />
+          <Textarea label="WHAT YOU GET (one per line)" value={form.perks} onChange={set("perks")} rows={4} />
+        </DrawerSection>
 
-          <button onClick={save} disabled={busy === "save"}
-            className="mt-4 font-mono text-[11px] px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-40"
-            style={{ color: "#00FF41", background: "rgba(0,255,65,0.08)", border: "1px solid rgba(0,255,65,0.3)" }}>
-            {busy === "save" ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
-            {editing ? "save changes" : "create as draft"}
-          </button>
-        </div>
-      )}
-
-      {rows === null ? (
-        <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
-      ) : rows.length === 0 ? (
-        <p className="font-mono text-xs text-white/25">No job openings yet. Seed some with scripts/seed-job-openings.mjs, or create one above.</p>
-      ) : (
-        <div className="space-y-2">
-          {rows.map((r) => {
-            const meta = STATUS_META[r.status] || STATUS_META[JOB_STATUS.DRAFT];
-            return (
-              <div key={r.id} className="p-3.5 rounded-lg"
-                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div className="flex items-start gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[220px]">
-                    <p className="font-mono text-[12px] text-white/85 flex items-center gap-2 flex-wrap">
-                      <Briefcase size={11} style={{ color: "#FF9500" }} />
-                      {r.title || "(untitled)"}
-                      <span className="font-mono text-[9px] px-2 py-0.5 rounded"
-                        style={{ color: meta.color, background: `${meta.color}12` }}>
-                        {meta.label}
-                      </span>
-                    </p>
-                    <p className="font-mono text-[10.5px] text-white/40 mt-0.5">
-                      careers.devert.in/{r.id} · {r.team || "no team"} · {r.employmentType || "?"} · {r.locationType || "?"}
-                      {r.location ? ` · ${r.location}` : ""}
-                    </p>
-                    {r.blurb && <p className="font-mono text-[10.5px] text-white/45 mt-1.5 leading-relaxed">{r.blurb}</p>}
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                    <button onClick={() => startEdit(r)}
-                      className="font-mono text-[10px] px-3 py-1.5 rounded-lg"
-                      style={{ color: "#00FFFF", border: "1px solid rgba(0,255,255,0.3)" }}>
-                      edit
-                    </button>
-                    {r.status !== JOB_STATUS.PUBLISHED ? (
-                      <button onClick={() => changeStatus(r.id, JOB_STATUS.PUBLISHED)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "#00FF41", border: "1px solid rgba(0,255,65,0.3)", background: "rgba(0,255,65,0.06)" }}>
-                        {busy === r.id ? <Loader2 size={10} className="animate-spin" /> : <Eye size={10} />} publish
-                      </button>
-                    ) : (
-                      <button onClick={() => changeStatus(r.id, JOB_STATUS.CLOSED)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.15)" }}>
-                        <EyeOff size={10} /> close
-                      </button>
-                    )}
-                    <button onClick={() => remove(r.id)} disabled={busy === r.id}
-                      className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                      style={{ color: "#FF5050", border: "1px solid rgba(255,80,80,0.3)" }}>
-                      <Trash2 size={10} /> delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <p className="font-mono text-[10px] text-white/25 mt-4 leading-relaxed">
-        Publishing shows a role on careers.devert.in straight away - that list is a live query.
-        Its own careers.devert.in/&#123;slug&#125; page and its Google-indexable JobPosting markup are
-        built at deploy time (a SEPARATE app and Hosting target, devert-careers - so shipping a new
-        role URL means deploying that site, not this one).
-      </p>
+        {editing && (
+          <p className="font-sans text-xs text-white/35 flex items-center gap-1.5">
+            <FileText size={12} /> {fmt(appsByJob[editing] || 0)} applications received for this role.
+          </p>
+        )}
+      </Drawer>
     </div>
   );
 }

@@ -9,36 +9,47 @@
 //
 // Loads the whole collection once (no status filter in the query) and filters
 // client-side - see lib/demoRequests.js for why that avoids needing a
-// composite index deployed.
+// composite index deployed. The old status tabs are now the DataTable's
+// status filter over that same single load.
 
 import { useEffect, useState } from "react";
-import { Check, Loader2, Building2, RefreshCw, X, Mail, Phone, RotateCcw, Inbox } from "lucide-react";
+import { Check, Building2, RefreshCw, X, Mail, Phone, RotateCcw, Inbox, Eye, Send, Trophy } from "lucide-react";
 import { DEMO_REQUEST_STATUS, fetchDemoRequests, setDemoRequestStatus } from "@/lib/demoRequests";
+import { logAdminActivity } from "@/lib/adminActivityLog";
+import { KIT, fmt, StatGrid, DataTable, Pill, Drawer, DrawerSection, PrimaryButton, SecondaryButton } from "@/components/admin/admin-kit";
 
 const STATUS_META = {
-  [DEMO_REQUEST_STATUS.NEW]: { label: "NEW", color: "#FF9500" },
-  [DEMO_REQUEST_STATUS.CONTACTED]: { label: "CONTACTED", color: "#00FFFF" },
-  [DEMO_REQUEST_STATUS.CONVERTED]: { label: "CONVERTED", color: "#00FF41" },
-  [DEMO_REQUEST_STATUS.CLOSED]: { label: "CLOSED", color: "rgba(255,255,255,0.35)" },
+  [DEMO_REQUEST_STATUS.NEW]: { label: "New", color: KIT.orange },
+  [DEMO_REQUEST_STATUS.CONTACTED]: { label: "Contacted", color: KIT.cyan },
+  [DEMO_REQUEST_STATUS.CONVERTED]: { label: "Converted", color: KIT.green },
+  [DEMO_REQUEST_STATUS.CLOSED]: { label: "Closed", color: KIT.muted },
 };
 
-const FILTERS = [{ key: "all", label: "ALL", color: "#C77DFF" }, ...Object.entries(STATUS_META).map(([key, m]) => ({ key, ...m }))];
+const metaOf = (r) => STATUS_META[r.status] || STATUS_META[DEMO_REQUEST_STATUS.NEW];
+const when = (t) => (t?.toDate ? t.toDate() : null);
 
-function fmtWhen(ts) {
-  if (!ts?.toDate) return "";
-  return ts.toDate().toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+// The one forward step available from each status, same progression the old
+// per-card buttons offered: new -> contacted -> converted, with close from any
+// open state and reopen from any terminal one.
+function nextActions(r) {
+  const s = r.status;
+  const out = [];
+  if (s === DEMO_REQUEST_STATUS.NEW) out.push({ next: DEMO_REQUEST_STATUS.CONTACTED, label: "Mark contacted", icon: Send });
+  if (s === DEMO_REQUEST_STATUS.CONTACTED) out.push({ next: DEMO_REQUEST_STATUS.CONVERTED, label: "Mark converted", icon: Trophy });
+  if (s !== DEMO_REQUEST_STATUS.CLOSED && s !== DEMO_REQUEST_STATUS.CONVERTED) out.push({ next: DEMO_REQUEST_STATUS.CLOSED, label: "Close", icon: X, danger: true });
+  if (s === DEMO_REQUEST_STATUS.CLOSED || s === DEMO_REQUEST_STATUS.CONVERTED) out.push({ next: DEMO_REQUEST_STATUS.NEW, label: "Reopen", icon: RotateCcw });
+  return out;
 }
 
 export function DemoRequestsPanel() {
-  const [filter, setFilter] = useState(DEMO_REQUEST_STATUS.NEW);
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState("");
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState("");
+  const [openId, setOpenId] = useState(null);
 
   useEffect(() => {
     let alive = true;
-    setError("");
     fetchDemoRequests()
       .then((r) => { if (alive) setRows(r); })
       .catch((e) => {
@@ -49,12 +60,15 @@ export function DemoRequestsPanel() {
     return () => { alive = false; };
   }, [nonce]);
 
-  const decide = async (id, next) => {
-    setBusy(id);
+  const refresh = () => { setError(""); setRows(null); setNonce((n) => n + 1); };
+
+  const decide = async (r, next) => {
+    setBusy(r.id);
     setError("");
     try {
-      await setDemoRequestStatus(id, next);
-      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: next } : r)));
+      await setDemoRequestStatus(r.id, next);
+      setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, status: next } : x)));
+      logAdminActivity(`demo_request.${next}`, r.institution || r.email || r.id);
     } catch (e) {
       setError(e?.message || "Could not update that request.");
     } finally {
@@ -62,117 +76,103 @@ export function DemoRequestsPanel() {
     }
   };
 
-  const newCount = rows?.filter((r) => r.status === DEMO_REQUEST_STATUS.NEW).length || 0;
-  const visible = rows?.filter((r) => filter === "all" || r.status === filter) || [];
+  const loading = rows === null;
+  const list = rows || [];
+  const count = (s) => list.filter((r) => r.status === s).length;
+  const converted = count(DEMO_REQUEST_STATUS.CONVERTED);
+  const sources = [...new Set(list.map((r) => r.source).filter(Boolean))].sort();
+  const sel = list.find((r) => r.id === openId);
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {FILTERS.map((f) => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
-            className="font-mono text-[10px] tracking-wider px-3 py-1.5 rounded-lg transition-colors"
-            style={{
-              color: filter === f.key ? f.color : "rgba(255,255,255,0.3)",
-              background: filter === f.key ? `${f.color}12` : "rgba(255,255,255,0.03)",
-              border: `1px solid ${filter === f.key ? `${f.color}40` : "rgba(255,255,255,0.06)"}`,
-            }}>
-            {f.label}{f.key === DEMO_REQUEST_STATUS.NEW && newCount > 0 ? ` (${newCount})` : ""}
-          </button>
-        ))}
-        <button onClick={() => setNonce((n) => n + 1)}
-          className="ml-auto font-mono text-[10px] text-white/35 flex items-center gap-1.5 px-2.5 py-1.5">
-          <RefreshCw size={10} /> refresh
-        </button>
-      </div>
+    <div className="space-y-5">
+      <StatGrid stats={[
+        { label: "New requests", value: count(DEMO_REQUEST_STATUS.NEW), sub: "Not contacted yet", icon: Inbox, color: count(DEMO_REQUEST_STATUS.NEW) ? KIT.orange : KIT.green, loading },
+        { label: "Contacted", value: count(DEMO_REQUEST_STATUS.CONTACTED), sub: "In conversation", icon: Send, color: KIT.cyan, loading },
+        { label: "Converted", value: converted, sub: list.length ? `${Math.round((converted / list.length) * 100)}% of all requests` : "No requests yet", icon: Trophy, color: KIT.green, loading },
+        { label: "All requests", value: list.length, sub: `${fmt(count(DEMO_REQUEST_STATUS.CLOSED))} closed`, icon: Building2, color: KIT.purple, loading },
+      ]} />
 
       {error && (
-        <p className="font-mono text-[10.5px] mb-3 px-3 py-2 rounded-lg"
-          style={{ color: "#FF9A9A", background: "rgba(255,80,80,0.06)", border: "1px solid rgba(255,80,80,0.2)" }}>
+        <p className="font-sans text-sm px-3 py-2 rounded-lg break-words [overflow-wrap:anywhere]"
+          style={{ color: KIT.red, background: `${KIT.red}10`, border: `1px solid ${KIT.red}33` }}>
           {error}
         </p>
       )}
 
-      {rows === null ? (
-        <p className="font-mono text-xs text-white/25 animate-pulse">loading...</p>
-      ) : visible.length === 0 ? (
-        <p className="font-mono text-xs text-white/25">No {filter === "all" ? "" : `${filter} `}demo requests.</p>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((r) => {
-            const meta = STATUS_META[r.status] || STATUS_META[DEMO_REQUEST_STATUS.NEW];
-            return (
-              <div key={r.id} className="p-3.5 rounded-lg"
-                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div className="flex items-start gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[220px]">
-                    <p className="font-mono text-[12px] text-white/85 flex items-center gap-2">
-                      <Building2 size={11} style={{ color: "#0E7C86" }} />
-                      {r.institution || "(no institution given)"}
-                      <span className="font-mono text-[9px] px-2 py-0.5 rounded" style={{ color: meta.color, background: `${meta.color}12` }}>
-                        {meta.label}
-                      </span>
-                    </p>
-                    <p className="font-mono text-[10.5px] text-white/40 mt-0.5">
-                      {r.name || "(no name)"} · {r.role || "no role"} · {r.students || "size unknown"}
-                    </p>
-                    <p className="font-mono text-[10.5px] mt-1 flex items-center gap-3 flex-wrap">
-                      <a href={`mailto:${r.email}`} className="flex items-center gap-1 hover:underline" style={{ color: "#00FFFF" }}>
-                        <Mail size={10} /> {r.email}
-                      </a>
-                      {r.phone && (
-                        <span className="flex items-center gap-1 text-white/40">
-                          <Phone size={10} /> {r.phone}
-                        </span>
-                      )}
-                    </p>
-                    {r.message && <p className="font-mono text-[10.5px] text-white/45 mt-2 leading-relaxed">{r.message}</p>}
-                    <p className="font-mono text-[9.5px] text-white/20 mt-2">
-                      {fmtWhen(r.createdAt)}{r.source ? ` · via ${r.source}` : ""}
-                    </p>
-                  </div>
+      <DataTable title="Demo requests" icon={Inbox} defaultFilters={{ status: DEMO_REQUEST_STATUS.NEW }}
+        subtitle={"From the unauthenticated \"Request a demo\" dialog on the campus marketing pages - firestore.rules whitelists the fields it can write and pins status to \"new\", so nothing here can be forged by the submitter."}
+        rows={list} loading={loading}
+        searchKeys={["institution", "name", "email", "phone", "role", "message"]} searchPlaceholder="Search institution, contact or email..."
+        filters={[
+          { key: "status", label: "All statuses", get: (r) => r.status || DEMO_REQUEST_STATUS.NEW,
+            options: Object.entries(STATUS_META).map(([value, m]) => ({ value, label: m.label })) },
+          ...(sources.length ? [{ key: "source", label: "All sources", options: sources.map((s) => ({ value: s, label: s })) }] : []),
+        ]}
+        toolbarExtra={<div className="ml-auto"><SecondaryButton icon={RefreshCw} onClick={refresh} disabled={loading}>Refresh</SecondaryButton></div>}
+        onRowClick={(r) => setOpenId(r.id)} emptyText="No demo requests yet."
+        columns={[
+          { key: "institution", label: "Institution", render: (r) => (
+            <div className="min-w-0 w-[260px] xl:w-[320px]">
+              <p className="font-sans text-sm font-medium text-white truncate">{r.institution || "(no institution given)"}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{r.name || "(no name)"} · {r.role || "no role"}</p>
+            </div>
+          ) },
+          { key: "email", label: "Contact", render: (r) => (
+            <div className="min-w-0 max-w-[220px]">
+              <a href={`mailto:${r.email}`} onClick={(e) => e.stopPropagation()}
+                className="font-sans text-xs hover:underline truncate block" style={{ color: KIT.cyan }}>{r.email}</a>
+              {r.phone && <p className="font-sans text-xs text-white/40 truncate">{r.phone}</p>}
+            </div>
+          ) },
+          { key: "students", label: "Size", render: (r) => <span className="font-sans text-sm text-white/70">{r.students || "Unknown"}</span> },
+          { key: "source", label: "Source", render: (r) => <span className="font-sans text-xs text-white/50">{r.source || "-"}</span> },
+          { key: "createdAt", label: "Received", sort: (r) => when(r.createdAt)?.getTime() || 0,
+            render: (r) => <span className="font-sans text-xs text-white/50 whitespace-nowrap">{when(r.createdAt)?.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) || "-"}</span> },
+          { key: "status", label: "Status", render: (r) => <Pill color={metaOf(r).color}>{metaOf(r).label}</Pill> },
+        ]}
+        rowActions={(r) => [
+          { icon: Eye, label: "Details", onClick: () => setOpenId(r.id) },
+          ...nextActions(r).map((a) => ({ icon: a.icon, label: a.label, danger: a.danger, disabled: busy === r.id, onClick: () => decide(r, a.next) })),
+        ]}
+      />
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {r.status === DEMO_REQUEST_STATUS.NEW && (
-                      <button onClick={() => decide(r.id, DEMO_REQUEST_STATUS.CONTACTED)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "#00FFFF", border: "1px solid rgba(0,255,255,0.3)", background: "rgba(0,255,255,0.06)" }}>
-                        {busy === r.id ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} mark contacted
-                      </button>
-                    )}
-                    {r.status === DEMO_REQUEST_STATUS.CONTACTED && (
-                      <button onClick={() => decide(r.id, DEMO_REQUEST_STATUS.CONVERTED)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "#00FF41", border: "1px solid rgba(0,255,65,0.3)", background: "rgba(0,255,65,0.06)" }}>
-                        {busy === r.id ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} mark converted
-                      </button>
-                    )}
-                    {r.status !== DEMO_REQUEST_STATUS.CLOSED && r.status !== DEMO_REQUEST_STATUS.CONVERTED && (
-                      <button onClick={() => decide(r.id, DEMO_REQUEST_STATUS.CLOSED)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "#FF5050", border: "1px solid rgba(255,80,80,0.3)" }}>
-                        <X size={10} /> close
-                      </button>
-                    )}
-                    {(r.status === DEMO_REQUEST_STATUS.CLOSED || r.status === DEMO_REQUEST_STATUS.CONVERTED) && (
-                      <button onClick={() => decide(r.id, DEMO_REQUEST_STATUS.NEW)} disabled={busy === r.id}
-                        className="font-mono text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-40"
-                        style={{ color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.15)" }}>
-                        <RotateCcw size={10} /> reopen
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <p className="font-mono text-[10px] text-white/25 mt-4 leading-relaxed">
-        <Inbox size={10} className="inline mr-1 -mt-0.5" />
-        These come from the unauthenticated &quot;Request a demo&quot; dialog on the campus marketing pages -
-        firestore.rules whitelists the fields it can write and pins status to &quot;new&quot;, so nothing here can be forged by the submitter.
-      </p>
+      <Drawer open={!!sel} onClose={() => setOpenId(null)} width={560}
+        title={sel ? sel.institution || "(no institution given)" : ""}
+        subtitle={sel ? `${metaOf(sel).label} · received ${when(sel.createdAt)?.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) || "-"}` : ""}
+        footer={sel ? <>
+          {nextActions(sel).filter((a) => a.next !== DEMO_REQUEST_STATUS.CONTACTED && a.next !== DEMO_REQUEST_STATUS.CONVERTED).map((a) => (
+            <SecondaryButton key={a.next} icon={a.icon} disabled={busy === sel.id} onClick={() => decide(sel, a.next)}>{a.label}</SecondaryButton>
+          ))}
+          {nextActions(sel).filter((a) => a.next === DEMO_REQUEST_STATUS.CONTACTED || a.next === DEMO_REQUEST_STATUS.CONVERTED).map((a) => (
+            <PrimaryButton key={a.next} icon={Check} busy={busy === sel.id} onClick={() => decide(sel, a.next)}>{a.label}</PrimaryButton>
+          ))}
+        </> : null}>
+        {sel && (
+          <div className="space-y-4">
+            <DrawerSection title="Contact">
+              <dl className="grid grid-cols-[120px_1fr] gap-y-2 font-sans text-sm">
+                <dt className="text-white/45">Name</dt><dd className="text-white/85">{sel.name || "(no name)"}</dd>
+                <dt className="text-white/45">Role</dt><dd className="text-white/85">{sel.role || "No role given"}</dd>
+                <dt className="text-white/45">Email</dt>
+                <dd><a href={`mailto:${sel.email}`} className="inline-flex items-center gap-1.5 hover:underline break-all" style={{ color: KIT.cyan }}><Mail size={13} /> {sel.email}</a></dd>
+                {sel.phone && <><dt className="text-white/45">Phone</dt><dd className="text-white/85 inline-flex items-center gap-1.5"><Phone size={13} className="text-white/40" /> {sel.phone}</dd></>}
+              </dl>
+            </DrawerSection>
+            <DrawerSection title="Institution">
+              <dl className="grid grid-cols-[120px_1fr] gap-y-2 font-sans text-sm">
+                <dt className="text-white/45">Name</dt><dd className="text-white/85">{sel.institution || "(no institution given)"}</dd>
+                <dt className="text-white/45">Students</dt><dd className="text-white/85">{sel.students || "Size unknown"}</dd>
+                {sel.source && <><dt className="text-white/45">Source</dt><dd className="text-white/85">{sel.source}</dd></>}
+              </dl>
+            </DrawerSection>
+            {sel.message && (
+              <DrawerSection title="Message">
+                <p className="font-sans text-sm text-white/70 leading-relaxed whitespace-pre-wrap">{sel.message}</p>
+              </DrawerSection>
+            )}
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
