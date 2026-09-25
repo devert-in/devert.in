@@ -9,10 +9,11 @@ import { Lightbulb } from "lucide-react";
 // that sat at 0% for everyone and pointed at a course nobody was enrolled in -
 // prime dashboard space spent telling you that you had not started something.
 //
-// The rule for what goes in here: it must be TRUE, SPECIFIC and CHECKABLE. Not
-// "write clean code" - a fact with a mechanism behind it, the kind of thing
-// that makes you go and look something up. Anything vague or motivational
-// belongs somewhere else, or nowhere.
+// THE RULE FOR WHAT GOES IN HERE. It must be true, specific and checkable -
+// never "write clean code". And it has to land on a first-year who has not met
+// the term yet, so every entry opens with a PICTURE (a cloakroom, a phone book,
+// a lift button) and only then says the technical thing. If a tip cannot be
+// explained without the jargon, it is the wrong tip for this card.
 //
 // Everyone sees the same tip on the same day (see the index maths below), so
 // two people on the team can talk about "today's one" - which is the whole
@@ -20,153 +21,153 @@ import { Lightbulb } from "lucide-react";
 const TIPS = [
   {
     tag: "NETWORKING",
-    title: "WebSockets are not just faster HTTP",
-    body: "An HTTP request is one round trip the client always starts. A WebSocket upgrades that connection once, then either side can send a frame at any time. That is why chat, live cursors and price tickers use them - not raw speed, but the server being able to speak first.",
+    title: "WebSockets are a phone call. HTTP is posting letters",
+    body: "With letters you only get a reply after YOU write. That is HTTP - the server can never speak first. A WebSocket is a phone line left open: either side says something whenever they like. That is why chat, live cursors and score tickers use one.",
   },
   {
     tag: "DATABASES",
-    title: "An index on (a, b) also serves queries on a - but not on b",
-    body: "A composite index is sorted by the first column, then the second. So it answers WHERE a = ? and WHERE a = ? AND b = ?, but a query on b alone has to scan. This is the leftmost-prefix rule, and it is why column order in an index matters more than which columns you picked.",
+    title: "An index is a phone book, and the order matters",
+    body: "A phone book sorted by surname, then first name, makes finding every Sharma easy. Finding everyone called Rahul means reading the whole thing. A database index on two columns behaves exactly the same - it helps for the first column, and does nothing for the second on its own.",
   },
   {
-    tag: "JAVASCRIPT",
-    title: "0.1 + 0.2 !== 0.3",
-    body: "IEEE-754 doubles store binary fractions. One tenth is as unrepresentable in binary as one third is in decimal, so the sum lands on 0.30000000000000004. Never compare floats with ===, and never store money in one - use integer paise, or a decimal type.",
+    tag: "BASICS",
+    title: "Computers cannot write 0.1 exactly",
+    body: "Try writing one third as a decimal. 0.333... and you run out of paper. Computers hit that same wall with 0.1 in binary, so 0.1 + 0.2 comes out as 0.30000000000000004. Never compare two decimals with ==, and never store money as one - count whole paise instead.",
   },
   {
     tag: "HTTP",
-    title: "A 301 is forever. Browsers cache it hard",
-    body: "Send a 301 by mistake and returning visitors keep hitting the old target even after you fix the server, because their browser never asks again. Use 302 (or 307) while you are unsure, and only promote to 301 once the move is permanent.",
+    title: "A 301 redirect is a tattoo, not a sticky note",
+    body: "It tells the browser you moved PERMANENTLY, so it stops checking the old address - even after you fix things. Use 302 while you are still deciding. People have lost control of a URL over a 301 they sent by accident.",
   },
   {
     tag: "PERFORMANCE",
-    title: "The N+1 query is the most common slow endpoint",
-    body: "Fetch 50 posts, then loop and fetch each author: that is 51 round trips, and it looks fine on a dev machine with 3 rows. Fetch the authors in one query keyed by id, or use a join. The symptom is an endpoint that gets slower in exact proportion to the data.",
+    title: "Do not phone the shop fifty times",
+    body: "You need fifty books. One call with a list takes a minute; fifty separate calls take an hour. Loading fifty posts and then fetching each author one by one is the same mistake - fine with three rows, fatal with three hundred.",
   },
   {
     tag: "SECURITY",
-    title: "bcrypt is slow on purpose",
-    body: "A fast hash is a bad password hash. bcrypt, scrypt and argon2 have a tunable work factor precisely so that an attacker with a stolen table cannot try billions of guesses a second. If your password hashing is fast, that is a bug.",
+    title: "A good password lock is a SLOW lock",
+    body: "A lock that takes two seconds to open is mildly annoying to you, once. To someone trying a million keys it is the difference between one night and forty years. That is why bcrypt is deliberately slow. Fast password hashing is a bug, not a feature.",
   },
   {
     tag: "BROWSERS",
-    title: "localStorage is synchronous and blocks the main thread",
-    body: "Every read and write is blocking, and the whole store is serialised to disk. A few kilobytes is fine; putting a large cache in there stalls rendering. IndexedDB is asynchronous and is the right tool once you are past a trivial amount of data.",
+    title: "localStorage stops the whole kitchen",
+    body: "Every read pauses everything else, like the entire kitchen halting whenever someone opens the fridge. A few small items and nobody notices. Store something big and the page visibly stutters. For anything sizeable use IndexedDB, which lets the cooking continue.",
   },
   {
     tag: "GIT",
-    title: "git pull is just fetch + merge",
-    body: "That is why it can create a merge commit you did not ask for. `git pull --rebase` replays your commits on top instead, keeping history linear. Knowing pull is two commands makes almost every confusing pull result explainable.",
+    title: "git pull is two errands, not one",
+    body: "It goes to the post office AND opens the letters - fetch, then merge. That is why it sometimes creates a merge commit you never asked for. Once you know it is two steps, almost every confusing pull result explains itself.",
   },
   {
     tag: "APIS",
-    title: "Idempotency is what makes retries safe",
-    body: "GET, PUT and DELETE should give the same result if called five times. POST usually does not - which is why payment APIs make you send an idempotency key. Without one, a client retrying after a timeout can charge a card twice.",
+    title: "A lift button, not a vending machine",
+    body: "Press the lift button five times and one lift comes. Press Pay five times and you should still be charged once. Making an action safe to repeat is called idempotency, and it is the only reason retrying after a timeout is not terrifying.",
   },
   {
-    tag: "CORS",
-    title: "A preflight is a real extra round trip",
-    body: "Any request with a custom header or a non-simple content type triggers an OPTIONS call before the real one. That doubles latency on every call until you set Access-Control-Max-Age so the browser caches the preflight result.",
+    tag: "BROWSERS",
+    title: "The browser phones ahead before some requests",
+    body: "For certain cross-site calls it sends a quick 'are you open?' first, then the real request. Two journeys instead of one, every single time. Tell it how long it may remember the answer and it stops asking on every call.",
   },
   {
     tag: "DNS",
-    title: "TTL is why your DNS change 'has not worked yet'",
-    body: "Resolvers cache a record for its TTL, and they will not ask again until it expires. Lower the TTL to a few minutes a day BEFORE you plan to move a domain, and the cutover takes minutes instead of a day.",
+    title: "Your DNS change worked. Nobody has noticed yet",
+    body: "Everyone's computer saved your old address and will not look it up again until its reminder expires. Shorten that reminder the DAY BEFORE you move a domain and the switch takes minutes instead of a full day.",
   },
   {
     tag: "JAVA",
-    title: "String concatenation in a loop builds a new object every pass",
-    body: "Strings are immutable, so s += x allocates a fresh one each iteration - quadratic work for a linear-looking loop. StringBuilder mutates one buffer. The compiler optimises simple cases, but not concatenation inside a loop.",
+    title: "Do not rewrite the shopping list for every item",
+    body: "Imagine copying the whole list onto a fresh page each time you add one thing - a hundred items costs a hundred rewrites. Java strings work like that: s += x inside a loop builds a brand new string every pass. StringBuilder just keeps writing on the same page.",
   },
   {
     tag: "UI",
-    title: "Debounce and throttle solve different problems",
-    body: "Debounce waits for the input to stop - right for a search box. Throttle runs at most once per interval - right for scroll and resize, where you want steady updates rather than one at the end. Using the wrong one makes the UI feel broken in a way that is hard to name.",
+    title: "Wait for silence, or speak every few seconds",
+    body: "A search box should wait until you stop typing. A scroll handler should fire steadily while you move. They are different tools - debounce and throttle - and swapping them makes an interface feel broken in a way nobody can quite put into words.",
   },
   {
     tag: "CACHING",
-    title: "Cache invalidation is hard because of the second writer",
-    body: "One process writing and reading its own cache is easy. The difficulty starts when another process, another server or a background job changes the underlying data and your cache has no idea. Decide who is allowed to write before you decide the TTL.",
+    title: "Old menus still on the tables",
+    body: "Keeping a copy is the easy part. The trouble is the kitchen changing its prices while nobody collects the printed menus. The bug is never your own cache - it is the OTHER thing that changed the data. Decide who is allowed to update before deciding how long to keep it.",
   },
   {
     tag: "DATABASES",
-    title: "A UUID primary key can fragment a clustered index",
-    body: "Random UUIDs insert in random positions, so pages split constantly. Sequential ids append at the end. If you need UUIDs, use a time-ordered variant (UUIDv7 or ULID) and you keep the uniqueness without the write amplification.",
+    title: "Random IDs are filing into a full cabinet",
+    body: "A sequential ID goes on the back of the pile. A random one has to be forced into the middle, shoving everything along to make room. With millions of rows that shoving is real work - so if you want random-looking IDs, pick a time-ordered kind that still lands at the back.",
   },
   {
     tag: "HTTP",
-    title: "401 means 'who are you', 403 means 'not you'",
-    body: "401 Unauthorized is actually unauthenticated - log in and retry. 403 Forbidden means you are authenticated and still not allowed, so retrying with the same credentials is pointless. Sending 403 for a missing token makes clients retry forever.",
+    title: "401 is 'who are you'. 403 is 'I know, and no'",
+    body: "One means log in and try again. The other means you ARE logged in and still are not allowed, so retrying changes nothing. Send the wrong one and apps knock forever on a door that will never open.",
   },
   {
-    tag: "REGEX",
-    title: "Nested quantifiers can hang your server",
-    body: "A pattern like (a+)+$ takes exponential time on a non-matching string - one request can pin a CPU core. It is called catastrophic backtracking, and it is a real denial-of-service vector whenever a regex touches user input.",
+    tag: "PERFORMANCE",
+    title: "Some search patterns try every possibility",
+    body: "Certain text-matching patterns make the computer test every possible way a string could match. On a long input that is billions of attempts, and a single request can freeze an entire processor. It is a real way to take a site down, so be careful with patterns built from whatever a user typed.",
   },
   {
-    tag: "CONCURRENCY",
-    title: "Reading then writing is not atomic",
-    body: "count = count + 1 is three operations: read, add, store. Two threads interleaving there lose an increment. Use an atomic type, a transaction, or a database-side increment - and note that the bug only shows up under load, which is when you can least afford it.",
+    tag: "BASICS",
+    title: "Two people counting the same jar",
+    body: "Both look, both see 11, both write 12. One sweet has vanished from the record. Adding one to a number is really three steps - read, add, write - and two users doing it together lose one. Let the database do the adding. It only breaks under load, which is the worst time to discover it.",
   },
   {
     tag: "CSS",
-    title: "Only transform and opacity animate cheaply",
-    body: "Animating width, top or margin makes the browser recalculate layout every frame. transform and opacity are handled by the compositor and skip layout and paint entirely. Same visual result, wildly different frame budget.",
+    title: "Slide the sticker, do not repaint the wall",
+    body: "Animating width or margin makes the browser work out the entire layout again on every frame, sixty times a second. Moving or fading something already drawn is just sliding a sticker across glass. Identical on screen, wildly different cost.",
   },
   {
     tag: "TIME",
-    title: "Store UTC, render local",
-    body: "Local time is ambiguous twice a year, and offsets change by government decision. Store an instant in UTC, keep the user's timezone separately, and convert only when displaying. Storing '14:30' with no zone loses information you cannot recover.",
+    title: "Save the moment, not the clock on the wall",
+    body: "'2:30' means different things in Delhi and London, and in some countries clocks jump twice a year. Store the actual instant, keep the person's timezone separately, and convert only when you show it. A bare '14:30' has already thrown away what you needed.",
   },
   {
     tag: "SECURITY",
-    title: "An HttpOnly cookie is invisible to JavaScript",
-    body: "That is the point: if XSS runs on your page, it cannot read the token. A JWT in localStorage can be exfiltrated by any injected script. HttpOnly plus SameSite is not old-fashioned - it is the reason session cookies survived.",
+    title: "Keep the key somewhere your own code cannot reach",
+    body: "If a login token sits where your JavaScript can read it, any injected script can read it too. A cookie marked HttpOnly is sent to the server automatically but is invisible to the page's code - so even a successful attack cannot walk off with the session.",
   },
   {
     tag: "ALGORITHMS",
-    title: "Hash map lookups are O(1) on average, not always",
-    body: "With adversarial or pathological keys everything lands in one bucket and lookups degrade toward O(n). It almost never bites in practice, but knowing the difference between average and worst case is what an interviewer is checking when they ask.",
+    title: "A cloakroom with a hundred hooks",
+    body: "Hand over a coat, get hook 34, collect it later in one step. That is a hash map: instant, usually. But if every coat somehow lands on hook 7 you are back to digging through a pile. That gap between usually and always is exactly what an interviewer is poking at.",
   },
   {
     tag: "BUILD",
-    title: "A lockfile is the only thing making your build reproducible",
-    body: "package.json says ^1.2.0, which means 'anything under 2.0'. Without the lockfile, two installs a week apart can produce different trees. That is why npm ci exists - it installs the lockfile exactly and fails if the two disagree.",
+    title: "'Some flour' versus 'exactly 250g'",
+    body: "package.json says 'anything under version 2' - a recipe written loosely. The lockfile is the exact measurement. Without it the same install two weeks apart can produce two different apps, which is where 'but it works on my machine' comes from.",
   },
   {
     tag: "NETWORKING",
-    title: "A CDN mostly buys you latency, not bandwidth",
-    body: "The win is that the bytes start 20ms away instead of 200ms, and TCP slow start gets up to speed sooner. For a small asset the round trip dominates the transfer, which is why a CDN helps a 5KB file more than you would expect.",
+    title: "A CDN is a local shop, not a bigger lorry",
+    body: "The win is not carrying more. It is that the shop is twenty minutes away instead of a day's drive. For small files the journey costs far more than the goods, which is why a CDN helps a tiny file more than you would expect.",
   },
   {
     tag: "ERRORS",
-    title: "An empty catch block is where outages come from",
-    body: "Swallowing an exception turns a loud failure into a quiet wrong answer. If you genuinely can continue, log why and say so in a comment. `catch {}` with no note is the single most expensive line in most codebases.",
+    title: "Silencing the alarm is not putting out the fire",
+    body: "Swallowing an error turns a loud, findable failure into a quiet wrong answer that shows up three weeks later as 'some users have no data'. If you genuinely can carry on, write down why. An empty catch block is the most expensive line in most codebases.",
   },
   {
     tag: "JAVASCRIPT",
-    title: "await in a loop makes requests serial",
-    body: "Ten awaited calls at 200ms each take two seconds. Promise.all runs them together and takes 200ms. Use the loop only when each call genuinely depends on the previous result - otherwise you are paying latency ten times over.",
+    title: "Ten counters, or one queue?",
+    body: "Waiting for ten requests one after another is ten people at a single counter. Firing them together opens ten counters and everyone is served at once. Only make them queue when each answer is genuinely needed to ask the next question.",
   },
   {
     tag: "DATABASES",
-    title: "SELECT * breaks when someone adds a column",
-    body: "It also ships bytes you never read and defeats covering indexes. Naming columns turns a schema change into a compile-time or query-time error instead of a silent behaviour change three deploys later.",
+    title: "You asked for a coffee, not the whole menu",
+    body: "SELECT * drags back every column, including the enormous one you never look at, and quietly changes behaviour the day someone adds a field. Naming the columns you actually want is faster, and fails loudly instead of silently.",
   },
   {
     tag: "LINUX",
-    title: "Deleting a file does not free space if a process still has it open",
-    body: "The directory entry goes, the inode does not, until the last file descriptor closes. That is why `rm` on a huge log leaves the disk full and `lsof +L1` finds it. Truncate it instead, or restart the writer.",
+    title: "Tearing off the label does not empty the box",
+    body: "Delete a huge log file while a program is still writing to it and the disk stays full - you removed the name, not the contents. The space returns only when that program lets go. Empty the file instead of deleting it.",
   },
   {
     tag: "INTERVIEWS",
-    title: "Say the brute force out loud first",
-    body: "It proves you understood the problem, it gives you a correct baseline, and the optimisation usually falls out of asking what the brute force repeats. Candidates who jump straight at the clever answer and stall have nothing to fall back on.",
+    title: "Show your rough work",
+    body: "Say the slow, obvious solution out loud first. It proves you understood the question, it leaves you with something that actually works, and the clever version usually appears the moment you ask what the slow one keeps repeating. Jumping straight to clever and freezing leaves you with nothing.",
   },
   {
-    tag: "HTTP",
-    title: "A 200 with an error in the body is a bug",
-    body: "Clients, proxies and caches all read the status code. Returning 200 with {\"error\": ...} means a retry layer sees success, a cache may store the failure, and monitoring reports everything is fine. Use the status code the situation actually calls for.",
+    tag: "APIS",
+    title: "A parcel marked Delivered with nothing inside",
+    body: "Replying 'success' with an error message tucked in the body means every retry, cache and dashboard believes it worked. The failure is invisible to everything except a human reading the screen. Use the status that matches what really happened.",
   },
 ];
 
@@ -174,8 +175,7 @@ const TIPS = [
 //
 // Keyed on the IST calendar date rather than a random pick per render, so the
 // card does not change when you refresh, and so two people can compare notes on
-// the same tip. The list length and 365 are coprime-ish enough that the cycle
-// does not visibly repeat within a year.
+// the same tip.
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
 function tipForToday(now = new Date()) {
