@@ -19,11 +19,20 @@
 // its own separate list.
 import {
   Home, Activity, Swords, Radio, GraduationCap, Tv2, Flame, Target, Rocket,
-  ClipboardCheck, Anchor, Hammer, Zap, Users, GitFork, FlaskConical,
-  Newspaper, Building2, Megaphone,
+  ClipboardCheck, Anchor, Hammer, Zap, Users, Megaphone,
 } from "lucide-react";
 import { CAMPUS_URL } from "@/lib/campusUrl";
 
+// DELIBERATELY ABSENT: open-source, labs, stories, organizations.
+//
+// All four were nav entries whose desc read "Coming soon" and whose route
+// rendered a ComingSoonShell - four separate promises with nothing behind
+// them, listed in the footer's Connect column and the top bar's More menu.
+// A visitor who clicked two of them learned the product is mostly plans.
+//
+// The pages still exist and still render, so any existing link keeps working;
+// they are simply no longer advertised. Add one back here the day it does
+// something.
 export const NAV_ROUTES = [
   // ---- on the mobile dock (see navbar.jsx's own comment on why Shipyard/
   // Ranks/Logs/Grind/Fundamentals stay off it - deliberate, not an omission) ----
@@ -45,10 +54,6 @@ export const NAV_ROUTES = [
   { key: "devert100",     icon: Rocket,       label: "DeVert 100",    href: "/devert100",     desktop: "build",    desc: "100-day DSA run" },
   { key: "community",     icon: Users,        label: "Community",     href: "/community",     desktop: "connect",  desc: "Join dev communities" },
   { key: "ambassador",    icon: Megaphone,    label: "Ambassador",    href: "/ambassador",    desktop: "more",     desc: "Represent DeVert on your campus" },
-  { key: "open-source",   icon: GitFork,      label: "Open Source",   href: "/open-source",   desktop: "more",     desc: "Coming soon" },
-  { key: "labs",          icon: FlaskConical, label: "Labs",          href: "/labs",          desktop: "more",     desc: "Coming soon" },
-  { key: "stories",       icon: Newspaper,    label: "Stories",       href: "/stories",       desktop: "more",     desc: "Coming soon" },
-  { key: "organizations", icon: Building2,    label: "Organizations", href: "/organizations", desktop: "more",     desc: "Coming soon" },
 ];
 
 export const DESKTOP_GROUPS = [
