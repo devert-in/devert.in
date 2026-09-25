@@ -369,7 +369,7 @@ export function Devert100Workspace({ day }) {
           </Section>
 
           {dayDoc.patternGuide && (
-            <Section title={`pattern - ${problem?.pattern || dayDoc.topic}`} icon={Lightbulb} color="#C77DFF">
+            <Section title={`pattern - ${problem?.pattern || dayDoc.topic}`} icon={Lightbulb} color="#C77DFF" defaultOpen={false} reveal>
               <p className="font-mono text-[10px] text-white/30 tracking-wider mb-1.5">WHEN TO RECOGNISE IT</p>
               <Prose text={dayDoc.patternGuide.whenToUse} />
               {dayDoc.patternGuide.template && (

@@ -20,11 +20,17 @@ const CYAN = "#00FFFF";
 // order would teach a different (worse) habit, so the order lives here in code
 // rather than being whatever order an author happened to type sections in.
 //
-// `reveal: true` means the section starts CLOSED. Everything from the brute
-// force onward is a spoiler - the run's whole premise is that you try first.
+// `reveal: true` means the section starts CLOSED, which is every section except
+// the first. Two reasons, and only the second is about spoilers:
+//
+//   - On load the page should show you the problem and then get out of the way.
+//     A second expanded section buries the list of steps below a screen of
+//     prose, and that list is how you navigate the day.
+//   - Everything from the brute force onward is a spoiler. The run's whole
+//     premise is that you try first.
 export const DEEP_DIVE_SECTIONS = [
   { key: "problem",        title: "1. Problem",         icon: FileText,    color: CYAN,      reveal: false },
-  { key: "pattern",        title: "2. Pattern",         icon: Lightbulb,   color: "#C77DFF", reveal: false },
+  { key: "pattern",        title: "2. Pattern",         icon: Lightbulb,   color: "#C77DFF", reveal: true  },
   { key: "bruteForce",     title: "3. Brute Force",     icon: RotateCcw,   color: "#FF9500", reveal: true  },
   { key: "optimization",   title: "4. Optimization",    icon: Zap,         color: GREEN,     reveal: true  },
   { key: "complexity",     title: "5. Complexity",      icon: Gauge,       color: CYAN,      reveal: true  },
