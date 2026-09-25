@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Download, Linkedin, Copy, Check, X, Loader2 } from "lucide-react";
-import { DEVERT100_TOTAL_DAYS, computeStreaks, formatDayDate, problemLabel } from "@/lib/devert100";
+import { DEVERT100_TOTAL_DAYS, statsAsOfDay, formatDayDate, problemLabel } from "@/lib/devert100";
 
 // The completion card.
 //
@@ -76,7 +76,9 @@ function drawProgressStrip(ctx, { x, y, width, completedDays, today }) {
   const tickH = 16;
 
   for (let d = 1; d <= DEVERT100_TOTAL_DAYS; d++) {
-    const done = !!completedDays[String(d)];
+    // Days after the one being shared are not lit even if they are finished -
+    // the card is a snapshot of the run as it stood on `today`.
+    const done = d <= today && !!completedDays[String(d)];
     const isToday = d === today;
     ctx.fillStyle = done ? GREEN : isToday ? CYAN : "rgba(255,255,255,0.075)";
     // Today gets full height even when unfinished, so the current position in
@@ -276,7 +278,9 @@ export function Devert100ShareCard({ day, problem, topic, participant, displayNa
   const [ready, setReady] = useState(false);
 
   const completedDays = participant?.completedDays || {};
-  const { current: streak, total: completed } = computeStreaks(completedDays);
+  // As of THIS day, not as of now - see statsAsOfDay. A day 2 card posted on
+  // day 5 still reads "2/100", because that is what the headline says.
+  const { completed, streak } = statsAsOfDay(completedDays, day);
 
   const postText =
 `Day ${day}/${DEVERT100_TOTAL_DAYS} of #DeVert100

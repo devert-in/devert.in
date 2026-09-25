@@ -134,6 +134,35 @@ export function computeStreaks(completedDays, now = new Date()) {
   return { current, longest, total: days.length };
 }
 
+// Progress AS OF a given day, rather than right now.
+//
+// This exists for the share card. A card for day 2 is a record of where you
+// stood on day 2 - posting it on day 5 must not silently restate it as "5/100
+// done", because the post is about day 2 and the numbers have to agree with the
+// headline. Anyone reading "DAY 2" next to "3/100" reasonably wonders which of
+// the two is wrong.
+//
+// So: count only days at or before `day`, and measure the streak as the
+// consecutive run ending on `day` itself.
+export function statsAsOfDay(completedDays, day) {
+  const upTo = Object.keys(completedDays || {})
+    .map(Number).filter(n => Number.isInteger(n) && n <= day)
+    .sort((a, b) => a - b);
+
+  if (!upTo.length) return { completed: 0, streak: 0 };
+
+  // Only count the streak if `day` itself is done - a card is only ever shown
+  // for a completed day, but a caller could ask about any day.
+  let streak = 0;
+  if (upTo[upTo.length - 1] === day) {
+    streak = 1;
+    for (let i = upTo.length - 1; i > 0; i--) {
+      if (upTo[i] === upTo[i - 1] + 1) streak++; else break;
+    }
+  }
+  return { completed: upTo.length, streak };
+}
+
 // ── content ───────────────────────────────────────────────────────────────
 // Two shapes on purpose. The journey grid needs 100 cards at once, and pulling
 // 100 full day documents (each carrying problem statements, both approaches,
