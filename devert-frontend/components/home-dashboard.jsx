@@ -10,11 +10,15 @@ import { QuickStatsRow } from "@/components/quick-stats-row";
 import { NotificationsSummary } from "@/components/notifications-summary";
 import { PlatformUpdates } from "@/components/platform-updates";
 import { UpcomingContestsCard } from "@/components/upcoming-contests-card";
-// MissionBoard and RankLadder used to live only on the logged-OUT landing page,
-// so a signed-in member saw less of the product than a stranger did. They are
-// mounted here for that reason.
+// RankLadder used to live only on the logged-OUT landing page, so a signed-in
+// member saw less of the product than a stranger did. It is mounted here for
+// that reason.
 //
-// Three cards were REMOVED from this dashboard rather than kept:
+// Four cards were REMOVED from this dashboard rather than kept:
+//   MissionBoard       - rendered one mission as a narrow card stranded in a
+//                        full-width row, most of it empty. A board needs
+//                        enough entries to look like a board; with one it
+//                        reads as a layout bug. /missions still has it.
 //   TodayTaskCard      - advertised "DSA Fundamentals, Day 1" at 0% to every
 //                        member whether or not they had enrolled. Replaced by
 //                        DailyDevTip, which at least says something true.
@@ -25,7 +29,6 @@ import { UpcomingContestsCard } from "@/components/upcoming-contests-card";
 //   QuickActionsGrid   - eight tiles, every one a link already in the bottom
 //                        dock AND the top bar. A third copy of the sitemap.
 import { DailyDevTip } from "@/components/daily-dev-tip";
-import { MissionBoard } from "@/components/mission-board";
 import { RankLadder } from "@/components/rank-ladder";
 
 export function HomeDashboard() {
@@ -62,7 +65,6 @@ export function HomeDashboard() {
             </div>
             <LiveOnDevert />
             <QuickStatsRow />
-            <MissionBoard compact />
           </div>
           <div className="lg:col-span-1">
             <UpcomingContestsCard />
