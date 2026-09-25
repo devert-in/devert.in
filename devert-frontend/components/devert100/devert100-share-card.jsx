@@ -216,7 +216,11 @@ One more day of consistency. One step closer to becoming a better problem solver
 
 #DeVert100 #DeVert #DSA #Java #Coding #100DaysOfCode`.replace(/\n{3,}/g, "\n\n");
 
-  const [text, setText] = useState(postText);
+  // A day whose deep dive carries an authored LinkedIn post uses that; the
+  // generated one is the fallback for the 99 days without one. Either way the
+  // textarea stays editable - nobody should post words they did not choose.
+  const authored = String(problem?.deepDive?.linkedin || "").trim();
+  const [text, setText] = useState(authored || postText);
 
   useEffect(() => {
     // Fonts have to be settled before the first measureText, or the card draws

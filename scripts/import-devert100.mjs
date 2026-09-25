@@ -85,7 +85,7 @@ function indexEntry(d) {
 const DEEP_DIVE_DIR = "scripts/data/devert100-deepdives";
 const DEEP_DIVE_KEYS = new Set([
   "intro", "problem", "pattern", "bruteForce", "optimization",
-  "complexity", "implementation", "edgeCases", "takeaway",
+  "complexity", "implementation", "edgeCases", "takeaway", "linkedin",
 ]);
 
 // LF and CR as character codes rather than escapes: these markdown files are

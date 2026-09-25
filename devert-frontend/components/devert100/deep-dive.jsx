@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, Lightbulb, RotateCcw, Zap, Gauge, Code2, ShieldAlert, Target,
-  Eye, EyeOff, ChevronRight,
+  Eye, EyeOff, ChevronRight, Share2,
 } from "lucide-react";
 
 const GREEN = "#00FF41";
@@ -31,6 +31,7 @@ export const DEEP_DIVE_SECTIONS = [
   { key: "implementation", title: "6. Implementation",  icon: Code2,       color: GREEN,     reveal: true  },
   { key: "edgeCases",      title: "7. Edge Cases",      icon: ShieldAlert, color: "#FFD700", reveal: true  },
   { key: "takeaway",       title: "Interview Takeaway", icon: Target,      color: "#A78BFA", reveal: true  },
+  { key: "linkedin",       title: "Share It",           icon: Share2,      color: "#0A66C2", reveal: true  },
 ];
 
 // Markdown styling. The content uses fenced code, GFM tables, blockquotes and
