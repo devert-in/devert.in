@@ -16,7 +16,7 @@ export function CampusSpotlight() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
-      className="mb-5 h-full sm:flex-1 sm:min-w-0">
+      className="mb-5 sm:flex-1 sm:min-w-0">   {/* no h-full - see devert100-spotlight */}
       <Link href={CAMPUS_URL} className="block group h-full">
         <div className="terminal-window overflow-hidden transition-colors duration-200 h-full flex flex-col"
           style={{ borderColor: "#00FFFF30" }}>

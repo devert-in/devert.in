@@ -68,7 +68,14 @@ export function Devert100Spotlight() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.045 }}
-      className="mb-5 h-full sm:flex-1 sm:min-w-0">
+      // NO h-full HERE. This element is the flex item, and align-items:stretch
+      // only stretches an item whose cross-size is auto. `h-full` sets
+      // height:100%, which is not auto, so stretch was skipped - and 100% of a
+      // parent with no definite height falls back to content height, which is
+      // exactly why the two cards ended up different sizes. The h-full on the
+      // Link and the card below is fine: by then the wrapper HAS a resolved
+      // height for them to be 100% of.
+      className="mb-5 sm:flex-1 sm:min-w-0">
       <Link href="/devert100" className="block group h-full">
         <div className="terminal-window overflow-hidden transition-colors duration-200 h-full flex flex-col"
           style={{ borderColor: `${GREEN}30` }}>

@@ -19,6 +19,18 @@ export function PlatformUpdates() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Nothing to say, so say nothing. An empty panel headed
+  // "platform_updates.log" reading "no updates logged yet" is worse than no
+  // panel: it occupies prime sidebar space to announce that the product has
+  // shipped nothing, and it is the first thing a new member sees. Every other
+  // card in this sidebar (notifications, upcoming contests, live-on-devert)
+  // already self-hides when empty; this one was the exception.
+  //
+  // It also stays hidden WHILE LOADING, rather than flashing a skeleton that
+  // may resolve to nothing - a panel that appears and then vanishes is worse
+  // than one that was never there.
+  if (loading || logs.length === 0) return null;
+
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
       className="terminal-window mb-6"
@@ -28,12 +40,7 @@ export function PlatformUpdates() {
         <span className="font-mono text-[10px] text-white/25 ml-1">platform_updates.log</span>
       </div>
       <div className="p-4">
-        {loading ? (
-          <p className="font-mono text-[10px] text-white/20 animate-pulse text-center py-3">loading...</p>
-        ) : logs.length === 0 ? (
-          <p className="font-mono text-[10px] text-white/20 text-center py-3">no updates logged yet</p>
-        ) : (
-          <div className="space-y-2.5">
+        <div className="space-y-2.5">
             {logs.map(log => (
               <div key={log.id} className="flex items-center gap-2.5">
                 <span className="font-mono text-[9px] text-white/25 flex-shrink-0">{log.hash}</span>
@@ -45,8 +52,7 @@ export function PlatformUpdates() {
                 <span className="font-mono text-[9px] text-white/18 flex-shrink-0">{log.date}</span>
               </div>
             ))}
-          </div>
-        )}
+        </div>
       </div>
     </motion.div>
   );
