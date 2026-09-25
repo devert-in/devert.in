@@ -35,7 +35,7 @@ function Section({ title, icon: Icon, color = CYAN, children, defaultOpen = true
   return (
     <div className="terminal-window overflow-hidden">
       <button onClick={() => setOpen(o => !o)}
-        className="terminal-header w-full flex items-center gap-2 text-left">
+        className="terminal-header w-full flex items-center gap-2 text-left cursor-pointer select-none transition-colors hover:bg-white/[0.06]">
         <Icon size={12} style={{ color }} className="ml-2" />
         <span className="font-mono text-[10px] text-white/45 tracking-wider">{title}</span>
         <span className="ml-auto mr-2 font-mono text-[10px] text-white/25 flex items-center gap-1">
