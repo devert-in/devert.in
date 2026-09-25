@@ -1,3 +1,4 @@
+import { jsonLdHtml } from "@/lib/jsonLd";
 export const metadata = {
   title: "Daily Grind",
   description: "Daily DSA and system design challenges. Show up every day. Grind is the only strategy that works.",
@@ -26,7 +27,7 @@ const jsonLd = {
 export default function GrindLayout({ children }) {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
       {children}
     </>
   );

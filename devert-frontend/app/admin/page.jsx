@@ -15,14 +15,15 @@ import {
   Hammer, Globe, Server, Smartphone, Bot, Power, Search, Menu, ChevronRight, ChevronLeft, Database,
 } from "lucide-react";
 import {
-  db, auth
+  db, auth, functions
 } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 import { writeNotification } from "@/components/notification-bell";
 import PortfoliosPanel from "@/components/admin/portfolios-panel";
 import { LessonConceptField } from "@/components/admin/lesson-concept-field";
 import Dropdown from "@/components/dropdown";
 import { DEFAULT_TIERS } from "@/lib/ranks";
-import { DEFAULT_ECONOMY } from "@/lib/economy";
+import { DEFAULT_ECONOMY, ECONOMY, loadEconomy } from "@/lib/economy";
 import { DEFAULT_REWARD_POLICY, loadRewardPolicy, saveRewardPolicy } from "@/lib/rewardPolicy";
 import {
   CONTEST_CATEGORIES, CONTEST_DIFFICULTIES, QUESTION_TYPES, contestPhase,
@@ -93,12 +94,13 @@ function todayIST() {
 function notifyPayoutStatus(req, status) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) return;
-  getDoc(doc(db, "users", req.uid)).then(snap => {
+  // payout-status is platform-admin-only on the backend - send the token.
+  Promise.all([getDoc(doc(db, "users", req.uid)), auth.currentUser?.getIdToken()]).then(([snap, idToken]) => {
     const email = snap.exists() ? snap.data().email : null;
-    if (!email) return;
+    if (!email || !idToken) return;
     fetch(`${apiUrl}/api/notify/payout-status`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
       body: JSON.stringify({
         email,
         displayName: snap.data().displayName || req.handle || "builder",
@@ -881,21 +883,24 @@ function InstitutionsPanel() {
     }
   };
 
+  // By VERIFIED Auth email, resolved server-side (adminLookupUserByEmail) -
+  // never by users/{uid}.handle, which any user can set on their own profile
+  // (an attacker could copy a TPO's handle and receive their admin grant).
   const handleAddAdmin = async (institutionId) => {
-    const handle = (adminHandle[institutionId] || "").trim().toLowerCase();
-    if (!handle) return;
+    const email = (adminHandle[institutionId] || "").trim().toLowerCase();
+    if (!email) return;
     setWorking(p => ({ ...p, [institutionId]: true }));
     setAdminFeedback(p => ({ ...p, [institutionId]: null }));
     try {
-      const snap = await getDocs(query(collection(db, "users"), where("handle", "==", handle), limit(1)));
-      if (snap.empty) {
-        setAdminFeedback(p => ({ ...p, [institutionId]: { type: "error", text: `No DeVert account found with handle "${handle}".` } }));
+      const { data: found } = await httpsCallable(functions, "adminLookupUserByEmail")({ email });
+      if (!found?.emailVerified) {
+        setAdminFeedback(p => ({ ...p, [institutionId]: { type: "error", text: `${email} hasn't verified their email yet - ask them to sign in with Google or verify it first.` } }));
         return;
       }
-      const uid = snap.docs[0].id;
-      await addInstitutionAdmin(institutionId, uid, "faculty");
+      await addInstitutionAdmin(institutionId, found.uid, "faculty");
+      logAdminActivity("added institution admin", `${found.email} -> ${institutionId}`);
       setAdminHandle(p => ({ ...p, [institutionId]: "" }));
-      setAdminFeedback(p => ({ ...p, [institutionId]: { type: "success", text: `@${handle} added as an admin.` } }));
+      setAdminFeedback(p => ({ ...p, [institutionId]: { type: "success", text: `${found.displayName || found.email} added as an admin.` } }));
       await loadAdmins(institutionId);
     } catch (e) {
       setAdminFeedback(p => ({ ...p, [institutionId]: { type: "error", text: e.message || "Failed to add admin." } }));
@@ -1006,10 +1011,10 @@ function InstitutionsPanel() {
               </label>
             </DrawerSection>
 
-            <DrawerSection title="Admins" hint="Faculty or placement officers who run this college's workspace.">
+            <DrawerSection title="Admins" hint="Faculty or placement officers who run this college's workspace. Added by their verified DeVert sign-in email.">
               <div className="flex gap-2">
                 <input value={adminHandle[sel.id] || ""} onChange={e => setAdminHandle(p => ({ ...p, [sel.id]: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && handleAddAdmin(sel.id)} placeholder="DeVert handle, e.g. priya"
+                  onKeyDown={e => e.key === "Enter" && handleAddAdmin(sel.id)} placeholder="Their sign-in email, e.g. tpo@college.edu" type="email"
                   className="flex-1 font-sans text-sm text-white/85 px-3 py-2 rounded-lg outline-none border border-white/10 focus:border-white/25"
                   style={{ background: "rgba(255,255,255,0.03)" }} />
                 <PrimaryButton icon={Plus} busy={working[sel.id]} onClick={() => handleAddAdmin(sel.id)}>Add admin</PrimaryButton>
@@ -2391,6 +2396,8 @@ function PayoutsPanel() {
   };
 
   useEffect(() => { load(); }, []);
+  // Live COINS_PER_INR for recomputing legacy requests' amounts.
+  useEffect(() => { loadEconomy().catch(() => {}); }, []);
 
   // Re-checks AND decrements the user's real, live pulseCoins balance as
   // part of approval itself, inside a transaction - payout_requests.create's
@@ -2404,46 +2411,57 @@ function PayoutsPanel() {
   // second approval's live re-read sees the already-decremented balance and
   // is correctly refused, instead of both silently succeeding and doubling
   // (or worse) the real INR paid out for one real coin balance.
+  // Requests now come from the requestPayout Cloud Function, which deducts
+  // the coins and computes inrAmount server-side in the same transaction and
+  // stamps deducted:true. So approving must NOT deduct again (doing so is
+  // why a full-balance withdrawal could never be approved), and rejecting
+  // refunds exactly what was deducted. A request without `deducted` predates
+  // that: its rupee figure was client-written, so the value shown is
+  // recomputed from coins, and the admin is warned before anything moves.
+  const trustedInr = (req) => (req.deducted ? (req.inrAmount || 0) : (req.coins || 0) / (ECONOMY.COINS_PER_INR || 200));
   const handleApprove = async (req) => {
-    if (!confirm(`Approve ₹${(req.inrAmount || 0).toFixed(2)} payout to @${req.handle}?`)) return;
+    const legacy = !req.deducted;
+    const flags = req.risk?.flags || [];
+    const msg = [
+      `Approve ₹${trustedInr(req).toFixed(2)} payout to @${req.handle}?`,
+      legacy ? "\nLEGACY REQUEST: created in the browser before server-side payouts - its balance and amount were never verified by the server. Check this user's ledger before paying." : "",
+      flags.length ? `\nRisk flags:\n- ${flags.join("\n- ")}` : "",
+    ].join("");
+    if (!confirm(msg)) return;
     setWorking(p => ({ ...p, [req.id]: true }));
     try {
       await runTransaction(db, async (tx) => {
-        const earningsRef = doc(db, "user_earnings", req.uid);
-        const earningsSnap = await tx.get(earningsRef);
-        const liveCoins = earningsSnap.exists() ? (earningsSnap.data().pulseCoins || 0) : 0;
-        if (liveCoins < req.coins) {
-          throw new Error(`${req.handle}'s current balance (${liveCoins} coins) is less than this request's ${req.coins} coins - likely already paid out via a duplicate request. Refusing to approve.`);
+        const reqRef = doc(db, "payout_requests", req.id);
+        const reqSnap = await tx.get(reqRef);
+        if (!reqSnap.exists() || reqSnap.data().status !== "pending") {
+          throw new Error("This request is no longer pending (already processed elsewhere).");
         }
-        tx.update(earningsRef, { pulseCoins: increment(-req.coins) });
-        tx.update(doc(db, "payout_requests", req.id), { status: "approved", processedAt: serverTimestamp() });
+        tx.update(reqRef, { status: "approved", processedAt: serverTimestamp() });
       });
+      logAdminActivity("approved payout", `@${req.handle}: ₹${trustedInr(req).toFixed(2)} (${req.coins} coins)`, "global");
       writeNotification(req.uid, {
         type: "payout",
-        title: `Payout of ₹${(req.inrAmount || 0).toFixed(2)} approved`,
+        title: `Payout of ₹${trustedInr(req).toFixed(2)} approved`,
         body: "Your withdrawal request has been approved. Payment is being processed.",
         ctaHref: "/wallet",
         ctaLabel: "view wallet",
       });
-      notifyPayoutStatus(req, "approved");
+      notifyPayoutStatus({ ...req, inrAmount: trustedInr(req) }, "approved");
       load();
     } catch (e) { console.error(e); alert(e.message || "Failed to approve payout."); }
     finally { setWorking(p => ({ ...p, [req.id]: false })); }
   };
 
-  // Transactional and idempotent on the request's OWN status, same reasoning
-  // as handleApprove above - two admins (or two tabs, or a double-click)
-  // rejecting the same request used to both refund req.coins unconditionally,
-  // with no check that the request hadn't already been processed. Re-reading
-  // the request doc live and only refunding while it's still genuinely
-  // 'pending' closes that double-refund; it does NOT retroactively prove the
-  // coins were really deducted at creation time in the first place (that
-  // gap is the payout_requests architecture limitation flagged in the
-  // sign-off report, not something a single-request-idempotency fix can
-  // close on its own).
+  // Idempotent on the request's own status, and refunds only coins the
+  // server provably deducted. A legacy request (no `deducted` stamp) may never
+  // have reserved anything - refunding it could mint coins - so the admin
+  // must explicitly choose to refund it.
   const handleReject = async (req) => {
     const reason = prompt("Rejection reason (optional):");
     if (reason === null) return;
+    const refund = req.deducted
+      ? true
+      : confirm(`Legacy request: the server never verified these ${req.coins} coins were deducted. Refund them to @${req.handle} anyway? (Cancel = reject without refund)`);
     setWorking(p => ({ ...p, [req.id]: true }));
     try {
       await runTransaction(db, async (tx) => {
@@ -2452,8 +2470,8 @@ function PayoutsPanel() {
         if (!reqSnap.exists() || reqSnap.data().status !== "pending") {
           throw new Error("This request is no longer pending (already processed elsewhere) - refusing to refund again.");
         }
-        tx.update(doc(db, "user_earnings", req.uid), { pulseCoins: increment(req.coins) });
-        tx.update(reqRef, { status: "rejected", note: reason || "", processedAt: serverTimestamp() });
+        if (refund) tx.update(doc(db, "user_earnings", req.uid), { pulseCoins: increment(req.coins) });
+        tx.update(reqRef, { status: "rejected", note: reason || "", refunded: refund, processedAt: serverTimestamp() });
       });
       writeNotification(req.uid, {
         type: "rejection",
@@ -2471,7 +2489,7 @@ function PayoutsPanel() {
   const STATUS_C = { pending: KIT.orange, approved: KIT.green, rejected: KIT.red };
   const pending = requests.filter(r => r.status === "pending");
   const approved = requests.filter(r => r.status === "approved");
-  const inr = (list) => list.reduce((n, r) => n + (r.inrAmount || 0), 0);
+  const inr = (list) => list.reduce((n, r) => n + trustedInr(r), 0);
   const money = (n) => `₹${(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const when = (t) => (t?.toDate ? t.toDate() : null);
   const sel = requests.find(r => r.id === openId);
@@ -2501,7 +2519,13 @@ function PayoutsPanel() {
               <p className="font-sans text-xs text-white/40 truncate">{r.email}</p>
             </div>
           ) },
-          { key: "inrAmount", label: "Amount", sort: r => r.inrAmount || 0, render: r => <span className="font-sans text-sm font-semibold text-white tabular-nums">{money(r.inrAmount)}</span> },
+          { key: "inrAmount", label: "Amount", sort: r => r.inrAmount || 0, render: r => (
+            <span className="inline-flex items-center gap-2">
+              <span className="font-sans text-sm font-semibold text-white tabular-nums">{money(trustedInr(r))}</span>
+              {!r.deducted && r.status === "pending" && <Pill color={KIT.orange}>Legacy</Pill>}
+              {(r.risk?.flags || []).length > 0 && <Pill color={KIT.red}>{r.risk.flags.length} risk</Pill>}
+            </span>
+          ) },
           { key: "coins", label: "Coins", sort: r => r.coins || 0, render: r => <span className="font-sans text-sm text-white/60 tabular-nums">{fmt(r.coins || 0)}</span> },
           { key: "method", label: "Method", render: r => <Pill color={KIT.cyan}>{r.method === "bank" ? "Bank" : "UPI"}</Pill> },
           { key: "createdAt", label: "Requested", sort: r => when(r.createdAt)?.getTime() || 0,
@@ -2515,7 +2539,7 @@ function PayoutsPanel() {
       />
 
       <Drawer open={!!sel} onClose={() => setOpenId(null)} width={560}
-        title={sel ? `${money(sel.inrAmount)} to @${sel.handle}` : ""}
+        title={sel ? `${money(trustedInr(sel))} to @${sel.handle}` : ""}
         subtitle={sel ? `${fmt(sel.coins || 0)} coins · ${sel.status}` : ""}
         footer={sel?.status === "pending" ? <>
           <SecondaryButton icon={X} onClick={() => handleReject(sel)} disabled={working[sel.id]}>Reject & refund</SecondaryButton>
@@ -2523,6 +2547,26 @@ function PayoutsPanel() {
         </> : null}>
         {sel && (
           <div className="space-y-4">
+            {!sel.deducted && (
+              <p className="font-sans text-sm rounded-lg px-3 py-2.5" style={{ color: KIT.orange, background: "rgba(255,149,0,0.08)", border: "1px solid rgba(255,149,0,0.3)" }}>
+                Legacy request - created in the browser before server-side payouts. The amount shown is recomputed from its coins; the server never verified the balance or reserved it.
+              </p>
+            )}
+            {sel.risk && (
+              <DrawerSection title="Ledger check" hint="Computed by the server when the request was made.">
+                <dl className="grid grid-cols-[180px_1fr] gap-y-2 font-sans text-sm">
+                  <dt className="text-white/45">Lifetime coins</dt><dd className="text-white/85 tabular-nums">{fmt(sel.risk.totalCoins || 0)}</dd>
+                  <dt className="text-white/45">From reward ledger</dt><dd className="text-white/85 tabular-nums">{fmt(sel.risk.ledgerCoins || 0)}</dd>
+                  <dt className="text-white/45">From XP conversion</dt><dd className="text-white/85 tabular-nums">{fmt(sel.risk.convertedCoins || 0)}</dd>
+                  <dt className="text-white/45">Grants, last 24h / 7d</dt><dd className="text-white/85 tabular-nums">{fmt(sel.risk.grants24h || 0)} / {fmt(sel.risk.grants7d || 0)}</dd>
+                </dl>
+                {(sel.risk.flags || []).length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {sel.risk.flags.map(f => <li key={f} className="font-sans text-sm text-red-300">{f}</li>)}
+                  </ul>
+                ) : <p className="font-sans text-sm" style={{ color: KIT.green }}>No risk flags - the balance is backed by the ledger.</p>}
+              </DrawerSection>
+            )}
             <DrawerSection title="Pay to">
               <dl className="grid grid-cols-[120px_1fr] gap-y-2 font-sans text-sm">
                 <dt className="text-white/45">Method</dt><dd className="text-white/85">{sel.method === "bank" ? "Bank transfer" : "UPI"}</dd>

@@ -56,8 +56,35 @@ public class CodeExecutionController {
     // this exists purely to cap the payload we forward to Judge0 on someone's behalf.
     private static final int MAX_CODE_LENGTH = 20_000;
 
+    // Run stays open to signed-out visitors (public lesson examples and the
+    // DeVert 100 workspace use it), but it spends a PAID compiler quota, so it
+    // is no longer unlimited for the whole internet: a signed-in caller gets a
+    // generous per-account budget, an anonymous one a tight per-IP budget.
+    // Normal use never gets near either; a script draining the quota does.
+    private static final int RUN_LIMIT_SIGNED_IN = 120;
+    private static final int RUN_LIMIT_ANONYMOUS = 30;
+    private static final long RUN_WINDOW_MS = 10 * 60 * 1000;
+
+    private static String clientIp(HttpServletRequest req) {
+        String fwd = req.getHeader("X-Forwarded-For");
+        if (fwd != null && !fwd.isBlank()) return fwd.split(",")[0].trim();
+        return req.getRemoteAddr();
+    }
+
     @PostMapping("/run")
-    public ResponseEntity<?> run(@RequestBody CodeRunRequest request) {
+    public ResponseEntity<?> run(@RequestBody CodeRunRequest request, HttpServletRequest httpRequest,
+                                 @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String runUid = null;
+        if (firebaseAuth != null && authHeader != null && authHeader.startsWith("Bearer ")) {
+            try { runUid = firebaseAuth.verifyIdToken(authHeader.substring(7)).getUid(); } catch (Exception ignored) { runUid = null; }
+        }
+        boolean allowed = runUid != null
+            ? rateLimiter.allow("run:uid:" + runUid, RUN_LIMIT_SIGNED_IN, RUN_WINDOW_MS)
+            : rateLimiter.allow("run:ip:" + clientIp(httpRequest), RUN_LIMIT_ANONYMOUS, RUN_WINDOW_MS);
+        if (!allowed) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(err(runUid != null ? "You're running code very fast - wait a few minutes." : "Too many runs - sign in to keep running code."));
+        }
         if (request.getCode() != null && request.getCode().length() > MAX_CODE_LENGTH) {
             return ResponseEntity.badRequest().body(err("Code is too long."));
         }

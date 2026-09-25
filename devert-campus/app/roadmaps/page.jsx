@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { fetchRoadmapCatalog, buildRoadmapsIndexMetadata, roadmapsIndexJsonLd } from "@/lib/roadmaps-seo";
 import { CampusRoadmapsRoute } from "@/components/campus/campus-roadmaps";
 import { RoadmapsSyllabusOutline } from "@/components/campus/roadmaps-syllabus-outline";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 // A static SIBLING of app/campus/[slug], not a dynamic-segment entry - see
 // lib/roadmaps-seo.js's header for why. This is the one global, canonical,
@@ -24,7 +25,7 @@ export default async function RoadmapsIndexPage() {
   return (
     <>
       {jsonLd.map((obj, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(obj) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(obj) }} />
       ))}
       <Suspense fallback={null}>
         <CampusRoadmapsRoute />

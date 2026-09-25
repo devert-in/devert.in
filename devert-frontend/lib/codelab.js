@@ -215,9 +215,14 @@ export async function fetchTopSolvers(topN = 20) {
 export async function runCode({ language, code, stdin }) {
   const base = apiUrl();
   if (!base) throw new Error("Code execution isn't configured yet (NEXT_PUBLIC_API_URL is unset).");
+  // Signed-in callers send their token so the backend meters them per
+  // account (generous); anonymous runs are metered per IP (tight).
+  const headers = { "Content-Type": "application/json" };
+  const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+  if (idToken) headers.Authorization = `Bearer ${idToken}`;
   const res = await fetchWithRetry(`${base}/api/coding/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ language, code, stdin }),
   });
   const data = await res.json().catch(() => ({}));

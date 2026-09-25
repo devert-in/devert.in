@@ -1,5 +1,6 @@
 import { Devert100Workspace } from "@/components/devert100/devert100-workspace";
 import { dayMetadata, dayJsonLd } from "@/lib/devert100Seo";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 // All 100 params come from a constant, with no Firestore read - unlike
 // /h/[slug] and the other dynamic routes here, which have to reach the database
@@ -27,7 +28,7 @@ export default async function Devert100DayPage({ params }) {
     <>
       {jsonLd.map((obj, i) => (
         <script key={i} type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(obj) }} />
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(obj) }} />
       ))}
       <Devert100Workspace day={day} />
     </>

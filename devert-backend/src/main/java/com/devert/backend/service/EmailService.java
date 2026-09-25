@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -14,8 +15,24 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
+    // Every caller-supplied value is escaped before it touches the HTML body,
+    // and stripped of line breaks (and capped) before it touches a subject
+    // line - these values come from a request body, so unescaped they let a
+    // caller inject links and markup into mail sent from DeVert's domain.
+    private static String html(String v) {
+        return v == null ? "" : HtmlUtils.htmlEscape(v.length() > 120 ? v.substring(0, 120) : v);
+    }
+
+    private static String plain(String v) {
+        if (v == null) return "";
+        String one = v.replaceAll("[\r\n\t]+", " ").trim();
+        return one.length() > 60 ? one.substring(0, 60) : one;
+    }
+
     public void sendChallengeConfirmation(String toEmail, String leadName, String teamName) {
-        String subject = "🔐 DEPLOYMENT AUTHORIZED: Squad " + teamName + " Activated";
+        String subject = "🔐 DEPLOYMENT AUTHORIZED: Squad " + plain(teamName) + " Activated";
+        leadName = html(leadName);
+        teamName = html(teamName);
 
         // This is the HTML Template we designed
         String htmlBody = """
@@ -101,6 +118,7 @@ public class EmailService {
     }
 
     public void sendPayoutStatus(String toEmail, String displayName, String status, int coins, double inrAmount) {
+        displayName = html(displayName);
         boolean approved = "approved".equalsIgnoreCase(status);
         String accent = approved ? "#00ff41" : "#ff5050";
         String subject = approved

@@ -28,8 +28,12 @@ export const PING_INTERVAL_MIN = 1;
 // not just "now" - todayIST() below is the only caller that supplies `new
 // Date()` (the one legitimately impure spot, isolated to a single line).
 export function dateToISTString(date) {
-  const ist = new Date(date.getTime() + (5.5 * 60 + date.getTimezoneOffset()) * 60000);
-  return ist.toISOString().slice(0, 10);
+  // toISOString() is always UTC, so the shift is exactly +5:30 - never the
+  // browser's own offset. Adding getTimezoneOffset() here (as this used to)
+  // cancelled the +5:30 in every Indian browser, returning the UTC date: a
+  // day behind IST between 00:00 and 05:30 IST, and out of step with
+  // firestore.rules' istTodayStr() (same-day reward and streak rules).
+  return new Date(date.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function todayIST() {

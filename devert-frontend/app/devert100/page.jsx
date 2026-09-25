@@ -1,5 +1,6 @@
 import { Devert100App } from "@/components/devert100/devert100-app";
 import { runJsonLd } from "@/lib/devert100Seo";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 // A SERVER component that renders the client app beneath it.
 //
@@ -14,7 +15,7 @@ export default function Devert100Page() {
     <>
       {jsonLd.map((obj, i) => (
         <script key={i} type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(obj) }} />
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(obj) }} />
       ))}
       <Devert100App />
     </>

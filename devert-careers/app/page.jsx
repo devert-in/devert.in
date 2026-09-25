@@ -15,6 +15,7 @@ import { RoleList } from "@/components/role-list";
 import { Faq } from "@/components/faq";
 import { Founders } from "@/components/founders";
 import { FOUNDERS } from "@/lib/founders";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 const DEVERT_URL = "https://devert.in";
 const CAMPUS_URL = "https://campus.devert.in";
@@ -94,9 +95,9 @@ export default function CareersHome() {
   return (
     <>
       <script type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(orgJsonLd) }} />
       <script type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(faqJsonLd) }} />
 
       {/* Hero.
 

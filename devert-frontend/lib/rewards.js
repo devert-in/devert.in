@@ -94,7 +94,19 @@ export async function grantRewards(uid, {
     if (tx) tx.update(userRef, patch); else await updateDoc(userRef, patch);
   }
   if (coinReward > 0) {
-    const earningsPatch = { pulseCoins: increment(coinReward), totalCoins: increment(coinReward) };
+    // firestore.rules only lets an owner raise their coins in the same commit
+    // that creates a NEW reward_grants entry for exactly this amount, named
+    // here. A coin reward with no ledger identity therefore can't be granted.
+    if (!activityType || !activityId) {
+      console.error("[grantRewards] coinReward needs activityType + activityId (ledger entry) - coins skipped");
+      coinReward = 0;
+    }
+  }
+  if (coinReward > 0) {
+    const earningsPatch = {
+      pulseCoins: increment(coinReward), totalCoins: increment(coinReward),
+      lastGrantId: rewardLedgerId(uid, activityType, activityId),
+    };
     if (tx) tx.set(earningsRef, earningsPatch, { merge: true }); else await setDoc(earningsRef, earningsPatch, { merge: true });
     // Best-effort analytics log, deliberately NOT part of the atomic
     // transaction - losing this one log entry to a rare mid-transaction

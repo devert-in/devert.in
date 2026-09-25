@@ -8,7 +8,7 @@ import {
   ExternalLink, ArrowLeft, ChevronRight, Terminal, Star,
   Send, X, Github, Globe, Tag, Award, MapPin,
 } from "lucide-react";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import {
   doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc,
   collection, query, where, orderBy, limit, serverTimestamp, increment,
@@ -26,11 +26,13 @@ import { isHackathon, registrationPhase, teamSizeLabel } from "@/lib/eventTypes"
 function notifyChallengeConnected(email, leadName, teamName) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl || !email) return;
-  fetch(`${apiUrl}/api/notify/challenge-connected`, {
+  // The backend now sends this only to the SIGNED-IN caller's own verified
+  // email, so it needs their token.
+  auth.currentUser?.getIdToken().then(idToken => fetch(`${apiUrl}/api/notify/challenge-connected`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
     body: JSON.stringify({ email, leadName, teamName }),
-  }).catch(() => {});
+  })).catch(() => {});
 }
 
 function statusMeta(s) {

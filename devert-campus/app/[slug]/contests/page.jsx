@@ -4,6 +4,7 @@ import {
   campusStaticParams, campusInstitutionForSlug, buildCampusMetadata,
   campusJsonLd,
 } from "@/lib/campus-seo";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 export async function generateStaticParams() {
   return campusStaticParams();
@@ -26,7 +27,7 @@ export default async function CampusContestsPage({ params }) {
   return (
     <>
       {jsonLd.map((obj, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(obj) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(obj) }} />
       ))}
       <CampusApp initialTab="contests" />
     </>

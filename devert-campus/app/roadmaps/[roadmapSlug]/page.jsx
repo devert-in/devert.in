@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { roadmapStaticParams, roadmapForSlug, buildRoadmapMetadata, roadmapJsonLd } from "@/lib/roadmaps-seo";
 import { CampusRoadmapsRoute } from "@/components/campus/campus-roadmaps";
 import { RoadmapsSyllabusOutline } from "@/components/campus/roadmaps-syllabus-outline";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 // Individual TOPICS deliberately get no static route of their own (would be
 // ~1,100 pages for the MVP's 15 roadmaps at 3 levels x ~5 modules x ~5
@@ -33,7 +34,7 @@ export default async function RoadmapDetailPage({ params }) {
   return (
     <>
       {jsonLd.map((obj, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(obj) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(obj) }} />
       ))}
       <Suspense fallback={null}>
         <CampusRoadmapsRoute initialRoadmapSlug={roadmapSlug} />

@@ -745,6 +745,205 @@ exports.razorpayWebhook = onRequest(
 // the pricing page - if that copy changes, change this.
 const TRIAL_DAYS = 7;
 
+// ── Wallet money path: server-authoritative ──────────────────────────────────
+//
+// Coins convert to REAL INR, so the two operations that turn activity into
+// money - converting XP to coins, and asking for a payout - run here with the
+// Admin SDK instead of in the browser. firestore.rules no longer lets a client
+// create payout_requests at all, and no longer lets an owner raise their own
+// coin balance except alongside a brand-new reward_grants ledger entry of the
+// same amount (see user_earnings there).
+//
+// What this closes (security audit, 2026-09-25):
+// - inrAmount was whatever the client wrote; the admin saw "Approve ₹100000"
+//   for a 1,000-coin request. It is computed here from system/economy.
+// - a request never reserved the coins, so N requests could claim one
+//   balance; rejecting any of them refunded coins never deducted. The
+//   deduction happens here, in the same transaction that creates the request,
+//   and the request is stamped deducted:true so the admin panel knows a
+//   rejection must refund and an approval must not deduct again.
+// - every request carries server-computed risk signals so the admin reviews
+//   a payout against the ledger that is supposed to back it.
+
+const ECONOMY_DEFAULTS = { XP_PER_COIN: 5, COINS_PER_INR: 200, MIN_PAYOUT: 2000 };
+const MAX_CONVERT_PER_DAY = 5000; // coins
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function istDateString(ms) {
+  return new Date(ms + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+async function loadEconomy(db) {
+  const snap = await db.doc("system/economy").get();
+  const e = { ...ECONOMY_DEFAULTS, ...(snap.exists ? snap.data() : {}) };
+  return {
+    XP_PER_COIN: Math.max(1, parseInt(e.XP_PER_COIN) || ECONOMY_DEFAULTS.XP_PER_COIN),
+    COINS_PER_INR: Math.max(1, parseInt(e.COINS_PER_INR) || ECONOMY_DEFAULTS.COINS_PER_INR),
+    MIN_PAYOUT: Math.max(1, parseInt(e.MIN_PAYOUT) || ECONOMY_DEFAULTS.MIN_PAYOUT),
+  };
+}
+
+// Same policy the Wallet page applies: an institution student's conversion is
+// locked until their institution's weekly leaderboard is announced (the
+// setting defaults to LOCKED when absent - see lib/institutions.js).
+async function conversionLockedFor(db, userData) {
+  const institutionId = String((userData && userData.institutionId) || "").trim();
+  if (!institutionId) return false;
+  const snap = await db.doc(`institutions/${institutionId}/settings/weeklyLeaderboard`).get();
+  return !snap.exists || snap.get("rewardConversionLocked") !== false;
+}
+
+// Resolves an account by its VERIFIED Firebase Auth email, for the platform
+// admin only. The admin console used to grant institution admin by looking
+// up users/{uid}.handle - a field any user can set on their own profile, so
+// an attacker could copy a TPO's handle and receive their admin grant. Auth
+// emails can't be forged from a client; the verified flag is returned so the
+// caller can refuse an unverified one.
+exports.adminLookupUserByEmail = onCall(
+  { region: "us-central1", maxInstances: 5 },
+  async (request) => {
+    if (!isPlatformAdmin(request.auth)) throw new HttpsError("permission-denied", "Platform admin only.");
+    const email = String((request.data || {}).email || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpsError("invalid-argument", "Enter a valid email.");
+    try {
+      const u = await admin.auth().getUserByEmail(email);
+      const profile = (await admin.firestore().doc(`users/${u.uid}`).get()).data() || {};
+      return { uid: u.uid, email: u.email, emailVerified: !!u.emailVerified, displayName: u.displayName || profile.displayName || "", handle: profile.handle || "" };
+    } catch (e) {
+      if (e && e.code === "auth/user-not-found") throw new HttpsError("not-found", "No DeVert account uses that email.");
+      throw e;
+    }
+  }
+);
+
+exports.convertXpToCoins = onCall(
+  { region: "us-central1", maxInstances: 10 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+    const uid = request.auth.uid;
+    const db = admin.firestore();
+    const economy = await loadEconomy(db);
+    const today = istDateString(Date.now());
+
+    const result = await db.runTransaction(async (tx) => {
+      const userRef = db.doc(`users/${uid}`);
+      const earnRef = db.doc(`user_earnings/${uid}`);
+      const [userSnap, earnSnap] = await Promise.all([tx.get(userRef), tx.get(earnRef)]);
+      if (!userSnap.exists) throw new HttpsError("failed-precondition", "No profile.");
+      const userData = userSnap.data();
+      if (await conversionLockedFor(db, userData)) {
+        throw new HttpsError("failed-precondition", "Conversion is locked until your institution's weekly leaderboard is announced.");
+      }
+      const earn = earnSnap.exists ? earnSnap.data() : {};
+      const convertedToday = earn.convertedDate === today ? (earn.convertedToday || 0) : 0;
+      const xp = Math.max(0, userData.xp || 0);
+      const gainable = Math.min(Math.floor(xp / economy.XP_PER_COIN), MAX_CONVERT_PER_DAY - convertedToday);
+      if (gainable < 1) return { coins: 0, remainingToday: Math.max(0, MAX_CONVERT_PER_DAY - convertedToday) };
+      tx.update(userRef, { xp: admin.firestore.FieldValue.increment(-(gainable * economy.XP_PER_COIN)) });
+      tx.set(earnRef, {
+        pulseCoins: admin.firestore.FieldValue.increment(gainable),
+        totalCoins: admin.firestore.FieldValue.increment(gainable),
+        convertedDate: today,
+        convertedToday: convertedToday + gainable,
+      }, { merge: true });
+      tx.set(db.collection("coin_transactions").doc(), {
+        uid, type: "xp_convert", amount: gainable, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return { coins: gainable, xpSpent: gainable * economy.XP_PER_COIN, remainingToday: MAX_CONVERT_PER_DAY - convertedToday - gainable };
+    });
+    logger.info("xp converted", { uid, ...result });
+    return result;
+  }
+);
+
+// Signals for the admin, computed from the ledger that should back a balance.
+// Advisory: the admin still decides. Rewards are still granted client-side
+// (see CLAUDE.md), so a farmed balance shows up here as grants that are too
+// many, too fast, or a balance the ledger can't account for.
+async function payoutRiskSignals(db, uid, earn) {
+  const now = Date.now();
+  const grants = await db.collection("reward_grants").where("uid", "==", uid).get();
+  let ledgerCoins = 0; let grants24h = 0; let grants7d = 0;
+  grants.forEach((d) => {
+    const g = d.data();
+    ledgerCoins += Math.max(0, g.coins || 0);
+    const t = g.grantedAt && g.grantedAt.toMillis ? g.grantedAt.toMillis() : 0;
+    if (now - t < DAY_MS) grants24h++;
+    if (now - t < 7 * DAY_MS) grants7d++;
+  });
+  const convSnap = await db.collection("coin_transactions").where("uid", "==", uid).where("type", "==", "xp_convert").get();
+  let convertedCoins = 0;
+  convSnap.forEach((d) => { convertedCoins += Math.max(0, d.get("amount") || 0); });
+  const backed = ledgerCoins + convertedCoins;
+  const total = earn.totalCoins || 0;
+  const flags = [];
+  if (total > backed * 1.05 + 50) flags.push(`Lifetime coins (${total}) exceed what the ledger accounts for (${backed}).`);
+  if (grants24h > 60) flags.push(`${grants24h} reward grants in the last 24 hours.`);
+  if (grants7d > 300) flags.push(`${grants7d} reward grants in the last 7 days.`);
+  return { ledgerCoins, convertedCoins, totalCoins: total, grants24h, grants7d, flags };
+}
+
+exports.requestPayout = onCall(
+  { region: "us-central1", maxInstances: 10 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+    const uid = request.auth.uid;
+    const d = request.data || {};
+    const coins = parseInt(d.coins);
+    const method = d.method === "bank" ? "bank" : d.method === "upi" ? "upi" : null;
+    const clean = (v, max) => String(v || "").trim().slice(0, max);
+    const upiId = clean(d.upiId, 80);
+    const bankName = clean(d.bankName, 80);
+    const accountNumber = clean(d.accountNumber, 34);
+    const ifscCode = clean(d.ifscCode, 11).toUpperCase();
+    if (!method) throw new HttpsError("invalid-argument", "Choose UPI or bank transfer.");
+    if (method === "upi" && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upiId)) throw new HttpsError("invalid-argument", "Enter a valid UPI ID.");
+    if (method === "bank" && (!/^\d{6,18}$/.test(accountNumber) || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode))) {
+      throw new HttpsError("invalid-argument", "Enter a valid account number and IFSC.");
+    }
+    const db = admin.firestore();
+    const economy = await loadEconomy(db);
+    if (!Number.isInteger(coins) || coins < economy.MIN_PAYOUT) {
+      throw new HttpsError("invalid-argument", `Minimum payout is ${economy.MIN_PAYOUT} coins.`);
+    }
+
+    const earnRef = db.doc(`user_earnings/${uid}`);
+    const userRef = db.doc(`users/${uid}`);
+    const reqRef = db.collection("payout_requests").doc();
+    const preEarn = (await earnRef.get()).data() || {};
+    const risk = await payoutRiskSignals(db, uid, preEarn);
+
+    await db.runTransaction(async (tx) => {
+      const [earnSnap, userSnap] = await Promise.all([tx.get(earnRef), tx.get(userRef)]);
+      const userData = userSnap.exists ? userSnap.data() : {};
+      if (await conversionLockedFor(db, userData)) {
+        throw new HttpsError("failed-precondition", "Withdrawals are locked until your institution's weekly leaderboard is announced.");
+      }
+      const balance = earnSnap.exists ? (earnSnap.get("pulseCoins") || 0) : 0;
+      if (balance < coins) throw new HttpsError("failed-precondition", "Not enough coins.");
+      tx.update(earnRef, { pulseCoins: admin.firestore.FieldValue.increment(-coins) });
+      tx.set(reqRef, {
+        uid,
+        handle: userData.handle || "",
+        email: request.auth.token.email || "",
+        coins,
+        inrAmount: Math.round((coins / economy.COINS_PER_INR) * 100) / 100,
+        coinsPerInr: economy.COINS_PER_INR,
+        method, upiId: method === "upi" ? upiId : "",
+        bankName: method === "bank" ? bankName : "",
+        accountNumber: method === "bank" ? accountNumber : "",
+        ifscCode: method === "bank" ? ifscCode : "",
+        status: "pending",
+        deducted: true,
+        risk,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    logger.info("payout requested", { uid, coins, flags: risk.flags.length });
+    return { id: reqRef.id, inrAmount: Math.round((coins / economy.COINS_PER_INR) * 100) / 100 };
+  }
+);
+
 /**
  * Starts the seven-day free trial. Once per account, ever.
  *
@@ -926,6 +1125,9 @@ exports.gradeContestSubmissionOnCreate = onDocumentCreated(
           score: grading.score,
           accuracy: grading.accuracy,
           correctCount: grading.correctCount,
+          // Server-computed from the real question set - replaces whatever
+          // maxScore the client wrote at create time.
+          maxScore: grading.maxScore,
         });
       });
       logger.info("contest submission auto-graded", { contestId, uid, score: grading.score, maxScore: grading.maxScore });

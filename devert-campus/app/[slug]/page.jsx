@@ -4,6 +4,7 @@ import {
   campusStaticParams, campusInstitutionForSlug, buildCampusMetadata,
   campusJsonLd, GLOBAL_SECTIONS,
 } from "@/lib/campus-seo";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 // campus-app.jsx also treats /campus/{contests|learning|practice} as
 // reserved, pre-auth-usable global sections (GLOBAL_SECTIONS), not
@@ -70,7 +71,7 @@ export default async function CampusInstitutionPage({ params }) {
   return (
     <>
       {jsonLd.map((obj, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(obj) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(obj) }} />
       ))}
       <CampusApp initialTab="dashboard" />
     </>

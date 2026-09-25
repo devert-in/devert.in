@@ -8,12 +8,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
+import { db, functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 import {
   doc, onSnapshot, collection, query, where,
-  orderBy, getDocs, addDoc, serverTimestamp, increment, runTransaction,
+  orderBy, getDocs,
 } from "firebase/firestore";
-import { ECONOMY as COINS, loadEconomy, logCoinTransaction } from "@/lib/economy";
+import { ECONOMY as COINS, loadEconomy } from "@/lib/economy";
 import { fetchWeeklyLeaderboardSettings } from "@/lib/institutions";
 
 const CONVERSION_LOCKED_MESSAGE = "Reward conversion is temporarily locked until this week's leaderboard is finalized by your campus administrator.";
@@ -122,35 +123,25 @@ export default function WalletPage() {
       .catch(() => setConversionLocked(false));
   }, [userData?.institutionId]);
 
-  // runTransaction, not a blind writeBatch off stale `userData.xp` React
-  // state - two tabs (or a double-click) both computing `gainable` from the
-  // same stale xp value and both committing would double-convert the same
-  // XP into coins, minting real withdrawable balance from nothing. Re-reads
-  // xp live, inside the transaction, immediately before deciding how much to
-  // grant - the same pattern handlePayoutRequest below already uses for its
-  // own coin balance.
+  // Both money operations run server-side (functions/index.js convertXpToCoins
+  // / requestPayout): the server reads the live XP / coin balance, applies
+  // system/economy's rates and caps, and writes everything in one Admin SDK
+  // transaction. firestore.rules no longer lets this page raise its own coins
+  // or create a payout request directly - that is what let a client pick its
+  // own INR amount and claim one balance many times.
   const handleConvertXP = async () => {
     if (!user) return;
     setCError("");
     if (conversionLocked) { setCError(CONVERSION_LOCKED_MESSAGE); return; }
     setConverting(true);
-    let gainable = 0;
     try {
-      await runTransaction(db, async (tx) => {
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await tx.get(userRef);
-        const liveXp = userSnap.exists() ? (userSnap.data().xp || 0) : 0;
-        gainable = Math.min(Math.floor(liveXp / COINS.XP_PER_COIN), 5000);
-        if (gainable < 1) return;
-        tx.set(doc(db, "user_earnings", user.uid), {
-          pulseCoins: increment(gainable),
-          totalCoins: increment(gainable),
-        }, { merge: true });
-        tx.update(userRef, { xp: increment(-(gainable * COINS.XP_PER_COIN)) });
-      });
-      if (gainable < 1) return;
-      logCoinTransaction(user.uid, "xp_convert", gainable);
-      setUserData(p  => ({ ...p, xp: (p?.xp || 0) - gainable * COINS.XP_PER_COIN }));
+      const { data } = await httpsCallable(functions, "convertXpToCoins")({});
+      const gainable = data?.coins || 0;
+      if (gainable < 1) {
+        setCError(data?.remainingToday === 0 ? "Daily conversion limit reached - try again tomorrow." : "Not enough XP to convert yet.");
+        return;
+      }
+      setUserData(p  => ({ ...p, xp: (p?.xp || 0) - (data.xpSpent || gainable * COINS.XP_PER_COIN) }));
       setEarnings(p  => ({
         pulseCoins: (p?.pulseCoins || 0) + gainable,
         totalCoins: (p?.totalCoins || 0) + gainable,
@@ -158,7 +149,10 @@ export default function WalletPage() {
       setTransactions(prev => [{ id: `local-${Date.now()}`, uid: user.uid, type: "xp_convert", amount: gainable, createdAt: { seconds: Date.now() / 1000 } }, ...prev]);
       setConverted(true);
       setTimeout(() => setConverted(false), 3000);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setCError(e?.message || "Conversion failed.");
+    }
     finally { setConverting(false); }
   };
 
@@ -177,28 +171,13 @@ export default function WalletPage() {
 
     setPSaving(true);
     try {
-      await runTransaction(db, async (tx) => {
-        const earnRef = doc(db, "user_earnings", user.uid);
-        const earnSnap = await tx.get(earnRef);
-        const current = earnSnap.exists() ? (earnSnap.data().pulseCoins || 0) : 0;
-        if (current < coinAmt) throw new Error("Not enough coins.");
-        tx.update(earnRef, { pulseCoins: increment(-coinAmt) });
-        tx.set(doc(collection(db, "payout_requests")), {
-          uid:           user.uid,
-          handle:        userData?.handle || "",
-          email:         user.email,
-          coins:         coinAmt,
-          inrAmount:     coinAmt / COINS.COINS_PER_INR,
-          method,
-          upiId:         method === "upi"  ? upiId.trim()   : "",
-          bankName:      method === "bank" ? bankName.trim() : "",
-          accountNumber: method === "bank" ? accNum.trim()   : "",
-          ifscCode:      method === "bank" ? ifsc.trim()     : "",
-          status:        "pending",
-          createdAt:     serverTimestamp(),
-        });
+      await httpsCallable(functions, "requestPayout")({
+        coins: coinAmt, method,
+        upiId: method === "upi" ? upiId.trim() : "",
+        bankName: method === "bank" ? bankName.trim() : "",
+        accountNumber: method === "bank" ? accNum.trim() : "",
+        ifscCode: method === "bank" ? ifsc.trim() : "",
       });
-      // Deduct coins from earnings (reflects the real transactional deduction)
       setEarnings(p => ({
         pulseCoins: (p?.pulseCoins || 0) - coinAmt,
         totalCoins:  p?.totalCoins || 0,
@@ -206,10 +185,9 @@ export default function WalletPage() {
       setCoins(""); setUpiId(""); setBankName(""); setAccNum(""); setIfsc("");
       setPSuccess(true);
       setTimeout(() => setPSuccess(false), 4000);
-      // Reload requests
       getDocs(query(collection(db, "payout_requests"), where("uid", "==", user.uid), orderBy("createdAt", "desc")))
         .then(snap => setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-    } catch (e) { setPError(e.message); }
+    } catch (e) { setPError(e?.message || "Payout request failed."); }
     finally { setPSaving(false); }
   };
 

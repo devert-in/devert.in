@@ -15,6 +15,7 @@ import { RoleDetailView } from "@/components/role-detail-view";
 import {
   buildEmptyRoleMetadata, buildRoleMetadata, careerStaticParams, roleForSlug, roleJsonLd,
 } from "@/lib/careers-seo";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 export async function generateStaticParams() {
   return careerStaticParams();
@@ -48,7 +49,7 @@ export default async function RolePage({ params }) {
     <>
       {jsonLd.map((obj, i) => (
         <script key={i} type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(obj) }} />
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(obj) }} />
       ))}
       <RoleDetailView slug={slug} />
     </>

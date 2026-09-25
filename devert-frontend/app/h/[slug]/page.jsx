@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { HackathonDetailView } from "@/components/hackathons/hackathon-detail-view";
 import { hackathonStaticParams, hackathonForSlug, buildHackathonMetadata, hackathonJsonLd } from "@/lib/hackathon-seo";
+import { jsonLdHtml } from "@/lib/jsonLd";
 
 export async function generateStaticParams() {
   return hackathonStaticParams();
@@ -23,7 +24,7 @@ export default async function HackathonPage({ params }) {
   return (
     <>
       {jsonLd.map((obj, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(obj) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(obj) }} />
       ))}
       <HackathonDetailView slug={slug} />
     </>

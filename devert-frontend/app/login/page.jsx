@@ -84,7 +84,11 @@ function LoginContent() {
   const { user, loading: authLoading } = useAuth();
 
   const rawNext = searchParams.get("next");
-  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  // Same-site paths only. "//evil.com" and "/\evil.com" both start with "/"
+  // but browsers resolve them to another origin, so anything but a single
+  // leading slash followed by a normal path character is refused.
+  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.startsWith("/\\")
+    ? rawNext : "/";
   nextRef.current = next;
 
   // Already logged in → go straight to destination
