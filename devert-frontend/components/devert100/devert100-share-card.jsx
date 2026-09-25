@@ -20,6 +20,7 @@ const W = 1200;
 const H = 630;
 const SCALE = 2;
 
+const LF = String.fromCharCode(10);
 const BG = "#05070c";
 const GREEN = "#00FF41";
 const CYAN = "#00FFFF";
@@ -236,6 +237,36 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name, comple
   ctx.fillStyle = "rgba(255,255,255,0.22)";
   const url = "devert.in/devert100";
   ctx.fillText(url, W - PAD - ctx.measureText(url).width, FY + 32);
+}
+
+// The join line is appended here rather than written into each day's authored
+// post, so every share carries it whether the day has a hand-written post or
+// the generated fallback - and so changing the wording once changes all 100.
+// Authors must NOT put it in the markdown; the guard below only suppresses an
+// exact duplicate.
+//
+// It goes ABOVE the hashtag block: LinkedIn truncates long posts behind a
+// "see more", and a call to action stranded under twelve hashtags is a call
+// to action nobody reads.
+const JOIN_LINE = "Want to join the sprint? Join here: https://devert.in/devert100";
+
+function withJoinCta(post) {
+  const body = String(post || "").trimEnd();
+  if (body.includes("devert.in/devert100")) return body;
+
+  const lines = body.split(LF);
+  let firstHashtag = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (/^\s*#\w/.test(lines[i])) firstHashtag = i; else if (firstHashtag !== -1) break;
+  }
+  if (firstHashtag === -1) return body + LF + LF + JOIN_LINE;
+  return [
+    lines.slice(0, firstHashtag).join(LF).trimEnd(),
+    "",
+    JOIN_LINE,
+    "",
+    lines.slice(firstHashtag).join(LF).trim(),
+  ].join(LF);
 }
 
 export function Devert100ShareCard({ day, problem, topic, participant, displayName, onClose }) {
