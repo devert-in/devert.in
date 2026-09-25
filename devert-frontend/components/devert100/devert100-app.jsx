@@ -281,7 +281,7 @@ export function Devert100App() {
                       className="inline-flex items-center gap-2 font-mono text-xs font-semibold px-5 py-3 rounded disabled:opacity-60"
                       style={{ background: GREEN, color: "#05080F" }}>
                       {joining ? <Loader2 size={13} className="animate-spin" /> : <Flame size={13} />}
-                      {joining ? "JOINING..." : "JOIN DEVERT 100"}
+                      {joining ? "JOINING..." : "JOIN DEVERT100"}
                     </button>
                   ) : (
                     <div className="flex flex-wrap items-center gap-3">

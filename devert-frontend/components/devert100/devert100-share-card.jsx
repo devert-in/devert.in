@@ -125,7 +125,7 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name, comple
   }
   ctx.font = `600 20px ${mono}`;
   ctx.fillStyle = "rgba(255,255,255,0.38)";
-  ctx.fillText("DEVERT 100", brandX, PAD + 8);
+  ctx.fillText("DEVERT100", brandX, PAD + 8);
 
   ctx.font = `500 16px ${mono}`;
   ctx.fillStyle = "rgba(255,255,255,0.22)";
@@ -305,7 +305,9 @@ One more day of consistency. One step closer to becoming a better problem solver
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => resolve(null);
-      img.src = "/devert-logo.png";
+      // The CURRENT mark. /devert-logo.png is the retired one, still in
+      // public/ but carrying the old </> glyph.
+      img.src = "/icon-192.png";
     });
 
     const fonts = document.fonts?.ready ? document.fonts.ready.catch(() => {}) : Promise.resolve();

@@ -12,7 +12,7 @@ import {
 
 const GREEN = "#00FF41";
 
-// The homepage entry point to DeVert 100, in the same shape as the hackathon
+// The homepage entry point to DeVert100, in the same shape as the hackathon
 // and campus spotlight cards beside it.
 //
 // It PERSONALISES rather than advertising at everyone: a participant sees where
@@ -47,7 +47,7 @@ export function Devert100Spotlight() {
     cta = "SEE THE PLAN";
   } else if (joined && summary.isComplete) {
     badge = { icon: CheckCircle2, text: "100 / 100 COMPLETE" };
-    headline = "You finished DeVert 100.";
+    headline = "You finished DeVert100.";
     sub = `${summary.longestStreak}-day best streak. The whole run, done.`;
     cta = "VIEW JOURNEY";
   } else if (joined && !resolving) {
@@ -61,7 +61,7 @@ export function Devert100Spotlight() {
     badge = { icon: Flame, text: `DAY ${live} - LIVE NOW` };
     headline = "100 Days. 100+ Problems.";
     sub = "Stop collecting tutorials. Start solving.";
-    cta = "JOIN DEVERT 100";
+    cta = "JOIN DEVERT100";
   }
 
   const BadgeIcon = badge.icon;
@@ -82,7 +82,7 @@ export function Devert100Spotlight() {
                   <BadgeIcon size={11} /> {badge.text}
                 </span>
                 <h2 className="font-sans text-xl sm:text-2xl font-bold text-white mb-1 group-hover:text-white/90 transition-colors">
-                  DeVert 100
+                  DeVert100
                 </h2>
                 <p className="font-mono text-xs text-white/40 mb-3">{headline}</p>
                 <p className="font-mono text-[11px] text-white/55">{sub}</p>

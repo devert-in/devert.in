@@ -244,7 +244,7 @@ export function Devert100Workspace({ day }) {
     <div className="flex items-center gap-2 font-mono text-[11px] text-white/30 mb-6 flex-wrap">
       <Link href="/" className="hover:text-white/60">DeVert</Link>
       <span>/</span>
-      <Link href="/devert100" className="hover:text-white/60">DeVert 100</Link>
+      <Link href="/devert100" className="hover:text-white/60">DeVert100</Link>
       <span>/</span>
       <span className="text-white/55">Day {dayNum}</span>
     </div>
@@ -263,7 +263,7 @@ export function Devert100Workspace({ day }) {
       <div className="terminal-window p-10 text-center">
         <AlertCircle size={22} className="mx-auto mb-3 text-white/25" />
         <h1 className="font-sans text-xl font-bold text-white mb-2">Day {dayNum} is not part of this run</h1>
-        <p className="font-mono text-xs text-white/35 mb-5">DeVert 100 runs days 1 to {DEVERT100_TOTAL_DAYS}.</p>
+        <p className="font-mono text-xs text-white/35 mb-5">DeVert100 runs days 1 to {DEVERT100_TOTAL_DAYS}.</p>
         <Link href="/devert100" className="font-mono text-xs px-4 py-2.5 rounded inline-block"
           style={{ background: CYAN, color: "#05080F" }}>BACK TO THE RUN</Link>
       </div></>);
@@ -536,7 +536,7 @@ export function Devert100Workspace({ day }) {
           <Link href="/devert100"
             className="w-full py-4 rounded font-mono text-sm font-semibold flex items-center justify-center gap-2"
             style={{ background: CYAN, color: "#05080F" }}>
-            Join DeVert 100 to track this day
+            Join DeVert100 to track this day
           </Link>
         ) : isDone ? (
           <div className="flex flex-col sm:flex-row gap-2">

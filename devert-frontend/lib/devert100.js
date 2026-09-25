@@ -4,7 +4,7 @@ import {
   query, orderBy, serverTimestamp, increment,
 } from "firebase/firestore";
 
-// DeVert 100 - the 100-day DSA execution run.
+// DeVert100 - the 100-day DSA execution run.
 //
 // THE ONE THING TO UNDERSTAND FIRST: this is a COHORT, not a per-user clock.
 // Day 27 is the same calendar date for every participant. Someone who joins on
@@ -242,7 +242,7 @@ export async function fetchParticipant(uid) {
 // what protects joinedAt and completedDays, and merge is what keeps a
 // half-written document from losing fields if this races with itself.
 export async function joinDevert100(uid) {
-  if (!uid) throw new Error("Sign in to join DeVert 100.");
+  if (!uid) throw new Error("Sign in to join DeVert100.");
   const ref = doc(db, DEVERT100_PARTICIPANTS, uid);
   const existing = await getDoc(ref);
   if (existing.exists()) return { uid, ...existing.data(), alreadyJoined: true };
@@ -278,7 +278,7 @@ export async function completeDay(uid, day, { confidence = null, minutes = null,
 
   const ref = doc(db, DEVERT100_PARTICIPANTS, uid);
   const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error("Join DeVert 100 before recording a day.");
+  if (!snap.exists()) throw new Error("Join DeVert100 before recording a day.");
   if (snap.data().completedDays?.[String(n)]) return { alreadyComplete: true };
 
   await updateDoc(ref, {
