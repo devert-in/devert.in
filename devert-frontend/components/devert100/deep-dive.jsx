@@ -42,7 +42,7 @@ const MD = {
   h1: ({ children }) => <h3 className="font-sans text-lg font-bold text-white mt-5 mb-2 first:mt-0">{children}</h3>,
   h2: ({ children }) => <h3 className="font-sans text-base font-bold text-white mt-5 mb-2 first:mt-0">{children}</h3>,
   h3: ({ children }) => <h4 className="font-mono text-[12px] text-white/70 tracking-wide mt-4 mb-1.5 first:mt-0">{children}</h4>,
-  p: ({ children }) => <p className="font-mono text-[12.5px] text-white/60 leading-relaxed mb-3">{children}</p>,
+  p: ({ children }) => <p className="font-mono text-[12.5px] text-white/60 leading-relaxed mb-3 break-words">{children}</p>,
   ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
   ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
   li: ({ children }) => <li className="font-mono text-[12.5px] text-white/60 leading-relaxed">{children}</li>,
@@ -69,7 +69,7 @@ const MD = {
       );
     }
     return (
-      <pre className="rounded p-3.5 my-3 overflow-x-auto"
+      <pre className="rounded p-3.5 my-3 overflow-x-auto max-w-full"
         style={{ background: "rgba(0,0,0,0.42)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <code className="font-mono text-[11.5px] text-white/80 leading-relaxed whitespace-pre">{text.replace(/\n$/, "")}</code>
       </pre>
@@ -110,7 +110,7 @@ function DeepSection({ section, body }) {
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
-            <div className="p-4 sm:p-5">
+            <div className="p-4 sm:p-5 min-w-0">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>{body}</ReactMarkdown>
             </div>
           </motion.div>
@@ -130,7 +130,7 @@ export function DeepDive({ problem }) {
   if (!d) return null;
   const intro = String(d.intro || "").trim();
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       {intro && (
         <div className="terminal-window p-4 sm:p-5">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>{intro}</ReactMarkdown>

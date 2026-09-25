@@ -307,9 +307,22 @@ export function Devert100App() {
                   <Stat icon={Flame} label="STREAK" value={summary.currentStreak}
                     sub={`longest ${summary.longestStreak}`} color="#FF6430" />
                   <Stat icon={Trophy} label="REMAINING" value={summary.remaining}
-                    sub={summary.missed > 0 ? `${summary.missed} unfinished so far` : "on pace"} color={GOLD} />
+                    sub={summary.missed > 0 ? `${summary.missed} missed since you joined`
+                      : summary.perfectSinceJoin ? "every day kept" : "on pace"} color={GOLD} />
                 </div>
                 <ProgressBar percent={summary.percent} />
+
+                {/* The backlog is an INVITATION, not a debt. A day-40 joiner has
+                    39 earlier days available and has missed none of them, so
+                    this line is phrased as something to gain. Hidden once it is
+                    cleared. */}
+                {summary.backlogLeft > 0 && (
+                  <p className="font-mono text-[11px] text-white/35 mt-3">
+                    You joined on day {summary.joinedOnDay}. {summary.backlogLeft} earlier
+                    {summary.backlogLeft === 1 ? " day is" : " days are"} open whenever you want
+                    {summary.backlogDone > 0 ? ` - ${summary.backlogDone} already done.` : "."}
+                  </p>
+                )}
               </motion.div>
             )}
 

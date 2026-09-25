@@ -326,8 +326,28 @@ export function progressSummary(participant, now = new Date()) {
   const completedDays = participant?.completedDays || {};
   const { current, longest, total } = computeStreaks(completedDays, now);
   const live = currentDay(now);
+
+  // MEASURED FROM THE DAY THEY JOINED, not from day 1 of the run.
+  //
+  // This is the difference between a late joiner being welcomed and being
+  // told off. Someone who joins on day 40 and does day 40 has missed nothing -
+  // they were not there. Counting `live - total` would greet them with
+  // "39 missed" on their first afternoon, which is both untrue and the fastest
+  // possible way to make them close the tab.
+  //
+  // The days before they joined are not failures, they are a BACKLOG: optional,
+  // always open, and counted separately so catching up reads as a bonus rather
+  // than as clearing a debt.
+  const joinedOn = Math.min(Math.max(Number(participant?.joinedOnDay) || 1, 1), DEVERT100_TOTAL_DAYS);
+  const doneNums = Object.keys(completedDays).map(Number).filter(Number.isInteger);
+  const sinceJoinUnlocked = Math.max(0, live - joinedOn + 1);
+  const sinceJoinDone = doneNums.filter(n => n >= joinedOn).length;
+  const backlogTotal = Math.max(0, joinedOn - 1);
+  const backlogDone = doneNums.filter(n => n < joinedOn).length;
+
   return {
     joined: !!participant,
+    joinedOnDay: joinedOn,
     runDay: live,
     started: hasRunStarted(now),
     ended: hasRunEnded(now),
@@ -336,10 +356,15 @@ export function progressSummary(participant, now = new Date()) {
     percent: Math.round((total / DEVERT100_TOTAL_DAYS) * 100),
     currentStreak: current,
     longestStreak: longest,
-    // Days that have unlocked but were never finished. The honest number, and
-    // the one worth surfacing - "3 missed" is actionable in a way that
-    // "27% complete" is not.
-    missed: Math.max(0, live - total),
+    // Unlocked since joining and not done. A real miss, and actionable.
+    missed: Math.max(0, sinceJoinUnlocked - sinceJoinDone),
+    // Days from before they joined. Optional, never counted as missed.
+    backlogTotal,
+    backlogDone,
+    backlogLeft: Math.max(0, backlogTotal - backlogDone),
+    // "You have kept every day since you joined" - true for a day-40 joiner on
+    // their first day, and worth saying out loud.
+    perfectSinceJoin: sinceJoinDone >= sinceJoinUnlocked,
     isComplete: total >= DEVERT100_TOTAL_DAYS,
   };
 }

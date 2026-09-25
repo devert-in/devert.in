@@ -357,7 +357,7 @@ export function Devert100Workspace({ day }) {
 
       <div className="grid lg:grid-cols-2 gap-4 items-start">
         {/* ── left: understand ── */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* A hand-authored deep dive REPLACES the short sheet fields rather
               than sitting beside them: it covers the same seven steps in full,
               and showing both would have the one-line "Brute Force" column
@@ -458,7 +458,7 @@ export function Devert100Workspace({ day }) {
         </div>
 
         {/* ── right: code ── */}
-        <div className="space-y-4 lg:sticky lg:top-[88px]">
+        <div className="space-y-4 min-w-0 lg:sticky lg:top-[88px]">
           <div className="terminal-window overflow-hidden">
             <div className="terminal-header flex items-center gap-2">
               <span className="font-mono text-[10px] text-white/25 ml-2">scratchpad</span>
