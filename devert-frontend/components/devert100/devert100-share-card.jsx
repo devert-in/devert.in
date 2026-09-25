@@ -241,6 +241,42 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name, comple
   ctx.fillText(url, W - PAD - ctx.measureText(url).width, FY + 32);
 }
 
+// LinkedIn has no markdown. A post containing **bold** renders the asterisks
+// literally, and backticks come through as backticks - both of which make a
+// careful post look like someone pasted raw source into the box.
+//
+// The fix is Unicode: the Mathematical Sans-Serif Bold block contains real
+// bold glyphs, so LinkedIn shows them bold without any markup at all. Code
+// spans just lose their backticks, because monospace Unicode is far harder to
+// read at body size than plain text is.
+//
+// WORTH KNOWING, since it is a real cost: screen readers handle these glyphs
+// badly - many announce them character by character or skip them. So this is
+// applied ONLY to the few phrases the author marked as bold, never to whole
+// sentences, and the markdown source keeps its ** so the deep-dive page still
+// renders proper <strong>.
+const BOLD_UPPER = 0x1D5D4;  // MATHEMATICAL SANS-SERIF BOLD CAPITAL A
+const BOLD_LOWER = 0x1D5EE;  // ... SMALL A
+const BOLD_DIGIT = 0x1D7EC;  // ... DIGIT ZERO
+
+function toUnicodeBold(s) {
+  let out = "";
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    if (c >= 65 && c <= 90) out += String.fromCodePoint(BOLD_UPPER + c - 65);
+    else if (c >= 97 && c <= 122) out += String.fromCodePoint(BOLD_LOWER + c - 97);
+    else if (c >= 48 && c <= 57) out += String.fromCodePoint(BOLD_DIGIT + c - 48);
+    else out += ch;  // punctuation and spaces have no bold form; leave them
+  }
+  return out;
+}
+
+function forLinkedIn(text) {
+  return String(text || "")
+    .replace(/\*\*([^*]+)\*\*/g, (_, inner) => toUnicodeBold(inner))
+    .replace(/`([^`]+)`/g, "$1");
+}
+
 // The join line is appended here rather than written into each day's authored
 // post, so every share carries it whether the day has a hand-written post or
 // the generated fallback - and so changing the wording once changes all 100.
@@ -296,7 +332,7 @@ One more day of consistency. One step closer to becoming a better problem solver
   // generated one is the fallback for the 99 days without one. Either way the
   // textarea stays editable - nobody should post words they did not choose.
   const authored = String(problem?.deepDive?.linkedin || "").trim();
-  const [text, setText] = useState(withJoinCta(authored || postText));
+  const [text, setText] = useState(forLinkedIn(withJoinCta(authored || postText)));
 
   useEffect(() => {
     // Two things must settle before the first measureText/drawImage, or the
