@@ -197,6 +197,36 @@ function drawCard(canvas, { day, problem, topic, streak, completed, name }) {
   ctx.fillText(url, W - PAD - ctx.measureText(url).width, FY + 36);
 }
 
+// The join line is appended here rather than written into each day's authored
+// post, so every share carries it whether the day has a hand-written post or
+// the generated fallback - and so changing the wording once changes all 100.
+// Authors must NOT put it in the markdown; the guard below would only suppress
+// an exact duplicate.
+//
+// It goes ABOVE the hashtag block: LinkedIn truncates long posts behind a "see
+// more", and a call to action stranded under twelve hashtags is a call to
+// action nobody reads.
+const JOIN_LINE = "Want to join the sprint? Join here: https://devert.in/devert100";
+
+function withJoinCta(post) {
+  const body = String(post || "").trimEnd();
+  if (body.includes("devert.in/devert100")) return body;
+
+  const lines = body.split("\n");
+  let firstHashtag = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (/^\s*#\w/.test(lines[i])) firstHashtag = i; else if (firstHashtag !== -1) break;
+  }
+  if (firstHashtag === -1) return `${body}\n\n${JOIN_LINE}`;
+  return [
+    lines.slice(0, firstHashtag).join("\n").trimEnd(),
+    "",
+    JOIN_LINE,
+    "",
+    lines.slice(firstHashtag).join("\n").trim(),
+  ].join("\n");
+}
+
 export function Devert100ShareCard({ day, problem, topic, participant, displayName, onClose }) {
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
@@ -220,7 +250,7 @@ One more day of consistency. One step closer to becoming a better problem solver
   // generated one is the fallback for the 99 days without one. Either way the
   // textarea stays editable - nobody should post words they did not choose.
   const authored = String(problem?.deepDive?.linkedin || "").trim();
-  const [text, setText] = useState(authored || postText);
+  const [text, setText] = useState(withJoinCta(authored || postText));
 
   useEffect(() => {
     // Fonts have to be settled before the first measureText, or the card draws
