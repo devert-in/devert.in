@@ -309,9 +309,14 @@ function withJoinCta(post) {
 
 export function Devert100ShareCard({ day, problem, topic, participant, displayName, onClose }) {
   const canvasRef = useRef(null);
+  // The PNG, encoded once when the card is drawn. Keeping it ready means the
+  // LinkedIn handler never has to await canvas encoding inside the click, which
+  // is what would cost it the user gesture the clipboard write depends on.
+  const blobRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [handoff, setHandoff] = useState("");
 
   const completedDays = participant?.completedDays || {};
   // As of THIS day, not as of now - see statsAsOfDay. A day 2 card posted on
@@ -358,6 +363,7 @@ One more day of consistency. One step closer to becoming a better problem solver
         day, problem, topic, streak, completed,
         name: displayName, completedDays, logo,
       });
+      canvasRef.current.toBlob(b => { blobRef.current = b; }, "image/png");
       setReady(true);
     });
 
@@ -368,20 +374,22 @@ One more day of consistency. One step closer to becoming a better problem solver
     // endlessly.
   }, [day, problem, topic, streak, completed, displayName, participant]);
 
+  function saveBlob(blob) {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `devert100-day-${day}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function handleDownload() {
+    if (blobRef.current) { saveBlob(blobRef.current); return; }
+    // Only if the card was somehow drawn without the blob landing yet.
     if (!canvasRef.current) return;
     setDownloading(true);
-    canvasRef.current.toBlob(blob => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `devert100-day-${day}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-      setDownloading(false);
-    }, "image/png");
+    canvasRef.current.toBlob(b => { saveBlob(b); setDownloading(false); }, "image/png");
   }
 
   async function handleCopy() {
@@ -390,6 +398,54 @@ One more day of consistency. One step closer to becoming a better problem solver
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* clipboard blocked; the textarea is selectable */ }
+  }
+
+  // THE LINKEDIN HANDOFF.
+  //
+  // LinkedIn's composer cannot be pre-filled by another site. There is no
+  // public flow - not share-offsite, not the feed URL, nothing - that lets a
+  // third-party page inject post text or attach an image. Clicking through to
+  // an empty composer and leaving the user to find the text and the file
+  // themselves is the honest limit of what the platform allows.
+  //
+  // So instead of pretending, this does every step it CAN, in one click:
+  //
+  //   mobile  - navigator.share with the PNG attached. This is a real share:
+  //             the OS sheet hands LinkedIn the image and the text together.
+  //   desktop - copy the text to the clipboard, save the image, then open the
+  //             composer. By the time it loads, Ctrl+V is the post and the
+  //             image is the top of the Downloads list.
+  //
+  // Order matters on desktop. The clipboard write happens BEFORE window.open,
+  // because once LinkedIn takes focus this document can no longer write to the
+  // clipboard. The blob is prepared when the card is drawn, so nothing here has
+  // to await canvas encoding inside the user gesture.
+  async function handleLinkedIn() {
+    const blob = blobRef.current;
+
+    const file = blob ? new File([blob], `devert100-day-${day}.png`, { type: "image/png" }) : null;
+    if (file && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text });
+        return;
+      } catch {
+        // Cancelled or unsupported in practice - fall through to the desktop path.
+      }
+    }
+
+    let copiedOk = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copiedOk = true;
+    } catch { /* blocked - the textarea above is still selectable */ }
+
+    saveBlob(blob);
+
+    setHandoff(copiedOk
+      ? "Text copied and image saved. In LinkedIn: paste with Ctrl+V, then attach the PNG from your downloads."
+      : "Image saved. Copy the text above, then paste it into LinkedIn and attach the PNG.");
+
+    window.open("https://www.linkedin.com/feed/?shareActive=true", "_blank", "noopener");
   }
 
   return (
@@ -426,20 +482,19 @@ One more day of consistency. One step closer to becoming a better problem solver
               style={{ background: "rgba(255,255,255,0.07)" }}>
               {copied ? <Check size={13} style={{ color: GREEN }} /> : <Copy size={13} />} {copied ? "COPIED" : "COPY TEXT"}
             </button>
-            <a href="https://www.linkedin.com/feed/?shareActive=true" target="_blank" rel="noopener noreferrer"
-              className="py-3 rounded font-mono text-[11px] font-semibold inline-flex items-center justify-center gap-1.5"
+            <button onClick={handleLinkedIn} disabled={!ready}
+              className="py-3 rounded font-mono text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
               style={{ background: "#0A66C2", color: "#fff" }}>
               <Linkedin size={13} /> LINKEDIN
-            </a>
+            </button>
           </div>
 
-          {/* Said plainly rather than implied. LinkedIn's share endpoints take a
-              URL, not an image a page generated - there is no API flow that
-              uploads this PNG for a signed-out third-party site, so pretending
-              otherwise would just produce a broken post. */}
-          <p className="font-mono text-[10px] text-white/28 leading-relaxed mt-3">
-            LinkedIn cannot accept an image straight from a webpage. Download the card, copy the
-            text, then attach the image in LinkedIn&apos;s composer.
+          {/* Said plainly rather than implied. LinkedIn exposes no way for another
+              site to fill its composer, so the button does every step it can and
+              this line says exactly what is left for the user to do. */}
+          <p className="font-mono text-[10px] leading-relaxed mt-3"
+            style={{ color: handoff ? GREEN : "rgba(255,255,255,0.28)" }}>
+            {handoff || "LinkedIn will not let another site fill its composer. The button copies the text, saves the image, and opens the composer for you."}
           </p>
         </div>
       </motion.div>
