@@ -18,7 +18,7 @@
 // here; each nav file filters/groups this same array instead of maintaining
 // its own separate list.
 import {
-  Home, Activity, Swords, Radio, GraduationCap, Tv2, Flame, Target,
+  Home, Activity, Swords, Radio, GraduationCap, Tv2, Flame, Target, Rocket,
   ClipboardCheck, Anchor, Hammer, Zap, Users, GitFork, FlaskConical,
   Newspaper, Building2, Megaphone,
 } from "lucide-react";
@@ -42,6 +42,7 @@ export const NAV_ROUTES = [
   { key: "showcase",      icon: Anchor,       label: "Showcase",      href: "/showcase",      desktop: "build",    desc: "Dock projects, get judged" },
   { key: "build",         icon: Hammer,       label: "Build",         href: "/build",         desktop: "build",    desc: "Challenges & sprints" },
   { key: "grind",         icon: Zap,          label: "Grind",         href: "/grind",         desktop: "build",    desc: "Daily coding reps" },
+  { key: "devert100",     icon: Rocket,       label: "DeVert 100",    href: "/devert100",     desktop: "build",    desc: "100-day DSA run" },
   { key: "community",     icon: Users,        label: "Community",     href: "/community",     desktop: "connect",  desc: "Join dev communities" },
   { key: "ambassador",    icon: Megaphone,    label: "Ambassador",    href: "/ambassador",    desktop: "more",     desc: "Represent DeVert on your campus" },
   { key: "open-source",   icon: GitFork,      label: "Open Source",   href: "/open-source",   desktop: "more",     desc: "Coming soon" },

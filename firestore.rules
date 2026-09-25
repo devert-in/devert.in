@@ -2323,6 +2323,58 @@ service cloud.firestore {
                  .difference(request.resource.data.get('solvedProblems', {}).keys().toSet()).size() == 0));
     }
 
+    // ── DeVert 100 ────────────────────────────────────────────────────────
+    // The 100-day DSA run. Content is world-readable (the landing page and the
+    // journey grid are public, and the run is meant to be discoverable);
+    // progress is strictly per-owner.
+
+    // Curriculum. Imported by scripts/import-devert100.mjs and editable from
+    // the admin console - never writable by a participant, who would otherwise
+    // be able to rewrite the problem everyone else sees.
+    match /devert100_days/{day} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Derived index the journey grid reads (one document, 100 summary entries)
+    // plus the pattern cheatsheet. Same trust level as the day documents.
+    match /devert100_meta/{docId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // Per-participant progress.
+    //
+    // completedDays IS MONOTONIC FOR THE OWNER - once a day key is set the
+    // owner may add more but never remove one. Same idiom, and the same
+    // reasoning, as user_codelab_progress.solvedProblems above: without it a
+    // participant could delete their own completedDays.27 entry and re-complete
+    // day 27, inflating totalCompleted without doing any work. Today that only
+    // distorts their own dashboard and share card, but this collection is the
+    // obvious backing store for a DeVert 100 leaderboard or a completion
+    // certificate, and either would make the number worth forging.
+    //
+    // NOTE ON WHAT THIS DELIBERATELY DOES NOT ENFORCE: totalCompleted is a
+    // plain counter the client increments, and rules cannot cheaply verify it
+    // equals completedDays.size(). It is display-only for that reason - nothing
+    // reads it to grant coins, XP or any economic value, so the bounded-delta
+    // treatment that user_earnings and pulse_posts require does not apply here.
+    // If DeVert 100 ever pays out, this rule has to grow the same bounds those
+    // collections use, and the durable answer is granting server-side from a
+    // Cloud Function rather than trusting this write at all.
+    match /devert100_participants/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.get('completedDays', {}).keys().size() == 0
+        && request.resource.data.get('totalCompleted', 0) == 0;
+      allow update: if isAdmin() || (isOwner(uid)
+        && request.resource.data.uid == uid
+        && resource.data.completedDays.keys().toSet()
+             .difference(request.resource.data.get('completedDays', {}).keys().toSet()).size() == 0);
+      allow delete: if isAdmin();
+    }
+
     // Per-student, per-problem DSA study metadata (favorite/bookmark/review-
     // later/needs-revision/confidence/personal rating/notes/tags/revision
     // schedule) - purely personal organization, never touches solvedProblems

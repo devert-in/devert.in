@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Wifi, Cpu } from "lucide-react";
 import { HackathonSpotlight } from "@/components/hackathon-spotlight";
+import { Devert100Spotlight } from "@/components/devert100-spotlight";
 import { CampusSpotlight } from "@/components/campus-spotlight";
 
 function GlitchButton({ children, href, primary }) {
@@ -142,6 +143,7 @@ export function Hero() {
             instead of it being buried behind a login. Campus card sits
             beside it so both first-impression cards land together. */}
         <motion.div variants={item} className="max-w-4xl flex flex-col sm:flex-row gap-4 mb-6 md:mb-0">
+          <Devert100Spotlight />
           <HackathonSpotlight />
           <CampusSpotlight />
         </motion.div>

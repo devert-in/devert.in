@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { WelcomeBanner } from "@/components/welcome-banner";
 import { HackathonSpotlight } from "@/components/hackathon-spotlight";
+import { Devert100Spotlight } from "@/components/devert100-spotlight";
 import { CampusSpotlight } from "@/components/campus-spotlight";
 import { DevertJourneyCard } from "@/components/devert-journey-card";
 import { LiveOnDevert } from "@/components/live-on-devert";
@@ -42,6 +43,7 @@ export function HomeDashboard() {
                 anything we want to show you. */}
             <TodayTaskCard />
             <div className="flex flex-col sm:flex-row gap-4">
+              <Devert100Spotlight />
               <HackathonSpotlight />
               <CampusSpotlight />
             </div>

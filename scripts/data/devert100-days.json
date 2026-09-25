@@ -1,0 +1,3213 @@
+{
+  "generatedAt": "2026-09-25T06:34:43.499Z",
+  "source": "DeVert100 DSA Series/100_Days_DSA_Series.xlsx",
+  "counts": {
+    "days": 100,
+    "problems": 112,
+    "main": 100,
+    "bonus": 12
+  },
+  "cheatsheet": [
+    {
+      "topic": "Arrays",
+      "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+      "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+    },
+    {
+      "topic": "Strings",
+      "whenToUse": "Two Pointers → palindrome/reverse. Hashing → anagram/frequency/grouping. Sliding Window → longest substring. Prefix matching. Simulation → compression.",
+      "template": "int[26] frequency array for lowercase letters\nCanonical key (sorted / counts) for grouping"
+    },
+    {
+      "topic": "Two Pointers",
+      "whenToUse": "Pairs/triplets; array sorted or can be sorted; min/max with two values.",
+      "template": "left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right"
+    },
+    {
+      "topic": "Sliding Window",
+      "whenToUse": "Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+      "template": "left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+    },
+    {
+      "topic": "Hashing & Prefix Sum",
+      "whenToUse": "Fast lookup / counting / grouping; range or subarray sums; convert O(n²) → O(n).",
+      "template": "prefix[i] = sum(0..i);  sum(i,j) = prefix[j] - prefix[i-1]\nCount subarrays with sum k: ans += map[prefix-k], seed {0:1}\nLongest: store FIRST index of each prefix"
+    },
+    {
+      "topic": "Linked List",
+      "whenToUse": "Pointer manipulation, cycle detection, middle, k-th from end.",
+      "template": "Dummy node for head edge cases\nFast (2x) & Slow (1x): cycle, middle\nReverse: prev, curr, next\nInsert/Delete at head O(1); at tail/position O(n)"
+    },
+    {
+      "topic": "Stacks & Queues",
+      "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+      "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+    },
+    {
+      "topic": "Binary Search",
+      "whenToUse": "Sorted data or a MONOTONIC condition; ordered answer space; min/max feasible value.",
+      "template": "while lo <= hi:\n    mid = lo + (hi-lo)//2\n    if condition(mid): ans = mid; hi = mid-1\n    else: lo = mid+1\nUse long for mid*mid; watch for infinite loops"
+    },
+    {
+      "topic": "Trees & BST",
+      "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+      "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+    },
+    {
+      "topic": "Heaps / Priority Queue",
+      "whenToUse": "K largest/smallest, merge K sorted, streaming median, scheduling, Dijkstra, Huffman.",
+      "template": "K largest → MIN heap of size k; K smallest → MAX heap\nPush/Pop O(log n), Peek O(1), Build O(n)\nChildren of i: 2i+1, 2i+2; Parent: (i-1)//2"
+    },
+    {
+      "topic": "Graphs (BFS / DFS)",
+      "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+      "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+    },
+    {
+      "topic": "Graph Algorithms",
+      "whenToUse": "Shortest paths, MST, bridges, articulation points, bipartite.",
+      "template": "Unweighted → BFS | Non-negative weights → Dijkstra | Negative → Bellman-Ford\nKruskal: sort edges + DSU | Prim: min heap from a node\nBridge: low[v] > disc[u] | Articulation: low[v] >= disc[u]"
+    },
+    {
+      "topic": "Greedy",
+      "whenToUse": "Greedy-choice property + optimal substructure; intervals, scheduling, ratios.",
+      "template": "Activity selection: sort by END time\nMerge intervals: sort by START\nFractional knapsack: sort by value/weight\nGreedy coins fails for non-canonical coins → DP"
+    },
+    {
+      "topic": "Dynamic Programming",
+      "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+      "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+    },
+    {
+      "topic": "Complexity Guide",
+      "whenToUse": "Constraint → target complexity.",
+      "template": "n ≤ 10 → O(n!) | n ≤ 20 → O(2^n) | n ≤ 500 → O(n³)\nn ≤ 10^4 → O(n²) | n ≤ 10^6 → O(n log n) / O(n) | bigger → O(log n) / O(1)"
+    }
+  ],
+  "days": [
+    {
+      "day": 1,
+      "week": 1,
+      "topic": "Arrays",
+      "patternGuide": {
+        "topic": "Arrays",
+        "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+        "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Two Sum",
+          "platform": "LeetCode",
+          "problemNumber": "1",
+          "url": "https://leetcode.com/problems/two-sum/",
+          "difficulty": "Easy",
+          "pattern": "Hashing",
+          "source": "Sheet P1 #1 / P4 #1",
+          "statement": "Given an array nums and a target, return the indices of the two numbers that add up to target. Exactly one solution exists; you can't use the same element twice.",
+          "bruteForce": "Check every pair with two loops -> O(n^2).",
+          "optimal": "One pass with HashMap value->index. For each num, if (target - num) is already in the map, return both indices; else store num.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Check the complement BEFORE inserting the current number (handles [3,3], target 6). Return indices, not values. If the array is sorted, two pointers gives O(1) space.",
+          "followUps": "What if the input is sorted? (LC 167) What if there are many answers / you need all unique pairs?"
+        },
+        {
+          "type": "Bonus",
+          "name": "Contains Duplicate",
+          "platform": "LeetCode",
+          "problemNumber": "217",
+          "url": "https://leetcode.com/problems/contains-duplicate/",
+          "difficulty": "Easy",
+          "pattern": "Hashing / Set",
+          "source": "Added (warm-up)",
+          "statement": "Return true if any value appears at least twice in the array.",
+          "bruteForce": "Compare every pair -> O(n^2).",
+          "optimal": "Insert into a HashSet; if a value is already present, return true. (Or sort and compare neighbours: O(n log n), O(1).)",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Set gives O(1) average lookup. Sorting trades time for space.",
+          "followUps": "Contains Duplicate II (within distance k) -> sliding window set."
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "week": 1,
+      "topic": "Arrays",
+      "patternGuide": {
+        "topic": "Arrays",
+        "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+        "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Best Time to Buy and Sell Stock",
+          "platform": "LeetCode",
+          "problemNumber": "121",
+          "url": "https://leetcode.com/problems/best-time-to-buy-and-sell-stock/",
+          "difficulty": "Easy",
+          "pattern": "One Pass / Greedy",
+          "source": "Sheet P1 #2",
+          "statement": "prices[i] is the stock price on day i. Buy on one day and sell on a later day to maximise profit. Return the max profit (0 if none).",
+          "bruteForce": "Try every buy/sell pair -> O(n^2).",
+          "optimal": "Track the minimum price seen so far. At each day profit = price - minSoFar; keep the maximum.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Update min AFTER computing profit or use the order carefully; you must buy before you sell. Answer is never negative.",
+          "followUps": "Multiple transactions allowed (LC 122)? At most 2 (LC 123)? With cooldown (LC 309)?"
+        }
+      ]
+    },
+    {
+      "day": 3,
+      "week": 1,
+      "topic": "Arrays",
+      "patternGuide": {
+        "topic": "Arrays",
+        "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+        "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Move Zeroes",
+          "platform": "LeetCode",
+          "problemNumber": "283",
+          "url": "https://leetcode.com/problems/move-zeroes/",
+          "difficulty": "Easy",
+          "pattern": "Two Pointers",
+          "source": "Sheet P1 #4",
+          "statement": "Move all 0s to the end of the array in-place while keeping the relative order of non-zero elements.",
+          "bruteForce": "Copy non-zeros into a new array, then pad with zeros -> O(n) extra space.",
+          "optimal": "Write pointer w=0. For each non-zero, place it at nums[w] (or swap) and w++. Fill the rest with 0s.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Must be in-place. Swapping version does minimum writes. Order of non-zeros must be preserved.",
+          "followUps": "Minimise the total number of writes."
+        }
+      ]
+    },
+    {
+      "day": 4,
+      "week": 1,
+      "topic": "Arrays",
+      "patternGuide": {
+        "topic": "Arrays",
+        "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+        "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Merge Sorted Array",
+          "platform": "LeetCode",
+          "problemNumber": "88",
+          "url": "https://leetcode.com/problems/merge-sorted-array/",
+          "difficulty": "Easy",
+          "pattern": "Two Pointers (from the end)",
+          "source": "Sheet P1 #6",
+          "statement": "nums1 has size m+n (last n slots are 0). Merge sorted nums2 (size n) into nums1 so it is sorted, in-place.",
+          "bruteForce": "Copy nums2 into the tail and sort -> O((m+n) log(m+n)).",
+          "optimal": "Three pointers: i=m-1, j=n-1, k=m+n-1. Place the larger of nums1[i]/nums2[j] at k, moving backwards. Copy leftover nums2.",
+          "timeComplexity": "O(m+n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Filling from the END avoids overwriting unread nums1 values. Leftover nums1 elements are already in place; leftover nums2 must be copied.",
+          "followUps": "Merge K sorted arrays (heap)."
+        }
+      ]
+    },
+    {
+      "day": 5,
+      "week": 1,
+      "topic": "Arrays",
+      "patternGuide": {
+        "topic": "Arrays",
+        "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+        "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Majority Element",
+          "platform": "LeetCode",
+          "problemNumber": "169",
+          "url": "https://leetcode.com/problems/majority-element/",
+          "difficulty": "Easy",
+          "pattern": "Boyer-Moore Voting",
+          "source": "Sheet P1 #5",
+          "statement": "Return the element that appears more than n/2 times (it always exists).",
+          "bruteForce": "Count with a HashMap -> O(n) space; or sort and take the middle -> O(n log n).",
+          "optimal": "Boyer-Moore: keep candidate + count. If count==0, candidate=num. count += (num==candidate ? 1 : -1). Candidate at the end is the answer.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Works only because a strict majority is guaranteed; otherwise do a second pass to verify.",
+          "followUps": "Majority Element II: elements > n/3 times (LC 229) -> two candidates."
+        }
+      ]
+    },
+    {
+      "day": 6,
+      "week": 1,
+      "topic": "Arrays",
+      "patternGuide": {
+        "topic": "Arrays",
+        "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+        "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Maximum Subarray (Kadane's)",
+          "platform": "LeetCode",
+          "problemNumber": "53",
+          "url": "https://leetcode.com/problems/maximum-subarray/",
+          "difficulty": "Medium",
+          "pattern": "Kadane's Algorithm",
+          "source": "Sheet P1 #3",
+          "statement": "Find the contiguous subarray with the largest sum and return that sum.",
+          "bruteForce": "All subarrays with running sums -> O(n^2).",
+          "optimal": "Kadane: cur = max(num, cur + num); best = max(best, cur). (Equivalent: add num, update best, reset cur to 0 if negative.)",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "All-negative array: answer is the largest single element, so initialise best = nums[0], not 0.",
+          "followUps": "Return the start/end indices too. Maximum Product Subarray (LC 152). Circular subarray (LC 918)."
+        }
+      ]
+    },
+    {
+      "day": 7,
+      "week": 1,
+      "topic": "Arrays",
+      "patternGuide": {
+        "topic": "Arrays",
+        "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+        "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Product of Array Except Self",
+          "platform": "LeetCode",
+          "problemNumber": "238",
+          "url": "https://leetcode.com/problems/product-of-array-except-self/",
+          "difficulty": "Medium",
+          "pattern": "Prefix & Suffix",
+          "source": "Sheet P1 #7",
+          "statement": "Return answer[i] = product of all elements except nums[i], without using division, in O(n).",
+          "bruteForce": "For each i, multiply every other element -> O(n^2).",
+          "optimal": "Pass 1: answer[i] = product of everything to the left. Pass 2 (right to left): keep a running suffix product and multiply into answer[i].",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1) extra (output array not counted)",
+          "keyPoints": "No division allowed (zeros would break it anyway). Handle zeros naturally with prefix/suffix.",
+          "followUps": "What if division were allowed and the array contains one / two zeros?"
+        }
+      ]
+    },
+    {
+      "day": 8,
+      "week": 2,
+      "topic": "Arrays",
+      "patternGuide": {
+        "topic": "Arrays",
+        "whenToUse": "Hashing, Prefix/Suffix, Kadane, Sliding Window, Two Pointers, Sorting/Greedy patterns.",
+        "template": "Kadane: cur = max(x, cur+x); best = max(best, cur)\nBoyer-Moore: count==0 → candidate = x\nPrefix × Suffix for 'except self'"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Sort Colors (Dutch National Flag)",
+          "platform": "LeetCode",
+          "problemNumber": "75",
+          "url": "https://leetcode.com/problems/sort-colors/",
+          "difficulty": "Medium",
+          "pattern": "Three Pointers",
+          "source": "Added (3-pointer pattern)",
+          "statement": "Array contains only 0, 1, 2. Sort it in-place in one pass without a library sort.",
+          "bruteForce": "Count 0s/1s/2s and overwrite -> two passes.",
+          "optimal": "low, mid, high pointers. nums[mid]==0 -> swap(low,mid), low++, mid++. ==1 -> mid++. ==2 -> swap(mid,high), high-- (don't move mid).",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "After swapping with high, do NOT advance mid; the swapped-in value is unchecked. Loop while mid <= high.",
+          "followUps": "Partition around a pivot (quicksort 3-way partition)."
+        },
+        {
+          "type": "Bonus",
+          "name": "Rotate Array",
+          "platform": "LeetCode",
+          "problemNumber": "189",
+          "url": "https://leetcode.com/problems/rotate-array/",
+          "difficulty": "Medium",
+          "pattern": "Reversal Trick",
+          "source": "Added",
+          "statement": "Rotate the array to the right by k steps, in-place.",
+          "bruteForce": "Rotate by 1, k times -> O(n*k).",
+          "optimal": "k %= n. Reverse whole array, reverse first k, reverse remaining n-k.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Always do k %= n first (k can exceed n).",
+          "followUps": "Left rotation? Rotate a matrix (LC 48)?"
+        }
+      ]
+    },
+    {
+      "day": 9,
+      "week": 2,
+      "topic": "Strings",
+      "patternGuide": {
+        "topic": "Strings",
+        "whenToUse": "Two Pointers → palindrome/reverse. Hashing → anagram/frequency/grouping. Sliding Window → longest substring. Prefix matching. Simulation → compression.",
+        "template": "int[26] frequency array for lowercase letters\nCanonical key (sorted / counts) for grouping"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Valid Palindrome",
+          "platform": "LeetCode",
+          "problemNumber": "125",
+          "url": "https://leetcode.com/problems/valid-palindrome/",
+          "difficulty": "Easy",
+          "pattern": "Two Pointers",
+          "source": "Sheet P2 #1",
+          "statement": "After lower-casing and removing non-alphanumeric characters, check if the string reads the same forwards and backwards.",
+          "bruteForce": "Build a cleaned string and compare with its reverse -> O(n) extra space.",
+          "optimal": "Left and right pointers; skip non-alphanumeric chars; compare lowercase chars; move inward.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Digits count as alphanumeric. Empty/only-symbols string is a palindrome. Guard the skip loops with l < r.",
+          "followUps": "Valid Palindrome II: allowed to delete at most one char (LC 680)."
+        }
+      ]
+    },
+    {
+      "day": 10,
+      "week": 2,
+      "topic": "Strings",
+      "patternGuide": {
+        "topic": "Strings",
+        "whenToUse": "Two Pointers → palindrome/reverse. Hashing → anagram/frequency/grouping. Sliding Window → longest substring. Prefix matching. Simulation → compression.",
+        "template": "int[26] frequency array for lowercase letters\nCanonical key (sorted / counts) for grouping"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Valid Anagram",
+          "platform": "LeetCode",
+          "problemNumber": "242",
+          "url": "https://leetcode.com/problems/valid-anagram/",
+          "difficulty": "Easy",
+          "pattern": "Hashing / Frequency Count",
+          "source": "Sheet P2 #2",
+          "statement": "Return true if t is an anagram of s (same characters with the same counts).",
+          "bruteForce": "Sort both strings and compare -> O(n log n).",
+          "optimal": "If lengths differ return false. int[26] counts: ++ for s, -- for t. All zero => anagram.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1) (26 letters)",
+          "keyPoints": "Early length check. Fixed array beats HashMap for lowercase letters.",
+          "followUps": "What if inputs contain Unicode? -> use a HashMap."
+        }
+      ]
+    },
+    {
+      "day": 11,
+      "week": 2,
+      "topic": "Strings",
+      "patternGuide": {
+        "topic": "Strings",
+        "whenToUse": "Two Pointers → palindrome/reverse. Hashing → anagram/frequency/grouping. Sliding Window → longest substring. Prefix matching. Simulation → compression.",
+        "template": "int[26] frequency array for lowercase letters\nCanonical key (sorted / counts) for grouping"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Longest Common Prefix",
+          "platform": "LeetCode",
+          "problemNumber": "14",
+          "url": "https://leetcode.com/problems/longest-common-prefix/",
+          "difficulty": "Easy",
+          "pattern": "Vertical Scan",
+          "source": "Sheet P2 #3",
+          "statement": "Find the longest common prefix string among an array of strings; return \"\" if none.",
+          "bruteForce": "Compare every prefix length against every string repeatedly.",
+          "optimal": "Vertical scan: for index i over the first string, check strs[j][i] for all j; stop at first mismatch or when any string ends. (Alt: sort, compare first & last.)",
+          "timeComplexity": "O(S) where S = total chars",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Handle an empty array and strings shorter than the first one.",
+          "followUps": "Answer many queries -> Trie."
+        }
+      ]
+    },
+    {
+      "day": 12,
+      "week": 2,
+      "topic": "Strings",
+      "patternGuide": {
+        "topic": "Strings",
+        "whenToUse": "Two Pointers → palindrome/reverse. Hashing → anagram/frequency/grouping. Sliding Window → longest substring. Prefix matching. Simulation → compression.",
+        "template": "int[26] frequency array for lowercase letters\nCanonical key (sorted / counts) for grouping"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Group Anagrams",
+          "platform": "LeetCode",
+          "problemNumber": "49",
+          "url": "https://leetcode.com/problems/group-anagrams/",
+          "difficulty": "Medium",
+          "pattern": "Hashing (canonical key)",
+          "source": "Sheet P2 #5",
+          "statement": "Group the strings that are anagrams of each other.",
+          "bruteForce": "Compare every pair of strings for anagram-ness -> O(n^2 * k).",
+          "optimal": "HashMap key = sorted string (or a 26-count signature). Append each string to its key's list.",
+          "timeComplexity": "O(n * k log k) (O(n*k) with count key)",
+          "spaceComplexity": "O(n * k)",
+          "keyPoints": "Count-signature key must be delimited, e.g. '1#0#2...' to avoid collisions.",
+          "followUps": "Can you avoid sorting? (count key)."
+        }
+      ]
+    },
+    {
+      "day": 13,
+      "week": 2,
+      "topic": "Strings",
+      "patternGuide": {
+        "topic": "Strings",
+        "whenToUse": "Two Pointers → palindrome/reverse. Hashing → anagram/frequency/grouping. Sliding Window → longest substring. Prefix matching. Simulation → compression.",
+        "template": "int[26] frequency array for lowercase letters\nCanonical key (sorted / counts) for grouping"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "String Compression",
+          "platform": "LeetCode",
+          "problemNumber": "443",
+          "url": "https://leetcode.com/problems/string-compression/",
+          "difficulty": "Medium",
+          "pattern": "Two Pointers (read / write)",
+          "source": "Sheet P2 #6",
+          "statement": "Compress a char array in-place: each run of repeated chars becomes char + count (only if count > 1). Return the new length.",
+          "bruteForce": "Build a new string with a StringBuilder -> O(n) extra space.",
+          "optimal": "read pointer scans a run; write pointer writes the char, then the digits of count if count > 1.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Counts >= 10 are written as multiple digit chars ('1','2'). Return the write index.",
+          "followUps": "Decompress / run-length decode."
+        }
+      ]
+    },
+    {
+      "day": 14,
+      "week": 2,
+      "topic": "Strings",
+      "patternGuide": {
+        "topic": "Strings",
+        "whenToUse": "Two Pointers → palindrome/reverse. Hashing → anagram/frequency/grouping. Sliding Window → longest substring. Prefix matching. Simulation → compression.",
+        "template": "int[26] frequency array for lowercase letters\nCanonical key (sorted / counts) for grouping"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Longest Palindromic Substring",
+          "platform": "LeetCode",
+          "problemNumber": "5",
+          "url": "https://leetcode.com/problems/longest-palindromic-substring/",
+          "difficulty": "Medium",
+          "pattern": "Expand Around Center",
+          "source": "Added (very common)",
+          "statement": "Return the longest palindromic substring of s.",
+          "bruteForce": "Check all O(n^2) substrings for palindrome -> O(n^3).",
+          "optimal": "For every center (2n-1 centers: each char and each gap), expand while s[l]==s[r]; track the longest.",
+          "timeComplexity": "O(n^2)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Remember BOTH odd (i,i) and even (i,i+1) centers.",
+          "followUps": "Count palindromic substrings (LC 647). Manacher's for O(n)."
+        }
+      ]
+    },
+    {
+      "day": 15,
+      "week": 3,
+      "topic": "Two Pointers & Sliding Window",
+      "patternGuide": {
+        "topic": "Two Pointers & Sliding Window",
+        "merged": [
+          "Two Pointers",
+          "Sliding Window"
+        ],
+        "whenToUse": "Two Pointers - Pairs/triplets; array sorted or can be sorted; min/max with two values.\nSliding Window - Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+        "template": "Two Pointers - left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right\nSliding Window - left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Remove Duplicates from Sorted Array",
+          "platform": "LeetCode",
+          "problemNumber": "26",
+          "url": "https://leetcode.com/problems/remove-duplicates-from-sorted-array/",
+          "difficulty": "Easy",
+          "pattern": "Two Pointers (slow / fast)",
+          "source": "Sheet P3 #3",
+          "statement": "Remove duplicates in-place from a sorted array so each element appears once; return the count k of unique elements.",
+          "bruteForce": "Use a set and rewrite -> O(n) extra space.",
+          "optimal": "slow = position of last unique. fast scans; when nums[fast] != nums[slow], slow++ and copy.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Works only because the array is sorted. Return slow+1.",
+          "followUps": "Allow at most 2 duplicates (LC 80)."
+        }
+      ]
+    },
+    {
+      "day": 16,
+      "week": 3,
+      "topic": "Two Pointers & Sliding Window",
+      "patternGuide": {
+        "topic": "Two Pointers & Sliding Window",
+        "merged": [
+          "Two Pointers",
+          "Sliding Window"
+        ],
+        "whenToUse": "Two Pointers - Pairs/triplets; array sorted or can be sorted; min/max with two values.\nSliding Window - Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+        "template": "Two Pointers - left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right\nSliding Window - left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Container With Most Water",
+          "platform": "LeetCode",
+          "problemNumber": "11",
+          "url": "https://leetcode.com/problems/container-with-most-water/",
+          "difficulty": "Medium",
+          "pattern": "Two Pointers (opposite ends)",
+          "source": "Sheet P3 #1",
+          "statement": "Given heights, pick two lines that with the x-axis hold the most water. Return the max area.",
+          "bruteForce": "Try all pairs -> O(n^2).",
+          "optimal": "l=0, r=n-1. area = min(h[l],h[r]) * (r-l). Move the pointer with the SMALLER height inward.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Moving the taller line can never increase area (width shrinks, height capped by the shorter).",
+          "followUps": "Explain WHY the greedy pointer move is correct."
+        }
+      ]
+    },
+    {
+      "day": 17,
+      "week": 3,
+      "topic": "Two Pointers & Sliding Window",
+      "patternGuide": {
+        "topic": "Two Pointers & Sliding Window",
+        "merged": [
+          "Two Pointers",
+          "Sliding Window"
+        ],
+        "whenToUse": "Two Pointers - Pairs/triplets; array sorted or can be sorted; min/max with two values.\nSliding Window - Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+        "template": "Two Pointers - left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right\nSliding Window - left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "3Sum",
+          "platform": "LeetCode",
+          "problemNumber": "15",
+          "url": "https://leetcode.com/problems/3sum/",
+          "difficulty": "Medium",
+          "pattern": "Sorting + Two Pointers",
+          "source": "Sheet P3 #2",
+          "statement": "Return all unique triplets [a,b,c] in nums with a+b+c = 0.",
+          "bruteForce": "Three nested loops + set for uniqueness -> O(n^3).",
+          "optimal": "Sort. For each i (skip duplicate nums[i]), run two pointers on i+1..n-1 for target -nums[i]. On a match, skip duplicates for both pointers.",
+          "timeComplexity": "O(n^2)",
+          "spaceComplexity": "O(1) extra (ignoring sort / output)",
+          "keyPoints": "Duplicate skipping is the #1 bug. Break early if nums[i] > 0.",
+          "followUps": "4Sum (LC 18). 3Sum Closest (LC 16)."
+        }
+      ]
+    },
+    {
+      "day": 18,
+      "week": 3,
+      "topic": "Two Pointers & Sliding Window",
+      "patternGuide": {
+        "topic": "Two Pointers & Sliding Window",
+        "merged": [
+          "Two Pointers",
+          "Sliding Window"
+        ],
+        "whenToUse": "Two Pointers - Pairs/triplets; array sorted or can be sorted; min/max with two values.\nSliding Window - Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+        "template": "Two Pointers - left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right\nSliding Window - left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Maximum Average Subarray I (Max Sum of Size K)",
+          "platform": "LeetCode",
+          "problemNumber": "643",
+          "url": "https://leetcode.com/problems/maximum-average-subarray-i/",
+          "difficulty": "Easy",
+          "pattern": "Fixed Sliding Window",
+          "source": "Sheet P3 #5",
+          "statement": "Find the contiguous subarray of length k with the maximum average (equivalently, maximum sum).",
+          "bruteForce": "Sum each window from scratch -> O(n*k).",
+          "optimal": "Sum the first k. Slide: sum += nums[i] - nums[i-k]; track max. Divide by k at the end.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Fixed-size window template. Initialise max with the first window, not 0 (negatives).",
+          "followUps": "Variable-size window: smallest subarray with sum >= target (LC 209)."
+        }
+      ]
+    },
+    {
+      "day": 19,
+      "week": 3,
+      "topic": "Two Pointers & Sliding Window",
+      "patternGuide": {
+        "topic": "Two Pointers & Sliding Window",
+        "merged": [
+          "Two Pointers",
+          "Sliding Window"
+        ],
+        "whenToUse": "Two Pointers - Pairs/triplets; array sorted or can be sorted; min/max with two values.\nSliding Window - Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+        "template": "Two Pointers - left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right\nSliding Window - left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Longest Substring Without Repeating Characters",
+          "platform": "LeetCode",
+          "problemNumber": "3",
+          "url": "https://leetcode.com/problems/longest-substring-without-repeating-characters/",
+          "difficulty": "Medium",
+          "pattern": "Variable Sliding Window + Hashing",
+          "source": "Sheet P2 #4 / P3 #4",
+          "statement": "Return the length of the longest substring with no repeated characters.",
+          "bruteForce": "Check every substring for uniqueness -> O(n^3) / O(n^2).",
+          "optimal": "Expand right; store last index of each char. If s[r] was seen at index >= left, jump left = lastIndex + 1. ans = max(ans, r-left+1).",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(k) (charset size)",
+          "keyPoints": "Use max(left, last[c]+1) so left never moves backwards.",
+          "followUps": "At most K distinct characters (LC 340)."
+        }
+      ]
+    },
+    {
+      "day": 20,
+      "week": 3,
+      "topic": "Two Pointers & Sliding Window",
+      "patternGuide": {
+        "topic": "Two Pointers & Sliding Window",
+        "merged": [
+          "Two Pointers",
+          "Sliding Window"
+        ],
+        "whenToUse": "Two Pointers - Pairs/triplets; array sorted or can be sorted; min/max with two values.\nSliding Window - Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+        "template": "Two Pointers - left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right\nSliding Window - left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Longest Repeating Character Replacement",
+          "platform": "LeetCode",
+          "problemNumber": "424",
+          "url": "https://leetcode.com/problems/longest-repeating-character-replacement/",
+          "difficulty": "Medium",
+          "pattern": "Variable Sliding Window",
+          "source": "Added",
+          "statement": "You may replace at most k characters. Return the length of the longest substring containing a single repeated letter.",
+          "bruteForce": "Try every substring and count -> O(n^2).",
+          "optimal": "Window valid while (windowLen - maxFreq) <= k. Expand right, update counts/maxFreq; shrink left when invalid.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(26)",
+          "keyPoints": "maxFreq doesn't need to be decreased when shrinking - the answer only grows when maxFreq grows.",
+          "followUps": "Max Consecutive Ones III (LC 1004)."
+        }
+      ]
+    },
+    {
+      "day": 21,
+      "week": 3,
+      "topic": "Two Pointers & Sliding Window",
+      "patternGuide": {
+        "topic": "Two Pointers & Sliding Window",
+        "merged": [
+          "Two Pointers",
+          "Sliding Window"
+        ],
+        "whenToUse": "Two Pointers - Pairs/triplets; array sorted or can be sorted; min/max with two values.\nSliding Window - Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+        "template": "Two Pointers - left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right\nSliding Window - left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Minimum Window Substring",
+          "platform": "LeetCode",
+          "problemNumber": "76",
+          "url": "https://leetcode.com/problems/minimum-window-substring/",
+          "difficulty": "Hard",
+          "pattern": "Sliding Window + Hashing",
+          "source": "Sheet P3 #6",
+          "statement": "Return the smallest substring of s that contains every character of t (with multiplicity), or \"\".",
+          "bruteForce": "Check all substrings -> O(n^2 * sigma).",
+          "optimal": "need[] from t, 'missing' = len(t). Expand right, decrement need; when missing==0, shrink left while still valid, record the min window.",
+          "timeComplexity": "O(n + m)",
+          "spaceComplexity": "O(sigma)",
+          "keyPoints": "Duplicates in t matter. Store start index + length, build substring once at the end.",
+          "followUps": "Find all anagrams of p in s (LC 438)."
+        }
+      ]
+    },
+    {
+      "day": 22,
+      "week": 4,
+      "topic": "Two Pointers & Sliding Window",
+      "patternGuide": {
+        "topic": "Two Pointers & Sliding Window",
+        "merged": [
+          "Two Pointers",
+          "Sliding Window"
+        ],
+        "whenToUse": "Two Pointers - Pairs/triplets; array sorted or can be sorted; min/max with two values.\nSliding Window - Subarray/substring; longest/shortest with a condition; positive elements / counts.",
+        "template": "Two Pointers - left = 0, right = n-1\nwhile left < right:\n    if condition: move left or right\nSliding Window - left = 0\nfor right in range(n):\n    add nums[right]\n    while window invalid: remove nums[left]; left += 1\n    update answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Trapping Rain Water",
+          "platform": "LeetCode",
+          "problemNumber": "42",
+          "url": "https://leetcode.com/problems/trapping-rain-water/",
+          "difficulty": "Hard",
+          "pattern": "Two Pointers / Prefix Max",
+          "source": "Added (top interview)",
+          "statement": "Given elevation heights, compute how much water is trapped after raining.",
+          "bruteForce": "For each bar, scan left and right for max -> O(n^2).",
+          "optimal": "Water at i = min(maxLeft, maxRight) - h[i]. Two pointers: move the side with the smaller max, add (thatMax - h) to answer.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Prefix/suffix max arrays version (O(n) space) is easier to explain first.",
+          "followUps": "Monotonic stack solution. 2D version (LC 407)."
+        }
+      ]
+    },
+    {
+      "day": 23,
+      "week": 4,
+      "topic": "Hashing & Prefix Sum",
+      "patternGuide": {
+        "topic": "Hashing & Prefix Sum",
+        "whenToUse": "Fast lookup / counting / grouping; range or subarray sums; convert O(n²) → O(n).",
+        "template": "prefix[i] = sum(0..i);  sum(i,j) = prefix[j] - prefix[i-1]\nCount subarrays with sum k: ans += map[prefix-k], seed {0:1}\nLongest: store FIRST index of each prefix"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Subarray Sum Equals K",
+          "platform": "LeetCode",
+          "problemNumber": "560",
+          "url": "https://leetcode.com/problems/subarray-sum-equals-k/",
+          "difficulty": "Medium",
+          "pattern": "Prefix Sum + HashMap",
+          "source": "Sheet P4 #2",
+          "statement": "Return the total number of contiguous subarrays whose sum equals k.",
+          "bruteForce": "All subarrays with running sum -> O(n^2).",
+          "optimal": "Map prefixSum -> count, seeded with {0:1}. For each prefix, ans += map[prefix - k]; then map[prefix]++.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Seed map with {0:1}. Sliding window does NOT work (negatives allowed).",
+          "followUps": "Subarray sums divisible by K (LC 974)."
+        },
+        {
+          "type": "Bonus",
+          "name": "Range Sum Query - Immutable",
+          "platform": "LeetCode",
+          "problemNumber": "303",
+          "url": "https://leetcode.com/problems/range-sum-query-immutable/",
+          "difficulty": "Easy",
+          "pattern": "Prefix Sum",
+          "source": "Added (prefix basics)",
+          "statement": "Answer many sumRange(i, j) queries on a fixed array.",
+          "bruteForce": "Loop i..j per query -> O(n) per query.",
+          "optimal": "prefix[i+1] = prefix[i] + nums[i]. sum(i,j) = prefix[j+1] - prefix[i].",
+          "timeComplexity": "O(n) build, O(1) query",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Size prefix as n+1 to avoid the i-1 edge case.",
+          "followUps": "2D prefix sum (LC 304)."
+        }
+      ]
+    },
+    {
+      "day": 24,
+      "week": 4,
+      "topic": "Hashing & Prefix Sum",
+      "patternGuide": {
+        "topic": "Hashing & Prefix Sum",
+        "whenToUse": "Fast lookup / counting / grouping; range or subarray sums; convert O(n²) → O(n).",
+        "template": "prefix[i] = sum(0..i);  sum(i,j) = prefix[j] - prefix[i-1]\nCount subarrays with sum k: ans += map[prefix-k], seed {0:1}\nLongest: store FIRST index of each prefix"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Longest Consecutive Sequence",
+          "platform": "LeetCode",
+          "problemNumber": "128",
+          "url": "https://leetcode.com/problems/longest-consecutive-sequence/",
+          "difficulty": "Medium",
+          "pattern": "Hash Set",
+          "source": "Sheet P4 #3",
+          "statement": "Return the length of the longest run of consecutive integers in an unsorted array, in O(n).",
+          "bruteForce": "Sort then scan -> O(n log n).",
+          "optimal": "Put all in a set. Only start counting from x when x-1 is NOT in the set; count x+1, x+2 ...",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "The 'start only at sequence beginnings' check makes it O(n). Iterate over the set (not the array) to avoid duplicate work.",
+          "followUps": "Union-Find solution."
+        }
+      ]
+    },
+    {
+      "day": 25,
+      "week": 4,
+      "topic": "Hashing & Prefix Sum",
+      "patternGuide": {
+        "topic": "Hashing & Prefix Sum",
+        "whenToUse": "Fast lookup / counting / grouping; range or subarray sums; convert O(n²) → O(n).",
+        "template": "prefix[i] = sum(0..i);  sum(i,j) = prefix[j] - prefix[i-1]\nCount subarrays with sum k: ans += map[prefix-k], seed {0:1}\nLongest: store FIRST index of each prefix"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Top K Frequent Elements",
+          "platform": "LeetCode",
+          "problemNumber": "347",
+          "url": "https://leetcode.com/problems/top-k-frequent-elements/",
+          "difficulty": "Medium",
+          "pattern": "HashMap + Heap / Bucket Sort",
+          "source": "Sheet P4 #4 / P9 #5",
+          "statement": "Return the k most frequent elements.",
+          "bruteForce": "Count, then sort by frequency -> O(n log n).",
+          "optimal": "Count with a HashMap. Either a min-heap of size k (O(n log k)) or bucket sort by frequency (index = freq) scanned from high to low (O(n)).",
+          "timeComplexity": "O(n log k) or O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Bucket array size n+1. Know both approaches - revisit on Heaps week.",
+          "followUps": "Top K Frequent Words (LC 692) with tie-breaking."
+        }
+      ]
+    },
+    {
+      "day": 26,
+      "week": 4,
+      "topic": "Hashing & Prefix Sum",
+      "patternGuide": {
+        "topic": "Hashing & Prefix Sum",
+        "whenToUse": "Fast lookup / counting / grouping; range or subarray sums; convert O(n²) → O(n).",
+        "template": "prefix[i] = sum(0..i);  sum(i,j) = prefix[j] - prefix[i-1]\nCount subarrays with sum k: ans += map[prefix-k], seed {0:1}\nLongest: store FIRST index of each prefix"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Longest Subarray with Sum K",
+          "platform": "LeetCode / GFG",
+          "problemNumber": "325",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Longest+Sub-Array+with+Sum+K+practice",
+          "difficulty": "Medium",
+          "pattern": "Prefix Sum + HashMap (first index)",
+          "source": "Sheet P4 #5",
+          "statement": "Return the length of the longest subarray whose sum equals k (array may contain negatives). LC 325 is Premium - practise the free GFG version.",
+          "bruteForce": "All subarrays -> O(n^2).",
+          "optimal": "Map prefixSum -> EARLIEST index. If prefix == k, len = i+1. If prefix-k in map, len = i - map[prefix-k]. Only insert prefix if not already present.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Store the FIRST occurrence to maximise length. For positives-only, a sliding window works in O(1) space.",
+          "followUps": "Longest subarray with equal 0s and 1s (LC 525)."
+        }
+      ]
+    },
+    {
+      "day": 27,
+      "week": 4,
+      "topic": "Hashing & Prefix Sum",
+      "patternGuide": {
+        "topic": "Hashing & Prefix Sum",
+        "whenToUse": "Fast lookup / counting / grouping; range or subarray sums; convert O(n²) → O(n).",
+        "template": "prefix[i] = sum(0..i);  sum(i,j) = prefix[j] - prefix[i-1]\nCount subarrays with sum k: ans += map[prefix-k], seed {0:1}\nLongest: store FIRST index of each prefix"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Count Number of Nice Subarrays",
+          "platform": "LeetCode",
+          "problemNumber": "1248",
+          "url": "https://leetcode.com/problems/count-number-of-nice-subarrays/",
+          "difficulty": "Medium",
+          "pattern": "Prefix Sum + HashMap",
+          "source": "Sheet P4 #6",
+          "statement": "Count subarrays with exactly k odd numbers.",
+          "bruteForce": "All subarrays -> O(n^2).",
+          "optimal": "Treat odd=1, even=0 and reuse 'Subarray Sum Equals K'. (Alt: atMost(k) - atMost(k-1) with sliding window.)",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n) (O(1) with atMost trick)",
+          "keyPoints": "Recognise the transformation - many problems reduce to LC 560.",
+          "followUps": "Binary Subarrays With Sum (LC 930)."
+        }
+      ]
+    },
+    {
+      "day": 28,
+      "week": 4,
+      "topic": "Hashing & Prefix Sum",
+      "patternGuide": {
+        "topic": "Hashing & Prefix Sum",
+        "whenToUse": "Fast lookup / counting / grouping; range or subarray sums; convert O(n²) → O(n).",
+        "template": "prefix[i] = sum(0..i);  sum(i,j) = prefix[j] - prefix[i-1]\nCount subarrays with sum k: ans += map[prefix-k], seed {0:1}\nLongest: store FIRST index of each prefix"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Contiguous Array",
+          "platform": "LeetCode",
+          "problemNumber": "525",
+          "url": "https://leetcode.com/problems/contiguous-array/",
+          "difficulty": "Medium",
+          "pattern": "Prefix Sum + HashMap",
+          "source": "Added",
+          "statement": "Find the maximum length of a contiguous subarray with an equal number of 0s and 1s.",
+          "bruteForce": "All subarrays -> O(n^2).",
+          "optimal": "Map 0 -> -1, then find the longest subarray with sum 0 using prefix -> first index (seed {0:-1}).",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Seed map with {0: -1} so subarrays starting at index 0 count.",
+          "followUps": "Same pattern as Day 26."
+        }
+      ]
+    },
+    {
+      "day": 29,
+      "week": 5,
+      "topic": "Linked List",
+      "patternGuide": {
+        "topic": "Linked List",
+        "whenToUse": "Pointer manipulation, cycle detection, middle, k-th from end.",
+        "template": "Dummy node for head edge cases\nFast (2x) & Slow (1x): cycle, middle\nReverse: prev, curr, next\nInsert/Delete at head O(1); at tail/position O(n)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Reverse Linked List",
+          "platform": "LeetCode",
+          "problemNumber": "206",
+          "url": "https://leetcode.com/problems/reverse-linked-list/",
+          "difficulty": "Easy",
+          "pattern": "Three Pointers (iterative)",
+          "source": "Sheet P5 #1",
+          "statement": "Reverse a singly linked list and return the new head.",
+          "bruteForce": "Copy values to an array and rebuild -> O(n) extra space.",
+          "optimal": "prev=null, curr=head. Loop: next=curr.next; curr.next=prev; prev=curr; curr=next. Return prev.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1) (O(n) recursive)",
+          "keyPoints": "Save next BEFORE changing curr.next. Also practise the recursive version.",
+          "followUps": "Reverse between positions (LC 92). Reverse in k-groups (LC 25)."
+        }
+      ]
+    },
+    {
+      "day": 30,
+      "week": 5,
+      "topic": "Linked List",
+      "patternGuide": {
+        "topic": "Linked List",
+        "whenToUse": "Pointer manipulation, cycle detection, middle, k-th from end.",
+        "template": "Dummy node for head edge cases\nFast (2x) & Slow (1x): cycle, middle\nReverse: prev, curr, next\nInsert/Delete at head O(1); at tail/position O(n)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Middle of the Linked List",
+          "platform": "LeetCode",
+          "problemNumber": "876",
+          "url": "https://leetcode.com/problems/middle-of-the-linked-list/",
+          "difficulty": "Easy",
+          "pattern": "Fast & Slow Pointers",
+          "source": "Sheet P5 #3",
+          "statement": "Return the middle node; if two middles, return the second one.",
+          "bruteForce": "Count length, then walk n/2 -> two passes.",
+          "optimal": "slow moves 1, fast moves 2. When fast is null or fast.next is null, slow is the middle.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Loop condition 'fast && fast.next' returns the SECOND middle; start fast at head.next for the first.",
+          "followUps": "Used as a building block in sort list / palindrome list."
+        }
+      ]
+    },
+    {
+      "day": 31,
+      "week": 5,
+      "topic": "Linked List",
+      "patternGuide": {
+        "topic": "Linked List",
+        "whenToUse": "Pointer manipulation, cycle detection, middle, k-th from end.",
+        "template": "Dummy node for head edge cases\nFast (2x) & Slow (1x): cycle, middle\nReverse: prev, curr, next\nInsert/Delete at head O(1); at tail/position O(n)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Linked List Cycle",
+          "platform": "LeetCode",
+          "problemNumber": "141",
+          "url": "https://leetcode.com/problems/linked-list-cycle/",
+          "difficulty": "Easy",
+          "pattern": "Floyd's Cycle Detection",
+          "source": "Sheet P5 #2",
+          "statement": "Return true if the linked list has a cycle.",
+          "bruteForce": "Store visited nodes in a HashSet -> O(n) space.",
+          "optimal": "slow +1, fast +2. If they ever meet -> cycle. If fast hits null -> no cycle.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Check fast and fast.next before moving.",
+          "followUps": "Find the START of the cycle (bonus LC 142)."
+        },
+        {
+          "type": "Bonus",
+          "name": "Linked List Cycle II",
+          "platform": "LeetCode",
+          "problemNumber": "142",
+          "url": "https://leetcode.com/problems/linked-list-cycle-ii/",
+          "difficulty": "Medium",
+          "pattern": "Floyd's Cycle Detection",
+          "source": "Added (sheet mentions 'start of cycle')",
+          "statement": "Return the node where the cycle begins, or null.",
+          "bruteForce": "HashSet of visited nodes -> O(n) space.",
+          "optimal": "After slow and fast meet, move one pointer to head; advance both by 1. They meet at the cycle start.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Know the math: distance(head->start) = distance(meet->start) mod cycle length.",
+          "followUps": "Find Duplicate Number (LC 287) uses the same idea."
+        }
+      ]
+    },
+    {
+      "day": 32,
+      "week": 5,
+      "topic": "Linked List",
+      "patternGuide": {
+        "topic": "Linked List",
+        "whenToUse": "Pointer manipulation, cycle detection, middle, k-th from end.",
+        "template": "Dummy node for head edge cases\nFast (2x) & Slow (1x): cycle, middle\nReverse: prev, curr, next\nInsert/Delete at head O(1); at tail/position O(n)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Merge Two Sorted Lists",
+          "platform": "LeetCode",
+          "problemNumber": "21",
+          "url": "https://leetcode.com/problems/merge-two-sorted-lists/",
+          "difficulty": "Easy",
+          "pattern": "Two Pointers + Dummy Node",
+          "source": "Sheet P5 #4",
+          "statement": "Merge two sorted linked lists into one sorted list.",
+          "bruteForce": "Collect values, sort, rebuild -> O((n+m) log(n+m)).",
+          "optimal": "Dummy head + tail pointer. Attach the smaller node each step; at the end attach the remaining list.",
+          "timeComplexity": "O(n + m)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Dummy node removes head edge cases. Don't forget the leftover list.",
+          "followUps": "Merge K sorted lists (Day 64)."
+        }
+      ]
+    },
+    {
+      "day": 33,
+      "week": 5,
+      "topic": "Linked List",
+      "patternGuide": {
+        "topic": "Linked List",
+        "whenToUse": "Pointer manipulation, cycle detection, middle, k-th from end.",
+        "template": "Dummy node for head edge cases\nFast (2x) & Slow (1x): cycle, middle\nReverse: prev, curr, next\nInsert/Delete at head O(1); at tail/position O(n)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Remove Nth Node From End of List",
+          "platform": "LeetCode",
+          "problemNumber": "19",
+          "url": "https://leetcode.com/problems/remove-nth-node-from-end-of-list/",
+          "difficulty": "Medium",
+          "pattern": "Two Pointers (gap)",
+          "source": "Sheet P5 #5",
+          "statement": "Remove the n-th node from the end and return the head, in one pass.",
+          "bruteForce": "Count length, then remove (L-n)th node -> two passes.",
+          "optimal": "Dummy -> head. Move fast n+1 steps from dummy; then move both until fast is null. slow.next is the target: slow.next = slow.next.next.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Use a dummy node so removing the head works.",
+          "followUps": "Rotate List (LC 61)."
+        }
+      ]
+    },
+    {
+      "day": 34,
+      "week": 5,
+      "topic": "Linked List",
+      "patternGuide": {
+        "topic": "Linked List",
+        "whenToUse": "Pointer manipulation, cycle detection, middle, k-th from end.",
+        "template": "Dummy node for head edge cases\nFast (2x) & Slow (1x): cycle, middle\nReverse: prev, curr, next\nInsert/Delete at head O(1); at tail/position O(n)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Intersection of Two Linked Lists",
+          "platform": "LeetCode",
+          "problemNumber": "160",
+          "url": "https://leetcode.com/problems/intersection-of-two-linked-lists/",
+          "difficulty": "Easy",
+          "pattern": "Two Pointers (switch heads)",
+          "source": "Sheet P5 #6",
+          "statement": "Return the node at which two singly linked lists intersect, or null.",
+          "bruteForce": "HashSet of nodes from list A -> O(n) space.",
+          "optimal": "a=headA, b=headB. Advance both; when one hits null, redirect it to the other head. They meet at the intersection (or both null).",
+          "timeComplexity": "O(n + m)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Compare node references, not values. Both travel lenA+lenB so they sync up.",
+          "followUps": "Length-difference approach as an alternative."
+        }
+      ]
+    },
+    {
+      "day": 35,
+      "week": 5,
+      "topic": "Linked List",
+      "patternGuide": {
+        "topic": "Linked List",
+        "whenToUse": "Pointer manipulation, cycle detection, middle, k-th from end.",
+        "template": "Dummy node for head edge cases\nFast (2x) & Slow (1x): cycle, middle\nReverse: prev, curr, next\nInsert/Delete at head O(1); at tail/position O(n)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Palindrome Linked List",
+          "platform": "LeetCode",
+          "problemNumber": "234",
+          "url": "https://leetcode.com/problems/palindrome-linked-list/",
+          "difficulty": "Easy",
+          "pattern": "Fast/Slow + Reverse",
+          "source": "Added (combines Day 29 + 30)",
+          "statement": "Return true if the linked list is a palindrome, in O(1) extra space.",
+          "bruteForce": "Copy to an array and use two pointers -> O(n) space.",
+          "optimal": "Find middle (fast/slow), reverse the second half, compare with the first half. (Optionally restore.)",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Great revision problem: combines middle-finding and reversal.",
+          "followUps": "Reorder List (LC 143)."
+        }
+      ]
+    },
+    {
+      "day": 36,
+      "week": 6,
+      "topic": "Stacks & Queues",
+      "patternGuide": {
+        "topic": "Stacks & Queues",
+        "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+        "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Valid Parentheses",
+          "platform": "LeetCode",
+          "problemNumber": "20",
+          "url": "https://leetcode.com/problems/valid-parentheses/",
+          "difficulty": "Easy",
+          "pattern": "Stack",
+          "source": "Sheet P6 #1",
+          "statement": "Given a string of ()[]{} characters, determine if brackets are closed in the correct order.",
+          "bruteForce": "Repeatedly remove '()', '[]', '{}' pairs -> O(n^2).",
+          "optimal": "Push opening brackets. For a closing bracket, the top must be its matching opener; pop. Stack must be empty at the end.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Check for empty stack before popping. Odd length -> immediately false.",
+          "followUps": "Minimum Remove to Make Valid Parentheses (LC 1249)."
+        }
+      ]
+    },
+    {
+      "day": 37,
+      "week": 6,
+      "topic": "Stacks & Queues",
+      "patternGuide": {
+        "topic": "Stacks & Queues",
+        "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+        "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Min Stack",
+          "platform": "LeetCode",
+          "problemNumber": "155",
+          "url": "https://leetcode.com/problems/min-stack/",
+          "difficulty": "Medium",
+          "pattern": "Stack with auxiliary min",
+          "source": "Sheet P6 #2",
+          "statement": "Design a stack supporting push, pop, top and getMin all in O(1).",
+          "bruteForce": "Scan the stack for min on each getMin -> O(n).",
+          "optimal": "Store pairs (value, minSoFar) or keep a second stack of minimums.",
+          "timeComplexity": "O(1) per op",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "When using a separate min stack, push on <= (not <) to handle duplicates.",
+          "followUps": "O(1) extra space trick with encoded values (2*x - min)."
+        }
+      ]
+    },
+    {
+      "day": 38,
+      "week": 6,
+      "topic": "Stacks & Queues",
+      "patternGuide": {
+        "topic": "Stacks & Queues",
+        "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+        "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Implement Queue using Stacks",
+          "platform": "LeetCode",
+          "problemNumber": "232",
+          "url": "https://leetcode.com/problems/implement-queue-using-stacks/",
+          "difficulty": "Easy",
+          "pattern": "Two Stacks",
+          "source": "Sheet P6 #5",
+          "statement": "Implement a FIFO queue using only two stacks.",
+          "bruteForce": "Move all elements back and forth on every operation -> O(n) each.",
+          "optimal": "push -> inStack. pop/peek: if outStack empty, move everything from inStack to outStack; then pop/peek outStack.",
+          "timeComplexity": "Amortized O(1)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Only transfer when outStack is empty - that's what makes it amortized O(1).",
+          "followUps": "Explain amortized analysis in the interview."
+        },
+        {
+          "type": "Bonus",
+          "name": "Implement Stack using Queues",
+          "platform": "LeetCode",
+          "problemNumber": "225",
+          "url": "https://leetcode.com/problems/implement-stack-using-queues/",
+          "difficulty": "Easy",
+          "pattern": "Queue rotation",
+          "source": "Sheet P6 #6",
+          "statement": "Implement a LIFO stack using only queue operations.",
+          "bruteForce": "Two queues, transfer on each pop.",
+          "optimal": "One queue: on push, enqueue x then rotate the previous size elements to the back so x is at the front.",
+          "timeComplexity": "push O(n), pop O(1)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Decide which operation you make expensive (push or pop).",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 39,
+      "week": 6,
+      "topic": "Stacks & Queues",
+      "patternGuide": {
+        "topic": "Stacks & Queues",
+        "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+        "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Evaluate Reverse Polish Notation",
+          "platform": "LeetCode",
+          "problemNumber": "150",
+          "url": "https://leetcode.com/problems/evaluate-reverse-polish-notation/",
+          "difficulty": "Medium",
+          "pattern": "Stack (expression evaluation)",
+          "source": "Sheet P6 #7",
+          "statement": "Evaluate an arithmetic expression given in postfix (RPN) tokens.",
+          "bruteForce": "-",
+          "optimal": "Number -> push. Operator -> pop b, pop a, push (a op b).",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Operand order: a - b and a / b where b is popped FIRST. Division truncates toward zero.",
+          "followUps": "Basic Calculator (LC 224 / 227)."
+        }
+      ]
+    },
+    {
+      "day": 40,
+      "week": 6,
+      "topic": "Stacks & Queues",
+      "patternGuide": {
+        "topic": "Stacks & Queues",
+        "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+        "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Next Greater Element I",
+          "platform": "LeetCode",
+          "problemNumber": "496",
+          "url": "https://leetcode.com/problems/next-greater-element-i/",
+          "difficulty": "Easy",
+          "pattern": "Monotonic Decreasing Stack",
+          "source": "Sheet P6 #3",
+          "statement": "For each element of nums1 (subset of nums2), find the next greater element to its right in nums2, or -1.",
+          "bruteForce": "For each element, scan to the right -> O(n*m).",
+          "optimal": "Traverse nums2 with a decreasing stack; while current > top, map[top] = current, pop. Push current. Answer queries from the map.",
+          "timeComplexity": "O(n + m)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Monotonic stack template - each element pushed & popped once.",
+          "followUps": "Next Greater Element II - circular array (LC 503)."
+        }
+      ]
+    },
+    {
+      "day": 41,
+      "week": 6,
+      "topic": "Stacks & Queues",
+      "patternGuide": {
+        "topic": "Stacks & Queues",
+        "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+        "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Daily Temperatures",
+          "platform": "LeetCode",
+          "problemNumber": "739",
+          "url": "https://leetcode.com/problems/daily-temperatures/",
+          "difficulty": "Medium",
+          "pattern": "Monotonic Stack (indices)",
+          "source": "Sheet P6 #4",
+          "statement": "For each day, return how many days until a warmer temperature (0 if none).",
+          "bruteForce": "Scan forward for each day -> O(n^2).",
+          "optimal": "Stack of indices with decreasing temps. While temps[i] > temps[top]: ans[top] = i - top, pop. Push i.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Store INDICES, not values, when you need distances.",
+          "followUps": "Online Stock Span (LC 901)."
+        }
+      ]
+    },
+    {
+      "day": 42,
+      "week": 6,
+      "topic": "Stacks & Queues",
+      "patternGuide": {
+        "topic": "Stacks & Queues",
+        "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+        "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Largest Rectangle in Histogram",
+          "platform": "LeetCode",
+          "problemNumber": "84",
+          "url": "https://leetcode.com/problems/largest-rectangle-in-histogram/",
+          "difficulty": "Hard",
+          "pattern": "Monotonic Increasing Stack",
+          "source": "Sheet P6 #8",
+          "statement": "Given bar heights (width 1), return the area of the largest rectangle in the histogram.",
+          "bruteForce": "For each bar, expand left and right -> O(n^2).",
+          "optimal": "Increasing stack of indices. When h[i] < h[top], pop: height = h[pop], width = i - newTop - 1 (or i if stack empty). Append a sentinel 0 at the end.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Sentinel 0 flushes the stack. Width calculation is the tricky part - dry run it.",
+          "followUps": "Maximal Rectangle in a binary matrix (LC 85)."
+        }
+      ]
+    },
+    {
+      "day": 43,
+      "week": 7,
+      "topic": "Stacks & Queues",
+      "patternGuide": {
+        "topic": "Stacks & Queues",
+        "whenToUse": "Matching brackets, next greater/smaller, expression evaluation, histogram, sliding window max.",
+        "template": "Monotonic stack: while stack and cur > stack.top: pop & resolve\nStore indices when you need distances/widths\nQueue via 2 stacks: amortized O(1)"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Sliding Window Maximum",
+          "platform": "LeetCode",
+          "problemNumber": "239",
+          "url": "https://leetcode.com/problems/sliding-window-maximum/",
+          "difficulty": "Hard",
+          "pattern": "Monotonic Deque",
+          "source": "Added (listed in sheet's patterns)",
+          "statement": "Return the max of every window of size k.",
+          "bruteForce": "Compute max for each window -> O(n*k).",
+          "optimal": "Deque of indices with decreasing values. Pop back while smaller than current; pop front if out of window; front is the max.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(k)",
+          "keyPoints": "Store indices so you can expire elements that left the window.",
+          "followUps": "Heap solution O(n log n) as comparison."
+        }
+      ]
+    },
+    {
+      "day": 44,
+      "week": 7,
+      "topic": "Binary Search",
+      "patternGuide": {
+        "topic": "Binary Search",
+        "whenToUse": "Sorted data or a MONOTONIC condition; ordered answer space; min/max feasible value.",
+        "template": "while lo <= hi:\n    mid = lo + (hi-lo)//2\n    if condition(mid): ans = mid; hi = mid-1\n    else: lo = mid+1\nUse long for mid*mid; watch for infinite loops"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Binary Search",
+          "platform": "LeetCode",
+          "problemNumber": "704",
+          "url": "https://leetcode.com/problems/binary-search/",
+          "difficulty": "Easy",
+          "pattern": "Classic Binary Search",
+          "source": "Sheet P7 #1",
+          "statement": "Return the index of target in a sorted array, or -1.",
+          "bruteForce": "Linear scan -> O(n).",
+          "optimal": "lo=0, hi=n-1; while lo<=hi: mid=lo+(hi-lo)/2; compare and move lo=mid+1 or hi=mid-1.",
+          "timeComplexity": "O(log n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "mid = lo + (hi-lo)/2 avoids overflow. Know the lo<=hi vs lo<hi templates.",
+          "followUps": "Search Insert Position (LC 35)."
+        }
+      ]
+    },
+    {
+      "day": 45,
+      "week": 7,
+      "topic": "Binary Search",
+      "patternGuide": {
+        "topic": "Binary Search",
+        "whenToUse": "Sorted data or a MONOTONIC condition; ordered answer space; min/max feasible value.",
+        "template": "while lo <= hi:\n    mid = lo + (hi-lo)//2\n    if condition(mid): ans = mid; hi = mid-1\n    else: lo = mid+1\nUse long for mid*mid; watch for infinite loops"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Find First and Last Position of Element",
+          "platform": "LeetCode",
+          "problemNumber": "34",
+          "url": "https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/",
+          "difficulty": "Medium",
+          "pattern": "Lower / Upper Bound",
+          "source": "Sheet P7 #2",
+          "statement": "Return the [first, last] index of target in a sorted array, or [-1,-1], in O(log n).",
+          "bruteForce": "Find one occurrence and expand linearly -> O(n) worst case.",
+          "optimal": "Two binary searches: on match, record index and keep searching left (for first) or right (for last).",
+          "timeComplexity": "O(log n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Don't stop at the first match. Count of target = last - first + 1.",
+          "followUps": "Count occurrences in a sorted array."
+        }
+      ]
+    },
+    {
+      "day": 46,
+      "week": 7,
+      "topic": "Binary Search",
+      "patternGuide": {
+        "topic": "Binary Search",
+        "whenToUse": "Sorted data or a MONOTONIC condition; ordered answer space; min/max feasible value.",
+        "template": "while lo <= hi:\n    mid = lo + (hi-lo)//2\n    if condition(mid): ans = mid; hi = mid-1\n    else: lo = mid+1\nUse long for mid*mid; watch for infinite loops"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Sqrt(x)",
+          "platform": "LeetCode",
+          "problemNumber": "69",
+          "url": "https://leetcode.com/problems/sqrtx/",
+          "difficulty": "Easy",
+          "pattern": "Binary Search on Answer",
+          "source": "Sheet P7 #5",
+          "statement": "Return floor(sqrt(x)) without using built-in power functions.",
+          "bruteForce": "Try i = 1, 2, 3 ... while i*i <= x -> O(sqrt x).",
+          "optimal": "Search in [0, x]: if mid*mid <= x, ans=mid, lo=mid+1; else hi=mid-1.",
+          "timeComplexity": "O(log x)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "mid*mid overflows int - use long, or compare mid <= x/mid.",
+          "followUps": "Valid Perfect Square (LC 367)."
+        }
+      ]
+    },
+    {
+      "day": 47,
+      "week": 7,
+      "topic": "Binary Search",
+      "patternGuide": {
+        "topic": "Binary Search",
+        "whenToUse": "Sorted data or a MONOTONIC condition; ordered answer space; min/max feasible value.",
+        "template": "while lo <= hi:\n    mid = lo + (hi-lo)//2\n    if condition(mid): ans = mid; hi = mid-1\n    else: lo = mid+1\nUse long for mid*mid; watch for infinite loops"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Search in Rotated Sorted Array",
+          "platform": "LeetCode",
+          "problemNumber": "33",
+          "url": "https://leetcode.com/problems/search-in-rotated-sorted-array/",
+          "difficulty": "Medium",
+          "pattern": "Binary Search (sorted half)",
+          "source": "Sheet P7 #3",
+          "statement": "A sorted array of distinct values was rotated. Find target's index, or -1, in O(log n).",
+          "bruteForce": "Linear scan -> O(n).",
+          "optimal": "At each mid, one half is sorted. If nums[lo] <= nums[mid], left half sorted: check if target lies in it; else right half sorted. Discard the other half.",
+          "timeComplexity": "O(log n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Use <= in nums[lo] <= nums[mid] (lo == mid case).",
+          "followUps": "With duplicates (LC 81) - worst case O(n)."
+        },
+        {
+          "type": "Bonus",
+          "name": "Find Minimum in Rotated Sorted Array",
+          "platform": "LeetCode",
+          "problemNumber": "153",
+          "url": "https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/",
+          "difficulty": "Medium",
+          "pattern": "Binary Search",
+          "source": "Added",
+          "statement": "Return the minimum element of a rotated sorted array (distinct values).",
+          "bruteForce": "Linear scan -> O(n).",
+          "optimal": "while lo<hi: if nums[mid] > nums[hi], min is right -> lo=mid+1; else hi=mid.",
+          "timeComplexity": "O(log n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Compare with nums[hi], not nums[lo]. Loop is lo < hi.",
+          "followUps": "Rotation count = index of min."
+        }
+      ]
+    },
+    {
+      "day": 48,
+      "week": 7,
+      "topic": "Binary Search",
+      "patternGuide": {
+        "topic": "Binary Search",
+        "whenToUse": "Sorted data or a MONOTONIC condition; ordered answer space; min/max feasible value.",
+        "template": "while lo <= hi:\n    mid = lo + (hi-lo)//2\n    if condition(mid): ans = mid; hi = mid-1\n    else: lo = mid+1\nUse long for mid*mid; watch for infinite loops"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Find Peak Element",
+          "platform": "LeetCode",
+          "problemNumber": "162",
+          "url": "https://leetcode.com/problems/find-peak-element/",
+          "difficulty": "Medium",
+          "pattern": "Binary Search (slope)",
+          "source": "Sheet P7 #4",
+          "statement": "Return the index of any element strictly greater than its neighbours (nums[-1] = nums[n] = -inf).",
+          "bruteForce": "Linear scan -> O(n).",
+          "optimal": "If nums[mid] < nums[mid+1], a peak exists on the right: lo=mid+1; else hi=mid. Loop while lo<hi.",
+          "timeComplexity": "O(log n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Binary search works on an unsorted array because of the 'move uphill' property.",
+          "followUps": "Peak in a 2D grid (LC 1901). Mountain array (LC 852)."
+        }
+      ]
+    },
+    {
+      "day": 49,
+      "week": 7,
+      "topic": "Binary Search",
+      "patternGuide": {
+        "topic": "Binary Search",
+        "whenToUse": "Sorted data or a MONOTONIC condition; ordered answer space; min/max feasible value.",
+        "template": "while lo <= hi:\n    mid = lo + (hi-lo)//2\n    if condition(mid): ans = mid; hi = mid-1\n    else: lo = mid+1\nUse long for mid*mid; watch for infinite loops"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Search a 2D Matrix II",
+          "platform": "LeetCode",
+          "problemNumber": "240",
+          "url": "https://leetcode.com/problems/search-a-2d-matrix-ii/",
+          "difficulty": "Medium",
+          "pattern": "Staircase Search",
+          "source": "Sheet P7B #6",
+          "statement": "Rows and columns are each sorted ascending. Return true if target exists.",
+          "bruteForce": "Scan all cells -> O(m*n).",
+          "optimal": "Start top-right. If value > target move left; if < target move down; equal -> found.",
+          "timeComplexity": "O(m + n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "The sheet shows O(m + log n) - the staircase method is O(m + n). LC 74 (fully sorted matrix) is a single binary search O(log(mn)).",
+          "followUps": "Kth Smallest in Sorted Matrix (LC 378)."
+        }
+      ]
+    },
+    {
+      "day": 50,
+      "week": 8,
+      "topic": "Binary Search",
+      "patternGuide": {
+        "topic": "Binary Search",
+        "whenToUse": "Sorted data or a MONOTONIC condition; ordered answer space; min/max feasible value.",
+        "template": "while lo <= hi:\n    mid = lo + (hi-lo)//2\n    if condition(mid): ans = mid; hi = mid-1\n    else: lo = mid+1\nUse long for mid*mid; watch for infinite loops"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Koko Eating Bananas",
+          "platform": "LeetCode",
+          "problemNumber": "875",
+          "url": "https://leetcode.com/problems/koko-eating-bananas/",
+          "difficulty": "Medium",
+          "pattern": "Binary Search on Answer Space",
+          "source": "Sheet P7 #6 / P7B #7",
+          "statement": "Find the minimum integer eating speed k such that Koko can eat all piles within h hours.",
+          "bruteForce": "Try every speed from 1 to max(piles) -> O(n * max).",
+          "optimal": "Search k in [1, max(piles)]. hours(k) = sum(ceil(p/k)). If hours <= h, hi=k (try smaller) else lo=k+1.",
+          "timeComplexity": "O(n log max)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "ceil(p/k) = (p + k - 1) / k. Sum of hours can overflow int - use long. Recognise 'minimise the max / find min feasible' -> answer space.",
+          "followUps": "Capacity to Ship Packages (bonus LC 1011). Split Array Largest Sum (LC 410)."
+        },
+        {
+          "type": "Bonus",
+          "name": "Capacity To Ship Packages Within D Days",
+          "platform": "LeetCode",
+          "problemNumber": "1011",
+          "url": "https://leetcode.com/problems/capacity-to-ship-packages-within-d-days/",
+          "difficulty": "Medium",
+          "pattern": "Binary Search on Answer Space",
+          "source": "Added (answer space)",
+          "statement": "Find the least ship capacity to ship all packages in order within D days.",
+          "bruteForce": "Try every capacity -> O(n * sum).",
+          "optimal": "Search capacity in [max(w), sum(w)]; greedily count days needed for a given capacity.",
+          "timeComplexity": "O(n log sum)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Lower bound is max(weights), not 1.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 51,
+      "week": 8,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Binary Tree Inorder / Preorder / Postorder Traversal",
+          "platform": "LeetCode",
+          "problemNumber": "94",
+          "url": "https://leetcode.com/problems/binary-tree-inorder-traversal/",
+          "difficulty": "Easy",
+          "pattern": "DFS / Recursion / Stack",
+          "source": "Sheet P8 #1 (LC 94, 144, 145)",
+          "statement": "Return the inorder (L-Root-R), preorder (Root-L-R) and postorder (L-R-Root) traversals of a binary tree. Also solve LC 144 and LC 145.",
+          "bruteForce": "-",
+          "optimal": "Recursive DFS first; then iterative with an explicit stack. Inorder iterative: push all lefts, pop, visit, go right.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(h)",
+          "keyPoints": "Sample tree: Pre 1,2,4,5,3,6,7 | In 4,2,5,1,6,3,7 | Post 4,5,2,6,7,3,1. Inorder of a BST is sorted.",
+          "followUps": "Morris traversal for O(1) space."
+        }
+      ]
+    },
+    {
+      "day": 52,
+      "week": 8,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Maximum Depth of Binary Tree",
+          "platform": "LeetCode",
+          "problemNumber": "104",
+          "url": "https://leetcode.com/problems/maximum-depth-of-binary-tree/",
+          "difficulty": "Easy",
+          "pattern": "DFS",
+          "source": "Sheet P8 #2",
+          "statement": "Return the number of nodes along the longest root-to-leaf path.",
+          "bruteForce": "-",
+          "optimal": "depth(node) = 0 if null else 1 + max(depth(left), depth(right)). BFS level count also works.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(h)",
+          "keyPoints": "Base case null -> 0. Skewed tree makes h = n.",
+          "followUps": "Minimum depth (LC 111) - careful with one-child nodes."
+        }
+      ]
+    },
+    {
+      "day": 53,
+      "week": 8,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Invert Binary Tree",
+          "platform": "LeetCode",
+          "problemNumber": "226",
+          "url": "https://leetcode.com/problems/invert-binary-tree/",
+          "difficulty": "Easy",
+          "pattern": "DFS",
+          "source": "Added (classic warm-up)",
+          "statement": "Mirror a binary tree (swap left and right children of every node).",
+          "bruteForce": "-",
+          "optimal": "Recursively swap children: node.left, node.right = invert(node.right), invert(node.left).",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(h)",
+          "keyPoints": "Can be done with BFS as well.",
+          "followUps": "Symmetric Tree (LC 101). Same Tree (LC 100)."
+        }
+      ]
+    },
+    {
+      "day": 54,
+      "week": 8,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Binary Tree Level Order Traversal",
+          "platform": "LeetCode",
+          "problemNumber": "102",
+          "url": "https://leetcode.com/problems/binary-tree-level-order-traversal/",
+          "difficulty": "Medium",
+          "pattern": "BFS / Queue",
+          "source": "Sheet P8 #3",
+          "statement": "Return node values level by level (left to right) as a list of lists.",
+          "bruteForce": "-",
+          "optimal": "Queue. For each level, take size = queue.size(), pop that many nodes, push their children.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(w) (max width)",
+          "keyPoints": "Capture the level size before the inner loop.",
+          "followUps": "Zigzag order (LC 103). Right Side View (LC 199)."
+        }
+      ]
+    },
+    {
+      "day": 55,
+      "week": 8,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Diameter of Binary Tree",
+          "platform": "LeetCode",
+          "problemNumber": "543",
+          "url": "https://leetcode.com/problems/diameter-of-binary-tree/",
+          "difficulty": "Easy",
+          "pattern": "DFS (post-order, return height)",
+          "source": "Sheet P8 #4",
+          "statement": "Return the length (in edges) of the longest path between any two nodes.",
+          "bruteForce": "For each node compute heights separately -> O(n^2).",
+          "optimal": "height(node) returns 1+max(L,R); at each node update best = max(best, L+R).",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(h)",
+          "keyPoints": "The path may not pass through the root. Diameter is counted in EDGES.",
+          "followUps": "Binary Tree Maximum Path Sum (LC 124)."
+        }
+      ]
+    },
+    {
+      "day": 56,
+      "week": 8,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Balanced Binary Tree",
+          "platform": "LeetCode",
+          "problemNumber": "110",
+          "url": "https://leetcode.com/problems/balanced-binary-tree/",
+          "difficulty": "Easy",
+          "pattern": "DFS (bottom-up)",
+          "source": "Sheet P8 #5",
+          "statement": "Return true if, for every node, the heights of the left and right subtrees differ by at most 1.",
+          "bruteForce": "Compute height at every node top-down -> O(n^2).",
+          "optimal": "Bottom-up: return height, or -1 as a sentinel for 'unbalanced'; propagate -1 upward.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(h)",
+          "keyPoints": "Same 'return height + update global' template as diameter.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 57,
+      "week": 9,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Validate Binary Search Tree",
+          "platform": "LeetCode",
+          "problemNumber": "98",
+          "url": "https://leetcode.com/problems/validate-binary-search-tree/",
+          "difficulty": "Medium",
+          "pattern": "DFS with bounds / Inorder",
+          "source": "Sheet P8 #6",
+          "statement": "Determine if a binary tree is a valid BST (left < node < right for ALL descendants).",
+          "bruteForce": "For each node, check max of left subtree and min of right subtree -> O(n^2).",
+          "optimal": "DFS(node, low, high): node.val must be strictly within (low, high). Or inorder traversal must be strictly increasing.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(h)",
+          "keyPoints": "Checking only immediate children is WRONG. Use long / null bounds for Integer.MIN/MAX values.",
+          "followUps": "Recover a BST with two swapped nodes (LC 99)."
+        }
+      ]
+    },
+    {
+      "day": 58,
+      "week": 9,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Kth Smallest Element in a BST",
+          "platform": "LeetCode",
+          "problemNumber": "230",
+          "url": "https://leetcode.com/problems/kth-smallest-element-in-a-bst/",
+          "difficulty": "Medium",
+          "pattern": "Inorder Traversal",
+          "source": "Added (BST property)",
+          "statement": "Return the k-th smallest value in a BST.",
+          "bruteForce": "Collect all values and sort -> O(n log n).",
+          "optimal": "Inorder traversal (iterative), counting nodes; stop at the k-th visited node.",
+          "timeComplexity": "O(h + k)",
+          "spaceComplexity": "O(h)",
+          "keyPoints": "Leverages 'inorder of BST is sorted'.",
+          "followUps": "If the BST is modified often -> store subtree sizes."
+        }
+      ]
+    },
+    {
+      "day": 59,
+      "week": 9,
+      "topic": "Trees & BST",
+      "patternGuide": {
+        "topic": "Trees & BST",
+        "whenToUse": "Hierarchical data. DFS for paths/heights/LCA; BFS for level-order/min steps.",
+        "template": "Pre: Root-L-R | In: L-Root-R | Post: L-R-Root\nBST: left < node < right; inorder is sorted\nHeight template: 1 + max(L, R), update global answer"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Lowest Common Ancestor of a Binary Tree",
+          "platform": "LeetCode",
+          "problemNumber": "236",
+          "url": "https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/",
+          "difficulty": "Medium",
+          "pattern": "DFS",
+          "source": "Sheet P8 #7",
+          "statement": "Return the lowest common ancestor of nodes p and q.",
+          "bruteForce": "Store root-to-node paths and compare -> O(n) extra space.",
+          "optimal": "If root is null/p/q return root. left=LCA(left), right=LCA(right). Both non-null -> root; else return the non-null one.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(h)",
+          "keyPoints": "A node can be its own ancestor. For a BST (LC 235) use values to go left/right.",
+          "followUps": "LCA of BST (LC 235)."
+        }
+      ]
+    },
+    {
+      "day": 60,
+      "week": 9,
+      "topic": "Heaps / Priority Queue",
+      "patternGuide": {
+        "topic": "Heaps / Priority Queue",
+        "whenToUse": "K largest/smallest, merge K sorted, streaming median, scheduling, Dijkstra, Huffman.",
+        "template": "K largest → MIN heap of size k; K smallest → MAX heap\nPush/Pop O(log n), Peek O(1), Build O(n)\nChildren of i: 2i+1, 2i+2; Parent: (i-1)//2"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Last Stone Weight",
+          "platform": "LeetCode",
+          "problemNumber": "1046",
+          "url": "https://leetcode.com/problems/last-stone-weight/",
+          "difficulty": "Easy",
+          "pattern": "Max Heap",
+          "source": "Added (sheet's 'LC 1046' number)",
+          "statement": "Repeatedly smash the two heaviest stones; if different, the difference goes back. Return the last stone weight or 0.",
+          "bruteForce": "Sort after every smash -> O(n^2 log n).",
+          "optimal": "Max heap. Pop two, push the difference if non-zero. Answer is the remaining top or 0.",
+          "timeComplexity": "O(n log n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Python heapq is a MIN heap - push negatives. Java: PriorityQueue with reverse comparator.",
+          "followUps": "Heap warm-up problem."
+        }
+      ]
+    },
+    {
+      "day": 61,
+      "week": 9,
+      "topic": "Heaps / Priority Queue",
+      "patternGuide": {
+        "topic": "Heaps / Priority Queue",
+        "whenToUse": "K largest/smallest, merge K sorted, streaming median, scheduling, Dijkstra, Huffman.",
+        "template": "K largest → MIN heap of size k; K smallest → MAX heap\nPush/Pop O(log n), Peek O(1), Build O(n)\nChildren of i: 2i+1, 2i+2; Parent: (i-1)//2"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Kth Largest Element in an Array",
+          "platform": "LeetCode",
+          "problemNumber": "215",
+          "url": "https://leetcode.com/problems/kth-largest-element-in-an-array/",
+          "difficulty": "Medium",
+          "pattern": "Min Heap of size k",
+          "source": "Sheet P9 #1",
+          "statement": "Return the k-th largest element (not necessarily distinct) without fully sorting.",
+          "bruteForce": "Sort descending -> O(n log n).",
+          "optimal": "Min heap of size k: push each num, pop when size > k. Top is the answer. (Quickselect: average O(n).)",
+          "timeComplexity": "O(n log k)",
+          "spaceComplexity": "O(k)",
+          "keyPoints": "K LARGEST -> MIN heap; K SMALLEST -> MAX heap.",
+          "followUps": "Quickselect and its worst case."
+        }
+      ]
+    },
+    {
+      "day": 62,
+      "week": 9,
+      "topic": "Heaps / Priority Queue",
+      "patternGuide": {
+        "topic": "Heaps / Priority Queue",
+        "whenToUse": "K largest/smallest, merge K sorted, streaming median, scheduling, Dijkstra, Huffman.",
+        "template": "K largest → MIN heap of size k; K smallest → MAX heap\nPush/Pop O(log n), Peek O(1), Build O(n)\nChildren of i: 2i+1, 2i+2; Parent: (i-1)//2"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "K Closest Points to Origin",
+          "platform": "LeetCode",
+          "problemNumber": "973",
+          "url": "https://leetcode.com/problems/k-closest-points-to-origin/",
+          "difficulty": "Medium",
+          "pattern": "Max Heap of size k",
+          "source": "Sheet P9 #2",
+          "statement": "Return the k points closest to (0,0).",
+          "bruteForce": "Sort all points by distance -> O(n log n).",
+          "optimal": "Max heap keyed on squared distance; keep size k (pop the farthest when size > k).",
+          "timeComplexity": "O(n log k)",
+          "spaceComplexity": "O(k)",
+          "keyPoints": "Use x^2 + y^2 - no need for sqrt.",
+          "followUps": "Quickselect variant."
+        }
+      ]
+    },
+    {
+      "day": 63,
+      "week": 9,
+      "topic": "Heaps / Priority Queue",
+      "patternGuide": {
+        "topic": "Heaps / Priority Queue",
+        "whenToUse": "K largest/smallest, merge K sorted, streaming median, scheduling, Dijkstra, Huffman.",
+        "template": "K largest → MIN heap of size k; K smallest → MAX heap\nPush/Pop O(log n), Peek O(1), Build O(n)\nChildren of i: 2i+1, 2i+2; Parent: (i-1)//2"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Sort a Nearly Sorted (K-Sorted) Array",
+          "platform": "GFG",
+          "problemNumber": "-",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Nearly+sorted+array+k+sorted+practice",
+          "difficulty": "Medium",
+          "pattern": "Min Heap of size k+1",
+          "source": "Sheet P9 #6 (sheet says LC 1046 - wrong)",
+          "statement": "Each element is at most k positions away from its sorted position. Sort the array efficiently.",
+          "bruteForce": "Normal sort -> O(n log n).",
+          "optimal": "Min heap of the first k+1 elements. Repeatedly pop min into the output and push the next element.",
+          "timeComplexity": "O(n log k)",
+          "spaceComplexity": "O(k)",
+          "keyPoints": "Heap size k+1 because the correct element for position i is within i..i+k.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 64,
+      "week": 10,
+      "topic": "Heaps / Priority Queue",
+      "patternGuide": {
+        "topic": "Heaps / Priority Queue",
+        "whenToUse": "K largest/smallest, merge K sorted, streaming median, scheduling, Dijkstra, Huffman.",
+        "template": "K largest → MIN heap of size k; K smallest → MAX heap\nPush/Pop O(log n), Peek O(1), Build O(n)\nChildren of i: 2i+1, 2i+2; Parent: (i-1)//2"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Merge k Sorted Lists",
+          "platform": "LeetCode",
+          "problemNumber": "23",
+          "url": "https://leetcode.com/problems/merge-k-sorted-lists/",
+          "difficulty": "Hard",
+          "pattern": "Min Heap",
+          "source": "Sheet P9 #3",
+          "statement": "Merge k sorted linked lists into one sorted list.",
+          "bruteForce": "Merge lists one by one -> O(N*k).",
+          "optimal": "Push each list's head into a min heap. Pop min, attach to result, push its next.",
+          "timeComplexity": "O(N log k)",
+          "spaceComplexity": "O(k)",
+          "keyPoints": "In Python push (val, index, node) to avoid comparing nodes. Divide & conquer merging also gives O(N log k).",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 65,
+      "week": 10,
+      "topic": "Heaps / Priority Queue",
+      "patternGuide": {
+        "topic": "Heaps / Priority Queue",
+        "whenToUse": "K largest/smallest, merge K sorted, streaming median, scheduling, Dijkstra, Huffman.",
+        "template": "K largest → MIN heap of size k; K smallest → MAX heap\nPush/Pop O(log n), Peek O(1), Build O(n)\nChildren of i: 2i+1, 2i+2; Parent: (i-1)//2"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Find Median from Data Stream",
+          "platform": "LeetCode",
+          "problemNumber": "295",
+          "url": "https://leetcode.com/problems/find-median-from-data-stream/",
+          "difficulty": "Hard",
+          "pattern": "Two Heaps",
+          "source": "Sheet P9 #4",
+          "statement": "Design addNum() and findMedian() for a stream of numbers.",
+          "bruteForce": "Keep a sorted list and insert -> O(n) per add.",
+          "optimal": "Max heap for the lower half, min heap for the upper half. Push to max heap, move its top to min heap, rebalance so max heap size >= min heap size.",
+          "timeComplexity": "O(log n) add, O(1) median",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Median = top of max heap (odd) or average of both tops (even).",
+          "followUps": "Sliding Window Median (LC 480)."
+        }
+      ]
+    },
+    {
+      "day": 66,
+      "week": 10,
+      "topic": "Graphs (BFS / DFS)",
+      "patternGuide": {
+        "topic": "Graphs (BFS / DFS)",
+        "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+        "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Number of Islands",
+          "platform": "LeetCode",
+          "problemNumber": "200",
+          "url": "https://leetcode.com/problems/number-of-islands/",
+          "difficulty": "Medium",
+          "pattern": "DFS / BFS on Grid",
+          "source": "Sheet P10 #1",
+          "statement": "Count the islands ('1' connected 4-directionally) in a 2D grid.",
+          "bruteForce": "-",
+          "optimal": "Scan cells; on an unvisited '1', count++ and DFS/BFS to mark the whole island visited (e.g., set to '0').",
+          "timeComplexity": "O(m*n)",
+          "spaceComplexity": "O(m*n) (recursion / queue)",
+          "keyPoints": "Bounds check before accessing grid. 4 directions only.",
+          "followUps": "Max Area of Island (LC 695). Number of Distinct Islands."
+        },
+        {
+          "type": "Bonus",
+          "name": "Flood Fill",
+          "platform": "LeetCode",
+          "problemNumber": "733",
+          "url": "https://leetcode.com/problems/flood-fill/",
+          "difficulty": "Easy",
+          "pattern": "DFS on Grid",
+          "source": "Added (grid DFS warm-up)",
+          "statement": "Recolour the connected region of the start pixel with a new colour.",
+          "bruteForce": "-",
+          "optimal": "DFS from (sr,sc), recolour cells matching the original colour.",
+          "timeComplexity": "O(m*n)",
+          "spaceComplexity": "O(m*n)",
+          "keyPoints": "If newColor == original colour, return immediately (else infinite recursion).",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 67,
+      "week": 10,
+      "topic": "Graphs (BFS / DFS)",
+      "patternGuide": {
+        "topic": "Graphs (BFS / DFS)",
+        "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+        "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Clone Graph",
+          "platform": "LeetCode",
+          "problemNumber": "133",
+          "url": "https://leetcode.com/problems/clone-graph/",
+          "difficulty": "Medium",
+          "pattern": "DFS / BFS + HashMap",
+          "source": "Sheet P10 #2",
+          "statement": "Return a deep copy of a connected undirected graph.",
+          "bruteForce": "-",
+          "optimal": "HashMap original -> clone. DFS: if node already cloned return it; else create clone, store it, then clone neighbours.",
+          "timeComplexity": "O(V + E)",
+          "spaceComplexity": "O(V)",
+          "keyPoints": "Put the clone in the map BEFORE recursing into neighbours (handles cycles).",
+          "followUps": "Copy List with Random Pointer (LC 138)."
+        }
+      ]
+    },
+    {
+      "day": 68,
+      "week": 10,
+      "topic": "Graphs (BFS / DFS)",
+      "patternGuide": {
+        "topic": "Graphs (BFS / DFS)",
+        "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+        "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Number of Provinces",
+          "platform": "LeetCode",
+          "problemNumber": "547",
+          "url": "https://leetcode.com/problems/number-of-provinces/",
+          "difficulty": "Medium",
+          "pattern": "DFS / Union-Find",
+          "source": "Sheet P10 #3 (LC 547 is this problem)",
+          "statement": "Given an adjacency matrix isConnected, return the number of connected components (provinces).",
+          "bruteForce": "-",
+          "optimal": "DFS from every unvisited city, count++. Or Union-Find: union connected pairs, count distinct roots.",
+          "timeComplexity": "O(n^2)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Learn DSU with path compression + union by rank here - reused on Days 77-78.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 69,
+      "week": 10,
+      "topic": "Graphs (BFS / DFS)",
+      "patternGuide": {
+        "topic": "Graphs (BFS / DFS)",
+        "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+        "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Detect Cycle in an Undirected Graph",
+          "platform": "GFG",
+          "problemNumber": "-",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Detect+cycle+in+an+undirected+graph+practice",
+          "difficulty": "Medium",
+          "pattern": "DFS with parent / Union-Find",
+          "source": "Sheet P10 #3",
+          "statement": "Given V vertices and an adjacency list, return true if the undirected graph contains a cycle.",
+          "bruteForce": "-",
+          "optimal": "DFS(node, parent): if a visited neighbour is not the parent -> cycle. Or DSU: an edge whose ends are already in the same set -> cycle.",
+          "timeComplexity": "O(V + E)",
+          "spaceComplexity": "O(V)",
+          "keyPoints": "Run from every unvisited node (graph may be disconnected).",
+          "followUps": "Directed graph cycle -> use recursion stack / Kahn's (Day 70)."
+        }
+      ]
+    },
+    {
+      "day": 70,
+      "week": 10,
+      "topic": "Graphs (BFS / DFS)",
+      "patternGuide": {
+        "topic": "Graphs (BFS / DFS)",
+        "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+        "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Course Schedule",
+          "platform": "LeetCode",
+          "problemNumber": "207",
+          "url": "https://leetcode.com/problems/course-schedule/",
+          "difficulty": "Medium",
+          "pattern": "Topological Sort (Kahn's BFS)",
+          "source": "Sheet P10 #4",
+          "statement": "numCourses with prerequisite pairs [a, b] (b before a). Return true if all courses can be finished.",
+          "bruteForce": "-",
+          "optimal": "Build graph + indegree. Queue all indegree-0 nodes; pop, count++, decrement neighbours' indegree. Possible if count == numCourses.",
+          "timeComplexity": "O(V + E)",
+          "spaceComplexity": "O(V + E)",
+          "keyPoints": "Edge direction: b -> a. Remaining nodes with indegree > 0 means a cycle.",
+          "followUps": "DFS 3-colour cycle detection."
+        }
+      ]
+    },
+    {
+      "day": 71,
+      "week": 11,
+      "topic": "Graphs (BFS / DFS)",
+      "patternGuide": {
+        "topic": "Graphs (BFS / DFS)",
+        "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+        "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Course Schedule II (Topological Sort)",
+          "platform": "LeetCode",
+          "problemNumber": "210",
+          "url": "https://leetcode.com/problems/course-schedule-ii/",
+          "difficulty": "Medium",
+          "pattern": "Topological Sort",
+          "source": "Sheet P10 #7",
+          "statement": "Return any valid order of courses, or [] if impossible.",
+          "bruteForce": "-",
+          "optimal": "Same as Day 70, but append popped nodes to the order. If order length < numCourses, return [].",
+          "timeComplexity": "O(V + E)",
+          "spaceComplexity": "O(V + E)",
+          "keyPoints": "Topological order exists only for DAGs.",
+          "followUps": "Alien Dictionary (LC 269)."
+        }
+      ]
+    },
+    {
+      "day": 72,
+      "week": 11,
+      "topic": "Graphs (BFS / DFS)",
+      "patternGuide": {
+        "topic": "Graphs (BFS / DFS)",
+        "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+        "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Rotting Oranges",
+          "platform": "LeetCode",
+          "problemNumber": "994",
+          "url": "https://leetcode.com/problems/rotting-oranges/",
+          "difficulty": "Medium",
+          "pattern": "Multi-source BFS",
+          "source": "Added (multi-source BFS)",
+          "statement": "Each minute, rotten oranges rot 4-adjacent fresh ones. Return minutes until none are fresh, or -1.",
+          "bruteForce": "Simulate minute by minute scanning the grid -> O((mn)^2).",
+          "optimal": "Push all rotten cells into the queue at once; BFS level by level counting minutes; track the fresh count.",
+          "timeComplexity": "O(m*n)",
+          "spaceComplexity": "O(m*n)",
+          "keyPoints": "No fresh oranges at start -> 0. Fresh count > 0 at the end -> -1.",
+          "followUps": "01 Matrix (LC 542). Walls and Gates."
+        }
+      ]
+    },
+    {
+      "day": 73,
+      "week": 11,
+      "topic": "Graphs (BFS / DFS)",
+      "patternGuide": {
+        "topic": "Graphs (BFS / DFS)",
+        "whenToUse": "Relationships, grids, connectivity, dependencies (topological sort).",
+        "template": "Adjacency list (space-efficient) vs matrix (fast lookup)\nUndirected cycle: visited neighbour ≠ parent\nKahn's: indegree 0 → queue → pop → decrement neighbours"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Is Graph Bipartite?",
+          "platform": "LeetCode",
+          "problemNumber": "785",
+          "url": "https://leetcode.com/problems/is-graph-bipartite/",
+          "difficulty": "Medium",
+          "pattern": "BFS / DFS 2-Colouring",
+          "source": "Sheet P12 #7",
+          "statement": "Return true if nodes can be split into two sets such that every edge connects nodes in different sets.",
+          "bruteForce": "-",
+          "optimal": "Colour each uncoloured node 0, BFS; neighbours get the opposite colour. Same colour on an edge -> not bipartite.",
+          "timeComplexity": "O(V + E)",
+          "spaceComplexity": "O(V)",
+          "keyPoints": "Graph may be disconnected - start BFS from every uncoloured node. Odd cycle = not bipartite.",
+          "followUps": "Possible Bipartition (LC 886)."
+        }
+      ]
+    },
+    {
+      "day": 74,
+      "week": 11,
+      "topic": "Graph Algorithms",
+      "patternGuide": {
+        "topic": "Graph Algorithms",
+        "whenToUse": "Shortest paths, MST, bridges, articulation points, bipartite.",
+        "template": "Unweighted → BFS | Non-negative weights → Dijkstra | Negative → Bellman-Ford\nKruskal: sort edges + DSU | Prim: min heap from a node\nBridge: low[v] > disc[u] | Articulation: low[v] >= disc[u]"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Shortest Path in Binary Matrix",
+          "platform": "LeetCode",
+          "problemNumber": "1091",
+          "url": "https://leetcode.com/problems/shortest-path-in-binary-matrix/",
+          "difficulty": "Medium",
+          "pattern": "BFS (unweighted shortest path)",
+          "source": "Sheet P12 #1",
+          "statement": "Return the length of the shortest clear path from top-left to bottom-right (8 directions), or -1.",
+          "bruteForce": "DFS all paths -> exponential.",
+          "optimal": "BFS from (0,0) with distance 1; the first time you reach the target is the shortest.",
+          "timeComplexity": "O(n^2)",
+          "spaceComplexity": "O(n^2)",
+          "keyPoints": "Check start and end cells are 0. Mark visited when ENQUEUING, not when popping.",
+          "followUps": "Why BFS works only for unweighted graphs."
+        }
+      ]
+    },
+    {
+      "day": 75,
+      "week": 11,
+      "topic": "Graph Algorithms",
+      "patternGuide": {
+        "topic": "Graph Algorithms",
+        "whenToUse": "Shortest paths, MST, bridges, articulation points, bipartite.",
+        "template": "Unweighted → BFS | Non-negative weights → Dijkstra | Negative → Bellman-Ford\nKruskal: sort edges + DSU | Prim: min heap from a node\nBridge: low[v] > disc[u] | Articulation: low[v] >= disc[u]"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Network Delay Time (Dijkstra)",
+          "platform": "LeetCode",
+          "problemNumber": "743",
+          "url": "https://leetcode.com/problems/network-delay-time/",
+          "difficulty": "Medium",
+          "pattern": "Dijkstra's Algorithm",
+          "source": "Sheet P10 #6 / P12 #2",
+          "statement": "Signal is sent from node k over weighted directed edges. Return the time for all nodes to receive it, or -1.",
+          "bruteForce": "Bellman-Ford O(V*E).",
+          "optimal": "Min heap of (dist, node). Pop smallest; skip if stale; relax neighbours. Answer = max distance (or -1 if unreachable).",
+          "timeComplexity": "O((V + E) log V)",
+          "spaceComplexity": "O(V + E)",
+          "keyPoints": "Only works for NON-NEGATIVE weights. Skip stale heap entries (d > dist[node]).",
+          "followUps": "Path With Minimum Effort (LC 1631)."
+        }
+      ]
+    },
+    {
+      "day": 76,
+      "week": 11,
+      "topic": "Graph Algorithms",
+      "patternGuide": {
+        "topic": "Graph Algorithms",
+        "whenToUse": "Shortest paths, MST, bridges, articulation points, bipartite.",
+        "template": "Unweighted → BFS | Non-negative weights → Dijkstra | Negative → Bellman-Ford\nKruskal: sort edges + DSU | Prim: min heap from a node\nBridge: low[v] > disc[u] | Articulation: low[v] >= disc[u]"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Bellman-Ford / Detect Negative Cycle",
+          "platform": "GFG",
+          "problemNumber": "-",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Bellman-Ford+distance+from+the+source+practice",
+          "difficulty": "Medium",
+          "pattern": "Bellman-Ford",
+          "source": "Sheet P12 #3 (sheet says LC 209 - wrong)",
+          "statement": "Find shortest distances from a source in a graph that may have negative weights; report if a negative cycle exists.",
+          "bruteForce": "-",
+          "optimal": "dist[src]=0. Relax ALL edges V-1 times. If any edge still relaxes on the V-th pass -> negative cycle.",
+          "timeComplexity": "O(V * E)",
+          "spaceComplexity": "O(V)",
+          "keyPoints": "Skip relaxing from nodes whose dist is still infinity.",
+          "followUps": "Cheapest Flights Within K Stops (bonus LC 787) = Bellman-Ford limited to K+1 rounds."
+        },
+        {
+          "type": "Bonus",
+          "name": "Cheapest Flights Within K Stops",
+          "platform": "LeetCode",
+          "problemNumber": "787",
+          "url": "https://leetcode.com/problems/cheapest-flights-within-k-stops/",
+          "difficulty": "Medium",
+          "pattern": "Bellman-Ford (K rounds) / BFS",
+          "source": "Added",
+          "statement": "Find the cheapest price from src to dst with at most k stops.",
+          "bruteForce": "-",
+          "optimal": "Run K+1 rounds of edge relaxation, copying the dist array each round.",
+          "timeComplexity": "O(K * E)",
+          "spaceComplexity": "O(V)",
+          "keyPoints": "Copy the previous round's distances, otherwise you may use more than K stops.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 77,
+      "week": 11,
+      "topic": "Graph Algorithms",
+      "patternGuide": {
+        "topic": "Graph Algorithms",
+        "whenToUse": "Shortest paths, MST, bridges, articulation points, bipartite.",
+        "template": "Unweighted → BFS | Non-negative weights → Dijkstra | Negative → Bellman-Ford\nKruskal: sort edges + DSU | Prim: min heap from a node\nBridge: low[v] > disc[u] | Articulation: low[v] >= disc[u]"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Min Cost to Connect All Points (MST)",
+          "platform": "LeetCode",
+          "problemNumber": "1584",
+          "url": "https://leetcode.com/problems/min-cost-to-connect-all-points/",
+          "difficulty": "Medium",
+          "pattern": "Prim's / Kruskal's MST",
+          "source": "Sheet P10 #5 / P12 #6",
+          "statement": "Connect all points with minimum total Manhattan distance.",
+          "bruteForce": "-",
+          "optimal": "Prim's: start from any point, repeatedly add the cheapest edge to an unvisited point (min heap or O(n^2) array). Kruskal's: sort edges + DSU.",
+          "timeComplexity": "O(n^2) (Prim, dense) / O(E log E) (Kruskal)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Dense complete graph -> O(n^2) Prim is best. MST has exactly V-1 edges.",
+          "followUps": "Explain Prim vs Kruskal differences."
+        }
+      ]
+    },
+    {
+      "day": 78,
+      "week": 12,
+      "topic": "Graph Algorithms",
+      "patternGuide": {
+        "topic": "Graph Algorithms",
+        "whenToUse": "Shortest paths, MST, bridges, articulation points, bipartite.",
+        "template": "Unweighted → BFS | Non-negative weights → Dijkstra | Negative → Bellman-Ford\nKruskal: sort edges + DSU | Prim: min heap from a node\nBridge: low[v] > disc[u] | Articulation: low[v] >= disc[u]"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Redundant Connection",
+          "platform": "LeetCode",
+          "problemNumber": "684",
+          "url": "https://leetcode.com/problems/redundant-connection/",
+          "difficulty": "Medium",
+          "pattern": "Disjoint Set Union",
+          "source": "Added (Union-Find practice)",
+          "statement": "A tree with one extra edge added; return the edge that can be removed to make it a tree.",
+          "bruteForce": "Remove each edge and check connectivity -> O(E^2).",
+          "optimal": "Process edges with DSU; the first edge whose endpoints already share a root is the answer.",
+          "timeComplexity": "O(E * alpha(V))",
+          "spaceComplexity": "O(V)",
+          "keyPoints": "Path compression + union by rank make DSU nearly O(1).",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 79,
+      "week": 12,
+      "topic": "Graph Algorithms",
+      "patternGuide": {
+        "topic": "Graph Algorithms",
+        "whenToUse": "Shortest paths, MST, bridges, articulation points, bipartite.",
+        "template": "Unweighted → BFS | Non-negative weights → Dijkstra | Negative → Bellman-Ford\nKruskal: sort edges + DSU | Prim: min heap from a node\nBridge: low[v] > disc[u] | Articulation: low[v] >= disc[u]"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Critical Connections in a Network (Bridges)",
+          "platform": "LeetCode",
+          "problemNumber": "1192",
+          "url": "https://leetcode.com/problems/critical-connections-in-a-network/",
+          "difficulty": "Hard",
+          "pattern": "Tarjan's Algorithm",
+          "source": "Sheet P12 #4",
+          "statement": "Return all edges whose removal disconnects the network (bridges).",
+          "bruteForce": "Remove each edge and run DFS -> O(E*(V+E)).",
+          "optimal": "DFS assigning disc[] and low[]. For child v of u: low[u] = min(low[u], low[v]); if low[v] > disc[u], (u,v) is a bridge. Back edge: low[u] = min(low[u], disc[v]).",
+          "timeComplexity": "O(V + E)",
+          "spaceComplexity": "O(V + E)",
+          "keyPoints": "Skip the parent edge when updating low. Bridge condition uses STRICT '>'.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 80,
+      "week": 12,
+      "topic": "Graph Algorithms",
+      "patternGuide": {
+        "topic": "Graph Algorithms",
+        "whenToUse": "Shortest paths, MST, bridges, articulation points, bipartite.",
+        "template": "Unweighted → BFS | Non-negative weights → Dijkstra | Negative → Bellman-Ford\nKruskal: sort edges + DSU | Prim: min heap from a node\nBridge: low[v] > disc[u] | Articulation: low[v] >= disc[u]"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Articulation Points",
+          "platform": "GFG",
+          "problemNumber": "-",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Articulation+Point+practice",
+          "difficulty": "Hard",
+          "pattern": "Tarjan's Algorithm",
+          "source": "Sheet P12 #5 (sheet says LC 1125 - wrong)",
+          "statement": "Return all vertices whose removal increases the number of connected components.",
+          "bruteForce": "Remove each vertex and count components -> O(V*(V+E)).",
+          "optimal": "Same disc/low DFS. Non-root u is an articulation point if some child v has low[v] >= disc[u]. Root is one if it has > 1 DFS child.",
+          "timeComplexity": "O(V + E)",
+          "spaceComplexity": "O(V)",
+          "keyPoints": "Articulation uses '>=' ; bridges use '>'. Root is a special case.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 81,
+      "week": 12,
+      "topic": "Greedy",
+      "patternGuide": {
+        "topic": "Greedy",
+        "whenToUse": "Greedy-choice property + optimal substructure; intervals, scheduling, ratios.",
+        "template": "Activity selection: sort by END time\nMerge intervals: sort by START\nFractional knapsack: sort by value/weight\nGreedy coins fails for non-canonical coins → DP"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Activity Selection / N Meetings in One Room",
+          "platform": "GFG",
+          "problemNumber": "-",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Activity+Selection+N+meetings+in+one+room+practice",
+          "difficulty": "Easy",
+          "pattern": "Greedy (sort by end time)",
+          "source": "Sheet P13 #1",
+          "statement": "Given start and end times, select the maximum number of non-overlapping activities.",
+          "bruteForce": "Try all subsets -> O(2^n).",
+          "optimal": "Sort by END time. Pick the first; then pick each next activity whose start >= last picked end (strict > if endpoints can't touch).",
+          "timeComplexity": "O(n log n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Sorting by end time (not start or duration) is what makes greedy correct.",
+          "followUps": "Non-overlapping Intervals (bonus LC 435) = n - maxActivities."
+        },
+        {
+          "type": "Bonus",
+          "name": "Non-overlapping Intervals",
+          "platform": "LeetCode",
+          "problemNumber": "435",
+          "url": "https://leetcode.com/problems/non-overlapping-intervals/",
+          "difficulty": "Medium",
+          "pattern": "Greedy (sort by end)",
+          "source": "Sheet P13 #1 (LC 435)",
+          "statement": "Return the minimum number of intervals to remove so the rest are non-overlapping.",
+          "bruteForce": "-",
+          "optimal": "Sort by end; count kept intervals greedily; answer = n - kept.",
+          "timeComplexity": "O(n log n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Touching intervals [1,2],[2,3] do NOT overlap here.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 82,
+      "week": 12,
+      "topic": "Greedy",
+      "patternGuide": {
+        "topic": "Greedy",
+        "whenToUse": "Greedy-choice property + optimal substructure; intervals, scheduling, ratios.",
+        "template": "Activity selection: sort by END time\nMerge intervals: sort by START\nFractional knapsack: sort by value/weight\nGreedy coins fails for non-canonical coins → DP"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Fractional Knapsack",
+          "platform": "GFG",
+          "problemNumber": "-",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Fractional+Knapsack+practice",
+          "difficulty": "Medium",
+          "pattern": "Greedy (value/weight ratio)",
+          "source": "Sheet P13 #2 (sheet says LC 1029 - wrong)",
+          "statement": "Items have value and weight; you may take fractions. Maximise value within capacity W.",
+          "bruteForce": "-",
+          "optimal": "Sort by value/weight descending. Take whole items while they fit; take a fraction of the next one; stop.",
+          "timeComplexity": "O(n log n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Sheet example: W=50 -> 60 + 100 + 80 = 240. Greedy works ONLY for fractional; 0/1 knapsack needs DP (Day 93).",
+          "followUps": "Why greedy fails for 0/1 knapsack."
+        }
+      ]
+    },
+    {
+      "day": 83,
+      "week": 12,
+      "topic": "Greedy",
+      "patternGuide": {
+        "topic": "Greedy",
+        "whenToUse": "Greedy-choice property + optimal substructure; intervals, scheduling, ratios.",
+        "template": "Activity selection: sort by END time\nMerge intervals: sort by START\nFractional knapsack: sort by value/weight\nGreedy coins fails for non-canonical coins → DP"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Merge Intervals",
+          "platform": "LeetCode",
+          "problemNumber": "56",
+          "url": "https://leetcode.com/problems/merge-intervals/",
+          "difficulty": "Medium",
+          "pattern": "Sort by start + merge",
+          "source": "Sheet P13 #5",
+          "statement": "Merge all overlapping intervals.",
+          "bruteForce": "Compare every pair repeatedly -> O(n^2).",
+          "optimal": "Sort by start. If current.start <= last.end, last.end = max(last.end, current.end); else push current.",
+          "timeComplexity": "O(n log n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Use max() for the end - an interval can be fully contained. Example: [1,3],[2,6],[8,10],[15,18] -> [1,6],[8,10],[15,18].",
+          "followUps": "Insert Interval (LC 57). Meeting Rooms II (LC 253)."
+        }
+      ]
+    },
+    {
+      "day": 84,
+      "week": 12,
+      "topic": "Greedy",
+      "patternGuide": {
+        "topic": "Greedy",
+        "whenToUse": "Greedy-choice property + optimal substructure; intervals, scheduling, ratios.",
+        "template": "Activity selection: sort by END time\nMerge intervals: sort by START\nFractional knapsack: sort by value/weight\nGreedy coins fails for non-canonical coins → DP"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Jump Game II",
+          "platform": "LeetCode",
+          "problemNumber": "45",
+          "url": "https://leetcode.com/problems/jump-game-ii/",
+          "difficulty": "Medium",
+          "pattern": "Greedy (BFS levels)",
+          "source": "Sheet P13 #4",
+          "statement": "Return the minimum number of jumps to reach the last index (always reachable).",
+          "bruteForce": "DP: for each index try all jumps -> O(n^2).",
+          "optimal": "Track currentEnd and farthest. For i in 0..n-2: farthest = max(farthest, i+nums[i]); if i == currentEnd: jumps++, currentEnd = farthest.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Loop only to n-2 to avoid an extra jump. Example [2,3,1,1,4] -> 2.",
+          "followUps": "Jump Game (bonus LC 55)."
+        },
+        {
+          "type": "Bonus",
+          "name": "Jump Game",
+          "platform": "LeetCode",
+          "problemNumber": "55",
+          "url": "https://leetcode.com/problems/jump-game/",
+          "difficulty": "Medium",
+          "pattern": "Greedy",
+          "source": "Added",
+          "statement": "Return true if you can reach the last index.",
+          "bruteForce": "-",
+          "optimal": "Track max reachable; if i > maxReach return false.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 85,
+      "week": 13,
+      "topic": "Greedy",
+      "patternGuide": {
+        "topic": "Greedy",
+        "whenToUse": "Greedy-choice property + optimal substructure; intervals, scheduling, ratios.",
+        "template": "Activity selection: sort by END time\nMerge intervals: sort by START\nFractional knapsack: sort by value/weight\nGreedy coins fails for non-canonical coins → DP"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Minimum Cost of Ropes / Connect Sticks",
+          "platform": "LeetCode / GFG",
+          "problemNumber": "1167",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Minimum+Cost+of+ropes+practice",
+          "difficulty": "Easy",
+          "pattern": "Greedy + Min Heap",
+          "source": "Sheet P13 #6",
+          "statement": "Connect all ropes into one; cost of joining two ropes = sum of their lengths. Minimise total cost. (LC 1167 is Premium - GFG version is free.)",
+          "bruteForce": "Try all join orders -> exponential.",
+          "optimal": "Min heap: pop two smallest, cost += a+b, push a+b; repeat until one rope remains.",
+          "timeComplexity": "O(n log n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Same idea as Huffman coding. Example [4,3,2,6] -> 29.",
+          "followUps": ""
+        }
+      ]
+    },
+    {
+      "day": 86,
+      "week": 13,
+      "topic": "Greedy",
+      "patternGuide": {
+        "topic": "Greedy",
+        "whenToUse": "Greedy-choice property + optimal substructure; intervals, scheduling, ratios.",
+        "template": "Activity selection: sort by END time\nMerge intervals: sort by START\nFractional knapsack: sort by value/weight\nGreedy coins fails for non-canonical coins → DP"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Gas Station",
+          "platform": "LeetCode",
+          "problemNumber": "134",
+          "url": "https://leetcode.com/problems/gas-station/",
+          "difficulty": "Medium",
+          "pattern": "Greedy",
+          "source": "Sheet P13 #7",
+          "statement": "Return the starting station index to travel around the circuit once, or -1.",
+          "bruteForce": "Try every start and simulate -> O(n^2).",
+          "optimal": "If sum(gas) < sum(cost) return -1. Else scan with tank; when tank < 0, start = i+1 and reset tank = 0.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Example gas=[1,2,3,4,5], cost=[3,4,5,1,2] -> start 3.",
+          "followUps": "Prove why the reset works."
+        }
+      ]
+    },
+    {
+      "day": 87,
+      "week": 13,
+      "topic": "Greedy",
+      "patternGuide": {
+        "topic": "Greedy",
+        "whenToUse": "Greedy-choice property + optimal substructure; intervals, scheduling, ratios.",
+        "template": "Activity selection: sort by END time\nMerge intervals: sort by START\nFractional knapsack: sort by value/weight\nGreedy coins fails for non-canonical coins → DP"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Minimum Number of Coins (Greedy)",
+          "platform": "GFG",
+          "problemNumber": "-",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+Minimum+number+of+coins+greedy+practice",
+          "difficulty": "Easy",
+          "pattern": "Greedy (largest coin first)",
+          "source": "Sheet P13 #3",
+          "statement": "With Indian currency denominations and infinite supply, find the minimum coins to make a value.",
+          "bruteForce": "-",
+          "optimal": "Pick the largest coin <= remaining amount repeatedly.",
+          "timeComplexity": "O(n + amount/coin)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Greedy is correct ONLY for canonical coin systems (1,2,5,10...). For coins [1,3,4], amount 6 greedy gives 3 coins but optimal is 2 -> use DP (LC 322, Day 91).",
+          "followUps": "Bridge to Dynamic Programming."
+        }
+      ]
+    },
+    {
+      "day": 88,
+      "week": 13,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Climbing Stairs",
+          "platform": "LeetCode",
+          "problemNumber": "70",
+          "url": "https://leetcode.com/problems/climbing-stairs/",
+          "difficulty": "Easy",
+          "pattern": "1D DP (Fibonacci)",
+          "source": "Sheet P11 #1",
+          "statement": "You can climb 1 or 2 steps. How many distinct ways to reach step n?",
+          "bruteForce": "Plain recursion -> O(2^n).",
+          "optimal": "dp[i] = dp[i-1] + dp[i-2], dp[0]=dp[1]=1. Keep only two variables.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Practise all 3 forms: recursion -> memo -> tabulation -> space-optimised.",
+          "followUps": "Min Cost Climbing Stairs (LC 746)."
+        }
+      ]
+    },
+    {
+      "day": 89,
+      "week": 13,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "House Robber",
+          "platform": "LeetCode",
+          "problemNumber": "198",
+          "url": "https://leetcode.com/problems/house-robber/",
+          "difficulty": "Medium",
+          "pattern": "1D DP (pick / skip)",
+          "source": "Sheet P11 #2",
+          "statement": "Maximise money robbed from houses in a row without robbing two adjacent houses.",
+          "bruteForce": "Try all subsets -> O(2^n).",
+          "optimal": "dp[i] = max(dp[i-1], dp[i-2] + nums[i]). Two variables prev1, prev2.",
+          "timeComplexity": "O(n)",
+          "spaceComplexity": "O(1)",
+          "keyPoints": "Classic take / not-take decision.",
+          "followUps": "House Robber II - circular (LC 213)."
+        }
+      ]
+    },
+    {
+      "day": 90,
+      "week": 13,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Unique Paths",
+          "platform": "LeetCode",
+          "problemNumber": "62",
+          "url": "https://leetcode.com/problems/unique-paths/",
+          "difficulty": "Medium",
+          "pattern": "2D DP",
+          "source": "Added (2D grid DP)",
+          "statement": "Robot moves only right/down in an m x n grid. Count paths from top-left to bottom-right.",
+          "bruteForce": "Recursion -> O(2^(m+n)).",
+          "optimal": "dp[i][j] = dp[i-1][j] + dp[i][j-1]; first row/col = 1. Can compress to a 1D row.",
+          "timeComplexity": "O(m*n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Intro to grid DP. Math: C(m+n-2, m-1).",
+          "followUps": "Unique Paths II with obstacles (LC 63). Minimum Path Sum (LC 64)."
+        }
+      ]
+    },
+    {
+      "day": 91,
+      "week": 13,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Coin Change",
+          "platform": "LeetCode",
+          "problemNumber": "322",
+          "url": "https://leetcode.com/problems/coin-change/",
+          "difficulty": "Medium",
+          "pattern": "Unbounded Knapsack DP",
+          "source": "Sheet P13 #3 (LC 322)",
+          "statement": "Return the fewest coins needed to make amount (infinite supply), or -1.",
+          "bruteForce": "Recursion over all combinations -> exponential.",
+          "optimal": "dp[0]=0, others = INF. For a in 1..amount, for coin c: dp[a] = min(dp[a], dp[a-c]+1).",
+          "timeComplexity": "O(n * amount)",
+          "spaceComplexity": "O(amount)",
+          "keyPoints": "Greedy fails here (see Day 87). Initialise with amount+1 as 'infinity'.",
+          "followUps": "Coin Change II (Day 92)."
+        }
+      ]
+    },
+    {
+      "day": 92,
+      "week": 14,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Coin Change II",
+          "platform": "LeetCode",
+          "problemNumber": "518",
+          "url": "https://leetcode.com/problems/coin-change-ii/",
+          "difficulty": "Medium",
+          "pattern": "Unbounded Knapsack (count ways)",
+          "source": "Sheet P11 #6",
+          "statement": "Return the number of combinations that make up amount.",
+          "bruteForce": "Recursion -> exponential.",
+          "optimal": "dp[0]=1. OUTER loop over coins, INNER over amounts: dp[a] += dp[a-coin].",
+          "timeComplexity": "O(n * amount)",
+          "spaceComplexity": "O(amount)",
+          "keyPoints": "Coins outer = combinations; amounts outer = permutations (LC 377). Order matters!",
+          "followUps": "Combination Sum IV (LC 377)."
+        }
+      ]
+    },
+    {
+      "day": 93,
+      "week": 14,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "0/1 Knapsack",
+          "platform": "GFG",
+          "problemNumber": "-",
+          "url": "https://www.google.com/search?q=GeeksforGeeks+0+-+1+Knapsack+Problem+practice",
+          "difficulty": "Medium",
+          "pattern": "2D / 1D DP",
+          "source": "Sheet P11 #5 (sheet says LC 416 - that's Partition Subset)",
+          "statement": "Given weights and values of n items and capacity W, maximise total value; each item used at most once.",
+          "bruteForce": "Try all subsets -> O(2^n).",
+          "optimal": "dp[i][w] = max(dp[i-1][w], val[i] + dp[i-1][w-wt[i]]). 1D: iterate w from W DOWN to wt[i].",
+          "timeComplexity": "O(n * W)",
+          "spaceComplexity": "O(W)",
+          "keyPoints": "1D version must loop capacity BACKWARDS (otherwise items get reused = unbounded knapsack).",
+          "followUps": "Parent pattern for Days 91, 92, 94."
+        }
+      ]
+    },
+    {
+      "day": 94,
+      "week": 14,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Partition Equal Subset Sum",
+          "platform": "LeetCode",
+          "problemNumber": "416",
+          "url": "https://leetcode.com/problems/partition-equal-subset-sum/",
+          "difficulty": "Medium",
+          "pattern": "Subset Sum DP (boolean)",
+          "source": "Sheet P11 #8",
+          "statement": "Can the array be split into two subsets with equal sum?",
+          "bruteForce": "Try all subsets -> O(2^n).",
+          "optimal": "If total is odd -> false. target = total/2. Boolean dp[0..target], dp[0]=true; for each num, for s from target down to num: dp[s] |= dp[s-num].",
+          "timeComplexity": "O(n * sum)",
+          "spaceComplexity": "O(sum)",
+          "keyPoints": "It's 0/1 knapsack with booleans - loop backwards.",
+          "followUps": "Target Sum (LC 494)."
+        }
+      ]
+    },
+    {
+      "day": 95,
+      "week": 14,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Longest Increasing Subsequence",
+          "platform": "LeetCode",
+          "problemNumber": "300",
+          "url": "https://leetcode.com/problems/longest-increasing-subsequence/",
+          "difficulty": "Medium",
+          "pattern": "1D DP / Binary Search (patience)",
+          "source": "Sheet P11 #3",
+          "statement": "Return the length of the longest strictly increasing subsequence.",
+          "bruteForce": "All subsequences -> O(2^n).",
+          "optimal": "DP: dp[i] = 1 + max(dp[j]) for j<i with nums[j]<nums[i] -> O(n^2). Optimal: tails[] + lower_bound -> O(n log n).",
+          "timeComplexity": "O(n^2) / O(n log n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "tails[] is NOT the actual LIS, only its length is correct.",
+          "followUps": "Print the LIS. Russian Doll Envelopes (LC 354)."
+        }
+      ]
+    },
+    {
+      "day": 96,
+      "week": 14,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Longest Common Subsequence",
+          "platform": "LeetCode",
+          "problemNumber": "1143",
+          "url": "https://leetcode.com/problems/longest-common-subsequence/",
+          "difficulty": "Medium",
+          "pattern": "2D DP on Strings",
+          "source": "Sheet P11 #7",
+          "statement": "Return the length of the longest common subsequence of two strings.",
+          "bruteForce": "All subsequences -> O(2^n).",
+          "optimal": "dp[i][j] = s1[i-1]==s2[j-1] ? 1 + dp[i-1][j-1] : max(dp[i-1][j], dp[i][j-1]).",
+          "timeComplexity": "O(m*n)",
+          "spaceComplexity": "O(m*n) (O(n) with rolling rows)",
+          "keyPoints": "Use (m+1) x (n+1) table so row/col 0 represent empty strings.",
+          "followUps": "Print the LCS. Shortest Common Supersequence (LC 1092)."
+        }
+      ]
+    },
+    {
+      "day": 97,
+      "week": 14,
+      "topic": "Dynamic Programming",
+      "patternGuide": {
+        "topic": "Dynamic Programming",
+        "whenToUse": "Overlapping subproblems + optimal substructure; 'count ways', 'min/max', 'is it possible'.",
+        "template": "Steps: define state → recurrence → base case → order\nTop-down (memo) vs Bottom-up (tabulation)\n0/1 knapsack 1D: loop capacity BACKWARDS\nCoin Change II: coins outer loop = combinations"
+      },
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Edit Distance",
+          "platform": "LeetCode",
+          "problemNumber": "72",
+          "url": "https://leetcode.com/problems/edit-distance/",
+          "difficulty": "Medium",
+          "pattern": "2D DP on Strings",
+          "source": "Sheet P11 #4",
+          "statement": "Minimum insert / delete / replace operations to convert word1 into word2.",
+          "bruteForce": "Recursion over the 3 operations -> O(3^(m+n)).",
+          "optimal": "If chars match dp[i][j]=dp[i-1][j-1]; else 1 + min(dp[i-1][j] (delete), dp[i][j-1] (insert), dp[i-1][j-1] (replace)). Base dp[i][0]=i, dp[0][j]=j.",
+          "timeComplexity": "O(m*n)",
+          "spaceComplexity": "O(m*n) (O(n) optimised)",
+          "keyPoints": "Get the base cases right - they represent converting to/from an empty string.",
+          "followUps": "One Edit Distance. Delete Operation for Two Strings (LC 583)."
+        }
+      ]
+    },
+    {
+      "day": 98,
+      "week": 14,
+      "topic": "Capstone (Design & Backtracking)",
+      "patternGuide": null,
+      "problems": [
+        {
+          "type": "Main",
+          "name": "LRU Cache",
+          "platform": "LeetCode",
+          "problemNumber": "146",
+          "url": "https://leetcode.com/problems/lru-cache/",
+          "difficulty": "Medium",
+          "pattern": "HashMap + Doubly Linked List",
+          "source": "Added (most-asked design problem)",
+          "statement": "Design a cache with get and put in O(1) that evicts the least recently used key when full.",
+          "bruteForce": "Array/list with linear search for LRU -> O(n).",
+          "optimal": "HashMap key -> node; doubly linked list ordered by recency (head = most recent). On get/put move node to head; evict from tail.",
+          "timeComplexity": "O(1) per op",
+          "spaceComplexity": "O(capacity)",
+          "keyPoints": "Use dummy head and tail nodes. Update the map when evicting.",
+          "followUps": "LFU Cache (LC 460)."
+        }
+      ]
+    },
+    {
+      "day": 99,
+      "week": 15,
+      "topic": "Capstone (Design & Backtracking)",
+      "patternGuide": null,
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Subsets",
+          "platform": "LeetCode",
+          "problemNumber": "78",
+          "url": "https://leetcode.com/problems/subsets/",
+          "difficulty": "Medium",
+          "pattern": "Backtracking",
+          "source": "Added (backtracking - not in sheet)",
+          "statement": "Return all possible subsets (the power set) of distinct integers.",
+          "bruteForce": "-",
+          "optimal": "Backtrack(start, path): add a copy of path; for i from start: add nums[i], recurse(i+1), remove.",
+          "timeComplexity": "O(n * 2^n)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "Add a COPY of path to the result. Also know the bitmask approach.",
+          "followUps": "Subsets II with duplicates (LC 90)."
+        },
+        {
+          "type": "Bonus",
+          "name": "Permutations",
+          "platform": "LeetCode",
+          "problemNumber": "46",
+          "url": "https://leetcode.com/problems/permutations/",
+          "difficulty": "Medium",
+          "pattern": "Backtracking",
+          "source": "Added",
+          "statement": "Return all permutations of distinct integers.",
+          "bruteForce": "-",
+          "optimal": "Backtrack with a used[] array; when path length == n, record a copy.",
+          "timeComplexity": "O(n * n!)",
+          "spaceComplexity": "O(n)",
+          "keyPoints": "",
+          "followUps": "Permutations II (LC 47)."
+        }
+      ]
+    },
+    {
+      "day": 100,
+      "week": 15,
+      "topic": "Capstone (Design & Backtracking)",
+      "patternGuide": null,
+      "problems": [
+        {
+          "type": "Main",
+          "name": "Word Search",
+          "platform": "LeetCode",
+          "problemNumber": "79",
+          "url": "https://leetcode.com/problems/word-search/",
+          "difficulty": "Medium",
+          "pattern": "DFS + Backtracking",
+          "source": "Added (grid DFS + backtracking)",
+          "statement": "Return true if word exists in the grid via sequentially adjacent cells (each cell used once).",
+          "bruteForce": "-",
+          "optimal": "From each cell matching word[0], DFS 4 directions; mark cell visited (e.g., '#'), recurse, then restore.",
+          "timeComplexity": "O(m*n * 3^L)",
+          "spaceComplexity": "O(L)",
+          "keyPoints": "Restore the cell after recursion (backtrack). Prune early on mismatch.",
+          "followUps": "Word Search II with a Trie (LC 212)."
+        }
+      ]
+    }
+  ]
+}
