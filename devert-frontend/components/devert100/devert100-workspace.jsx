@@ -6,7 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, ExternalLink, Play, RotateCcw, Loader2, CheckCircle2,
-  Lock, Lightbulb, Eye, EyeOff, Clock, Cpu, AlertCircle, Share2, Target, ChevronRight, Youtube,
+  Lock, Lightbulb, Clock, Cpu, AlertCircle, Share2, Target, ChevronRight, Youtube,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useIsWindowed } from "@/components/window/is-windowed";
@@ -38,12 +38,8 @@ function Section({ title, icon: Icon, color = CYAN, children, defaultOpen = true
         className="terminal-header w-full flex items-center gap-2 text-left cursor-pointer select-none transition-colors hover:bg-white/[0.06]">
         <Icon size={12} style={{ color }} className="ml-2" />
         <span className="font-mono text-[10px] text-white/45 tracking-wider">{title}</span>
-        <span className="ml-auto mr-2 font-mono text-[10px] text-white/25 flex items-center gap-1">
-          {reveal && !open
-            ? <><Eye size={11} /> reveal</>
-            : reveal ? <><EyeOff size={11} /> hide</>
-            : <ChevronRight size={12} className={open ? "rotate-90 transition-transform" : "transition-transform"} />}
-        </span>
+        <ChevronRight size={13}
+          className={`ml-auto mr-2 text-white/30 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
       <AnimatePresence initial={false}>
         {open && (
@@ -468,8 +464,12 @@ export function Devert100Workspace({ day }) {
                 {CODELAB_LANGUAGES.map(l => <option key={l.id} value={l.id} style={{ background: "#0b0f17" }}>{l.label}</option>)}
               </select>
             </div>
+            {/* Height comes from the wrapper, not the prop, so it can shrink on a
+                phone. A fixed 340px editor plus the run bar and the output panel
+                is most of a small screen before any problem text is visible. */}
+            <div className="h-[230px] sm:h-[300px] lg:h-[340px]">
             <MonacoEditor
-              height="340px"
+              height="100%"
               language={CODELAB_LANGUAGES.find(l => l.id === language)?.monacoId || "plaintext"}
               theme="vs-dark"
               value={code}
@@ -480,6 +480,7 @@ export function Devert100Workspace({ day }) {
                 fontFamily: "var(--font-mono), monospace", padding: { top: 12 },
               }}
             />
+            </div>
             <div className="p-3 flex items-center gap-2 flex-wrap" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
               <button onClick={handleRun} disabled={running}
                 className="font-mono text-[11px] font-semibold px-3.5 py-2 rounded inline-flex items-center gap-1.5 disabled:opacity-60"

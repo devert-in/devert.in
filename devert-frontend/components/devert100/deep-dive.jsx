@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, Lightbulb, RotateCcw, Zap, Gauge, Code2, ShieldAlert, Target,
-  Eye, EyeOff, ChevronRight, Share2,
+  ChevronRight, Share2,
 } from "lucide-react";
 
 const GREEN = "#00FF41";
@@ -100,11 +100,8 @@ function DeepSection({ section, body }) {
       <button onClick={() => setOpen(o => !o)} className="terminal-header w-full flex items-center gap-2 text-left cursor-pointer select-none transition-colors hover:bg-white/[0.06]">
         <Icon size={12} style={{ color: section.color }} className="ml-2" />
         <span className="font-mono text-[10px] text-white/50 tracking-wider">{section.title}</span>
-        <span className="ml-auto mr-2 font-mono text-[10px] text-white/25 flex items-center gap-1">
-          {section.reveal && !open ? <><Eye size={11} /> reveal</>
-            : section.reveal ? <><EyeOff size={11} /> hide</>
-            : <ChevronRight size={12} className={open ? "rotate-90 transition-transform" : "transition-transform"} />}
-        </span>
+        <ChevronRight size={13}
+          className={`ml-auto mr-2 text-white/30 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
       <AnimatePresence initial={false}>
         {open && (
