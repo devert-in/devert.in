@@ -69,11 +69,16 @@ export const FEATURES = Object.freeze({
  * how you lose a campus contract. institutionId is trustworthy here: it sits on
  * the self-write denylist in firestore.rules, so an individual cannot award
  * themselves campus access by editing their own profile.
+ *
+ * An ACTIVE Campus Ambassador is PRO - the programme's headline perk. Equally
+ * trustworthy: ambassadors/{uid}.status is admin-only by firestore.rules, so
+ * nobody can approve themselves into it.
  */
-export function resolveTier({ userData, subscription, isAdmin = false } = {}) {
+export function resolveTier({ userData, subscription, isAdmin = false, isAmbassador = false } = {}) {
   if (isAdmin) return TIER.CAMPUS;
   if ((userData?.institutionId || "").trim()) return TIER.CAMPUS;
   if (isSubscriptionActive(subscription)) return TIER.PRO;
+  if (isAmbassador) return TIER.PRO;
   return TIER.FREE;
 }
 

@@ -22,7 +22,7 @@
 
 import { db } from "@/lib/firebase";
 import {
-  doc, getDoc, setDoc, collection, query, where, orderBy, getDocs, onSnapshot,
+  doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot,
   serverTimestamp, limit,
 } from "firebase/firestore";
 
@@ -34,14 +34,24 @@ export const AMBASSADOR_STATUS = Object.freeze({
 });
 
 // What an ambassador actually gets. Kept as data so the apply page and any future
-// admin copy cannot drift from each other.
+// admin copy cannot drift from each other. `live: false` marks a promise that is
+// not built yet - the page labels those "coming soon" rather than presenting
+// them as something an approved ambassador can use today.
 export const AMBASSADOR_PERKS = Object.freeze([
-  "DeVert Pro free for as long as you are active",
-  "Your own referral code, and credit for every signup that uses it",
-  "Run proctored contests for your own college",
-  "Named on your college's Campus page once it goes live",
-  "First in line when your college becomes a paid campus",
+  // Real: lib/useTier.js resolves an ACTIVE ambassador to Pro.
+  { text: "DeVert Pro free for as long as you are active", live: true },
+  { text: "Your own referral code, and credit for every signup that uses it", live: true },
+  { text: "First in line when your college becomes a paid campus", live: true },
+  { text: "Run proctored contests for your own college", live: false },
+  { text: "Named on your college's Campus page once it goes live", live: false },
 ]);
+
+// A referral counts for a NEW account only. Without this, an existing user who
+// merely clicked an ambassador's link got credited as that ambassador's
+// "signup". Checked client-side in components/referral-capture.jsx against the
+// Auth account's creation time - display-only credit, see the note on rewards
+// at the top of this file.
+export const REFERRAL_NEW_ACCOUNT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Derived from the display name, not random: a code a student can say out loud in
 // a classroom gets shared, and a UUID does not. Collisions are resolved by the
@@ -87,14 +97,19 @@ export async function applyForAmbassador(uid, {
   const existing = await fetchMyAmbassador(uid);
   if (existing) return existing;
 
-  const code = normalizeReferralCode(referralCode) || suggestReferralCode(displayName, uid);
+  const code = (normalizeReferralCode(referralCode) || suggestReferralCode(displayName, uid)).slice(0, 20);
 
   // The code index is a separate doc keyed by the code itself - that is what
   // makes "look up an ambassador by their code at signup" a single read instead
   // of a query, and what makes uniqueness expressible as a create-if-absent.
-  const codeRef = doc(db, "referral_codes", code);
-  const codeTaken = (await getDoc(codeRef)).exists();
-  const finalCode = codeTaken ? `${code}${Math.floor(Math.random() * 90 + 10)}` : code;
+  //
+  // Claimed BEFORE the application is written, and retried on a clash. The
+  // first version wrote the application first and the index second, with one
+  // unchecked random suffix on a clash: if that suffix was also taken, the
+  // index write was denied (firestore.rules allows no client update) AFTER the
+  // application already carried the code - an ambassador approved with a code
+  // that resolved to nobody, crediting zero signups forever.
+  const finalCode = await claimReferralCode(uid, code);
 
   const payload = {
     uid,
@@ -110,13 +125,31 @@ export async function applyForAmbassador(uid, {
   };
 
   await setDoc(doc(db, "ambassadors", uid), payload);
-  // Written alongside, not in a transaction: a code index entry pointing at a
-  // pending application is harmless (nothing reads it until the ambassador is
-  // active), whereas a failed transaction would lose the application itself,
-  // which is the part the student cares about.
-  await setDoc(codeRef, { uid, code: finalCode, createdAt: serverTimestamp() }, { merge: true });
-
   return { id: uid, ...payload };
+}
+
+// Create-if-absent on referral_codes/{code}. A code already pointing at this
+// uid (a retried submit) is reused; one owned by someone else gets a numeric
+// suffix and another try. A lost race surfaces as permission-denied - the
+// rules refuse the update a second writer's setDoc turns into - so that is
+// treated as "taken" too.
+async function claimReferralCode(uid, base) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const candidate = attempt === 0 ? base : `${base}${Math.floor(Math.random() * 900 + 100)}`;
+    const ref = doc(db, "referral_codes", candidate);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      if (snap.data().uid === uid) return candidate;
+      continue;
+    }
+    try {
+      await setDoc(ref, { uid, code: candidate, createdAt: serverTimestamp() });
+      return candidate;
+    } catch (err) {
+      if (err?.code !== "permission-denied") throw err;
+    }
+  }
+  throw new Error("Could not reserve a referral code - try a different one.");
 }
 
 export async function fetchAmbassadorByCode(code) {
@@ -169,13 +202,18 @@ export function watchMyReferralCount(ambassadorUid, cb) {
   );
 }
 
-// Admin review queue.
-export async function fetchAmbassadorApplications(status = AMBASSADOR_STATUS.PENDING, max = 100) {
+// Admin review queue. Newest first, sorted HERE rather than with orderBy():
+// where(status) + orderBy(appliedAt) needs a composite index, and the queue
+// sat broken behind "The query requires an index" until one was deployed.
+// A single-field equality needs none, and one status's applications are few.
+export async function fetchAmbassadorApplications(status = AMBASSADOR_STATUS.PENDING, max = 200) {
   const snap = await getDocs(query(
     collection(db, "ambassadors"),
     where("status", "==", status),
-    orderBy("appliedAt", "desc"),
     limit(max),
   ));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const ms = (t) => (t?.toMillis ? t.toMillis() : 0);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => ms(b.appliedAt) - ms(a.appliedAt));
 }

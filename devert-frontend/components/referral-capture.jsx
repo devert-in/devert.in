@@ -15,7 +15,7 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { attributeReferral, normalizeReferralCode } from "@/lib/ambassadors";
+import { attributeReferral, normalizeReferralCode, REFERRAL_NEW_ACCOUNT_WINDOW_MS } from "@/lib/ambassadors";
 
 const STASH_KEY = "devert.referralCode";
 
@@ -44,6 +44,14 @@ export function ReferralCapture() {
     let code = null;
     try { code = window.localStorage.getItem(STASH_KEY); } catch { /* see above */ }
     if (!code) return;
+
+    // Only a brand-new account is a signup. An existing user who clicked an
+    // ambassador's link was not brought in by them - drop the stash for good.
+    const created = Date.parse(user.metadata?.creationTime || "");
+    if (!created || Date.now() - created > REFERRAL_NEW_ACCOUNT_WINDOW_MS) {
+      try { window.localStorage.removeItem(STASH_KEY); } catch { /* noop */ }
+      return;
+    }
 
     attributeReferral(user.uid, code)
       .then((res) => {

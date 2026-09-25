@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { watchSubscription } from "@/lib/payments";
 import { TIER, canUse, isPro, resolveTier } from "@/lib/entitlements";
+import { AMBASSADOR_STATUS, watchMyAmbassador } from "@/lib/ambassadors";
 
 export function useTier() {
   const { user, userData, isAdmin, adminChecked } = useAuth() ?? {};
@@ -30,7 +31,18 @@ export function useTier() {
     if (!user) return;
     const uid = user.uid;
     return watchSubscription(uid, (sub) => {
-      setByUid((prev) => ({ ...prev, [uid]: { checked: true, sub } }));
+      setByUid((prev) => ({ ...prev, [uid]: { ...prev[uid], checked: true, sub } }));
+    });
+  }, [user]);
+
+  // Same keyed shape, second source: an active ambassador is Pro. Doesn't gate
+  // `ready` - a paying user is covered by the subscription already, and an
+  // ambassador seeing the free view for one round trip is harmless.
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.uid;
+    return watchMyAmbassador(uid, (amb) => {
+      setByUid((prev) => ({ ...prev, [uid]: { ...prev[uid], amb: amb?.status === AMBASSADOR_STATUS.ACTIVE } }));
     });
   }, [user]);
 
@@ -40,7 +52,7 @@ export function useTier() {
   // otherwise the free experience would sit behind a spinner forever.
   const subChecked = user ? !!entry?.checked : true;
 
-  const tier = resolveTier({ userData, subscription, isAdmin: isAdmin === true });
+  const tier = resolveTier({ userData, subscription, isAdmin: isAdmin === true, isAmbassador: !!entry?.amb });
 
   return {
     tier,
