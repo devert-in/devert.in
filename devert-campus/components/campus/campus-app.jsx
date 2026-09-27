@@ -982,13 +982,18 @@ function CampusWorkspace({ slug, initialTab, initialContestId, initialManageTab,
   // data instead of a fabricated one. Skipped while the visibility check
   // itself fails (backgrounded tab) so pingCount stays a meaningful estimate
   // of actual engaged time, not just "the tab was open".
+  // The current tab rides along on each ping (read through a ref so a tab
+  // change doesn't restart the minute timer) - the admin console's
+  // Engagement view uses it to show where students spend their time.
+  const tabRef = useRef(tab);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
   useEffect(() => {
     if (phase !== CAMPUS_PHASE.APPROVED && phase !== CAMPUS_PHASE.ADMIN) return;
     if (!user?.uid) return;
     const uid = user.uid;
     const sendPing = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      pingActivity(uid).catch(() => {});
+      pingActivity(uid, { site: "campus", section: tabRef.current }).catch(() => {});
     };
     sendPing();
     const interval = setInterval(sendPing, PING_INTERVAL_MIN * 60 * 1000);

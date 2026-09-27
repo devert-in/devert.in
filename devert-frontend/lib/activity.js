@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, increment } from "firebase/firestore";
 
 // Real, non-fabricated activity tracking - the one piece of infrastructure
 // that genuinely didn't exist anywhere in this app before (see the earlier
@@ -59,17 +59,30 @@ function docId(uid, date) { return `${uid}_${date}`; }
 // IST) by reading the day's doc once and checking whether it already has a
 // firstSeenAt - that single read also gives us the current pingCount, so
 // this stays one round trip, not two.
-export async function pingActivity(uid) {
+// `site` ("main" | "campus") and `section` (a short route/tab key) attribute
+// each minute, so the admin console can show WHERE time goes, not just how
+// much. Both are optional - the original campus-only caller passed neither -
+// and are sanitised to a short [a-z0-9-] key so a map field name can't be
+// abused. hours.{H} counts pings per IST hour for a time-of-day view.
+const cleanKey = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 24);
+
+export async function pingActivity(uid, { site = "", section = "" } = {}) {
   if (!uid) return;
   const date = todayIST();
   const ref = doc(db, "user_activity_daily", docId(uid, date));
   const existing = await getDoc(ref).catch(() => null);
   const data = existing?.exists() ? existing.data() : null;
+  const siteKey = cleanKey(site);
+  const sectionKey = cleanKey(section);
+  const hour = new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours();
   await setDoc(ref, {
     uid, date,
     ...(data?.firstSeenAt ? {} : { firstSeenAt: serverTimestamp() }),
     lastSeenAt: serverTimestamp(),
     pingCount: (data?.pingCount || 0) + 1,
+    ...(siteKey ? { sites: { [siteKey]: increment(1) } } : {}),
+    ...(sectionKey ? { sections: { [sectionKey]: increment(1) } } : {}),
+    hours: { [String(hour)]: increment(1) },
   }, { merge: true });
 }
 

@@ -7,6 +7,7 @@ import { TopNavbar } from "@/components/top-navbar";
 import { Footer } from "@/components/footer";
 import { CommandPalette } from "@/components/command-palette";
 import { ReferralCapture } from "@/components/referral-capture";
+import { ActivityHeartbeat } from "@/components/activity-heartbeat";
 import { FeatureGate } from "@/components/feature-gate";
 import { jsonLdHtml } from "@/lib/jsonLd";
 
@@ -233,6 +234,7 @@ export default function RootLayout({ children }) {
           {/* Inside AuthProvider: it needs the signed-in user to attribute, and
               must run on every route since an ambassador link can point anywhere. */}
           <ReferralCapture />
+          <ActivityHeartbeat />
           <IntroProvider>
             {/* The Builder's OS window manager is deliberately NOT mounted.
                 Core DeVert opened most dock destinations as floating,

@@ -54,6 +54,7 @@ import { AmbassadorPanel } from "@/components/admin/ambassador-panel";
 import { FeatureSwitchesPanel, RolesPanel } from "@/components/admin/platform-panels";
 import { ApiServicesPanel, DatabasePanel } from "@/components/admin/platform-ops";
 import { DashboardPanel } from "@/components/admin/dashboard-panel";
+import { EngagementPanel } from "@/components/admin/engagement-panel";
 import { Devert100Panel } from "@/components/admin/devert100-panel";
 import { ScoreAuditPanel } from "@/components/admin/score-audit-panel";
 import { getTier } from "@/context/AuthContext";
@@ -7709,6 +7710,7 @@ function RewardPolicyPanel() {
 const ADMIN_NAV = [
   { key: "overview", label: "Overview", icon: BarChart3, sections: [
     { key: "dashboard", label: "Dashboard",    icon: BarChart3,     Panel: DashboardPanel,       desc: "Platform-wide numbers at a glance." },
+    { key: "engagement", label: "Engagement", icon: Activity, Panel: EngagementPanel, desc: "Who is active, for how long, where, and when - live from the activity heartbeat." },
     { key: "activity",  label: "Activity log", icon: ClipboardList, Panel: ActivityLogPanel, desc: "Every admin action, newest first." },
   ]},
   { key: "moderation", label: "Moderation", icon: ShieldCheck, sections: [
@@ -7868,7 +7870,7 @@ function AdminSidebar({ nav, loc, openGroups, toggleGroup, onNavigate, pendingCo
   return (
     <nav className="flex flex-col h-full">
       <div className="h-14 flex items-center gap-2.5 px-5 border-b border-white/8 flex-shrink-0">
-        <img src="/Logo.png" alt="" className="w-6 h-6 object-contain" />
+        <img src="/devert-campus-badge.png" alt="" width={24} height={24} className="w-6 h-6 object-contain rounded-md" />
         <span className="font-sans text-sm font-semibold text-white">DeVert</span>
         <span className="font-sans text-[11px] text-white/45 border border-white/10 rounded px-1.5 py-px">Admin</span>
       </div>
