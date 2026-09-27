@@ -20,7 +20,9 @@ export const PLATFORM_OWNER_EMAIL = "devert.contact@gmail.com";
 // "admin" is not a staff role any more - see firestore.rules isStaff().
 const STAFF_ROLES = ["faculty", "tpo"];
 
-function getTier(xp = 0) {
+// Exported so admin views label a user's tier from their XP, the same way
+// their own profile does - users/{uid}.tier is not kept up to date.
+export function getTier(xp = 0) {
   if (xp >= 10000) return { name: "LEGEND",    color: "#FFD700" };
   if (xp >= 5000)  return { name: "ELITE",     color: "#FF6430" };
   if (xp >= 2000)  return { name: "ARCHITECT", color: "#00FFFF" };

@@ -20,6 +20,7 @@ import {
   ChevronRight, Trophy,
 } from "lucide-react";
 import { db } from "@/lib/firebase";
+import { getTier } from "@/context/AuthContext";
 import { KIT, StatGrid, fmt } from "@/components/admin/admin-kit";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -239,7 +240,7 @@ export function DashboardPanel() {
                     <p className="font-sans text-sm font-medium text-white">{u.displayName || u.handle || u.id}</p>
                     {u.handle && <p className="font-sans text-xs text-white/40">@{u.handle}</p>}
                   </td>
-                  <td className="px-4 sm:px-5 py-3 font-sans text-xs text-white/60">{u.tier?.name || "Recruit"}</td>
+                  <td className="px-4 sm:px-5 py-3 font-sans text-xs text-white/60">{getTier(u.xp).name}</td>
                   <td className="px-4 sm:px-5 py-3 font-sans text-sm text-white/85 tabular-nums text-right">{fmt(u.xp || 0)}</td>
                 </tr>
               ))}

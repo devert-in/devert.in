@@ -12,7 +12,7 @@ import {
   Coins, Medal, Crosshair, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
   Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network, Inbox, Heart,
-  Hammer, Globe, Server, Smartphone, Bot, Power, Search, Menu, ChevronRight, ChevronLeft, Database,
+  Hammer, Globe, Server, Smartphone, Bot, Power, Search, Menu, ChevronRight, ChevronLeft, Database, Rocket,
 } from "lucide-react";
 import {
   db, auth, functions
@@ -54,6 +54,9 @@ import { AmbassadorPanel } from "@/components/admin/ambassador-panel";
 import { FeatureSwitchesPanel, RolesPanel } from "@/components/admin/platform-panels";
 import { ApiServicesPanel, DatabasePanel } from "@/components/admin/platform-ops";
 import { DashboardPanel } from "@/components/admin/dashboard-panel";
+import { Devert100Panel } from "@/components/admin/devert100-panel";
+import { ScoreAuditPanel } from "@/components/admin/score-audit-panel";
+import { getTier } from "@/context/AuthContext";
 import { DemoRequestsPanel } from "@/components/admin/demo-requests-panel";
 import { CareersPanel } from "@/components/admin/careers-panel";
 import { JobApplicationsPanel } from "@/components/admin/job-applications-panel";
@@ -1132,7 +1135,8 @@ function UsersPanel() {
   const d = u ? detail[u.uid] : null;
   const joined = (x) => (x.joinedAt?.toDate ? x.joinedAt.toDate() : null);
   const week = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const tiers = [...new Set(users.map(x => x.tier?.name).filter(Boolean))];
+  // Tier bands from XP (getTier), highest last - users/{uid}.tier is stale.
+  const tiers = ["BUILDER", "ARCHITECT", "ELITE", "LEGEND"];
   const campus = users.filter(x => (x.institutionId || "").trim()).length;
   const totalXp = users.reduce((n, x) => n + (x.xp || 0), 0);
 
@@ -1149,7 +1153,7 @@ function UsersPanel() {
         rows={users} loading={loading} rowKey={x => x.uid || x.id} pageSize={15}
         searchKeys={["handle", "email", "displayName", "uid"]} searchPlaceholder="Search handle, email, name or UID..."
         filters={[
-          { key: "tier", label: "All tiers", get: x => x.tier?.name || "RECRUIT", options: [...new Set(["RECRUIT", ...tiers])].map(t => ({ value: t, label: t[0] + t.slice(1).toLowerCase() })) },
+          { key: "tier", label: "All tiers", get: x => getTier(x.xp).name, options: [...new Set(["RECRUIT", ...tiers])].map(t => ({ value: t, label: t[0] + t.slice(1).toLowerCase() })) },
           { key: "campus", label: "All accounts", get: x => ((x.institutionId || "").trim() ? "campus" : "individual"), options: [{ value: "campus", label: "Campus students" }, { value: "individual", label: "Individual" }] },
         ]}
         onRowClick={x => handleExpand(x.uid)}
@@ -1160,7 +1164,7 @@ function UsersPanel() {
               <p className="font-sans text-xs text-white/40 truncate">@{x.handle || "?"} · {x.email || "no email"}</p>
             </div>
           ) },
-          { key: "tier", label: "Tier", sort: x => x.xp || 0, render: x => <Pill color={x.tier?.color || KIT.muted}>{x.tier?.name || "RECRUIT"}</Pill> },
+          { key: "tier", label: "Tier", sort: x => x.xp || 0, render: x => <Pill color={getTier(x.xp).color}>{getTier(x.xp).name}</Pill> },
           { key: "xp", label: "XP", sort: x => x.xp || 0, render: x => <span className="font-sans text-sm text-white/85 tabular-nums">{fmt(x.xp || 0)}</span> },
           { key: "arenaWins", label: "Arena wins", sort: x => x.arenaWins || 0, render: x => <span className="font-sans text-sm text-white/65 tabular-nums">{fmt(x.arenaWins || 0)}</span> },
           { key: "ships", label: "Ships", sort: x => x.ships || 0, render: x => <span className="font-sans text-sm text-white/65 tabular-nums">{fmt(x.ships || 0)}</span> },
@@ -1179,7 +1183,7 @@ function UsersPanel() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
-                ["XP", fmt(u.xp || 0)], ["Tier", u.tier?.name || "RECRUIT"], ["Arena wins", fmt(u.arenaWins || 0)],
+                ["XP", fmt(u.xp || 0)], ["Tier", getTier(u.xp).name], ["Arena wins", fmt(u.arenaWins || 0)],
                 ["Ships", fmt(u.ships || 0)], ["Pulse posts", d ? fmt(d.postCount) : "..."], ["Projects", d ? fmt(d.projectCount) : "..."],
                 ["Coins", fmt(u.coins || 0)], ["Followers", fmt(u.followersCount || 0)], ["Earnings", d ? `₹${(d.earnings?.totalInr || 0).toFixed(2)}` : "..."],
               ].map(([k, v]) => (
@@ -7712,6 +7716,7 @@ const ADMIN_NAV = [
     { key: "shipyard", label: "Shipyard",    icon: Anchor,      Panel: ShipyardPanel,        desc: "Review projects submitted to Shipyard." },
   ]},
   { key: "users", label: "Users", icon: Users, sections: [
+  { key: "score-integrity", label: "Score integrity", icon: ShieldCheck, Panel: ScoreAuditPanel, desc: "Check that XP is backed by real rewards, earned at a human pace, with no look-alike accounts." },
     { key: "users",      label: "Users",      icon: Users, Panel: UsersPanel,      desc: "Search, inspect and manage accounts." },
     { key: "notifications", label: "Notifications", icon: Megaphone, Panel: NotificationsPanel, desc: "Send notifications to users." },
   ]},
@@ -7722,6 +7727,7 @@ const ADMIN_NAV = [
   ]},
   { key: "challenges", label: "Challenges", icon: Zap, sections: [
     { key: "codelab",       label: "CodeLab problems",  icon: Code2,     Panel: CodingProblemsPanel,   desc: "Problems, test cases and publishing." },
+    { key: "devert100", label: "DeVert 100", icon: Rocket, Panel: Devert100Panel, desc: "Who joined the 100-day DSA run, and how each of them is doing." },
     { key: "missions",      label: "Missions",          icon: Target,    Panel: MissionsPanel,         desc: "Bounty-style missions with rewards." },
     { key: "grind",         label: "Daily Grind",       icon: Zap,       Panel: GrindPanel,            desc: "The daily coding challenge rotation." },
     { key: "arena",         label: "Arena challenges",  icon: Swords,    Panel: ArenaPanel,            desc: "Head-to-head Arena problems." },
