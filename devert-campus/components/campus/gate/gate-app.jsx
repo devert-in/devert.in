@@ -460,34 +460,48 @@ function GateMobileSectionNav({ active, onSelect }) {
   );
 }
 
+// Three visually distinct levels, because they used to share one column, one
+// size and one faint colour and read as a single undifferentiated list:
+//   1. "GATE" - the sidebar's title: large, bold, full-strength ink, ruled off.
+//   2. Group (Prepare / Practice / Test / Revise...) - small caps in the brand
+//      teal with its icon, a hairline above it and real space between groups.
+//   3. Section - normal-case text INDENTED under its group, hung off a thin
+//      guide line, so each group reads as one block.
 function GateSidebarNav({ active, onSelect }) {
   return (
-    <>
-      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>GATE</div>
-      {GATE_GROUPS.map(g => (
-        <div key={g.key} className="mb-1.5">
-          <div className="flex items-center gap-1.5 px-3 py-1 text-[9.5px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>
-            <g.icon size={11} /> {g.label.toUpperCase()}
+    <nav aria-label="GATE sections">
+      <div className="px-1 pb-3 mb-2 border-b" style={{ borderColor: CAMPUS.line }}>
+        <p className="text-[17px] font-bold tracking-tight" style={{ color: CAMPUS.ink }}>GATE</p>
+        <p className="text-[11px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>Preparation workspace</p>
+      </div>
+      {GATE_GROUPS.map((g, gi) => (
+        <section key={g.key} aria-labelledby={`gate-group-${g.key}`}
+          className={gi > 0 ? "mt-4 pt-3 border-t" : "mt-1"} style={gi > 0 ? { borderColor: CAMPUS.line } : undefined}>
+          <h3 id={`gate-group-${g.key}`} className="flex items-center gap-2 px-1 mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em]"
+            style={{ color: CAMPUS.teal }}>
+            <g.icon size={13} className="flex-shrink-0" /> {g.label}
+          </h3>
+          <div className="ml-[7px] pl-2.5 border-l space-y-0.5" style={{ borderColor: CAMPUS.line }}>
+            {GATE_SECTIONS.filter(s => s.group === g.key).map(s => {
+              const isActive = s.key === active;
+              const Icon = s.icon;
+              return (
+                <button key={s.key} onClick={() => onSelect(s.key)}
+                  aria-current={isActive ? "page" : undefined}
+                  className="campus-btn w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-all duration-150"
+                  style={{
+                    background: isActive ? CAMPUS.gradientPrimary : "transparent",
+                    color: isActive ? "#fff" : CAMPUS.inkSoft,
+                  }}>
+                  <Icon size={14} className="flex-shrink-0" style={{ opacity: isActive ? 1 : 0.75 }} />
+                  <span className={`text-[13px] truncate ${isActive ? "font-semibold" : "font-medium"}`}>{s.label}</span>
+                </button>
+              );
+            })}
           </div>
-          {GATE_SECTIONS.filter(s => s.group === g.key).map(s => {
-            const isActive = s.key === active;
-            const Icon = s.icon;
-            return (
-              <button key={s.key} onClick={() => onSelect(s.key)}
-                aria-current={isActive ? "page" : undefined}
-                className="campus-btn w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-all duration-150"
-                style={{
-                  background: isActive ? CAMPUS.gradientPrimary : "transparent",
-                  color: isActive ? "#fff" : CAMPUS.inkSoft,
-                }}>
-                <Icon size={13} className="flex-shrink-0" />
-                <span className="text-[12.5px] truncate">{s.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        </section>
       ))}
-    </>
+    </nav>
   );
 }
 
