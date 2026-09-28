@@ -2462,6 +2462,117 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ── GATE 2027 Plan ────────────────────────────────────────────────────
+    // The 96-day CS + DA preparation cohort (lib/gatePlan.js). Unlike DeVert
+    // 100 it is REQUEST-TO-JOIN: a student files gate_plan_requests/{uid}, the
+    // platform admin approves it, and only then does gate_plan_members/{uid}
+    // exist. These rules are the whole of that gate - the UI hides the day
+    // cards from non-members, but THIS is what stops a signed-in stranger
+    // reading them straight out of Firestore.
+    //
+    // A member is someone whose member doc says access == 'active'. 'revoked'
+    // keeps the document (and every log in it) so restoring is lossless, but
+    // reads nothing.
+    function isGatePlanMember() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/gate_plan_members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/gate_plan_members/$(request.auth.uid)).data.get('access', '') == 'active';
+    }
+
+    // Requests are open unless the admin closed them. A MISSING settings doc
+    // means open - lib/gatePlan.js's normaliseSettings() applies the same
+    // default, so the form and this rule never disagree.
+    function gatePlanRequestsOpen() {
+      return !exists(/databases/$(database)/documents/gate_plan_meta/settings)
+        || get(/databases/$(database)/documents/gate_plan_meta/settings).data.get('requestsOpen', true) == true;
+    }
+
+    // The request form's own fields - the exact set lib/gatePlan.js's
+    // REQUEST_FIELDS writes, with the same length caps. Review fields
+    // (reviewNote/reviewedAt/reviewedBy) are deliberately NOT in this list:
+    // they are the admin's, and a student writing them could pre-fill an
+    // "approved by" trail.
+    function validGatePlanRequestFields(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && d.get('email', '') is string && d.get('email', '').size() <= 120
+        && d.papers in ['CS', 'DA', 'BOTH']
+        && d.stage in ['pre-final', 'final-year', 'graduate', 'working', 'other']
+        && d.get('college', '') is string && d.get('college', '').size() <= 120
+        && d.get('gradYear', '') is string && d.get('gradYear', '').size() <= 4
+        && d.attempt in ['first', 'repeat']
+        && d.get('prevScore', '') is string && d.get('prevScore', '').size() <= 40
+        && d.hoursOk == true
+        && d.get('goal', '') is string && d.get('goal', '').size() <= 600;
+    }
+
+    // Public: the 96-day outline (landing page + journey grid) and the
+    // admin's settings (requests open/closed, the cohort notice).
+    match /gate_plan_meta/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Members only: the day cards, the formula bank and the resource list.
+    // Imported by scripts/import-gate-plan.mjs; never writable by a member.
+    match /gate_plan_days/{day} {
+      allow read: if isAdmin() || isGatePlanMember();
+      allow write: if isAdmin();
+    }
+    match /gate_plan_content/{docId} {
+      allow read: if isAdmin() || isGatePlanMember();
+      allow write: if isAdmin();
+    }
+
+    // Join requests. The owner may create one (while requests are open), edit
+    // it while it is pending, and re-submit it after a rejection - but every
+    // owner write lands on status 'pending' and nothing else. Approved and
+    // revoked requests are frozen from the owner's side: only the admin moves
+    // a request out of pending.
+    match /gate_plan_requests/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAdmin() || (isOwner(uid)
+        && gatePlanRequestsOpen()
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly([
+             'uid', 'name', 'email', 'papers', 'stage', 'college', 'gradYear', 'attempt', 'prevScore',
+             'hoursOk', 'goal', 'status', 'requestedOnDay', 'createdAt', 'updatedAt', 'submissions'])
+        && validGatePlanRequestFields(request.resource.data));
+      allow update: if isAdmin() || (isOwner(uid)
+        && gatePlanRequestsOpen()
+        && resource.data.status in ['pending', 'rejected']
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+             'name', 'email', 'papers', 'stage', 'college', 'gradYear', 'attempt', 'prevScore',
+             'hoursOk', 'goal', 'status', 'requestedOnDay', 'updatedAt', 'submissions'])
+        && validGatePlanRequestFields(request.resource.data));
+      // Withdrawing is allowed only while pending - deleting a rejected or
+      // revoked request would erase the admin's decision and its note.
+      allow delete: if isAdmin() || (isOwner(uid) && resource.data.status == 'pending');
+    }
+
+    // Membership + progress. Created ONLY by the admin (approval). The member
+    // may write their own daily logs and checklist ticks and nothing else -
+    // access, approvedOnDay (what "missed" counts from) and the approval trail
+    // are admin-only fields.
+    //
+    // Logs are editable, not monotonic like devert100_participants: the
+    // plan's own contract moves a missed weekday to Sunday and then marks it
+    // done, so a day's status must be able to change. That is only safe
+    // because these numbers are self-reported study records that nothing
+    // reads for coins, XP or payouts. If that ever changes, this needs the
+    // bounded-delta treatment CLAUDE.md describes.
+    match /gate_plan_members/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isOwner(uid)
+        && resource.data.get('access', '') == 'active'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['logs', 'checklist', 'lastLoggedDay', 'updatedAt'])
+        && request.resource.data.get('logs', {}).size() <= 96
+        && request.resource.data.get('checklist', {}).size() <= 200);
+    }
+
     // Per-student, per-problem DSA study metadata (favorite/bookmark/review-
     // later/needs-revision/confidence/personal rating/notes/tags/revision
     // schedule) - purely personal organization, never touches solvedProblems

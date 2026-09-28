@@ -12,7 +12,7 @@ import {
   Coins, Medal, Crosshair, Flag, MessageSquare, Eye, ClipboardList,
   GraduationCap, Lock as LockIcon, ListChecks, Download, Code2, EyeOff, Star, Building2,
   Briefcase, CodeXml, Pencil, Layers, BrainCircuit, Copy, Upload, Network, Inbox, Heart,
-  Hammer, Globe, Server, Smartphone, Bot, Power, Search, Menu, ChevronRight, ChevronLeft, Database, Rocket,
+  Hammer, Globe, Server, Smartphone, Bot, Power, Search, Menu, ChevronRight, ChevronLeft, Database, Rocket, CalendarDays,
 } from "lucide-react";
 import {
   db, auth, functions
@@ -56,6 +56,7 @@ import { ApiServicesPanel, DatabasePanel } from "@/components/admin/platform-ops
 import { DashboardPanel } from "@/components/admin/dashboard-panel";
 import { EngagementPanel } from "@/components/admin/engagement-panel";
 import { Devert100Panel } from "@/components/admin/devert100-panel";
+import { GatePlanPanel } from "@/components/admin/gate-plan-panel";
 import { ScoreAuditPanel } from "@/components/admin/score-audit-panel";
 import { getTier } from "@/context/AuthContext";
 import { DemoRequestsPanel } from "@/components/admin/demo-requests-panel";
@@ -7751,6 +7752,7 @@ const ADMIN_NAV = [
     { key: "company-prep",    label: "Company prep",          icon: Briefcase,     Panel: CompanyPrepPanel,          desc: "Company-specific interview prep." },
   ]},
   { key: "gate", label: "GATE", icon: Layers, sections: [
+    { key: "gate-plan",      label: "Prep cohort",             icon: CalendarDays,  Panel: GatePlanPanel,         desc: "GATE 2027 Plan: approve join requests, track every member, run the cohort." },
     { key: "gate-papers",    label: "Papers & syllabus",       icon: GraduationCap, Panel: GatePapersPanel,       desc: "Seed GATE papers from the official syllabus." },
     { key: "gate-subjects",  label: "Subjects & lessons",      icon: Layers,        Panel: GateSubjectsPanel,     desc: "Subject, topic and lesson content." },
     { key: "gate-import",    label: "Bulk lesson import",      icon: Upload,        Panel: GateLessonImportPanel, desc: "Import many lessons at once." },

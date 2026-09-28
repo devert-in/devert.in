@@ -15,6 +15,7 @@ import {
   GateStat, GateBarList, GateProgressRing, GateEstimateNote, formatMarks,
 } from "@/components/campus/gate/gate-ui";
 import { useAuth } from "@/context/AuthContext";
+import { PlanSpotlight } from "@/components/campus/gate/gate-plan";
 
 // The Overview's job is to answer four questions in the first screenful, every
 // day, without the student having to click: how far through the syllabus am I,
@@ -50,13 +51,15 @@ export function GateOverview() {
       || attempts.filter(a => a.graded)[0] || null,
     [attempts]);
 
-  if (!user) return <GateSignInPrompt />;
+  if (!user) return <div className="space-y-5"><PlanSpotlight onOpen={() => go("plan")} /><GateSignInPrompt /></div>;
 
   const todayDone = isDayComplete(today);
   const todayStepsDone = DAILY_STEPS.filter(s => today?.steps?.[s.key]).length;
 
   return (
     <div className="space-y-5">
+      <PlanSpotlight onOpen={() => go("plan")} />
+
       {/* ---- the four headline figures ---- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <GateStat label="Syllabus done" value={`${completion.pct}%`} icon={ListChecks} color={CAMPUS.teal}

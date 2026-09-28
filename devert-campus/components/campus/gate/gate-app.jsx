@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Activity, AlertTriangle, BarChart3, BookMarked, BookOpen, Bookmark, CalendarCheck,
-  ClipboardList, FileQuestion, GraduationCap, Layers, Library, ListChecks, Map, Repeat,
+  CalendarRange, ClipboardList, FileQuestion, GraduationCap, Layers, Library, ListChecks, Map, Repeat,
   ScrollText, Sigma, Target, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -35,6 +35,7 @@ import { GateBookmarks, GateMistakes } from "@/components/campus/gate/gate-noteb
 import { GateAnalytics } from "@/components/campus/gate/gate-analytics";
 import { GateLeaderboard } from "@/components/campus/gate/gate-leaderboard";
 import { GateResources } from "@/components/campus/gate/gate-resources";
+import { GatePlan } from "@/components/campus/gate/gate-plan";
 
 // The GATE module's own workspace - one Campus tab on the outside, sixteen
 // destinations on the inside.
@@ -58,6 +59,9 @@ import { GateResources } from "@/components/campus/gate/gate-resources";
 // router but forgotten in the nav (or vice versa).
 export const GATE_SECTIONS = [
   { key: "overview", label: "Overview", icon: Target, group: "prepare" },
+  // The request-to-join 96-day CS + DA cohort (gate-plan.jsx). Second, right
+  // after Overview, because for a member it IS the daily entry point.
+  { key: "plan", label: "GATE 2027 Plan", icon: CalendarRange, group: "prepare" },
   { key: "syllabus", label: "Syllabus", icon: ListChecks, group: "prepare" },
   { key: "subjects", label: "Subjects", icon: Layers, group: "prepare" },
   { key: "daily", label: "Daily GATE", icon: CalendarCheck, group: "prepare" },
@@ -230,6 +234,9 @@ export function CampusGateTab({ sidebarSlot }) {
       subjectId: searchParams.get("subject") || null,
       topicId: searchParams.get("topic") || null,
       testId: searchParams.get("test") || null,
+      // GATE 2027 Plan only: which tab, and which day card is open.
+      view: searchParams.get("view") || null,
+      day: searchParams.get("day") ?? null,
     };
   });
 
@@ -249,11 +256,13 @@ export function CampusGateTab({ sidebarSlot }) {
     if (screen.subjectId) params.set("subject", screen.subjectId);
     if (screen.topicId) params.set("topic", screen.topicId);
     if (screen.testId) params.set("test", screen.testId);
+    if (screen.view) params.set("view", screen.view);
+    if (screen.day != null) params.set("day", String(screen.day));
     window.history.replaceState(null, "", `/${slug}?${params.toString()}`);
   }, [screen, slug, isGlobalRoute]);
 
   const go = useCallback((section, params = {}) => {
-    setScreen({ section, subjectId: null, topicId: null, testId: null, ...params });
+    setScreen({ section, subjectId: null, topicId: null, testId: null, view: null, day: null, ...params });
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
@@ -262,15 +271,21 @@ export function CampusGateTab({ sidebarSlot }) {
   // lib/campusNav.js. Registering both means Back walks
   // topic -> subject list -> Overview -> (leave Campus) instead of asking to
   // leave from four screens deep.
-  const inDrillDown = !!(screen.topicId || screen.testId);
-  useCampusBackHandler(3, inDrillDown, () => setScreen(s => ({ ...s, topicId: null, testId: null })));
+  const inDrillDown = !!(screen.topicId || screen.testId || screen.day != null);
+  useCampusBackHandler(3, inDrillDown, () => setScreen(s => ({ ...s, topicId: null, testId: null, day: null })));
   useCampusBackHandler(2, !inDrillDown && screen.section !== "overview", () => go("overview"));
 
   if (data.error) {
     return <CampusEmptyState icon={AlertTriangle} title="GATE module unavailable" description={data.error} />;
   }
 
-  if (!data.paper && !data.loading) {
+  // The GATE 2027 Plan is its own cohort with its own content collections -
+  // it does not need a published syllabus paper, so it must not be hidden
+  // behind the "being set up" state (or the paper-scoped loading skeleton)
+  // that the other fifteen sections legitimately wait on.
+  const isPlan = screen.section === "plan";
+
+  if (!data.paper && !data.loading && !isPlan) {
     return (
       <CampusEmptyState icon={GraduationCap} title="GATE preparation is being set up"
         description="No GATE paper has been published yet. A platform admin seeds the official syllabus and publishes a paper from /admin - once that's done, the full module appears here." />
@@ -286,15 +301,17 @@ export function CampusGateTab({ sidebarSlot }) {
         sidebarSlot
       )}
       <div className="space-y-5">
-        <GateHeader paper={data.paper} papers={data.papers} onSwitchPaper={data.switchPaper}
-          completion={data.completion} loading={data.loading} />
+        {!isPlan && (
+          <GateHeader paper={data.paper} papers={data.papers} onSwitchPaper={data.switchPaper}
+            completion={data.completion} loading={data.loading} />
+        )}
 
         {/* Mobile-only: GateSidebarNav above is portaled into the desktop-only
             CampusContextSidebar (hidden below lg:) - without this row a phone
             would have no way to switch GATE's 16 sections at all. */}
         <GateMobileSectionNav active={screen.section} onSelect={(key) => go(key)} />
 
-        {data.loading ? (
+        {data.loading && !isPlan ? (
           <div className="space-y-4">
             <CampusCard className="p-4"><CampusSkeleton height={110} /></CampusCard>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -316,6 +333,7 @@ export function CampusGateTab({ sidebarSlot }) {
 // leave mid-paper is a worse product, and a lesson wants the full column width.
 const SECTION_COMPONENTS = {
   overview: GateOverview,
+  plan: GatePlan,
   syllabus: GateSyllabus,
   subjects: SubjectsRoute,
   daily: GateDaily,
