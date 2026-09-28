@@ -9,6 +9,7 @@ import {
 import { MissionVision } from "@/components/mission-vision";
 import { PlatformStats } from "@/components/platform-stats";
 import { CAMPUS_URL } from "@/lib/campusUrl";
+import { FOUNDERS } from "@/lib/founders";
 
 const CORE_MODULES = [
   { icon: Swords,   label: "Arena",    body: "Coding battles & contests" },
@@ -104,6 +105,35 @@ export default function AboutPage() {
         </motion.div>
 
         <MissionVision />
+
+        {/* Founders - summary here, the full page (with Person structured data)
+            is /founders. Page content, not navigation: see lib/founders.js. */}
+        <motion.section initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          aria-labelledby="founders" className="mb-20">
+          <p className="font-mono text-xs text-neon-green/55 mb-2 tracking-wider">// founders.md</p>
+          <h2 id="founders" className="font-sans font-bold text-white tracking-tighter mb-8" style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)" }}>
+            BUILT BY <span className="text-neon-green">TWO FOUNDERS.</span>
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-4 mb-5">
+            {FOUNDERS.map(f => (
+              <Link key={f.key} href={`/founders#${f.key}`} className="terminal-window p-5 flex items-start gap-4 hover:border-white/20 transition-colors">
+                <div aria-hidden="true" className="w-12 h-12 rounded-full flex items-center justify-center font-sans font-bold flex-shrink-0"
+                  style={{ color: f.accent, background: `${f.accent}14`, border: `1px solid ${f.accent}40` }}>
+                  {f.initials}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-sans text-base font-bold text-white">{f.name}</h3>
+                  <p className="font-mono text-[11px] mb-2" style={{ color: f.accent }}>Founder · {f.focus}</p>
+                  <p className="font-mono text-[11px] text-white/40 leading-relaxed">{f.summary}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <Link href="/founders" className="inline-flex items-center gap-2 font-mono text-xs text-neon-cyan hover:underline">
+            Meet the founders <ArrowUpRight size={12} />
+          </Link>
+        </motion.section>
+
         <PlatformStats />
 
         {/* CTA */}

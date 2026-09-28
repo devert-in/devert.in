@@ -42,6 +42,7 @@ const GROUPS = [
 
 const LEGAL = [
   { label: "About", href: "/about" },
+  { label: "Founders", href: "/founders" },
   { label: "Careers", href: "https://careers.devert.in" },
   { label: "Changelog", href: "/logs" },
   { label: "Privacy Policy", href: "/privacy" },

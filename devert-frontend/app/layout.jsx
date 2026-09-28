@@ -10,6 +10,7 @@ import { ReferralCapture } from "@/components/referral-capture";
 import { ActivityHeartbeat } from "@/components/activity-heartbeat";
 import { FeatureGate } from "@/components/feature-gate";
 import { jsonLdHtml } from "@/lib/jsonLd";
+import { FOUNDERS, founderEntityId } from "@/lib/founders";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -183,6 +184,9 @@ const jsonLd = {
       },
       "description": "Introvert. Extrovert. DeVert. Developer + Verts - a new identity for builders. Arena, Shipyard, Intel Feed, Missions, Daily Grind, Pulse, Hackathons and more.",
       "foundingDate": "2026",
+      // Who founded it - references the Person entities published in full on
+      // /founders (lib/founders.js founderPersonJsonLd), by the same @id.
+      "founder": FOUNDERS.map(f => ({ "@type": "Person", "@id": founderEntityId(f), "name": f.name, "sameAs": [f.linkedin] })),
       // THE FIELD THAT ACTUALLY MOVES THE NEEDLE, and it was empty.
       //
       // sameAs is how Google connects this domain to the brand as an ENTITY -

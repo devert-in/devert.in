@@ -44,6 +44,14 @@ export const FOUNDERS = [
     shortName: "Samuel",
     role: "Founder",
     focus: "UI · Backend · Architecture · Deployments",
+    // For the /founders page and Person structured data. Stated from `focus`
+    // above, nothing more - no invented history. Extend with real detail
+    // (education, prior work) only when the founder supplies it.
+    summary: "Designs and builds DeVert end to end - the interface, the backend, the system architecture, and every deployment across devert.in, campus.devert.in and careers.devert.in.",
+    knowsAbout: ["User interface design", "Backend engineering", "Software architecture", "Cloud deployment"],
+    // Other ways the same person is written - his profile shows the name in
+    // this order, and people search it both ways.
+    alternateNames: ["Samuel Prasad Adari", "Samuel Prasad", "Samuel Adari"],
     linkedin: "https://www.linkedin.com/in/adarisamuelprasad/",
     handle: "sammyyy",
     // Rendered as the avatar instead of an <img>. There is no founder
@@ -67,6 +75,10 @@ export const FOUNDERS = [
     shortName: "Bhanu",
     role: "Founder",
     focus: "Ideology · Deployments",
+    summary: "Shapes what DeVert stands for - the ideology and direction behind the platform - and runs deployments across the DeVert sites.",
+    knowsAbout: ["Product direction", "Developer communities", "Cloud deployment"],
+    // His DeVert profile writes the name given-name first.
+    alternateNames: ["Bhanu Prasad Vengaladas", "Bhanu Prasad"],
     linkedin: "https://www.linkedin.com/in/bhanu-prasad-vengaladas-8550bb41a/",
     handle: "bhanu_prasad_vengaladas",
     initials: "VB",
@@ -86,3 +98,26 @@ export const founderPath = (f) => `/u/${f.handle}`;
 // this points at localhost:3000 under `next dev` instead of silently sending
 // a local click to production.
 export const founderUrl = (f) => `${DEVERT_URL}/u/${f.handle}`;
+
+// Canonical page for founder search results, and each founder's stable
+// entity id. The Organization in app/layout.jsx names them as `founder` by
+// these ids, and /founders publishes the full Person entities, so Google
+// resolves "DeVert founder" and each name to one consistent entity.
+export const FOUNDERS_PAGE_URL = "https://devert.in/founders";
+export const founderEntityId = (f) => `${FOUNDERS_PAGE_URL}#${f.key}`;
+
+export function founderPersonJsonLd(f) {
+  return {
+    "@type": "Person",
+    "@id": founderEntityId(f),
+    name: f.name,
+    alternateName: f.alternateNames || [],
+    jobTitle: "Founder",
+    description: f.summary,
+    knowsAbout: f.knowsAbout || [],
+    worksFor: { "@id": "https://devert.in/#organization" },
+    url: `${FOUNDERS_PAGE_URL}#${f.key}`,
+    // The profiles that prove who this person is. Only real, live URLs.
+    sameAs: [f.linkedin, `https://devert.in/u/${f.handle}`],
+  };
+}
