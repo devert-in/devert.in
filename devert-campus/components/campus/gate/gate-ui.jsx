@@ -133,12 +133,41 @@ export function GateBarList({ rows, valueKey = "pct", color = CAMPUS.teal, suffi
 
 // ---------------- filter pills ----------------
 
+// Chips WRAP; they never scroll. This used to be a single overflow-x row with
+// the scrollbar hidden, so inside a narrow grid column the options past the
+// edge were simply clipped ("...ement and Warehousing", a half-visible "All")
+// with nothing to say more existed. Long lists (more than MAX_CHIPS options,
+// e.g. every subject of a paper) render as a dropdown instead - a wall of
+// twenty wrapped chips is no easier to scan than a select.
+const MAX_CHIPS = 8;
+
 export function GateFilterRow({ label, options, value, onChange, allLabel = "All" }) {
   const all = [{ v: null, label: allLabel }, ...options];
+  const labelEl = label && (
+    <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: CAMPUS.inkFaint }}>{label}</p>
+  );
+  if (options.length > MAX_CHIPS) {
+    const idx = all.findIndex((o) => o.v === value);
+    return (
+      <div className="min-w-0">
+        {labelEl}
+        <select value={idx < 0 ? 0 : idx} onChange={(e) => onChange(all[Number(e.target.value)].v)}
+          aria-label={label || allLabel}
+          className="w-full text-[12.5px] font-semibold pl-3 pr-8 py-2 rounded-lg outline-none cursor-pointer"
+          style={{
+            background: value != null ? CAMPUS.tealTint : CAMPUS.paper,
+            border: `1px solid ${value != null ? CAMPUS.teal : CAMPUS.line}`,
+            color: value != null ? CAMPUS.teal : CAMPUS.ink,
+          }}>
+          {all.map((opt, i) => <option key={String(opt.v)} value={i} style={{ background: "#0b0f17", color: "#fff" }}>{opt.label}</option>)}
+        </select>
+      </div>
+    );
+  }
   return (
     <div className="min-w-0">
-      {label && <p className="text-[9.5px] font-mono tracking-widest mb-1.5" style={{ color: CAMPUS.inkFaint }}>{label}</p>}
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+      {labelEl}
+      <div className="flex flex-wrap gap-1.5">
         {all.map(opt => {
           const active = value === opt.v;
           return (

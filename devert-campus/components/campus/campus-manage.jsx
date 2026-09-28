@@ -184,7 +184,12 @@ const SCOPED_ROLE_MANAGE_TABS = {
 function ManageSidebarList({ tabs, active, onSelect }) {
   return (
     <>
-      <div className="px-1 pb-2 mb-1 text-[10px] font-mono tracking-widest" style={{ color: CAMPUS.inkFaint }}>MANAGE</div>
+      {/* Same title treatment as GateSidebarNav: the sidebar's heading must
+          read as a heading, not as one more row. */}
+      <div className="px-1 pb-3 mb-2 border-b" style={{ borderColor: CAMPUS.line }}>
+        <p className="text-[17px] font-bold tracking-tight" style={{ color: CAMPUS.ink }}>Manage</p>
+        <p className="text-[11px] mt-0.5" style={{ color: CAMPUS.inkFaint }}>Institution admin</p>
+      </div>
       {tabs.map(t => (
         <button key={t.key} onClick={() => onSelect(t.key)}
           className="campus-btn flex items-center text-[13px] font-medium px-3 py-2 rounded-lg text-left whitespace-nowrap transition-all duration-150"

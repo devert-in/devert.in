@@ -141,34 +141,43 @@ function PyqBrowseView({ pyqs, tree, initialSubjectId }) {
   // the filters rather than by an effect that writes state - same reasoning as
   // effectiveTopicId above.
   const filterKey = `${year}|${subjectId}|${effectiveTopicId}|${difficulty}|${marks}|${status}|${search}`;
+  const activeFilters = [year, subjectId, effectiveTopicId, difficulty, marks, status].filter(v => v != null).length + (search.trim() ? 1 : 0);
+  const clearFilters = () => { setYear(null); setSubjectId(null); setTopicId(null); setDifficulty(null); setMarks(null); setStatus(null); setSearch(""); };
   const [pageState, setPageState] = useState({ key: filterKey, size: 20 });
   const limit = pageState.key === filterKey ? pageState.size : 20;
 
   return (
     <div className="space-y-4">
-      <CampusCard className="p-4 space-y-3">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
+      {/* Search on its own row, then the two wide filters (Year, Subject - the
+          latter a dropdown once it has many options), then the three short
+          ones. Each group sits in a column wide enough that its chips wrap
+          cleanly instead of being clipped. */}
+      <CampusCard className="p-4 sm:p-5 space-y-4">
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg"
           style={{ background: CAMPUS.paper, border: `1px solid ${CAMPUS.line}` }}>
-          <Search size={13} style={{ color: CAMPUS.inkFaint }} />
+          <Search size={14} style={{ color: CAMPUS.inkFaint }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search question text..."
-            className="flex-1 bg-transparent outline-none text-[12.5px]" style={{ color: CAMPUS.ink }} />
+            className="flex-1 bg-transparent outline-none text-[13px]" style={{ color: CAMPUS.ink }} />
+          {search && (
+            <button onClick={() => setSearch("")} className="text-[11px] font-semibold" style={{ color: CAMPUS.inkFaint }}>Clear</button>
+          )}
         </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <GateFilterRow label="YEAR" value={year} onChange={setYear} allLabel="All years"
+        <div className="grid md:grid-cols-2 gap-4">
+          <GateFilterRow label="Year" value={year} onChange={setYear} allLabel="All years"
             options={years.map(y => ({ v: y, label: String(y) }))} />
-          <GateFilterRow label="SUBJECT" value={subjectId} onChange={setSubjectId} allLabel="All subjects"
+          <GateFilterRow label="Subject" value={subjectId} onChange={setSubjectId} allLabel="All subjects"
             options={subjects} />
         </div>
         {subjectId && topics.length > 0 && (
-          <GateFilterRow label="TOPIC" value={effectiveTopicId} onChange={setTopicId} allLabel="Whole subject" options={topics} />
+          <GateFilterRow label="Topic" value={effectiveTopicId} onChange={setTopicId} allLabel="Whole subject" options={topics} />
         )}
-        <div className="grid sm:grid-cols-3 gap-3">
-          <GateFilterRow label="DIFFICULTY" value={difficulty} onChange={setDifficulty}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t" style={{ borderColor: CAMPUS.line }}>
+          <GateFilterRow label="Difficulty" value={difficulty} onChange={setDifficulty}
             options={[{ v: "Easy", label: "Easy" }, { v: "Moderate", label: "Moderate" }, { v: "Hard", label: "Hard" }]} />
-          <GateFilterRow label="MARKS" value={marks} onChange={setMarks}
+          <GateFilterRow label="Marks" value={marks} onChange={setMarks}
             options={[{ v: 1, label: "1 mark" }, { v: 2, label: "2 marks" }]} />
-          <GateFilterRow label="MY STATUS" value={status} onChange={setStatus}
+          <GateFilterRow label="My status" value={status} onChange={setStatus}
             options={[
               { v: "unattempted", label: "Not attempted" },
               { v: "solved", label: "Solved" },
@@ -177,9 +186,17 @@ function PyqBrowseView({ pyqs, tree, initialSubjectId }) {
         </div>
       </CampusCard>
 
-      <p className="text-[12px]" style={{ color: CAMPUS.inkFaint }}>
-        {filtered.length} question{filtered.length === 1 ? "" : "s"} match.
-      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-[12.5px] font-semibold" style={{ color: CAMPUS.inkSoft }}>
+          {filtered.length} question{filtered.length === 1 ? "" : "s"} match
+        </p>
+        {activeFilters > 0 && (
+          <button onClick={clearFilters} className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
+            style={{ color: CAMPUS.teal, background: CAMPUS.tealTint, border: `1px solid ${CAMPUS.teal}` }}>
+            Clear {activeFilters} filter{activeFilters === 1 ? "" : "s"}
+          </button>
+        )}
+      </div>
 
       <div className="space-y-4">
         {filtered.slice(0, limit).map((pyq, i) => (
