@@ -14,7 +14,7 @@
 // accepting resumes from anonymous applicants would mean opening a new
 // unauthenticated Storage path. Applications carry links instead.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Loader2, Send } from "lucide-react";
 import { submitApplication } from "@/lib/careers";
 
@@ -77,14 +77,56 @@ function friendlyError(err) {
   return "Could not send your application. Please try again in a moment.";
 }
 
-// One application per role per browser in a short window - stops the double
-// click and the impatient resubmit. Not a security control (a script ignores
-// it); firestore.rules plus the honeypot below are the actual filters.
-const COOLDOWN_MS = 10 * 60 * 1000;
-const sentKey = (jobId) => `devert-careers:sent:${jobId || "general"}`;
+// ONE APPLICATION PER ROLE. Two layers:
+//   - this browser remembers that it applied (key below), and from then on
+//     shows the "already applied" panel instead of the form - no refill;
+//   - the server is the real guarantee: lib/careers.js keys each application
+//     by role + a hash of the email, so a second one from the same address
+//     (another browser, another phone) is refused by firestore.rules and
+//     surfaces here as code "already-applied".
+const appliedKey = (jobId) => `devert-careers:applied:${jobId || "general"}`;
+
+function readApplied(jobId) {
+  try {
+    const raw = localStorage.getItem(appliedKey(jobId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberApplied(jobId, record) {
+  try { localStorage.setItem(appliedKey(jobId), JSON.stringify(record)); } catch { /* private mode */ }
+}
 
 function withTimeout(promise, ms) {
   return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
+}
+
+function AppliedPanel({ jobTitle, record, justSent }) {
+  const when = record?.at
+    ? new Date(record.at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  return (
+    <div className="rounded-xl border border-ink-200 bg-ink-100 p-8 text-center sm:p-10">
+      <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-brand-50">
+        <Check size={20} className="text-brand-600" />
+      </span>
+      <h3 className="mt-4 text-[19px] font-semibold tracking-[-0.01em] text-ink-900">
+        {justSent
+          ? (jobTitle ? `Applied for ${jobTitle}` : "Application received")
+          : (jobTitle ? `You have already applied for ${jobTitle}` : "You have already applied")}
+      </h3>
+      <p className="mx-auto mt-2 max-w-md text-[14px] leading-relaxed text-ink-600">
+        {justSent
+          ? "A real person reads every application here - there is no keyword filter in between."
+          : `We have your application${when ? `, sent on ${when}` : ""}. There is no need to send it again.`}
+        {record?.email && (
+          <> If there is a fit, we will be in touch at <span className="text-ink-900">{record.email}</span>.</>
+        )}
+      </p>
+    </div>
+  );
 }
 
 export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
@@ -96,8 +138,13 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
   // find; a filled one means the submission is silently dropped.
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  // undefined until localStorage has been read: rendering the form first and
+  // swapping it out would flash a form the visitor is not allowed to fill.
+  const [applied, setApplied] = useState(undefined);
+  const [justSent, setJustSent] = useState(false);
+
+  useEffect(() => { setApplied(readApplied(jobId)); }, [jobId]);
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -116,45 +163,34 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
       links[k] = r.value;
     }
 
-    if (website) { setDone(true); return; }
-
-    try {
-      const last = Number(localStorage.getItem(sentKey(jobId)) || 0);
-      if (Date.now() - last < COOLDOWN_MS) {
-        setError("You have already applied for this role from this browser. We have your application - no need to send it twice.");
-        return;
-      }
-    } catch { /* private mode: no cooldown, rules still apply */ }
+    if (website) { setJustSent(true); setApplied({ email: form.email.trim() }); return; }
 
     setSubmitting(true);
     setError("");
+    const email = form.email.trim();
     try {
       await withTimeout(submitApplication({ ...form, ...links, jobId, jobTitle, source }), 20000);
-      try { localStorage.setItem(sentKey(jobId), String(Date.now())); } catch { /* ignore */ }
-      setDone(true);
+      const record = { email, at: Date.now() };
+      rememberApplied(jobId, record);
+      setJustSent(true);
+      setApplied(record);
     } catch (err) {
-      setError(friendlyError(err));
+      if (err?.code === "already-applied") {
+        // The server already holds an application from this email for this
+        // role (sent from another browser or device). Remember it here too.
+        const record = { email, at: null };
+        rememberApplied(jobId, record);
+        setApplied(record);
+      } else {
+        setError(friendlyError(err));
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (done) {
-    return (
-      <div className="rounded-xl border border-ink-200 bg-ink-100 p-8 text-center sm:p-10">
-        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-brand-50">
-          <Check size={20} className="text-brand-600" />
-        </span>
-        <h3 className="mt-4 text-[19px] font-semibold tracking-[-0.01em] text-ink-900">
-          {jobTitle ? `Applied for ${jobTitle}` : "Application received"}
-        </h3>
-        <p className="mx-auto mt-2 max-w-sm text-[14px] leading-relaxed text-ink-600">
-          A real person reads every application here - there is no keyword filter in between.
-          If there is a fit, we will be in touch at <span className="text-ink-900">{form.email}</span>.
-        </p>
-      </div>
-    );
-  }
+  if (applied === undefined) return null;
+  if (applied) return <AppliedPanel jobTitle={jobTitle} record={applied} justSent={justSent} />;
 
   return (
     <div className="rounded-xl border border-ink-200 bg-ink-100">

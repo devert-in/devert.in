@@ -29,7 +29,7 @@
 
 import { db } from "@/lib/firebase";
 import {
-  addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot,
+  collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot,
   orderBy, query, serverTimestamp, setDoc, updateDoc, where,
 } from "firebase/firestore";
 
@@ -148,8 +148,33 @@ export async function submitApplication({
   // rule treats uid as optional-but-verified, and an empty string is not a uid.
   if (uid) payload.uid = uid;
 
-  const ref = await addDoc(collection(db, "job_applications"), payload);
-  return { id: ref.id, ...payload };
+  // ONE APPLICATION PER EMAIL PER ROLE, enforced by Firestore rather than by
+  // the browser. The doc ID is derived from the role and the email, so a second
+  // application from the same address is a write to an EXISTING doc - which
+  // firestore.rules treats as an update, and only isAdmin() may update. No new
+  // rule and no read of other applications needed. The email is hashed so the
+  // ID itself does not expose it.
+  const id = await applicationId(payload.jobId, payload.email);
+  try {
+    await setDoc(doc(db, "job_applications", id), payload);
+  } catch (e) {
+    if (e?.code === "permission-denied") {
+      const dup = new Error("already-applied");
+      dup.code = "already-applied";
+      // A denied create can also mean the role closed or was unpublished
+      // between page load and Send; the form words its message to cover both.
+      throw dup;
+    }
+    throw e;
+  }
+  return { id, ...payload };
+}
+
+async function applicationId(jobId, email) {
+  const bytes = new TextEncoder().encode(email.trim().toLowerCase());
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${jobId}__${hex.slice(0, 40)}`;
 }
 
 // Admin inbox. No where() for the same index-avoidance reason as
