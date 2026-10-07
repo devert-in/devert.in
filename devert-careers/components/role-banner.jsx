@@ -57,10 +57,10 @@ function Art({ src, card }) {
         // wide card and cropped to a thin band of windows - and framed on the
         // clock tower and roofline so the campus is recognisable at a glance.
         ? "pointer-events-none absolute right-0 top-0 h-full w-[58%] max-w-[360px] object-cover object-[50%_30%]"
-        // Hero: the whole illustration, never cropped - contained in its
-        // half of the panel and anchored right, the panel's dark fill showing
-        // around it.
-        : "pointer-events-none absolute right-0 top-0 h-full w-full object-contain object-right opacity-25 sm:w-[44%] sm:opacity-100"}
+        // Hero: the illustration fills the full height of its half of the
+        // panel (cover, centred) - contained, it left empty bands above and
+        // below it; the panel's spacing is kept tight so little is trimmed.
+        : "pointer-events-none absolute right-0 top-0 h-full w-full object-cover object-center opacity-25 sm:w-[48%] sm:opacity-100"}
       style={{
         WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 48%)",
         maskImage: "linear-gradient(to right, transparent 0%, #000 48%)",
@@ -112,7 +112,7 @@ export function RoleBanner({ role, variant = "card" }) {
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,#05070c_0%,rgba(5,7,12,0.92)_52%,rgba(5,7,12,0.4)_66%,transparent_80%)]" />
       )}
 
-      <div className="relative px-6 pb-7 pt-7 sm:px-10 sm:pb-9 sm:pt-9">
+      <div className="relative px-6 pb-6 pt-6 sm:px-10 sm:pb-7 sm:pt-7">
         <div className="flex items-center justify-between gap-4">
           <span className="inline-flex items-center gap-3">
             <span className="text-[22px] font-extrabold tracking-[-0.02em] text-ink-900 sm:text-[26px]">DeVert</span>
@@ -122,7 +122,7 @@ export function RoleBanner({ role, variant = "card" }) {
           <HiringPill />
         </div>
 
-        <div className={`mt-10 sm:mt-14 ${art ? "sm:max-w-[58%]" : "max-w-[620px]"}`}>
+        <div className={`mt-7 sm:mt-9 ${art ? "sm:max-w-[54%]" : "max-w-[620px]"}`}>
           {role.team && (
             <p className="font-mono text-[13px] font-bold uppercase tracking-[0.14em] text-brand-600 sm:text-[15px]">
               {role.team}
@@ -146,7 +146,7 @@ export function RoleBanner({ role, variant = "card" }) {
           )}
         </div>
 
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-4 sm:mt-14">
+        <div className="mt-7 flex flex-wrap items-center justify-between gap-4 sm:mt-9">
           <span className="break-all font-mono text-[13px] font-medium text-[#00e5ff] sm:text-[15px]">
             {SITE_HOST}/roles/{role.id}
           </span>
