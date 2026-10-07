@@ -26,6 +26,7 @@
 // careerStaticParams below; only its crawler-facing page (JobPosting JSON-LD,
 // sitemap entry, indexable metadata) waits for the next deploy.
 import { JOB_STATUS, fetchPublishedRoles, fetchRoleBySlug } from "@/lib/careers";
+import { ROLE_ART } from "@/lib/role-art.mjs";
 
 const SITE = "https://careers.devert.in";
 
@@ -107,8 +108,10 @@ export function buildEmptyRoleMetadata() {
 // both read the same published list; anything else gets the site image.
 export const SITE_IMAGE = { url: `${SITE}/og/careers.png`, width: 1200, height: 630, alt: "Careers at DeVert" };
 
+// A hand-made card in lib/role-art.mjs wins over the drawn one.
 function roleImage(slug, title) {
-  return { url: `${SITE}/og/roles/${slug}.png`, width: 1200, height: 630, alt: `${title} - Careers at DeVert` };
+  const card = ROLE_ART[slug]?.card;
+  return { url: card ? `${SITE}${card}` : `${SITE}/og/roles/${slug}.png`, width: 1200, height: 630, alt: `${title} - Careers at DeVert` };
 }
 
 export function buildRoleMetadata(role, slug) {

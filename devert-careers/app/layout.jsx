@@ -1,5 +1,5 @@
 import "./globals.css";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 // From devert-frontend via the @/* fallback - inline-styled on purpose,
@@ -14,6 +14,15 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
+});
+
+// Monospace for labels, links and the "We're hiring" pill in role banners -
+// the terminal accent of the DeVert brand, self-hosted the same way.
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-jetbrains",
+  weight: ["500", "700"],
 });
 
 // Note the absence of an AuthProvider, which both other apps mount at the root.
@@ -65,7 +74,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body className="font-sans antialiased text-ink-800">
         {/* Keyboard and screen-reader users land on the header's nav first;
             without this they would tab through it on every page to reach the

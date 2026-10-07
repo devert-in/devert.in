@@ -13,15 +13,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ArrowLeft, Briefcase, CheckCircle2, Clock, MapPin, Sparkles, Target, Users, Zap,
+  ArrowLeft, CheckCircle2, Clock, Sparkles, Target, Zap,
 } from "lucide-react";
 import { ApplyForm } from "@/components/apply-form";
 import { RoleBanner } from "@/components/role-banner";
-import { EMPLOYMENT_TYPES, JOB_STATUS, LOCATION_TYPES, fetchRoleBySlug } from "@/lib/careers";
-
-function labelFor(list, value) {
-  return list.find((o) => o.value === value)?.label || value || "";
-}
+import { JOB_STATUS, fetchRoleBySlug } from "@/lib/careers";
 
 function BulletList({ title, items, icon: Icon }) {
   if (!Array.isArray(items) || items.length === 0) return null;
@@ -102,14 +98,13 @@ export function RoleDetailView({ slug: builtSlug }) {
           <header className="mt-8">
             <RoleBanner role={role} variant="hero" />
 
-            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2.5">
-              <Meta icon={Users}>{role.team}</Meta>
-              <Meta icon={Briefcase}>{labelFor(EMPLOYMENT_TYPES, role.employmentType)}</Meta>
-              <Meta icon={MapPin}>
-                {[labelFor(LOCATION_TYPES, role.locationType), role.location].filter(Boolean).join(" · ")}
-              </Meta>
-              <Meta icon={Clock}>{role.experience}</Meta>
-            </div>
+            {/* Team, type and location now live in the banner; only the one
+                detail it does not show stays here. */}
+            {role.experience && (
+              <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2.5">
+                <Meta icon={Clock}>{role.experience}</Meta>
+              </div>
+            )}
 
             {role.status === JOB_STATUS.CLOSED && (
               <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-800">
@@ -118,10 +113,6 @@ export function RoleDetailView({ slug: builtSlug }) {
               </p>
             )}
 
-            <a href="#apply"
-              className="mt-7 inline-flex rounded-full bg-brand-600 px-6 py-3 text-[14.5px] font-semibold text-[#05080F] transition-colors hover:bg-brand-700">
-              Apply for this role
-            </a>
           </header>
 
           {role.description && (

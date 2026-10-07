@@ -65,6 +65,7 @@
   --color-ink-900: #f4f7fb;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", Consolas, monospace;
 
   /* Slightly tighter than Tailwind's defaults at display sizes - large type
      set at default tracking looks unfinished. */

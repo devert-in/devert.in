@@ -22,6 +22,7 @@
 // live, so the site itself never waits for a deploy.
 
 import { ImageResponse } from "next/og.js";
+import { ROLE_ART } from "../lib/role-art.mjs";
 import { createElement as h } from "react";
 import { mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";
 import { dirname, join } from "path";
@@ -164,6 +165,8 @@ try {
 }
 for (const role of roles) {
   if (!/^[a-z0-9-]+$/.test(role.slug)) continue;
+  // A role with a hand-made card (lib/role-art.mjs) advertises that instead.
+  if (ROLE_ART[role.slug]?.card) { console.log(`role-images: ${role.slug} uses its hand-made card`); continue; }
   writeFileSync(join(OUT, "roles", `${role.slug}.png`), await png(roleCard(role)));
   console.log(`role-images: public/og/roles/${role.slug}.png`);
 }

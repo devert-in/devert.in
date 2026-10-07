@@ -1,14 +1,26 @@
-// The on-page twin of the link-preview image scripts/role-images.mjs draws:
-// same dark panel, green top rule, circuit traces, "We're hiring" pill.
+// A role's banner - the on-page version of its link-preview card, laid out
+// after the DeVert Campus Leader artwork the founders approved: green top
+// rule, "DeVert | Careers" with a "WE'RE HIRING" pill, a monospace team
+// label, a heavy headline, the blurb, a meta line, and the role's link beside
+// an Apply button - with the role's illustration on the right.
 //
-// Rendered from the live role rather than shipped as a PNG, so a role
-// published after the last deploy has its banner the moment it appears - the
-// PNG only exists for roles that were published at build time.
+// Everything here is real text rendered from the live role, never baked into
+// an image: it stays sharp, searchable, and correct the moment a role is
+// edited in admin. Only the illustration is a picture, and only roles listed
+// in lib/role-art.mjs have one; the rest get the drawn circuit traces.
 //
 //   variant="card"  slim strip at the top of a role in the open-roles list
 //   variant="hero"  the role page's header panel; carries the page's <h1>
 
-// Decorative traces, positioned in percentages so they hold at any width.
+import { ROLE_ART } from "@/lib/role-art.mjs";
+import { EMPLOYMENT_TYPES, LOCATION_TYPES } from "@/lib/careers";
+
+const SITE_HOST = "careers.devert.in";
+
+const labelFor = (list, value) => list.find((o) => o.value === value)?.label || value || "";
+
+// Fallback decoration for roles without art: positioned in percentages so it
+// holds at any width.
 const TRACES = [
   { left: "72%", top: "18%", width: "28%", height: 1, tone: "g" },
   { left: "84%", top: "18%", width: 1, height: "26%", tone: "g" },
@@ -32,57 +44,110 @@ function Traces() {
   );
 }
 
+// The illustration, bled off the right edge and faded into the panel so the
+// text never sits on a hard image edge. On a phone there is no room beside
+// the text, so it drops behind it, dimmed.
+function Art({ src, card }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer
+    <img src={src} alt="" aria-hidden="true" loading={card ? "lazy" : "eager"}
+      className={card
+        ? "pointer-events-none absolute right-0 top-0 h-full w-[46%] object-cover object-center opacity-80"
+        : "pointer-events-none absolute right-0 top-0 h-full w-full object-cover object-right opacity-25 sm:w-[44%] sm:opacity-100"}
+      style={{
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 48%)",
+        maskImage: "linear-gradient(to right, transparent 0%, #000 48%)",
+      }} />
+  );
+}
+
 function HiringPill({ small }) {
   return (
-    <span className={`inline-flex items-center rounded-full border border-brand-600 bg-brand-50/70 font-semibold tracking-[0.18em] text-brand-600 ${
-      small ? "px-2.5 py-0.5 text-[10px]" : "px-3.5 py-1 text-[11.5px]"}`}>
+    <span className={`inline-flex items-center rounded-lg border-2 border-brand-600 bg-[#05070c]/70 font-mono font-bold tracking-[0.12em] text-brand-600 ${
+      small ? "px-2 py-0.5 text-[10px]" : "px-3.5 py-1.5 text-[12px] sm:text-[13px]"}`}>
       WE&apos;RE HIRING
     </span>
   );
 }
 
+const PANEL = "relative overflow-hidden bg-[#05070c] bg-[linear-gradient(120deg,#070a12_0%,#05070c_60%,#061018_100%)]";
+
 export function RoleBanner({ role, variant = "card" }) {
   if (!role) return null;
-  const panel = "relative overflow-hidden border border-ink-200 bg-[linear-gradient(120deg,#070a12_0%,#05070c_60%,#061018_100%)]";
+  const art = ROLE_ART[role.id]?.art;
 
   if (variant === "card") {
     return (
-      <div className={`${panel} -mx-5 -mt-5 mb-4 rounded-t-xl border-x-0 border-t-0 px-5 py-3 sm:-mx-6 sm:-mt-6 sm:px-6`}>
-        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-brand-600" />
-        <Traces />
-        <div className="relative flex items-center justify-between gap-3">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">
+      <div className={`${PANEL} -mx-5 -mt-5 mb-4 h-[72px] border-b border-ink-200 px-5 sm:-mx-6 sm:-mt-6 sm:h-[84px] sm:px-6`}>
+        <span aria-hidden="true" className="absolute inset-x-0 top-0 z-10 h-[3px] bg-brand-600" />
+        {art ? <Art src={art} card /> : <Traces />}
+        <div className="relative flex h-full items-center justify-between gap-3">
+          <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-brand-600">
             {role.team || "DeVert"}
           </span>
-          <HiringPill small />
+          {!art && <HiringPill small />}
         </div>
       </div>
     );
   }
 
+  const meta = [labelFor(EMPLOYMENT_TYPES, role.employmentType), labelFor(LOCATION_TYPES, role.locationType), role.location]
+    .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+
   return (
-    <div className={`${panel} rounded-2xl px-6 py-7 sm:px-9 sm:py-9`}>
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-brand-600" />
-      <Traces />
-      <div className="relative">
+    <div className={`${PANEL} rounded-2xl border border-ink-200`}>
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 z-10 h-1 bg-brand-600" />
+      {art ? <Art src={art} /> : <Traces />}
+      {/* A dark band behind the text column. The artwork's brightest strokes
+          sat right under the end of a long title ("Leader" in DeVert Campus
+          Leader); this keeps the words on near-black at any width. */}
+      {art && (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,#05070c_0%,rgba(5,7,12,0.92)_52%,rgba(5,7,12,0.4)_66%,transparent_80%)]" />
+      )}
+
+      <div className="relative px-6 pb-7 pt-7 sm:px-10 sm:pb-9 sm:pt-9">
         <div className="flex items-center justify-between gap-4">
-          <span className="inline-flex items-center gap-2.5">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer */}
-            <img src="/devert-campus-badge.png" alt="" width={34} height={34} className="rounded-lg" />
-            <span className="text-[17px] font-semibold tracking-[-0.01em] text-ink-900">DeVert</span>
-            <span className="text-[15px] text-ink-500">Careers</span>
+          <span className="inline-flex items-center gap-3">
+            <span className="text-[22px] font-extrabold tracking-[-0.02em] text-ink-900 sm:text-[26px]">DeVert</span>
+            <span aria-hidden="true" className="h-6 w-px bg-ink-300" />
+            <span className="text-[19px] text-ink-600 sm:text-[22px]">Careers</span>
           </span>
           <HiringPill />
         </div>
-        {role.team && (
-          <p className="mt-7 text-[12.5px] font-semibold uppercase tracking-[0.16em] text-brand-600">{role.team}</p>
-        )}
-        <h1 className="mt-2 text-[32px] font-semibold leading-[1.1] tracking-display text-ink-900 sm:text-[44px]">
-          {role.title}
-        </h1>
-        {role.blurb && (
-          <p className="mt-4 max-w-2xl text-[15.5px] leading-relaxed text-ink-700">{role.blurb}</p>
-        )}
+
+        <div className={`mt-10 sm:mt-14 ${art ? "sm:max-w-[58%]" : "max-w-[620px]"}`}>
+          {role.team && (
+            <p className="font-mono text-[13px] font-bold uppercase tracking-[0.14em] text-brand-600 sm:text-[15px]">
+              {role.team}
+            </p>
+          )}
+          <h1 className="mt-2 text-[34px] font-extrabold leading-[1.05] tracking-[-0.03em] text-ink-900 [text-shadow:0_2px_18px_rgba(5,7,12,0.95)] sm:text-[44px] lg:text-[48px]">
+            {role.title}
+          </h1>
+          {role.blurb && (
+            <p className="mt-4 text-[15.5px] leading-relaxed text-ink-700 sm:text-[17px]">{role.blurb}</p>
+          )}
+          {meta.length > 0 && (
+            <p className="mt-5 flex flex-wrap items-center gap-x-2.5 text-[14px] text-ink-500 sm:text-[15px]">
+              {meta.map((m, i) => (
+                <span key={m} className="inline-flex items-center gap-2.5">
+                  {i > 0 && <span aria-hidden="true" className="text-ink-400">&bull;</span>}
+                  {m}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-4 sm:mt-14">
+          <span className="break-all font-mono text-[13px] font-medium text-[#00e5ff] sm:text-[15px]">
+            {SITE_HOST}/{role.id}
+          </span>
+          <a href="#apply"
+            className="inline-flex rounded-xl bg-brand-600 px-7 py-3 text-[15px] font-bold text-[#05080F] transition-colors hover:bg-brand-700">
+            Apply now
+          </a>
+        </div>
       </div>
     </div>
   );
