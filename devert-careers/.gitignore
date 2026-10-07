@@ -6,3 +6,6 @@
 *.pem
 .env*.local
 next-env.d.ts
+
+# Link-preview images, drawn at build time by scripts/role-images.mjs
+/public/og/

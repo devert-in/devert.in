@@ -17,6 +17,7 @@ import {
   EMPLOYMENT_TYPES, GENERAL_INTEREST_JOB_ID, LOCATION_TYPES, watchPublishedRoles,
 } from "@/lib/careers";
 import { ApplyForm } from "@/components/apply-form";
+import { RoleBanner } from "@/components/role-banner";
 
 function labelFor(list, value) {
   return list.find((o) => o.value === value)?.label || value || "";
@@ -50,7 +51,8 @@ function FilterGroup({ label, options, value, onChange }) {
 function RoleRow({ role }) {
   return (
     <Link href={`/${role.id}`}
-      className="group block rounded-xl border border-ink-200 bg-ink-100 p-5 transition-all hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:p-6">
+      className="group block overflow-hidden rounded-xl border border-ink-200 bg-ink-100 p-5 transition-all hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:p-6">
+      <RoleBanner role={role} />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ink-900 group-hover:text-brand-700">

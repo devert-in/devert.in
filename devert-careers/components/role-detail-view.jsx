@@ -16,6 +16,7 @@ import {
   ArrowLeft, Briefcase, CheckCircle2, Clock, MapPin, Sparkles, Target, Users, Zap,
 } from "lucide-react";
 import { ApplyForm } from "@/components/apply-form";
+import { RoleBanner } from "@/components/role-banner";
 import { EMPLOYMENT_TYPES, JOB_STATUS, LOCATION_TYPES, fetchRoleBySlug } from "@/lib/careers";
 
 function labelFor(list, value) {
@@ -99,9 +100,7 @@ export function RoleDetailView({ slug: builtSlug }) {
       ) : (
         <>
           <header className="mt-8">
-            <h1 className="text-[32px] font-semibold leading-[1.12] tracking-display text-ink-900 sm:text-[42px]">
-              {role.title}
-            </h1>
+            <RoleBanner role={role} variant="hero" />
 
             <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2.5">
               <Meta icon={Users}>{role.team}</Meta>

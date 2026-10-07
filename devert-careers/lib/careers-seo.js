@@ -89,13 +89,26 @@ function locationLabel(role) {
 
 // The placeholder route, and any slug whose role has gone, must never be
 // indexed - there is no job on the other side of it.
+// Neutral on purpose: this page is also the shell every role published after
+// the last deploy is served from, so its title is what a WhatsApp preview of a
+// brand-new role shows. "No open roles" there would undersell the very role
+// being shared.
 export function buildEmptyRoleMetadata() {
   return {
-    title: "No open roles",
-    description: "There are no open roles listed right now.",
+    title: "Open roles at DeVert",
+    description: "See this role and every other opening at DeVert.",
     alternates: { canonical: SITE },
     robots: { index: false, follow: true },
   };
+}
+
+// Link-preview images drawn at build time by scripts/role-images.mjs (prebuild).
+// A role's own image exists for every slug generateStaticParams built, because
+// both read the same published list; anything else gets the site image.
+export const SITE_IMAGE = { url: `${SITE}/og/careers.png`, width: 1200, height: 630, alt: "Careers at DeVert" };
+
+function roleImage(slug, title) {
+  return { url: `${SITE}/og/roles/${slug}.png`, width: 1200, height: 630, alt: `${title} - Careers at DeVert` };
 }
 
 export function buildRoleMetadata(role, slug) {
@@ -114,11 +127,13 @@ export function buildRoleMetadata(role, slug) {
       url,
       siteName: "DeVert Careers",
       type: "website",
+      images: [roleImage(slug, role.title)],
     },
     twitter: {
       card: "summary_large_image",
       title: `${role.title} | Careers at DeVert`,
       description,
+      images: [roleImage(slug, role.title).url],
     },
     robots: { index: true, follow: true },
   };

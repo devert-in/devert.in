@@ -51,11 +51,15 @@ export const metadata = {
     url: "https://careers.devert.in",
     siteName: "DeVert Careers",
     type: "website",
+    // Drawn by scripts/role-images.mjs at build time. Also what a role
+    // published after the last deploy shows until the next one draws its own.
+    images: [{ url: "https://careers.devert.in/og/careers.png", width: 1200, height: 630, alt: "Careers at DeVert" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Careers at DeVert",
     description: "Open roles at DeVert - built by people who ship, for people who ship.",
+    images: ["https://careers.devert.in/og/careers.png"],
   },
 };
 
