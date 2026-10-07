@@ -81,7 +81,7 @@ export function SiteHeader() {
               <ArrowUpRight size={13} className="text-ink-400 transition-colors group-hover:text-ink-700" />
             </a>
           ))}
-          <a href="#open-roles"
+          <a href="/#open-roles"
             className="rounded-full bg-brand-600 px-4 py-2 text-[13.5px] font-semibold text-[#05080F] transition-colors hover:bg-brand-700">
             See open roles
           </a>
@@ -123,7 +123,7 @@ export function SiteHeader() {
               </a>
             ))}
 
-            <a href="#open-roles" onClick={() => setOpen(false)}
+            <a href="/#open-roles" onClick={() => setOpen(false)}
               className="mt-2 rounded-full bg-brand-600 px-4 py-2.5 text-center text-[14px] font-semibold text-[#05080F]">
               See open roles
             </a>

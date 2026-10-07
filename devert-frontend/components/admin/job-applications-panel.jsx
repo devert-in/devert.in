@@ -105,10 +105,14 @@ export function JobApplicationsPanel() {
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState(null);
+  // Grows by APPLICATION_CAP per "Load more". Without it, anything older than
+  // the newest 200 was simply invisible - and an anonymous form can be flooded,
+  // so a burst of spam would have pushed every real candidate out of view.
+  const [cap, setCap] = useState(APPLICATION_CAP);
 
   useEffect(() => {
     let alive = true;
-    fetchApplications(APPLICATION_CAP)
+    fetchApplications(cap)
       .then((r) => { if (alive) { setRows(r); setError(""); } })
       .catch((e) => {
         if (!alive) return;
@@ -116,7 +120,7 @@ export function JobApplicationsPanel() {
         setError(e?.message || "Could not load job applications.");
       });
     return () => { alive = false; };
-  }, [nonce]);
+  }, [nonce, cap]);
 
   const decide = async (id, next) => {
     setBusy(id);
@@ -148,7 +152,7 @@ export function JobApplicationsPanel() {
   return (
     <div className="space-y-5">
       <StatGrid stats={[
-        { label: "Applications", value: list.length, sub: list.length >= APPLICATION_CAP ? `latest ${APPLICATION_CAP} loaded` : `${roleOptions.length} roles`, icon: Inbox, color: KIT.cyan, loading },
+        { label: "Applications", value: list.length, sub: list.length >= cap ? `latest ${cap} loaded` : `${roleOptions.length} roles`, icon: Inbox, color: KIT.cyan, loading },
         { label: "New", value: count(APPLICATION_STATUS.NEW), sub: "Awaiting first review", icon: FileText, color: KIT.orange, loading },
         { label: "In pipeline", value: inPipeline, sub: `${count(APPLICATION_STATUS.INTERVIEWING)} interviewing`, icon: Users, color: KIT.purple, loading },
         { label: "Hired", value: count(APPLICATION_STATUS.HIRED), sub: `${count(APPLICATION_STATUS.REJECTED)} rejected`, icon: Trophy, color: KIT.green, loading },
@@ -159,6 +163,14 @@ export function JobApplicationsPanel() {
           style={{ color: KIT.red, background: `${KIT.red}0F`, border: `1px solid ${KIT.red}33` }}>
           {error}
         </p>
+      )}
+
+      {list.length >= cap && (
+        <button onClick={() => setCap((c) => c + APPLICATION_CAP)}
+          className="font-sans text-xs px-3 py-2 rounded-lg"
+          style={{ color: KIT.cyan, background: `${KIT.cyan}12`, border: `1px solid ${KIT.cyan}33` }}>
+          Showing the newest {cap} - load {APPLICATION_CAP} older applications
+        </button>
       )}
 
       <DataTable title="Job applications" icon={Inbox} defaultFilters={{ status: "new" }}
@@ -235,7 +247,7 @@ export function JobApplicationsPanel() {
             <DrawerSection title="Candidate">
               <div className="grid sm:grid-cols-2 gap-3">
                 <Field label="Email">
-                  <a href={`mailto:${open.email}`} className="inline-flex items-center gap-1.5 hover:underline" style={{ color: KIT.cyan }}>
+                  <a href={`mailto:${encodeURIComponent(open.email)}`} className="inline-flex items-center gap-1.5 hover:underline" style={{ color: KIT.cyan }}>
                     <Mail size={13} /> {open.email}
                   </a>
                 </Field>

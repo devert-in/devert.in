@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ArrowLeft, Briefcase, CheckCircle2, Clock, MapPin, Sparkles, Target, Users, Zap,
 } from "lucide-react";
@@ -51,8 +52,15 @@ function Meta({ icon: Icon, children }) {
   );
 }
 
-export function RoleDetailView({ slug }) {
+export function RoleDetailView({ slug: builtSlug }) {
   const [role, setRole] = useState(undefined); // undefined = loading, null = gone
+
+  // The slug comes from the ADDRESS BAR, not only the build-time prop. A role
+  // published after the last deploy has no HTML of its own; firebase.json
+  // rewrites its URL to the no-open-roles shell, so the prop says
+  // "no-open-roles" while the visitor asked for the real role.
+  const pathname = usePathname();
+  const slug = (pathname || "").split("/").filter(Boolean)[0] || builtSlug;
 
   useEffect(() => {
     let alive = true;

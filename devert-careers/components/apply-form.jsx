@@ -38,14 +38,63 @@ function Field({ label, hint, required, htmlFor, children }) {
 
 // Deliberately permissive - the same shape firestore.rules enforces, no more.
 // A form that rejects a valid-but-unusual address is a lost candidate; the
-// server-side rule is what actually stops junk.
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// server-side rule is what actually stops junk. (? & # % are excluded there
+// because the admin inbox builds a mailto: link from this address.)
+const EMAIL_RE = /^[^@\s?&#%]+@[^@\s?&#%]+\.[^@\s?&#%]+$/;
+
+const URL_FIELDS = [
+  ["resumeUrl", "resume link"], ["githubUrl", "GitHub link"],
+  ["portfolioUrl", "portfolio link"], ["linkedinUrl", "LinkedIn link"],
+];
+
+// People paste `github.com/me` far more often than a full URL. Add the scheme
+// rather than reject it, and refuse anything that is not http(s) - the inbox
+// only makes http(s) clickable anyway, so a javascript: link is just noise.
+function normaliseUrl(raw) {
+  const v = raw.trim();
+  if (!v) return { ok: true, value: "" };
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(v) ? v : `https://${v}`;
+  try {
+    const u = new URL(withScheme);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return { ok: false };
+    if (!u.hostname.includes(".")) return { ok: false };
+    return { ok: true, value: u.toString() };
+  } catch {
+    return { ok: false };
+  }
+}
+
+// A sentence a candidate can act on, never the SDK's own error text
+// ("Missing or insufficient permissions.").
+function friendlyError(err) {
+  const code = err?.code || "";
+  if (code === "permission-denied") {
+    return "This application could not be accepted. If this role was just closed, refresh the page and try again, or send a general application.";
+  }
+  if (code === "unavailable" || code === "deadline-exceeded" || err?.message === "timeout") {
+    return "The connection dropped before your application was sent. Check your internet and press Send again.";
+  }
+  return "Could not send your application. Please try again in a moment.";
+}
+
+// One application per role per browser in a short window - stops the double
+// click and the impatient resubmit. Not a security control (a script ignores
+// it); firestore.rules plus the honeypot below are the actual filters.
+const COOLDOWN_MS = 10 * 60 * 1000;
+const sentKey = (jobId) => `devert-careers:sent:${jobId || "general"}`;
+
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
+}
 
 export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
   const [form, setForm] = useState({
     name: "", email: "", phone: "", resumeUrl: "", portfolioUrl: "",
     githubUrl: "", linkedinUrl: "", devertHandle: "", coverNote: "",
   });
+  // Honeypot: a field no human can see or reach. Bots fill every input they
+  // find; a filled one means the submission is silently dropped.
+  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
@@ -54,19 +103,37 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     // Mirrors the bounds firestore.rules enforces, so an invalid application
     // fails here with a sentence a human wrote rather than as a raw
     // permission-denied from the rule.
     if (form.name.trim().length < 2) { setError("Please enter your full name."); return; }
     if (!EMAIL_RE.test(form.email.trim())) { setError("That email address doesn't look right."); return; }
+    const links = {};
+    for (const [k, label] of URL_FIELDS) {
+      const r = normaliseUrl(form[k]);
+      if (!r.ok) { setError(`Your ${label} doesn't look like a web address.`); return; }
+      links[k] = r.value;
+    }
+
+    if (website) { setDone(true); return; }
+
+    try {
+      const last = Number(localStorage.getItem(sentKey(jobId)) || 0);
+      if (Date.now() - last < COOLDOWN_MS) {
+        setError("You have already applied for this role from this browser. We have your application - no need to send it twice.");
+        return;
+      }
+    } catch { /* private mode: no cooldown, rules still apply */ }
 
     setSubmitting(true);
     setError("");
     try {
-      await submitApplication({ ...form, jobId, jobTitle, source });
+      await withTimeout(submitApplication({ ...form, ...links, jobId, jobTitle, source }), 20000);
+      try { localStorage.setItem(sentKey(jobId), String(Date.now())); } catch { /* ignore */ }
       setDone(true);
     } catch (err) {
-      setError(err?.message || "Could not send your application. Please try again in a moment.");
+      setError(friendlyError(err));
     } finally {
       setSubmitting(false);
     }
@@ -150,6 +217,22 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
             maxLength={2000}
             placeholder="Tell us about something you shipped, and what you'd want to own here." />
         </Field>
+
+        {/* Honeypot - see the comment on `website` above. Off-screen rather
+            than display:none, which some bots know to skip. */}
+        <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
+          <label htmlFor="af-website">Website</label>
+          <input id="af-website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+        </div>
+
+        <p className="mb-5 text-[12.5px] leading-relaxed text-ink-500">
+          We use these details only to consider your application and to contact you about it, and
+          delete them on request - write to{" "}
+          <a href="mailto:devert.contact@gmail.com" className="text-ink-700 underline underline-offset-2 hover:text-ink-900">devert.contact@gmail.com</a>.
+          See our{" "}
+          <a href="https://devert.in/privacy" target="_blank" rel="noopener noreferrer" className="text-ink-700 underline underline-offset-2 hover:text-ink-900">privacy policy</a>.
+          DeVert is an equal-opportunity organisation.
+        </p>
 
         {error && (
           <p role="alert"

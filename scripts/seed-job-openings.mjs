@@ -19,6 +19,7 @@
 // Usage:
 //   node scripts/seed-job-openings.mjs
 //   node scripts/seed-job-openings.mjs --dry-run
+//   node scripts/seed-job-openings.mjs --only devert-chapter-lead
 import admin from "firebase-admin";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
@@ -30,8 +31,55 @@ admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
 const DRY_RUN = process.argv.includes("--dry-run");
+// --only <slug>: touch exactly one role. Without it every role is upserted,
+// which also rewrites the copy of roles someone has since edited in admin.
+const onlyAt = process.argv.indexOf("--only");
+const ONLY = onlyAt >= 0 ? process.argv[onlyAt + 1] : null;
 
 const ROLES = [
+  {
+    // Deliberately NOT "Campus Ambassador": DeVert Campus is the product at
+    // campus.devert.in, and "Campus DeVert" / "DeVert Campus Ambassador" reads
+    // as a second product or a role inside that one. The programme is
+    // "DeVert Chapters"; the word Campus only ever means the product.
+    slug: "devert-chapter-lead",
+    title: "DeVert Chapter Lead",
+    team: "Community",
+    employmentType: "part-time",
+    locationType: "remote",
+    location: "India",
+    experience: "Current college student (any year)",
+    order: 50,
+    blurb: "Start and lead the DeVert Chapter at your college - the developer community that brings DeVert to your campus.",
+    description:
+      "A DeVert Chapter is the DeVert developer community at one college, run by students for students. The Chapter Lead is the person who starts it: you build a small core team, run sessions and coding events, and become the person your juniors and batchmates come to when they want to get better at building and problem solving.\n\n" +
+      "To be clear about the names, because they are close: DeVert Campus (campus.devert.in) is our learning platform for colleges - DSA, CS core, aptitude, GATE prep and proctored contests. A DeVert Chapter is the student community you lead. Part of your work is introducing your college to DeVert Campus and DeVert 100, but the Chapter itself is yours, not a product.\n\n" +
+      "One Chapter Lead per college. It is part-time and built to fit around your classes.",
+    responsibilities: [
+      "Start the DeVert Chapter at your college and recruit a core team of 3 to 6 students",
+      "Run at least two sessions a month - coding nights, DSA workshops, project demos, contest practice",
+      "Bring your batch into DeVert 100 and DeVert Arena, and help them stay consistent",
+      "Be the bridge to your college's placement cell, faculty and tech clubs for DeVert Campus",
+      "Share what is working and what is not with the DeVert team every two weeks",
+    ],
+    requirements: [
+      "Currently enrolled in a college in India, in any year and any branch",
+      "You code, and you enjoy helping others get better at it",
+      "Comfortable speaking in front of a room and online",
+      "Reliable: you do what you said you would, without being chased",
+    ],
+    niceToHave: [
+      "Have led or helped run a tech club, fest, hackathon or study group",
+      "Active on LinkedIn, GitHub or a developer community",
+      "Know your college's placement cell or faculty coordinators",
+    ],
+    perks: [
+      "Direct line to the DeVert founding team",
+      "Early access to new DeVert features, and a say in what gets built",
+      "Your chapter and your events featured on DeVert",
+      "A letter of recommendation from the founders for Chapter Leads who deliver",
+    ],
+  },
   {
     slug: "frontend-engineer",
     title: "Frontend Engineer",
@@ -147,6 +195,7 @@ async function main() {
   let updated = 0;
 
   for (const role of ROLES) {
+    if (ONLY && role.slug !== ONLY) continue;
     const ref = db.doc(`job_openings/${role.slug}`);
     const snap = await ref.get();
     const exists = snap.exists;

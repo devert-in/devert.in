@@ -21,11 +21,10 @@
 // lib/careers.js already exposes. No admin credentials, no new secrets.
 //
 // FRESHNESS WINDOW: the home page reads Firestore live in the browser, so a
-// role published from devert.in/admin appears there immediately. Its own
-// /{slug} page does NOT - that URL only exists for slugs present at the last
-// `next build`. A newly published role is therefore reachable and applicable
-// from the listing right away; its dedicated, indexable page appears on the
-// next deploy.
+// role published from devert.in/admin appears there immediately. Its /{slug}
+// URL works immediately too, through the shell fallback described at
+// careerStaticParams below; only its crawler-facing page (JobPosting JSON-LD,
+// sitemap entry, indexable metadata) waits for the next deploy.
 import { JOB_STATUS, fetchPublishedRoles, fetchRoleBySlug } from "@/lib/careers";
 
 const SITE = "https://careers.devert.in";
@@ -61,9 +60,16 @@ export const NO_OPEN_ROLES_SLUG = "no-open-roles";
 // It costs a single orphan HTML file that renders the same "no longer listed"
 // view a deleted role does, carries robots: noindex, and appears in no sitemap
 // or link anywhere.
+//
+// The placeholder is now ALWAYS built, not only when nothing is published: it
+// doubles as the shell firebase.json's careers target rewrites every unknown
+// path to. A role published after the last deploy has no HTML file of its own,
+// so its URL lands on this shell, and RoleDetailView reads the real slug from
+// the address bar and renders the role live from Firestore. Its indexable page
+// (JobPosting JSON-LD, sitemap entry) still arrives with the next deploy.
 export async function careerStaticParams() {
   const real = await publishedRoleSlugs();
-  return real.length > 0 ? real : [{ slug: NO_OPEN_ROLES_SLUG }];
+  return [...real, { slug: NO_OPEN_ROLES_SLUG }];
 }
 
 // Returns null (not a throw) for an unknown slug, so the page component can

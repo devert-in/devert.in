@@ -49,7 +49,7 @@ const SECTIONS = [
   {
     id: "data-retention",
     title: "06. Data Retention",
-    content: `We retain your data for as long as your account is active. If you request account deletion, we will delete your personal data within 30 days, except where retention is required by law. Platform activity data (arena matches, leaderboard history) may be retained in anonymized/aggregated form after account deletion.`,
+    content: `We retain your data for as long as your account is active. If you request account deletion, we will delete your personal data within 30 days, except where retention is required by law. Platform activity data (arena matches, leaderboard history) may be retained in anonymized/aggregated form after account deletion.\n\nJob applicants (careers.devert.in): you do not need an account to apply. We collect only what the application form asks for - your name, email, and optionally your phone number, profile links and a cover note - and use it only to consider your application and contact you about it. It is visible only to the DeVert team. We keep applications for up to 12 months so we can reach you if a suitable role opens, and delete yours sooner on request: write to devert.contact@gmail.com from the email address you applied with.`,
   },
   {
     id: "your-rights",

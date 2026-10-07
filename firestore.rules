@@ -1150,7 +1150,10 @@ service cloud.firestore {
         && d.keys().hasAll(['institution', 'name', 'email', 'status', 'createdAt'])
         && d.institution is string && d.institution.size() >= 2 && d.institution.size() <= 120
         && d.name is string && d.name.size() >= 2 && d.name.size() <= 80
-        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@]+@[^@]+[.][^@]+$')
+        // No space or ? & # % - a security test showed the old pattern let
+        // `a@b.co?cc=x%40evil.com` through, which the inbox's mailto: link then
+        // turned into a reply silently copied to a third party.
+        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@ ?&#%]+@[^@ ?&#%]+[.][^@ ?&#%]+$')
         && d.get('role', '') is string && d.get('role', '').size() <= 40
         && d.get('phone', '') is string && d.get('phone', '').size() <= 24
         && d.get('students', '') is string && d.get('students', '').size() <= 24
@@ -1188,7 +1191,10 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly(['email', 'name', 'institution', 'plan', 'uid', 'source', 'status', 'createdAt'])
         && d.keys().hasAll(['email', 'plan', 'status', 'createdAt'])
-        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@]+@[^@]+[.][^@]+$')
+        // No space or ? & # % - a security test showed the old pattern let
+        // `a@b.co?cc=x%40evil.com` through, which the inbox's mailto: link then
+        // turned into a reply silently copied to a third party.
+        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@ ?&#%]+@[^@ ?&#%]+[.][^@ ?&#%]+$')
         && d.get('name', '') is string && d.get('name', '').size() <= 80
         && d.get('institution', '') is string && d.get('institution', '').size() <= 120
         && d.plan is string && d.plan.size() >= 1 && d.plan.size() <= 40
@@ -1207,17 +1213,19 @@ service cloud.firestore {
     // DeVert own hiring. Two collections, deliberately opposite trust models;
     // lib/careers.js documents the client half of the same boundary.
     //
-    // job_openings is WORLD-READABLE, which is unusual in this file and
-    // intentional. A job posting nobody can read without an account is not a job
-    // posting, and app/careers/[slug] builds its Google-indexable JobPosting
-    // structured data from these docs at build time - output: export has no
-    // server and no admin credentials there, so the build reads them as an
-    // anonymous client exactly like a visitor does. Note the consequence: a
-    // DRAFT role is unlisted, not secret. /careers only queries for
-    // status == published, but anyone who guesses the slug can read the doc.
-    // Never put anything confidential in an unpublished posting.
+    // job_openings is public for PUBLISHED and CLOSED roles, which is unusual in
+    // this file and intentional. A job posting nobody can read without an
+    // account is not a job posting, and devert-careers' app/[slug] builds its
+    // Google-indexable JobPosting structured data from these docs at build
+    // time - output: export has no server and no admin credentials there, so
+    // the build reads them as an anonymous client exactly like a visitor does.
+    // Closed stays readable so an old link shows "no longer open" rather than
+    // nothing. DRAFTS are admin-only: this used to be `if true`, and a security
+    // test showed an anonymous `where status == draft` query listed every
+    // unpublished role - "unlisted" was really "public". Every public query
+    // already filters on status == published, so the rule can prove them.
     match /job_openings/{slug} {
-      allow read:  if true;
+      allow read:  if resource.data.status in ['published', 'closed'] || isAdmin();
       allow write: if isAdmin();
     }
 
@@ -1251,9 +1259,20 @@ service cloud.firestore {
               'devertHandle', 'coverNote', 'source', 'uid', 'status', 'createdAt'])
         && d.keys().hasAll(['jobId', 'name', 'email', 'status', 'createdAt'])
         && d.jobId is string && d.jobId.size() >= 1 && d.jobId.size() <= 120
+        // The role must exist and be published or closed (a closed role's page
+        // still invites applications, kept for when it reopens), or be the
+        // general-interest form.
+        // Without this an applicant could file against a draft or an invented
+        // jobId - the security test sent jobId "ceo" and it was accepted.
+        && (d.jobId == 'general'
+            || (exists(/databases/$(database)/documents/job_openings/$(d.jobId))
+                && get(/databases/$(database)/documents/job_openings/$(d.jobId)).data.status in ['published', 'closed']))
         && d.get('jobTitle', '') is string && d.get('jobTitle', '').size() <= 160
         && d.name is string && d.name.size() >= 2 && d.name.size() <= 80
-        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@]+@[^@]+[.][^@]+$')
+        // No space or ? & # % - a security test showed the old pattern let
+        // `a@b.co?cc=x%40evil.com` through, which the inbox's mailto: link then
+        // turned into a reply silently copied to a third party.
+        && d.email is string && d.email.size() <= 160 && d.email.matches('^[^@ ?&#%]+@[^@ ?&#%]+[.][^@ ?&#%]+$')
         && d.get('phone', '') is string && d.get('phone', '').size() <= 24
         && d.get('resumeUrl', '') is string && d.get('resumeUrl', '').size() <= 500
         && d.get('portfolioUrl', '') is string && d.get('portfolioUrl', '').size() <= 500
