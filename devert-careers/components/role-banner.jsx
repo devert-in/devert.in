@@ -52,7 +52,11 @@ function Art({ src, card }) {
     // eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer
     <img src={src} alt="" aria-hidden="true" loading={card ? "lazy" : "eager"}
       className={card
-        ? "pointer-events-none absolute right-0 top-0 h-full w-[46%] object-cover object-center opacity-80"
+        // Card strip: a fixed-width box no wider than the art itself (596px),
+        // so it is only ever scaled DOWN - it was stretched across 46% of a
+        // wide card and cropped to a thin band of windows - and framed on the
+        // clock tower and roofline so the campus is recognisable at a glance.
+        ? "pointer-events-none absolute right-0 top-0 h-full w-[58%] max-w-[360px] object-cover object-[50%_30%]"
         : "pointer-events-none absolute right-0 top-0 h-full w-full object-cover object-right opacity-25 sm:w-[44%] sm:opacity-100"}
       style={{
         WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 48%)",
@@ -78,7 +82,7 @@ export function RoleBanner({ role, variant = "card" }) {
 
   if (variant === "card") {
     return (
-      <div className={`${PANEL} -mx-5 -mt-5 mb-4 h-[72px] border-b border-ink-200 px-5 sm:-mx-6 sm:-mt-6 sm:h-[84px] sm:px-6`}>
+      <div className={`${PANEL} -mx-5 -mt-5 mb-4 ${art ? "h-[112px] sm:h-[136px]" : "h-[72px] sm:h-[84px]"} border-b border-ink-200 px-5 sm:-mx-6 sm:-mt-6 sm:px-6`}>
         <span aria-hidden="true" className="absolute inset-x-0 top-0 z-10 h-[3px] bg-brand-600" />
         {art ? <Art src={art} card /> : <Traces />}
         <div className="relative flex h-full items-center justify-between gap-3">
