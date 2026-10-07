@@ -115,7 +115,7 @@ function roleImage(slug, title) {
 }
 
 export function buildRoleMetadata(role, slug) {
-  const url = `${SITE}/${slug}`;
+  const url = `${SITE}/roles/${slug}`;
   const where = locationLabel(role);
   const title = where ? `${role.title} - ${where}` : role.title;
   const description = trimmedDescription(role);
@@ -184,7 +184,7 @@ function descriptionHtml(role) {
 // a role missing postedAt gets no JobPosting block at all rather than a guessed
 // date - an absent rich result beats an invalid one.
 export function roleJsonLd(role, slug) {
-  const url = `${SITE}/${slug}`;
+  const url = `${SITE}/roles/${slug}`;
   const datePosted = toIso(role.postedAt);
   const validThrough = toIso(role.validThrough);
 

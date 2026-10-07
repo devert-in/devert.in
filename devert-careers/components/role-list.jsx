@@ -55,7 +55,7 @@ function RoleRow({ role }) {
   // cropped. Everything else gets the drawn strip.
   const card = ROLE_ART[role.id]?.card;
   return (
-    <Link href={`/${role.id}`}
+    <Link href={`/roles/${role.id}`}
       className="group flex flex-col overflow-hidden rounded-2xl border border-ink-200 bg-ink-100 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_14px_32px_-14px_rgba(60,232,111,0.25)]">
       {card ? (
         // eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer

@@ -167,7 +167,7 @@ export function CareersPanel() {
       // silently merge over that posting, because the slug IS the doc ID. Refuse
       // instead - the fix is a different title, not a surprise overwrite.
       if (!editing && existing) {
-        setError(`A role already exists at careers.devert.in/${slug}. Edit it, or pick a different title.`);
+        setError(`A role already exists at careers.devert.in/roles/${slug}. Edit it, or pick a different title.`);
         setBusy("");
         return;
       }
@@ -292,7 +292,7 @@ export function CareersPanel() {
           { key: "title", label: "Role", render: (r) => (
             <div className="min-w-0 w-[260px] xl:w-[320px]">
               <p className="font-sans text-sm font-medium text-white truncate">{r.title || "(untitled)"}</p>
-              <p className="font-sans text-xs text-white/40 truncate">{r.team || "No team"} - careers.devert.in/{r.id}</p>
+              <p className="font-sans text-xs text-white/40 truncate">{r.team || "No team"} - careers.devert.in/roles/{r.id}</p>
             </div>
           ) },
           { key: "locationType", label: "Location", render: (r) => (
@@ -337,7 +337,7 @@ export function CareersPanel() {
 
       <Drawer open={editing !== null} onClose={closeDrawer}
         title={editing ? `Edit ${form.title || editing}` : "New role"}
-        subtitle={editing ? `careers.devert.in/${editing} - the slug is locked once created` : "Saved as a draft; publish it from the table."}
+        subtitle={editing ? `careers.devert.in/roles/${editing} - the slug is locked once created` : "Saved as a draft; publish it from the table."}
         footer={<>
           {editingRow && (
             <div className="mr-auto">
@@ -402,7 +402,7 @@ export function CareersPanel() {
           </div>
         </DrawerSection>
 
-        <DrawerSection title="Role page" hint="The body of careers.devert.in/{slug}. List fields take one item per line.">
+        <DrawerSection title="Role page" hint="The body of careers.devert.in/roles/{slug}. List fields take one item per line.">
           <Textarea label="DESCRIPTION" value={form.description} onChange={set("description")} rows={4}
             placeholder="The full prose intro shown at the top of the role page." />
           <Textarea label="RESPONSIBILITIES (one per line)" value={form.responsibilities} onChange={set("responsibilities")} rows={5} />

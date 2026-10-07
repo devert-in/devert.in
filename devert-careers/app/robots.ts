@@ -11,7 +11,7 @@ export default function robots() {
       // role is published (see lib/careers-seo.js's careerStaticParams). It is
       // already served with a noindex meta tag and is in no sitemap; this is
       // belt and braces so it is never even fetched.
-      disallow: ["/no-open-roles"],
+      disallow: ["/roles/no-open-roles"],
     },
     sitemap: "https://careers.devert.in/sitemap.xml",
   };

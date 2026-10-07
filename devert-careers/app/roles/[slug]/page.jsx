@@ -1,4 +1,4 @@
-// A single role, at careers.devert.in/{slug}.
+// A single role, at careers.devert.in/roles/{slug}.
 //
 // Note the path shape: domain-root, NOT /careers/{slug}. This app IS careers,
 // so there is no "careers" segment any more - the same reshaping Campus went

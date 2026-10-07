@@ -262,7 +262,7 @@ export function JobApplicationsPanel() {
                 <Field label="Role">
                   {open.jobId === GENERAL_INTEREST_JOB_ID
                     ? "General application - no specific role"
-                    : `${open.jobTitle || "(role deleted)"} - careers.devert.in/${open.jobId}`}
+                    : `${open.jobTitle || "(role deleted)"} - careers.devert.in/roles/${open.jobId}`}
                 </Field>
                 {open.engagement && (
                   <Field label="Applying as">

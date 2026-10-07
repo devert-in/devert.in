@@ -59,7 +59,7 @@
         },
         {
           "source": "/careers/:splat*",
-          "destination": "https://careers.devert.in/:splat*",
+          "destination": "https://careers.devert.in/roles/:splat*",
           "type": 301
         }
       ],
@@ -132,8 +132,8 @@
       "trailingSlash": false,
       "rewrites": [
         {
-          "source": "**",
-          "destination": "/no-open-roles.html"
+          "source": "/roles/**",
+          "destination": "/roles/no-open-roles.html"
         }
       ],
       "headers": [
@@ -166,6 +166,48 @@
               "value": "camera=(), microphone=(), geolocation=()"
             }
           ]
+        }
+      ],
+      "redirects": [
+        {
+          "source": "/devert-campus-leader",
+          "destination": "/roles/devert-campus-leader",
+          "type": 301
+        },
+        {
+          "source": "/ai-engineer-rag-agents",
+          "destination": "/roles/ai-engineer-rag-agents",
+          "type": 301
+        },
+        {
+          "source": "/full-stack-engineer",
+          "destination": "/roles/full-stack-engineer",
+          "type": 301
+        },
+        {
+          "source": "/content-engineer",
+          "destination": "/roles/content-engineer",
+          "type": 301
+        },
+        {
+          "source": "/qa-release-tester",
+          "destination": "/roles/qa-release-tester",
+          "type": 301
+        },
+        {
+          "source": "/content-creator-reels",
+          "destination": "/roles/content-creator-reels",
+          "type": 301
+        },
+        {
+          "source": "/content-researcher",
+          "destination": "/roles/content-researcher",
+          "type": 301
+        },
+        {
+          "source": "/no-open-roles",
+          "destination": "/roles/no-open-roles",
+          "type": 301
         }
       ]
     }

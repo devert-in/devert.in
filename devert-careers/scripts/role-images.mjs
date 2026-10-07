@@ -133,7 +133,7 @@ function roleCard(role) {
     row({ fontSize: title.length > 28 ? 64 : 76, fontWeight: 700, color: C.ink900, lineHeight: 1.05, letterSpacing: -1.5 }, title),
     blurb ? row({ fontSize: 28, color: C.ink700, lineHeight: 1.35, marginTop: 22, maxWidth: 980 }, blurb) : null,
     meta ? row({ fontSize: 24, color: C.ink400, marginTop: 24 }, meta) : null,
-  ].filter(Boolean), `careers.devert.in/${role.slug}`);
+  ].filter(Boolean), `careers.devert.in/roles/${role.slug}`);
 }
 
 function siteCard() {

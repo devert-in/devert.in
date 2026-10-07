@@ -148,7 +148,7 @@ export function RoleBanner({ role, variant = "card" }) {
 
         <div className="mt-10 flex flex-wrap items-center justify-between gap-4 sm:mt-14">
           <span className="break-all font-mono text-[13px] font-medium text-[#00e5ff] sm:text-[15px]">
-            {SITE_HOST}/{role.id}
+            {SITE_HOST}/roles/{role.id}
           </span>
           <a href="#apply"
             className="inline-flex rounded-xl bg-brand-600 px-7 py-3 text-[15px] font-bold text-[#05080F] transition-colors hover:bg-brand-700">

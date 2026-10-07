@@ -57,7 +57,9 @@ export function RoleDetailView({ slug: builtSlug }) {
   // rewrites its URL to the no-open-roles shell, so the prop says
   // "no-open-roles" while the visitor asked for the real role.
   const pathname = usePathname();
-  const slug = (pathname || "").split("/").filter(Boolean)[0] || builtSlug;
+  // Roles live at /roles/{slug}; the segment after "roles" is the slug.
+  const parts = (pathname || "").split("/").filter(Boolean);
+  const slug = (parts[0] === "roles" ? parts[1] : null) || builtSlug;
 
   useEffect(() => {
     let alive = true;

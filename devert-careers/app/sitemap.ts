@@ -30,7 +30,7 @@ export default async function sitemap() {
     // noindex placeholder when nothing is published, to keep output: 'export'
     // from failing the build, and that placeholder must never be advertised.
     ...roles.map((r: any) => ({
-      url: `https://careers.devert.in/${r.slug}`,
+      url: `https://careers.devert.in/roles/${r.slug}`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.8,
