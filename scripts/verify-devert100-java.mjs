@@ -45,13 +45,35 @@ function javaBlocks(md) {
   return out;
 }
 
+// LeetCode supplies these node types, and published code must NOT redeclare
+// them (pasting a second `class ListNode` into LeetCode is a duplicate-class
+// error). So the verifier supplies them instead, as LeetCode defines them,
+// whenever a block uses one without declaring it.
+const SUPPORT = {
+  ListNode: "class ListNode { int val; ListNode next; ListNode() {} ListNode(int val) { this.val = val; } ListNode(int val, ListNode next) { this.val = val; this.next = next; } }",
+  TreeNode: "class TreeNode { int val; TreeNode left; TreeNode right; TreeNode() {} TreeNode(int val) { this.val = val; } TreeNode(int val, TreeNode left, TreeNode right) { this.val = val; this.left = left; this.right = right; } }",
+  // Clone Graph's node (LC 133).
+  Node: "class Node { public int val; public List<Node> neighbors; public Node() { val = 0; neighbors = new ArrayList<Node>(); } public Node(int _val) { val = _val; neighbors = new ArrayList<Node>(); } public Node(int _val, ArrayList<Node> _neighbors) { val = _val; neighbors = _neighbors; } }",
+};
+
 // Each block declares `class Solution`, so they cannot share a file. Every
-// block is compiled on its own, renamed to keep them apart.
+// block is compiled on its own, renamed to keep them apart - and any support
+// class it needs is suffixed per block for the same reason.
 function compileBlock(code, name, work) {
-  const renamed = code.replace(/\bclass\s+Solution\b/, `class ${name}`);
-  const needsImports = /\bMap<|\bHashMap<|\bList<|\bArrayList<|\bSet<|\bHashSet<|Arrays\./.test(renamed)
-    && !/^import /m.test(renamed);
-  const src = (needsImports ? "import java.util.*;" + LF + LF : "") + renamed;
+  let renamed = code.replace(/\bclass\s+Solution\b/, `class ${name}`);
+  const extra = [];
+  // Showing LeetCode's definition as a comment is common and harmless, so
+  // only uncommented code counts as declaring a support class.
+  const uncommented = renamed.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  for (const [cls, def] of Object.entries(SUPPORT)) {
+    const word = new RegExp(`\\b${cls}\\b`, "g");
+    if (!word.test(renamed) || new RegExp(`\\bclass\\s+${cls}\\b`).test(uncommented)) continue;
+    renamed = renamed.replace(word, `${cls}_${name}`);
+    extra.push(def.replace(word, `${cls}_${name}`));
+  }
+  // java.util is what LeetCode's editor pre-imports; mirror it.
+  const imports = /^import java\.util\.\*;/m.test(renamed) ? "" : "import java.util.*;" + LF + LF;
+  const src = imports + renamed + (extra.length ? LF + LF + extra.join(LF) : "");
   const file = join(work, `${name}.java`);
   writeFileSync(file, src);
   execFileSync("javac", ["-nowarn", "-d", work, file], { stdio: "pipe" });
