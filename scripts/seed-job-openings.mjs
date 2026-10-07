@@ -36,7 +36,194 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const onlyAt = process.argv.indexOf("--only");
 const ONLY = onlyAt >= 0 ? process.argv[onlyAt + 1] : null;
 
+// The founders' stated model for these roles: flexible compensation, agreed up
+// front per person - volunteer, performance-based stipend, or paid. Said once,
+// identically, in every role it applies to.
+const COMP =
+  "Compensation is flexible and agreed up front: this role is open as volunteer, as a performance-based stipend, or as paid work, depending on your commitment and what you ship.";
+
 const ROLES = [
+  {
+    slug: "full-stack-engineer",
+    title: "Full-Stack Engineer",
+    team: "Engineering",
+    employmentType: "part-time",
+    locationType: "remote",
+    location: "India",
+    experience: "Student or early-career - shipped work matters more than years",
+    order: 60,
+    blurb: "Own DeVert features end to end - Next.js, Firestore, security rules and Cloud Functions - across devert.in, Campus and Careers.",
+    description:
+      "DeVert is three Next.js apps (devert.in, DeVert Campus, DeVert Careers) talking directly to Firestore, with Firebase Cloud Functions and a small Spring Boot service for the few things a browser cannot do safely. There is no layer to hide behind: what you build is what students use.\n\n" +
+      "You would take whole features off the founders' plates - from the data model and the security rules through the interface - rather than tickets. One of the first: moving coin and reward granting out of the browser and into Cloud Functions, where it belongs.\n\n" + COMP,
+    responsibilities: [
+      "Build and own complete features in Next.js (App Router) and React across all three apps",
+      "Model data in Firestore and write the security rules that protect it - they are the real authority boundary here",
+      "Move trust-sensitive logic (rewards, coins, grading) into Cloud Functions",
+      "Fix what you find, and leave every file you touch clearer than you found it",
+    ],
+    requirements: [
+      "Real React work you can walk us through - a repo, a product, a side project",
+      "Comfortable with async data, Firestore or a similar database, and reading other people's code",
+      "Careful with anything that touches money, scores or user data",
+      "Writes clearly - most decisions here happen in text",
+    ],
+    niceToHave: [
+      "Firebase security rules or Cloud Functions in production",
+      "Next.js static export, SEO and performance on low-end phones",
+      "Some Java or Spring Boot",
+    ],
+    perks: [
+      "Ownership of features used by students across colleges",
+      "Direct work with the founders, and a real say in the architecture",
+      "Remote and flexible around classes or another job",
+      "A strong reference for work you actually shipped",
+    ],
+  },
+  {
+    slug: "qa-release-tester",
+    title: "QA & Release Tester",
+    team: "Engineering",
+    employmentType: "internship",
+    locationType: "remote",
+    location: "India",
+    experience: "Student (any year) - curiosity over credentials",
+    order: 70,
+    blurb: "Be the reason a bug never reaches a student: test every DeVert release across three sites, real phones and five programming languages.",
+    description:
+      "DeVert ships often: devert.in, DeVert Campus, DeVert Careers, an admin console, contests, payouts, and a code editor that runs Java, Python, C++, JavaScript and C. Every bug a student finds before we do costs their trust.\n\n" +
+      "You would own quality: a checklist for every release, testing on real phones and slow networks, bug reports a developer can act on in one read - and, as you grow into it, automated tests that catch regressions for us.\n\n" + COMP,
+    responsibilities: [
+      "Test every release before and after it goes live, against a checklist you build and keep current",
+      "Test on real devices and slow connections - most of our users are on mid-range Android phones",
+      "Write clear bug reports: steps, expected, actual, screenshot or recording",
+      "Grow the automated test suites - security-rule tests, end-to-end browser tests",
+    ],
+    requirements: [
+      "Notices when something is slightly off, and cannot leave it alone",
+      "Clear, precise writing",
+      "Basic comfort with a browser's developer tools",
+      "Reliable: a release checklist only works if it is actually run",
+    ],
+    niceToHave: [
+      "Some coding in any language, or interest in learning test automation (Playwright)",
+      "You have used DeVert, DeVert Campus or DeVert 100 yourself",
+    ],
+    perks: [
+      "Learn how a real product is built and shipped, from the inside",
+      "A path into automation and engineering work",
+      "Remote and flexible around classes",
+      "A reference that says what you caught",
+    ],
+  },
+  {
+    slug: "content-engineer-dsa-gate",
+    title: "Content Engineer - DSA & GATE",
+    team: "Content",
+    employmentType: "part-time",
+    locationType: "remote",
+    location: "India",
+    experience: "Strong DSA or GATE preparation - student or graduate",
+    order: 80,
+    blurb: "Build the problems, test cases and verified GATE questions behind DeVert Campus and DeVert 100 - for students who are judged on them.",
+    description:
+      "DeVert teaches DSA, CS core subjects and GATE preparation, and grades code against hidden test cases. That content has to be right: a wrong answer key marks a correct student wrong, and a missing test case lets a wrong solution pass.\n\n" +
+      "There is real work waiting. Hundreds of GATE previous-year questions are imported from the official papers as drafts, without answer keys and with their figures missing, and none can be published until someone verifies them. You would also write DSA problems with complete hidden test cases, and keep DeVert 100's writeups and test cases correct.\n\n" + COMP,
+    responsibilities: [
+      "Verify GATE previous-year questions - answer keys, missing symbols and figures - so they can be published",
+      "Write DSA problems with correct, complete hidden test cases, including the edge cases",
+      "Review and improve lesson and DeVert 100 content, and fix what is wrong",
+      "Check that grading did what you intended after every contest",
+    ],
+    requirements: [
+      "Strong DSA fundamentals, or strong GATE CS / DA preparation - you can solve and explain",
+      "Writes reference solutions in C++, Java or Python",
+      "Cares about correctness down to a single off-by-one",
+      "Clear technical writing in plain English",
+    ],
+    niceToHave: [
+      "A good GATE rank or competitive programming record",
+      "Teaching, tutoring or mentoring experience",
+    ],
+    perks: [
+      "Your work is used by whole college cohorts and GATE aspirants",
+      "Remote, flexible hours - output matters, not a clock",
+      "Credit for the content you author",
+      "A strong reference for work you actually shipped",
+    ],
+  },
+  {
+    slug: "content-researcher",
+    title: "Content Researcher",
+    team: "Content",
+    employmentType: "internship",
+    locationType: "remote",
+    location: "India",
+    experience: "Student (any year)",
+    order: 90,
+    blurb: "Find, verify and organise the information students need - interview experiences, company question patterns, opportunities and college contacts.",
+    description:
+      "Students come to DeVert to get placed. That needs more than practice problems: real interview experiences, the question patterns specific companies use, live internship and job openings, and - for DeVert Campus - the right people at each college's placement cell.\n\n" +
+      "You would gather that information, check it, and put it into a shape the platform can use. Accuracy over volume: one verified interview experience beats ten copied ones.\n\n" + COMP,
+    responsibilities: [
+      "Collect and verify interview experiences and company-wise question patterns",
+      "Track internship, job and hackathon opportunities worth listing",
+      "Build lists of placement cells, faculty coordinators and tech clubs for DeVert Campus outreach",
+      "Keep everything sourced, current and organised",
+    ],
+    requirements: [
+      "Thorough and organised - you check a source before trusting it",
+      "Good with spreadsheets and clear notes",
+      "Clear written English",
+      "Reliable with weekly deliverables",
+    ],
+    niceToHave: [
+      "Understanding of campus placements from the student side",
+      "Contacts in your college's placement cell or tech clubs",
+    ],
+    perks: [
+      "See how placements and hiring really work across companies",
+      "Remote and flexible around classes",
+      "A reference that reflects the work you delivered",
+    ],
+  },
+  {
+    slug: "ai-engineer-rag-agents",
+    title: "AI Engineer - RAG & Agents",
+    team: "AI",
+    employmentType: "part-time",
+    locationType: "remote",
+    location: "India",
+    experience: "Built at least one real LLM project - student or early-career",
+    order: 55,
+    blurb: "Build DeVert's AI layer - retrieval over our learning content, tutoring agents that explain and debug, and the evaluation that keeps them honest.",
+    description:
+      "AI is where DeVert is heading. We already run an AI gateway that routes requests across providers (Groq, Gemini, OpenRouter and Claude) behind one OpenAI-compatible endpoint. What comes next is built on top of it: retrieval (RAG) over DeVert's own content - DSA deep dives, GATE questions, lessons - and agents that can explain a concept, review a learner's code, or work out why it fails a test case.\n\n" +
+      "This is not prompt-pasting. Answers students act on have to be grounded in our content, measurable, and cheap enough to run for everyone.\n\n" + COMP,
+    responsibilities: [
+      "Build retrieval pipelines over DeVert's content - chunking, embeddings, vector search, re-ranking",
+      "Build agents for tutoring, code review and debugging help, on the existing AI gateway",
+      "Set up evaluation so we know when an answer is grounded, correct and helpful - and when it is not",
+      "Keep cost and latency in check across providers",
+    ],
+    requirements: [
+      "Shipped at least one real LLM application - RAG, an agent or a tool-using assistant - you can walk us through",
+      "Solid Python or TypeScript",
+      "Understand embeddings, retrieval and their failure modes",
+      "Honest about what a model can and cannot do",
+    ],
+    niceToHave: [
+      "LLM evaluation, or ML fundamentals beyond API calls",
+      "Experience with Firebase, Cloud Functions or a vector database",
+      "A strong DSA background - our content is technical",
+    ],
+    perks: [
+      "Build the core of what DeVert is becoming",
+      "Real users and real data to evaluate against",
+      "Remote and flexible",
+      "Direct work with the founders",
+    ],
+  },
   {
     // Named by the owner. "DeVert Campus Leader" deliberately shares the
     // product's name: the role IS DeVert's student lead at one college,
@@ -84,78 +271,6 @@ const ROLES = [
     ],
   },
   {
-    slug: "frontend-engineer",
-    title: "Frontend Engineer",
-    team: "Engineering",
-    employmentType: "full-time",
-    locationType: "hybrid",
-    location: "Hyderabad",
-    experience: "1-3 years",
-    order: 100,
-    blurb: "Own whole surfaces of the product - Arena, Pulse, Shipyard - end to end, in Next.js and Firestore.",
-    description:
-      "DeVert runs as a static Next.js export talking straight to Firestore from the browser, with no application server in the request path. That makes the frontend the product: what you build is what users get, and there is no backend team to hide a bad interaction behind.\n\nYou would own entire surfaces rather than tickets - a module like Arena or Shipyard, from the data model through the interaction design to the thing that ships.",
-    responsibilities: [
-      "Build and own complete product surfaces in Next.js (App Router) and React",
-      "Model and query Firestore directly, including live onSnapshot listeners",
-      "Hold the line on the neon-terminal design system rather than reinventing it per screen",
-      "Write the Firestore security rules for whatever you build - they are the real authority boundary here",
-      "Keep the static export fast on a mid-range Android phone on Indian mobile data",
-    ],
-    requirements: [
-      "Real, shipped React work you can walk us through - a repo, a product, a side project",
-      "Comfortable with async data, caching and the parts of state management that actually bite",
-      "Can read a design and improve it, rather than only implementing it pixel for pixel",
-      "Writes clearly - most decisions here get made in text, not meetings",
-    ],
-    niceToHave: [
-      "Firebase or another BaaS in production, especially security rules",
-      "Next.js static export, SEO and structured data",
-      "An eye for motion and micro-interaction",
-    ],
-    perks: [
-      "Full ownership of a product surface used by real developers",
-      "Flexible hybrid working - see the Workplace Policy",
-      "Direct say in the roadmap, not a backlog handed down",
-      "Hardware you need to do the work",
-    ],
-  },
-  {
-    slug: "content-engineer-dsa",
-    title: "Content Engineer - DSA & CS Core",
-    team: "Content",
-    employmentType: "full-time",
-    locationType: "remote",
-    location: "India",
-    experience: "0-2 years",
-    order: 200,
-    blurb: "Write the problems, lessons and test cases behind DeVert Campus - for students who will be judged on them.",
-    description:
-      "DeVert Campus teaches DSA, CS core subjects, aptitude and GATE prep to college students, and runs proctored contests their placement cells actually use. Someone has to author that: the problems, the hidden test cases they are graded against, the lesson content, and the explanations that make a wrong answer make sense.\n\nThis is an engineering job that outputs content. If a hidden test case is wrong, a student's score is wrong.",
-    responsibilities: [
-      "Author DSA problems with correct, complete hidden test cases including the edge cases",
-      "Write lesson content for CS core subjects and programming languages",
-      "Build and verify contest question sets, then check the grading did what you intended",
-      "Audit existing content for errors - a wrong explanation is worse than a missing one",
-    ],
-    requirements: [
-      "Strong DSA fundamentals - you can solve and, more importantly, explain",
-      "Can write code in at least one of C++, Java or Python well enough to build reference solutions",
-      "Genuinely good technical writing, in plain English",
-      "Care about correctness at the level of a single off-by-one in a test case",
-    ],
-    niceToHave: [
-      "Competitive programming background",
-      "Taught, tutored or mentored before",
-      "GATE or placement-prep experience from the student side",
-    ],
-    perks: [
-      "Fully remote",
-      "Your work is used by entire college cohorts, not an anonymous audience",
-      "Flexible hours - output matters, not a clock",
-    ],
-  },
-  {
     slug: "community-growth-intern",
     title: "Community & Growth Intern",
     team: "Community",
@@ -164,11 +279,11 @@ const ROLES = [
     location: "India",
     experience: "Student or fresher",
     order: 300,
-    blurb: "Run the campus ambassador programme and the events that bring developers onto the platform.",
+    blurb: "Run the DeVert Campus Leader programme and the events that bring developers onto the platform.",
     description:
-      "DeVert grows through developers who already know other developers - campus ambassadors, hackathons, and communities that were not built by a marketing team. This role runs that: the ambassador programme end to end, event operations, and the parts of the platform where people actually talk to each other.\n\nPaid, real ownership, and not a shadowing exercise.",
+      "DeVert grows through developers who already know other developers - DeVert Campus Leaders, hackathons, and communities that were not built by a marketing team. This role runs that: the Campus Leader programme end to end, event operations, and the parts of the platform where people actually talk to each other.\n\nPaid, real ownership, and not a shadowing exercise.",
     responsibilities: [
-      "Run the campus ambassador programme - recruiting, onboarding and supporting ambassadors",
+      "Run the DeVert Campus Leader programme - recruiting, onboarding and supporting Campus Leaders",
       "Help operate hackathons and events from registration through results",
       "Keep the community surfaces alive: Pulse, communities, broadcasts",
       "Report honestly on what is working and what is not",
