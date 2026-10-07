@@ -161,7 +161,10 @@ for (const d of days) {
   const spec = harnessByDay[d.day];
   if (!spec) continue;
   const main = d.problems.find(p => p.type === "Main") || d.problems[0];
-  if (main) main.harness = spec;
+  // Stored as a JSON STRING, not a map: Firestore rejects arrays nested inside
+  // arrays ("invalid nested entity"), and every grid, matrix and design-problem
+  // args list in a spec is exactly that. The workspace parses it once per day.
+  if (main) main.harnessJson = JSON.stringify(spec);
 }
 
 const targets = days.filter(d => !ONLY || ONLY.has(d.day));

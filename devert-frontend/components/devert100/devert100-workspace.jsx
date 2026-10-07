@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -301,7 +301,14 @@ export function Devert100Workspace({ day }) {
   // A day with a harness spec is LeetCode-style: the learner writes only the
   // function, and Run checks it against the day's visible cases. A day without
   // one keeps the plain full-program scratchpad.
-  const harness = mainProblem(dayDoc)?.harness || null;
+  // Stored as a JSON string (scripts/import-devert100.mjs says why); memoised on
+  // the string so the parsed object keeps one identity across renders - the
+  // draft and live-check effects depend on it.
+  const harnessJson = mainProblem(dayDoc)?.harnessJson || null;
+  const harness = useMemo(() => {
+    if (!harnessJson) return null;
+    try { return JSON.parse(harnessJson); } catch { return null; }
+  }, [harnessJson]);
 
   // Drafts are per day AND per language, kept in localStorage only. This is
   // scratch work on an external problem, not a graded submission, so it has no
