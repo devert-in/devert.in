@@ -19,7 +19,7 @@
 // Usage:
 //   node scripts/seed-job-openings.mjs
 //   node scripts/seed-job-openings.mjs --dry-run
-//   node scripts/seed-job-openings.mjs --only devert-chapter-lead
+//   node scripts/seed-job-openings.mjs --only devert-campus-leader
 import admin from "firebase-admin";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
@@ -38,25 +38,28 @@ const ONLY = onlyAt >= 0 ? process.argv[onlyAt + 1] : null;
 
 const ROLES = [
   {
-    // Deliberately NOT "Campus Ambassador": DeVert Campus is the product at
-    // campus.devert.in, and "Campus DeVert" / "DeVert Campus Ambassador" reads
-    // as a second product or a role inside that one. The programme is
-    // "DeVert Chapters"; the word Campus only ever means the product.
-    slug: "devert-chapter-lead",
-    title: "DeVert Chapter Lead",
+    // Named by the owner. "DeVert Campus Leader" deliberately shares the
+    // product's name: the role IS DeVert's student lead at one college,
+    // including bringing that college onto the DeVert Campus platform. The
+    // description still says in so many words that DeVert Campus is the
+    // product and this is a student role, so nobody applies thinking it is a
+    // job at a separate company. Never "Campus DeVert" - that reads as a
+    // second product.
+    slug: "devert-campus-leader",
+    title: "DeVert Campus Leader",
     team: "Community",
     employmentType: "part-time",
     locationType: "remote",
     location: "India",
     experience: "Current college student (any year)",
     order: 50,
-    blurb: "Start and lead the DeVert Chapter at your college - the developer community that brings DeVert to your campus.",
+    blurb: "Lead DeVert at your college - build the student developer community there and bring your campus onto DeVert.",
     description:
-      "A DeVert Chapter is the DeVert developer community at one college, run by students for students. The Chapter Lead is the person who starts it: you build a small core team, run sessions and coding events, and become the person your juniors and batchmates come to when they want to get better at building and problem solving.\n\n" +
-      "To be clear about the names, because they are close: DeVert Campus (campus.devert.in) is our learning platform for colleges - DSA, CS core, aptitude, GATE prep and proctored contests. A DeVert Chapter is the student community you lead. Part of your work is introducing your college to DeVert Campus and DeVert 100, but the Chapter itself is yours, not a product.\n\n" +
-      "One Chapter Lead per college. It is part-time and built to fit around your classes.",
+      "The DeVert Campus Leader is DeVert's student lead at one college. You start the DeVert community there, build a small core team, run sessions and coding events, and become the person your juniors and batchmates come to when they want to get better at building and problem solving.\n\n" +
+      "About the name: DeVert Campus (campus.devert.in) is our learning platform for colleges - DSA, CS core, aptitude, GATE prep and proctored contests. A DeVert Campus Leader is a student, not an employee of a separate company: you lead DeVert at your college, and part of that is bringing your batch and your placement cell onto DeVert Campus, DeVert 100 and DeVert Arena.\n\n" +
+      "One Campus Leader per college. It is part-time and built to fit around your classes.",
     responsibilities: [
-      "Start the DeVert Chapter at your college and recruit a core team of 3 to 6 students",
+      "Start the DeVert community at your college and recruit a core team of 3 to 6 students",
       "Run at least two sessions a month - coding nights, DSA workshops, project demos, contest practice",
       "Bring your batch into DeVert 100 and DeVert Arena, and help them stay consistent",
       "Be the bridge to your college's placement cell, faculty and tech clubs for DeVert Campus",
@@ -76,8 +79,8 @@ const ROLES = [
     perks: [
       "Direct line to the DeVert founding team",
       "Early access to new DeVert features, and a say in what gets built",
-      "Your chapter and your events featured on DeVert",
-      "A letter of recommendation from the founders for Chapter Leads who deliver",
+      "Your college community and your events featured on DeVert",
+      "A letter of recommendation from the founders for Campus Leaders who deliver",
     ],
   },
   {
