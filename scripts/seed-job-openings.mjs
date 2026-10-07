@@ -40,7 +40,7 @@ const ONLY = onlyAt >= 0 ? process.argv[onlyAt + 1] : null;
 // front per person - volunteer, performance-based stipend, or paid. Said once,
 // identically, in every role it applies to.
 const COMP =
-  "Compensation is flexible and agreed up front: this role is open as volunteer, as a performance-based stipend, or as paid work, depending on your commitment and what you ship.";
+  "Flexible and agreed up front - volunteer, performance-based stipend or paid, depending on your commitment and the work you deliver.";
 
 const ROLES = [
   {
@@ -52,11 +52,14 @@ const ROLES = [
     locationType: "remote",
     location: "India",
     experience: "Any student or creator - your reels are your resume",
+    commitment: "3-4 videos a week - roughly 8-12 hours",
+    duration: "3 months, extendable to 6",
+    compensation: COMP,
     order: 65,
     blurb: "Make the reels students actually watch - funny, useful, and about coding, placements and life as a developer, through DeVert.",
     description:
       "Most coding content is either boring or wrong. We want the opposite: short videos that make a student laugh, learn something in 30 seconds, and want to try it themselves on DeVert.\n\n" +
-      "You would make Instagram Reels, YouTube Shorts and LinkedIn videos - placement-season humour, a DSA trick explained in one take, a DeVert 100 day in a minute, an Arena battle, GATE prep reality - and grow DeVert's audience among students. You get the platform, the content and real stories from the community; you bring the hook, the edit and the timing.\n\n" + COMP,
+      "You would make Instagram Reels, YouTube Shorts and LinkedIn videos - placement-season humour, a DSA trick explained in one take, a DeVert 100 day in a minute, an Arena battle, GATE prep reality - and grow DeVert's audience among students. You get the platform, the content and real stories from the community; you bring the hook, the edit and the timing.",
     responsibilities: [
       "Plan, shoot and edit short-form videos for Instagram, YouTube Shorts and LinkedIn - funny, informative or both",
       "Turn DeVert features - DeVert 100, Arena, DeVert Campus, GATE prep - into content students want to share",
@@ -90,11 +93,14 @@ const ROLES = [
     locationType: "remote",
     location: "India",
     experience: "Student or early-career - shipped work matters more than years",
+    commitment: "15-25 hours per week, flexible",
+    duration: "Internship: 3-6 months. Part-time: ongoing, reviewed every 3 months",
+    compensation: COMP,
     order: 60,
     blurb: "Own DeVert features end to end - Next.js, Firestore, security rules and Cloud Functions - across devert.in, Campus and Careers.",
     description:
       "DeVert is three Next.js apps (devert.in, DeVert Campus, DeVert Careers) talking directly to Firestore, with Firebase Cloud Functions and a small Spring Boot service for the few things a browser cannot do safely. There is no layer to hide behind: what you build is what students use.\n\n" +
-      "You would take whole features off the founders' plates - from the data model and the security rules through the interface - rather than tickets. One of the first: moving coin and reward granting out of the browser and into Cloud Functions, where it belongs.\n\n" + COMP,
+      "You would take whole features off the founders' plates - from the data model and the security rules through the interface - rather than tickets. One of the first: moving coin and reward granting out of the browser and into Cloud Functions, where it belongs.",
     responsibilities: [
       "Build and own complete features in Next.js (App Router) and React across all three apps",
       "Model data in Firestore and write the security rules that protect it - they are the real authority boundary here",
@@ -127,11 +133,14 @@ const ROLES = [
     locationType: "remote",
     location: "India",
     experience: "Student (any year) - curiosity over credentials",
+    commitment: "10-15 hours per week, flexible",
+    duration: "3 months, extendable to 6",
+    compensation: COMP,
     order: 70,
     blurb: "Be the reason a bug never reaches a student: test every DeVert release across three sites, real phones and five programming languages.",
     description:
       "DeVert ships often: devert.in, DeVert Campus, DeVert Careers, an admin console, contests, payouts, and a code editor that runs Java, Python, C++, JavaScript and C. Every bug a student finds before we do costs their trust.\n\n" +
-      "You would own quality: a checklist for every release, testing on real phones and slow networks, bug reports a developer can act on in one read - and, as you grow into it, automated tests that catch regressions for us.\n\n" + COMP,
+      "You would own quality: a checklist for every release, testing on real phones and slow networks, bug reports a developer can act on in one read - and, as you grow into it, automated tests that catch regressions for us.",
     responsibilities: [
       "Test every release before and after it goes live, against a checklist you build and keep current",
       "Test on real devices and slow connections - most of our users are on mid-range Android phones",
@@ -163,11 +172,14 @@ const ROLES = [
     locationType: "remote",
     location: "India",
     experience: "Strong DSA or CS fundamentals - current student or recent graduate",
+    commitment: "10-20 hours per week, flexible",
+    duration: "3 months, extendable to 6",
+    compensation: COMP,
     order: 80,
     blurb: "Build the problems, test cases and learning content behind DeVert - verified to the last detail, for students who are judged on it.",
     description:
       "DeVert teaches DSA, CS fundamentals and exam preparation, and grades code against hidden test cases. That content has to be right: a wrong answer key marks a correct student wrong, and a missing test case lets a wrong solution pass.\n\n" +
-      "There is real work waiting - for example, previous-year exam questions imported as drafts that cannot be published until someone verifies their answers and restores their figures. You would also write coding problems with complete hidden test cases, and keep DeVert 100's writeups and test cases correct.\n\n" + COMP,
+      "There is real work waiting - for example, previous-year exam questions imported as drafts that cannot be published until someone verifies their answers and restores their figures. You would also write coding problems with complete hidden test cases, and keep DeVert 100's writeups and test cases correct.",
     responsibilities: [
       "Verify previous-year exam questions - answer keys, missing symbols and figures - so they can be published",
       "Write DSA problems with correct, complete hidden test cases, including the edge cases",
@@ -199,11 +211,14 @@ const ROLES = [
     locationType: "remote",
     location: "India",
     experience: "Student (any year)",
+    commitment: "8-12 hours per week, flexible",
+    duration: "3 months, extendable to 6",
+    compensation: COMP,
     order: 90,
     blurb: "Find, verify and organise the information students need - interview experiences, company question patterns, opportunities and college contacts.",
     description:
       "Students come to DeVert to get placed. That needs more than practice problems: real interview experiences, the question patterns specific companies use, live internship and job openings, and - for DeVert Campus - the right people at each college's placement cell.\n\n" +
-      "You would gather that information, check it, and put it into a shape the platform can use. Accuracy over volume: one verified interview experience beats ten copied ones.\n\n" + COMP,
+      "You would gather that information, check it, and put it into a shape the platform can use. Accuracy over volume: one verified interview experience beats ten copied ones.",
     responsibilities: [
       "Collect and verify interview experiences and company-wise question patterns",
       "Track internship, job and hackathon opportunities worth listing",
@@ -235,11 +250,14 @@ const ROLES = [
     locationType: "remote",
     location: "India",
     experience: "Built at least one real LLM project - student or early-career",
+    commitment: "15-25 hours per week, flexible",
+    duration: "Internship: 3-6 months. Part-time: ongoing, reviewed every 3 months",
+    compensation: COMP,
     order: 55,
     blurb: "Build DeVert's AI layer - retrieval over our learning content, tutoring agents that explain and debug, and the evaluation that keeps them honest.",
     description:
       "AI is where DeVert is heading. We already run an AI gateway that routes requests across providers (Groq, Gemini, OpenRouter and Claude) behind one OpenAI-compatible endpoint. What comes next is built on top of it: retrieval (RAG) over DeVert's own content - DSA deep dives, GATE questions, lessons - and agents that can explain a concept, review a learner's code, or work out why it fails a test case.\n\n" +
-      "This is not prompt-pasting. Answers students act on have to be grounded in our content, measurable, and cheap enough to run for everyone.\n\n" + COMP,
+      "This is not prompt-pasting. Answers students act on have to be grounded in our content, measurable, and cheap enough to run for everyone.",
     responsibilities: [
       "Build retrieval pipelines over DeVert's content - chunking, embeddings, vector search, re-ranking",
       "Build agents for tutoring, code review and debugging help, on the existing AI gateway",
@@ -280,6 +298,9 @@ const ROLES = [
     locationType: "remote",
     location: "India",
     experience: "Current college student (any year)",
+    commitment: "5-8 hours per week, around your classes",
+    duration: "One academic year, renewable",
+    compensation: COMP,
     order: 50,
     blurb: "Lead DeVert at your college - build the student developer community there and bring your campus onto DeVert.",
     description:

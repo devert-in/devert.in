@@ -48,7 +48,7 @@ const STATUS_META = {
 
 const EMPTY = {
   title: "", team: "", employmentType: "full-time", alsoTypes: [], locationType: "hybrid",
-  location: "", experience: "", blurb: "", description: "",
+  location: "", experience: "", commitment: "", duration: "", compensation: "", blurb: "", description: "",
   responsibilities: "", requirements: "", niceToHave: "", perks: "",
   order: "500", validThrough: "",
 };
@@ -96,6 +96,9 @@ function formFromRole(r) {
     locationType: r.locationType || "hybrid",
     location: r.location || "",
     experience: r.experience || "",
+    commitment: r.commitment || "",
+    duration: r.duration || "",
+    compensation: r.compensation || "",
     blurb: r.blurb || "",
     description: r.description || "",
     responsibilities: toLines(r.responsibilities),
@@ -181,6 +184,10 @@ export function CareersPanel() {
         locationType: form.locationType,
         location: form.location.trim(),
         experience: form.experience.trim(),
+        // Job Details rows on the role page; empty ones are simply not shown.
+        commitment: form.commitment.trim(),
+        duration: form.duration.trim(),
+        compensation: form.compensation.trim(),
         blurb: form.blurb.trim().slice(0, 200),
         description: form.description.trim(),
         responsibilities: fromLines(form.responsibilities),
@@ -387,7 +394,13 @@ export function CareersPanel() {
             </div>
             <Select label="LOCATION TYPE" value={form.locationType} onChange={set("locationType")} options={LOCATION_TYPES} />
             <Input label="LOCATION" value={form.location} onChange={set("location")} placeholder="Hyderabad" maxLength={80} />
-            <Input label="EXPERIENCE" value={form.experience} onChange={set("experience")} placeholder="0-2 years" maxLength={40} />
+            <Input label="ELIGIBILITY / EXPERIENCE" value={form.experience} onChange={set("experience")} placeholder="Current college student (any year)" maxLength={100} />
+            <Input label="TIME COMMITMENT" value={form.commitment} onChange={set("commitment")} placeholder="10-15 hours per week, flexible" maxLength={100} />
+            <Input label="DURATION" value={form.duration} onChange={set("duration")} placeholder="3 months, extendable to 6" maxLength={120} />
+            <div className="sm:col-span-2">
+              <Input label="COMPENSATION" value={form.compensation} onChange={set("compensation")}
+                placeholder="Volunteer, performance-based stipend or paid - agreed up front" maxLength={200} />
+            </div>
           </div>
           <Input label="BLURB" value={form.blurb} onChange={set("blurb")} maxLength={200}
             placeholder="One line shown on the careers list" hint={`${form.blurb.length}/200`} />

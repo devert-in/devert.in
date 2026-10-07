@@ -13,11 +13,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ArrowLeft, CheckCircle2, Clock, Sparkles, Target, Zap,
+  ArrowLeft, Building2, CheckCircle2, ClipboardList, FileText, ListChecks, Scale, Send, Sparkles, Target, Zap,
 } from "lucide-react";
 import { ApplyForm } from "@/components/apply-form";
 import { RoleBanner } from "@/components/role-banner";
-import { JOB_STATUS, fetchRoleBySlug, roleEmploymentTypes } from "@/lib/careers";
+import { JOB_STATUS, LOCATION_TYPES, employmentLabel, fetchRoleBySlug, roleEmploymentTypes } from "@/lib/careers";
 
 function BulletList({ title, items, icon: Icon }) {
   if (!Array.isArray(items) || items.length === 0) return null;
@@ -39,13 +39,52 @@ function BulletList({ title, items, icon: Icon }) {
   );
 }
 
-function Meta({ icon: Icon, children }) {
-  if (!children) return null;
+function Section({ title, icon: Icon, children }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[14px] text-ink-600">
-      <Icon size={14} className="text-ink-400" />
-      {children}
-    </span>
+    <section className="mt-10">
+      <h2 className="flex items-center gap-2 text-[18px] font-semibold tracking-[-0.015em] text-ink-900">
+        <Icon size={17} className="text-brand-600" />
+        {title}
+      </h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+// The same for every role - a candidate reading any posting should know who
+// we are and what happens after they press Send.
+const ABOUT_DEVERT =
+  "DeVert is a developer platform built for college students in India. Students learn DSA and CS fundamentals, practise in a LeetCode-style editor in five languages, compete in coding battles, and prepare for placements and GATE - and DeVert Campus brings all of it to whole colleges and their placement cells. AI is at the core of where DeVert is heading: tutors and agents grounded in our own verified learning content. We are a small, founder-led team, which means real ownership from your first week.";
+
+const SELECTION_PROCESS = [
+  "Application review - every application is read by the founding team, not filtered by keywords",
+  "Introductory call - a short conversation about you, the role and how you like to work",
+  "Practical task - a small piece of real work relevant to the role, so you can show what you can do",
+  "Final conversation with the founders, followed by an offer letter that sets out the role, commitment and compensation",
+];
+
+// Key facts in one table, the way a formal job notification opens. Rows with
+// no value are left out rather than shown as blanks.
+function JobDetails({ role }) {
+  const rows = [
+    ["Position", role.title],
+    ["Department", role.team],
+    ["Employment type", employmentLabel(role)],
+    ["Location", [LOCATION_TYPES.find((o) => o.value === role.locationType)?.label, role.location].filter(Boolean).join(", ")],
+    ["Eligibility", role.experience],
+    ["Time commitment", role.commitment],
+    ["Duration", role.duration],
+    ["Compensation", role.compensation],
+  ].filter(([, v]) => v);
+  return (
+    <dl className="overflow-hidden rounded-xl border border-ink-200 bg-ink-100">
+      {rows.map(([k, v], i) => (
+        <div key={k} className={`grid gap-1 px-5 py-3.5 sm:grid-cols-[180px_1fr] sm:gap-4 ${i > 0 ? "border-t border-ink-200" : ""}`}>
+          <dt className="text-[13px] font-medium uppercase tracking-[0.06em] text-ink-500">{k}</dt>
+          <dd className="text-[15px] leading-relaxed text-ink-800">{v}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -100,13 +139,6 @@ export function RoleDetailView({ slug: builtSlug }) {
           <header className="mt-8">
             <RoleBanner role={role} variant="hero" />
 
-            {/* Team, type and location now live in the banner; only the one
-                detail it does not show stays here. */}
-            {role.experience && (
-              <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2.5">
-                <Meta icon={Clock}>{role.experience}</Meta>
-              </div>
-            )}
 
             {role.status === JOB_STATUS.CLOSED && (
               <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-800">
@@ -117,18 +149,42 @@ export function RoleDetailView({ slug: builtSlug }) {
 
           </header>
 
+          {/* A formal job notification, in the order candidates expect:
+              the key facts, who we are, the role, what it involves, what it
+              needs, what it offers, and what happens after applying. */}
+          <Section title="Job Details" icon={ClipboardList}>
+            <JobDetails role={role} />
+          </Section>
+
+          <Section title="About DeVert" icon={Building2}>
+            <p className="text-[15px] leading-relaxed text-ink-700">{ABOUT_DEVERT}</p>
+          </Section>
+
           {role.description && (
-            <p className="mt-10 whitespace-pre-line text-[15.5px] leading-relaxed text-ink-700">
-              {role.description}
-            </p>
+            <Section title="Job Description" icon={FileText}>
+              <p className="whitespace-pre-line text-[15.5px] leading-relaxed text-ink-700">{role.description}</p>
+            </Section>
           )}
 
-          <BulletList title="What you'll own" items={role.responsibilities} icon={Zap} />
-          <BulletList title="What we need" items={role.requirements} icon={CheckCircle2} />
-          <BulletList title="Nice to have" items={role.niceToHave} icon={Sparkles} />
-          <BulletList title="What you get" items={role.perks} icon={Target} />
+          <BulletList title="Roles & Responsibilities" items={role.responsibilities} icon={Zap} />
+          <BulletList title="Required Skills & Qualifications" items={role.requirements} icon={CheckCircle2} />
+          <BulletList title="Preferred Qualifications" items={role.niceToHave} icon={Sparkles} />
+          <BulletList title="What We Offer" items={role.perks} icon={Target} />
+          <BulletList title="Selection Process" items={SELECTION_PROCESS} icon={ListChecks} />
+
+          <Section title="Equal Opportunity" icon={Scale}>
+            <p className="text-[15px] leading-relaxed text-ink-700">
+              DeVert is an equal-opportunity organisation. We welcome applicants of every gender,
+              background, college, branch and year of study, and we consider every application
+              on the work it shows.
+            </p>
+          </Section>
 
           <div id="apply" className="mt-14">
+            <h2 className="mb-4 flex items-center gap-2 text-[18px] font-semibold tracking-[-0.015em] text-ink-900">
+              <Send size={17} className="text-brand-600" />
+              How to Apply
+            </h2>
             <ApplyForm jobId={role.id} jobTitle={role.title} source={`careers/${slug}`} employmentTypes={roleEmploymentTypes(role)} />
           </div>
         </>
