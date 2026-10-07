@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { ApplyForm } from "@/components/apply-form";
 import { RoleBanner } from "@/components/role-banner";
-import { JOB_STATUS, fetchRoleBySlug } from "@/lib/careers";
+import { JOB_STATUS, fetchRoleBySlug, roleEmploymentTypes } from "@/lib/careers";
 
 function BulletList({ title, items, icon: Icon }) {
   if (!Array.isArray(items) || items.length === 0) return null;
@@ -127,7 +127,7 @@ export function RoleDetailView({ slug: builtSlug }) {
           <BulletList title="What you get" items={role.perks} icon={Target} />
 
           <div id="apply" className="mt-14">
-            <ApplyForm jobId={role.id} jobTitle={role.title} source={`careers/${slug}`} />
+            <ApplyForm jobId={role.id} jobTitle={role.title} source={`careers/${slug}`} employmentTypes={roleEmploymentTypes(role)} />
           </div>
         </>
       )}

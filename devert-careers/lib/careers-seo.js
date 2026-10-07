@@ -25,7 +25,7 @@
 // URL works immediately too, through the shell fallback described at
 // careerStaticParams below; only its crawler-facing page (JobPosting JSON-LD,
 // sitemap entry, indexable metadata) waits for the next deploy.
-import { JOB_STATUS, fetchPublishedRoles, fetchRoleBySlug } from "@/lib/careers";
+import { JOB_STATUS, fetchPublishedRoles, fetchRoleBySlug, roleEmploymentTypes } from "@/lib/careers";
 import { ROLE_ART } from "@/lib/role-art.mjs";
 
 const SITE = "https://careers.devert.in";
@@ -149,6 +149,10 @@ const EMPLOYMENT_TYPE = {
   internship: "INTERN",
 };
 
+function googleTypes(role) {
+  return roleEmploymentTypes(role).map((t) => EMPLOYMENT_TYPE[t]).filter(Boolean);
+}
+
 function toIso(value) {
   if (value?.toDate) return value.toDate().toISOString();
   if (typeof value === "string" && value) return new Date(value).toISOString();
@@ -202,8 +206,10 @@ export function roleJsonLd(role, slug) {
     description: descriptionHtml(role) || role.blurb || "",
     datePosted,
     ...(validThrough ? { validThrough } : {}),
-    ...(EMPLOYMENT_TYPE[role.employmentType]
-      ? { employmentType: EMPLOYMENT_TYPE[role.employmentType] }
+    // schema.org allows a list - a role offered as part-time OR internship
+    // says both, so it surfaces under either filter in Google for Jobs.
+    ...(googleTypes(role).length
+      ? { employmentType: googleTypes(role).length === 1 ? googleTypes(role)[0] : googleTypes(role) }
       : {}),
     hiringOrganization: {
       "@type": "Organization",

@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Briefcase, Clock, MapPin, SearchX } from "lucide-react";
 import {
-  EMPLOYMENT_TYPES, GENERAL_INTEREST_JOB_ID, LOCATION_TYPES, watchPublishedRoles,
+  EMPLOYMENT_TYPES, GENERAL_INTEREST_JOB_ID, LOCATION_TYPES, employmentLabel, roleEmploymentTypes, watchPublishedRoles,
 } from "@/lib/careers";
 import { ApplyForm } from "@/components/apply-form";
 import { RoleBanner } from "@/components/role-banner";
@@ -86,10 +86,10 @@ function RoleRow({ role }) {
         )}
 
         <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-4">
-          {role.employmentType && (
+          {employmentLabel(role) && (
             <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-500">
               <Briefcase size={13} className="text-ink-400" />
-              {labelFor(EMPLOYMENT_TYPES, role.employmentType)}
+              {employmentLabel(role)}
             </span>
           )}
           {(role.locationType || role.location) && (
@@ -134,7 +134,7 @@ export function RoleList() {
   }, [roles]);
 
   const typeOptions = useMemo(() => {
-    const present = new Set((roles || []).map((r) => r.employmentType).filter(Boolean));
+    const present = new Set((roles || []).flatMap(roleEmploymentTypes));
     return EMPLOYMENT_TYPES.filter((o) => present.has(o.value));
   }, [roles]);
 
@@ -145,7 +145,7 @@ export function RoleList() {
 
   const visible = (roles || []).filter((r) =>
     (team === ALL || r.team === team)
-    && (type === ALL || r.employmentType === type)
+    && (type === ALL || roleEmploymentTypes(r).includes(type))
     && (place === ALL || r.locationType === place));
 
   const filtering = team !== ALL || type !== ALL || place !== ALL;

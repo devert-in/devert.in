@@ -16,7 +16,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Loader2, Send } from "lucide-react";
-import { submitApplication } from "@/lib/careers";
+import { EMPLOYMENT_TYPES, submitApplication } from "@/lib/careers";
 
 const field =
   "w-full rounded-lg border border-ink-200 bg-ink-100 px-3.5 py-2.5 text-[14px] text-ink-900 " +
@@ -99,6 +99,8 @@ function rememberApplied(jobId, record) {
   try { localStorage.setItem(appliedKey(jobId), JSON.stringify(record)); } catch { /* private mode */ }
 }
 
+const typeLabel = (v) => EMPLOYMENT_TYPES.find((o) => o.value === v)?.label || v;
+
 function withTimeout(promise, ms) {
   return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))]);
 }
@@ -129,7 +131,9 @@ function AppliedPanel({ jobTitle, record, justSent }) {
   );
 }
 
-export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
+// `employmentTypes`: the bases a role is offered on. With more than one
+// ("part-time" or "internship") the applicant must say which they want.
+export function ApplyForm({ jobId, jobTitle, source = "careers", employmentTypes = [] }) {
   const [form, setForm] = useState({
     name: "", email: "", phone: "", resumeUrl: "", portfolioUrl: "",
     githubUrl: "", linkedinUrl: "", devertHandle: "", coverNote: "",
@@ -137,6 +141,8 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
   // Honeypot: a field no human can see or reach. Bots fill every input they
   // find; a filled one means the submission is silently dropped.
   const [website, setWebsite] = useState("");
+  const choices = employmentTypes.length > 1 ? employmentTypes : [];
+  const [engagement, setEngagement] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   // undefined until localStorage has been read: rendering the form first and
@@ -163,13 +169,18 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
       links[k] = r.value;
     }
 
+    if (choices.length && !engagement) {
+      setError(`Please choose how you want to work with us: ${choices.map(typeLabel).join(" or ")}.`);
+      return;
+    }
+
     if (website) { setJustSent(true); setApplied({ email: form.email.trim() }); return; }
 
     setSubmitting(true);
     setError("");
     const email = form.email.trim();
     try {
-      await withTimeout(submitApplication({ ...form, ...links, jobId, jobTitle, source }), 20000);
+      await withTimeout(submitApplication({ ...form, ...links, jobId, jobTitle, source, engagement }), 20000);
       const record = { email, at: Date.now() };
       rememberApplied(jobId, record);
       setJustSent(true);
@@ -205,6 +216,26 @@ export function ApplyForm({ jobId, jobTitle, source = "careers" }) {
 
       <form onSubmit={submit} noValidate className="px-6 py-6 sm:px-8">
         <div className="grid gap-x-5 sm:grid-cols-2">
+          {choices.length > 0 && (
+            <fieldset className="mb-5 sm:col-span-2">
+              <legend className="mb-1.5 block text-[13px] font-medium text-ink-700">
+                Applying as<span className="ml-0.5 text-brand-600">*</span>
+              </legend>
+              <div className="flex flex-wrap gap-2">
+                {choices.map((t) => (
+                  <label key={t}
+                    className={`cursor-pointer rounded-full border px-4 py-2 text-[13.5px] font-medium transition-colors ${
+                      engagement === t
+                        ? "border-brand-600 bg-brand-50 text-brand-700"
+                        : "border-ink-200 bg-ink-100 text-ink-600 hover:border-ink-300 hover:text-ink-900"}`}>
+                    <input type="radio" name="af-engagement" value={t} checked={engagement === t}
+                      onChange={() => setEngagement(t)} className="sr-only" />
+                    {typeLabel(t)}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <Field label="Full name" required htmlFor="af-name">
             <input id="af-name" className={field} value={form.name} onChange={set("name")}
               placeholder="Ada Lovelace" maxLength={80} autoComplete="name" />

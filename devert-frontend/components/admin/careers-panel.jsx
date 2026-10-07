@@ -36,7 +36,7 @@ import {
 } from "@/components/admin/admin-kit";
 import { logAdminActivity } from "@/lib/adminActivityLog";
 import {
-  APPLICATION_STATUS, EMPLOYMENT_TYPES, JOB_STATUS, LOCATION_TYPES, deleteRole,
+  APPLICATION_STATUS, EMPLOYMENT_TYPES, JOB_STATUS, LOCATION_TYPES, deleteRole, employmentLabel, roleEmploymentTypes,
   fetchAllRoles, fetchApplications, saveRole, setRoleStatus, slugify,
 } from "@/lib/careers";
 
@@ -47,7 +47,7 @@ const STATUS_META = {
 };
 
 const EMPTY = {
-  title: "", team: "", employmentType: "full-time", locationType: "hybrid",
+  title: "", team: "", employmentType: "full-time", alsoTypes: [], locationType: "hybrid",
   location: "", experience: "", blurb: "", description: "",
   responsibilities: "", requirements: "", niceToHave: "", perks: "",
   order: "500", validThrough: "",
@@ -90,7 +90,9 @@ function formFromRole(r) {
   return {
     title: r.title || "",
     team: r.team || "",
-    employmentType: r.employmentType || "full-time",
+    employmentType: roleEmploymentTypes(r)[0] || "full-time",
+    // Any further bases the role is offered on ("Part-time or Internship").
+    alsoTypes: roleEmploymentTypes(r).slice(1),
     locationType: r.locationType || "hybrid",
     location: r.location || "",
     experience: r.experience || "",
@@ -173,6 +175,9 @@ export function CareersPanel() {
         title: form.title.trim(),
         team: form.team.trim(),
         employmentType: form.employmentType,
+        // Primary first; the careers site reads this list, and the single
+        // field above stays for anything that predates it.
+        employmentTypes: [form.employmentType, ...form.alsoTypes.filter((t) => t !== form.employmentType)],
         locationType: form.locationType,
         location: form.location.trim(),
         experience: form.experience.trim(),
@@ -293,7 +298,7 @@ export function CareersPanel() {
           { key: "locationType", label: "Location", render: (r) => (
             <div className="min-w-0">
               <p className="font-sans text-sm text-white/75 truncate">{labelOf(LOCATION_TYPES, r.locationType)}{r.location ? `, ${r.location}` : ""}</p>
-              <p className="font-sans text-xs text-white/40">{labelOf(EMPLOYMENT_TYPES, r.employmentType)}</p>
+              <p className="font-sans text-xs text-white/40">{employmentLabel(r)}</p>
             </div>
           ) },
           { key: "applications", label: "Applications", sort: (r) => appsByJob[r.id] || 0, render: (r) => (
@@ -360,6 +365,26 @@ export function CareersPanel() {
               hint={editing ? `slug locked: ${editing}` : `slug will be: ${slugify(form.title) || "..."}`} />
             <Input label="TEAM" value={form.team} onChange={set("team")} placeholder="Engineering" maxLength={60} />
             <Select label="EMPLOYMENT TYPE" value={form.employmentType} onChange={set("employmentType")} options={EMPLOYMENT_TYPES} />
+            <div className="sm:col-span-2">
+              <p className="font-sans text-[11px] text-white/40 mb-1.5">ALSO OPEN AS (OPTIONAL) - applicants choose one</p>
+              <div className="flex flex-wrap gap-1.5">
+                {EMPLOYMENT_TYPES.filter((o) => o.value !== form.employmentType).map((o) => {
+                  const on = form.alsoTypes.includes(o.value);
+                  return (
+                    <button key={o.value} type="button"
+                      onClick={() => setForm((f) => ({ ...f, alsoTypes: on ? f.alsoTypes.filter((t) => t !== o.value) : [...f.alsoTypes, o.value] }))}
+                      className="font-sans text-xs px-3 py-1.5 rounded-lg"
+                      style={{
+                        color: on ? KIT.green : "rgba(255,255,255,0.55)",
+                        background: on ? `${KIT.green}14` : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${on ? `${KIT.green}55` : "rgba(255,255,255,0.1)"}`,
+                      }}>
+                      {on ? "+ " : ""}{o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <Select label="LOCATION TYPE" value={form.locationType} onChange={set("locationType")} options={LOCATION_TYPES} />
             <Input label="LOCATION" value={form.location} onChange={set("location")} placeholder="Hyderabad" maxLength={80} />
             <Input label="EXPERIENCE" value={form.experience} onChange={set("experience")} placeholder="0-2 years" maxLength={40} />

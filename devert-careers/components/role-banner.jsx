@@ -13,7 +13,7 @@
 //   variant="hero"  the role page's header panel; carries the page's <h1>
 
 import { ROLE_ART } from "@/lib/role-art.mjs";
-import { EMPLOYMENT_TYPES, LOCATION_TYPES } from "@/lib/careers";
+import { LOCATION_TYPES, employmentLabel } from "@/lib/careers";
 
 const SITE_HOST = "careers.devert.in";
 
@@ -98,7 +98,7 @@ export function RoleBanner({ role, variant = "card" }) {
     );
   }
 
-  const meta = [labelFor(EMPLOYMENT_TYPES, role.employmentType), labelFor(LOCATION_TYPES, role.locationType), role.location]
+  const meta = [employmentLabel(role), labelFor(LOCATION_TYPES, role.locationType), role.location]
     .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
 
   return (

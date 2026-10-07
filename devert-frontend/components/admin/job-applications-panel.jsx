@@ -22,7 +22,7 @@ import {
 } from "@/components/admin/admin-kit";
 import { logAdminActivity } from "@/lib/adminActivityLog";
 import {
-  APPLICATION_STATUS, GENERAL_INTEREST_JOB_ID, fetchApplications,
+  APPLICATION_STATUS, EMPLOYMENT_TYPES, GENERAL_INTEREST_JOB_ID, fetchApplications,
   setApplicationStatus,
 } from "@/lib/careers";
 
@@ -264,6 +264,11 @@ export function JobApplicationsPanel() {
                     ? "General application - no specific role"
                     : `${open.jobTitle || "(role deleted)"} - careers.devert.in/${open.jobId}`}
                 </Field>
+                {open.engagement && (
+                  <Field label="Applying as">
+                    {EMPLOYMENT_TYPES.find((o) => o.value === open.engagement)?.label || open.engagement}
+                  </Field>
+                )}
               </div>
             </DrawerSection>
 

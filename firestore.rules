@@ -1256,7 +1256,7 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly(['jobId', 'jobTitle', 'name', 'email', 'phone',
               'resumeUrl', 'portfolioUrl', 'githubUrl', 'linkedinUrl',
-              'devertHandle', 'coverNote', 'source', 'uid', 'status', 'createdAt'])
+              'devertHandle', 'coverNote', 'source', 'engagement', 'uid', 'status', 'createdAt'])
         && d.keys().hasAll(['jobId', 'name', 'email', 'status', 'createdAt'])
         && d.jobId is string && d.jobId.size() >= 1 && d.jobId.size() <= 120
         // The role must exist and be published or closed (a closed role's page
@@ -1281,6 +1281,9 @@ service cloud.firestore {
         && d.get('devertHandle', '') is string && d.get('devertHandle', '').size() <= 40
         && d.get('coverNote', '') is string && d.get('coverNote', '').size() <= 2000
         && d.get('source', '') is string && d.get('source', '').size() <= 40
+        // The basis the applicant picked when a role is offered as more than
+        // one (part-time or internship). Free text in shape, tiny in size.
+        && d.get('engagement', '') is string && d.get('engagement', '').size() <= 20
         && (d.get('uid', '') == '' || (isAuth() && d.get('uid', '') == request.auth.uid))
         && d.status == 'new'
         && d.createdAt == request.time;

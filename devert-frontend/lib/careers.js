@@ -61,6 +61,22 @@ export const LOCATION_TYPES = Object.freeze([
   { value: "onsite", label: "On-site" },
 ]);
 
+// A role can be offered on more than one basis - "Part-time or Internship".
+// `employmentTypes` (array) is the source of truth when present; the older
+// single `employmentType` is still written (as the first entry) and still
+// read, so roles saved before this existed keep working unchanged.
+export function roleEmploymentTypes(role) {
+  const many = Array.isArray(role?.employmentTypes) ? role.employmentTypes.filter(Boolean) : [];
+  if (many.length) return [...new Set(many)];
+  return role?.employmentType ? [role.employmentType] : [];
+}
+
+export function employmentLabel(role) {
+  return roleEmploymentTypes(role)
+    .map((v) => EMPLOYMENT_TYPES.find((o) => o.value === v)?.label || v)
+    .join(" or ");
+}
+
 // The pseudo-job id used by the general-interest form that renders when there
 // are no published roles. A real value rather than an empty string, so the admin
 // inbox can tell "applied to nothing in particular" apart from "applied to a
@@ -124,7 +140,7 @@ export async function fetchRoleBySlug(slug) {
  */
 export async function submitApplication({
   jobId, jobTitle, name, email, phone, resumeUrl, portfolioUrl, githubUrl,
-  linkedinUrl, devertHandle, coverNote, source, uid,
+  linkedinUrl, devertHandle, coverNote, source, uid, engagement,
 }) {
   const clean = (v, max) => (v || "").toString().trim().slice(0, max);
 
@@ -147,6 +163,12 @@ export async function submitApplication({
   // Omitted entirely rather than written as "" for a logged-out applicant: the
   // rule treats uid as optional-but-verified, and an empty string is not a uid.
   if (uid) payload.uid = uid;
+  // Which basis the applicant chose, for a role offered as more than one
+  // ("part-time" or "internship"). Only written when chosen: firestore.rules
+  // ships a minute after the site in CI, and an always-present field would
+  // be refused by the older rules in that window.
+  const eng = clean(engagement, 20);
+  if (eng) payload.engagement = eng;
 
   // ONE APPLICATION PER EMAIL PER ROLE, enforced by Firestore rather than by
   // the browser. The doc ID is derived from the role and the email, so a second

@@ -82,6 +82,7 @@ async function publishedRoles() {
       title: fromFirestore(f.title) || "",
       team: fromFirestore(f.team) || "",
       employmentType: fromFirestore(f.employmentType) || "",
+      employmentTypes: fromFirestore(f.employmentTypes) || [],
       locationType: fromFirestore(f.locationType) || "",
       location: fromFirestore(f.location) || "",
       blurb: fromFirestore(f.blurb) || "",
@@ -122,7 +123,8 @@ function frame(children, footerLeft) {
 }
 
 function roleCard(role) {
-  const meta = [EMPLOYMENT[role.employmentType] || role.employmentType, LOCATION[role.locationType] || role.locationType, role.location]
+  const types = (role.employmentTypes.length ? role.employmentTypes : [role.employmentType]).filter(Boolean);
+  const meta = [types.map((t) => EMPLOYMENT[t] || t).join(" or "), LOCATION[role.locationType] || role.locationType, role.location]
     .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join("  ·  ");
   const title = role.title.length > 46 ? role.title.slice(0, 45) + "…" : role.title;
   const blurb = role.blurb.length > 130 ? role.blurb.slice(0, 128).replace(/\s+\S*$/, "") + "…" : role.blurb;
