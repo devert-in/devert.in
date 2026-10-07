@@ -23,7 +23,16 @@ const path = require("path");
 // functions should each use functions.runWith({ maxInstances: 10 }) instead.
 // In the v1 API, each function can only serve one request per container, so
 // this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+// cpu "gcf_gen1": the fractional CPU 1st-gen functions had (about 1/6 vCPU at
+// the default 256 MiB) instead of a full vCPU per instance. Every 2nd-gen
+// function is a Cloud Run service, and Cloud Run counts maxInstances x CPU
+// against a per-region quota - ~17 functions x 10 instances x 1 vCPU, doubled
+// while old and new revisions overlap during a deploy, exceeded it, and every
+// deploy from 2026-10-07 failed with "Quota exceeded for total allowable CPU
+// per project per region" (which also blocks the Hosting release). These
+// functions serve light, occasional requests; a function that genuinely needs
+// a full CPU sets `cpu: 1` in its own options, as the AI gateway does.
+setGlobalOptions({ maxInstances: 10, cpu: "gcf_gen1", concurrency: 1 });
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
@@ -1442,7 +1451,7 @@ exports.aiGateway = onRequest(
   // Secret Manager has never heard of fails deploy outright (see the long
   // comment at the top of this section). OPENROUTER_API_KEY/ANTHROPIC_API_KEY
   // get added here once `firebase functions:secrets:set` has created them.
-  { region: "asia-south1", maxInstances: 20, secrets: ["GROQ_API_KEY", "GEMINI_API_KEY"] },
+  { region: "asia-south1", maxInstances: 20, cpu: 1, concurrency: 80, secrets: ["GROQ_API_KEY", "GEMINI_API_KEY"] },
   async (req, res) => {
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-team-id, x-team-password");
