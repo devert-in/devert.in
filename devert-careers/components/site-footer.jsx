@@ -54,9 +54,13 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[18px] font-semibold tracking-[-0.03em] text-ink-900">DeVert</span>
-              <span className="text-[13px] font-medium text-ink-500">Careers</span>
+            <div className="flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer */}
+              <img src="/devert-campus-badge.png" alt="DeVert logo" width={30} height={30} className="h-[30px] w-[30px] rounded-lg" />
+              <span className="flex items-baseline gap-2">
+                <span className="text-[18px] font-semibold tracking-[-0.03em] text-ink-900">DeVert</span>
+                <span className="text-[13px] font-medium text-ink-500">Careers</span>
+              </span>
             </div>
             <p className="mt-3 max-w-xs text-[13.5px] leading-relaxed text-ink-500">
               A developer operating system, and the learning platform built on top of it for

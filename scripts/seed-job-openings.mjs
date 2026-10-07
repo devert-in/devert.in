@@ -56,19 +56,18 @@ const ROLES = [
     duration: "3 months, extendable to 6",
     compensation: COMP,
     order: 65,
-    blurb: "Make the reels students actually watch - funny, useful, and about coding, placements and life as a developer, through DeVert.",
+    blurb: "Make the reels developers actually watch - funny, useful, and about coding, building and life as a developer, through DeVert.",
     description:
-      "Most coding content is either boring or wrong. We want the opposite: short videos that make a student laugh, learn something in 30 seconds, and want to try it themselves on DeVert.\n\n" +
-      "You would make Instagram Reels, YouTube Shorts and LinkedIn videos - placement-season humour, a DSA trick explained in one take, a DeVert 100 day in a minute, an Arena battle, GATE prep reality - and grow DeVert's audience among students. You get the platform, the content and real stories from the community; you bring the hook, the edit and the timing.",
+      "As a Content Creator you will make the short videos that bring developers to DeVert - funny, useful and true to developer life: coding humour, a clever trick explained in one take, the ups and downs of building, and the wins of a developer community.\n\nThis role exists to grow DeVert's voice and reach. Every video you make is how a new developer first meets DeVert.",
     responsibilities: [
       "Plan, shoot and edit short-form videos for Instagram, YouTube Shorts and LinkedIn - funny, informative or both",
-      "Turn DeVert features - DeVert 100, Arena, DeVert Campus, GATE prep - into content students want to share",
+      "Turn what happens on DeVert into content developers want to share",
       "Ride trends quickly without getting cringe, and keep the facts right",
       "Track what works - views, saves, shares, follows - and do more of it",
     ],
     requirements: [
       "Reels, shorts or videos you have made - share links; views matter less than taste",
-      "A sense of humour that lands with college students",
+      "A sense of humour that lands with developers and students",
       "Basic editing on your phone or laptop (CapCut, VN, Premiere or similar)",
       "Consistency: a steady posting rhythm beats one viral video",
     ],
@@ -97,30 +96,29 @@ const ROLES = [
     duration: "Internship: 3-6 months. Part-time: ongoing, reviewed every 3 months",
     compensation: COMP,
     order: 60,
-    blurb: "Own DeVert features end to end - Next.js, Firestore, security rules and Cloud Functions - across devert.in, Campus and Careers.",
+    blurb: "Own DeVert features end to end - frontend, backend, data and security - and help the platform grow fast and stay reliable.",
     description:
-      "DeVert is three Next.js apps (devert.in, DeVert Campus, DeVert Careers) talking directly to Firestore, with Firebase Cloud Functions and a small Spring Boot service for the few things a browser cannot do safely. There is no layer to hide behind: what you build is what students use.\n\n" +
-      "You would take whole features off the founders' plates - from the data model and the security rules through the interface - rather than tickets. One of the first: moving coin and reward granting out of the browser and into Cloud Functions, where it belongs.",
+      "As a Full-Stack Engineer you will build the features developers use on DeVert every day, end to end - from how the data is shaped to the screen it lands on. You will work directly with the founders and own complete features rather than tickets.\n\nThis role exists to multiply what DeVert can ship, and to keep the platform fast, reliable and secure as it grows. Every feature you own is one the founders no longer carry alone.",
     responsibilities: [
-      "Build and own complete features in Next.js (App Router) and React across all three apps",
-      "Model data in Firestore and write the security rules that protect it - they are the real authority boundary here",
-      "Move trust-sensitive logic (rewards, coins, grading) into Cloud Functions",
+      "Design, build and own complete product features across the DeVert platform",
+      "Design data models and build secure, reliable backend logic",
+      "Improve performance, reliability and security across the platform",
       "Fix what you find, and leave every file you touch clearer than you found it",
     ],
     requirements: [
       "Real React work you can walk us through - a repo, a product, a side project",
-      "Comfortable with async data, Firestore or a similar database, and reading other people's code",
+      "Comfortable with async data, databases, and reading other people's code",
       "Careful with anything that touches money, scores or user data",
       "Writes clearly - most decisions here happen in text",
     ],
     niceToHave: [
-      "Firebase security rules or Cloud Functions in production",
-      "Next.js static export, SEO and performance on low-end phones",
-      "Some Java or Spring Boot",
+      "Firebase, serverless backends or database security in production",
+      "Next.js, SEO, and performance on low-end phones",
+      "Backend experience in any language - Node.js, Java or Python",
     ],
     perks: [
-      "Ownership of features used by students across colleges",
-      "Direct work with the founders, and a real say in the architecture",
+      "Ownership of features used by developers across India",
+      "Direct work with the founders, and a real say in how things are built",
       "Remote and flexible around classes or another job",
       "A strong reference for work you actually shipped",
     ],
@@ -137,15 +135,14 @@ const ROLES = [
     duration: "3 months, extendable to 6",
     compensation: COMP,
     order: 70,
-    blurb: "Be the reason a bug never reaches a student: test every DeVert release across three sites, real phones and five programming languages.",
+    blurb: "Be the reason a bug never reaches a user: test every DeVert release across devices, browsers and real-world conditions.",
     description:
-      "DeVert ships often: devert.in, DeVert Campus, DeVert Careers, an admin console, contests, payouts, and a code editor that runs Java, Python, C++, JavaScript and C. Every bug a student finds before we do costs their trust.\n\n" +
-      "You would own quality: a checklist for every release, testing on real phones and slow networks, bug reports a developer can act on in one read - and, as you grow into it, automated tests that catch regressions for us.",
+      "As a QA & Release Tester you will make sure every DeVert release works the way it should before it reaches users - across devices, browsers and real-world network conditions. You will own the quality of each release, write bug reports a developer can act on immediately, and grow into test automation.\n\nThis role exists so that quality is never an afterthought: you are the last line between a change and the developers who depend on it.",
     responsibilities: [
       "Test every release before and after it goes live, against a checklist you build and keep current",
       "Test on real devices and slow connections - most of our users are on mid-range Android phones",
       "Write clear bug reports: steps, expected, actual, screenshot or recording",
-      "Grow the automated test suites - security-rule tests, end-to-end browser tests",
+      "Help build and grow automated test suites",
     ],
     requirements: [
       "Notices when something is slightly off, and cannot leave it alone",
@@ -155,7 +152,7 @@ const ROLES = [
     ],
     niceToHave: [
       "Some coding in any language, or interest in learning test automation (Playwright)",
-      "You have used DeVert, DeVert Campus or DeVert 100 yourself",
+      "You have used DeVert yourself",
     ],
     perks: [
       "Learn how a real product is built and shipped, from the inside",
@@ -176,14 +173,13 @@ const ROLES = [
     duration: "3 months, extendable to 6",
     compensation: COMP,
     order: 80,
-    blurb: "Build the problems, test cases and learning content behind DeVert - verified to the last detail, for students who are judged on it.",
+    blurb: "Build the problems, test cases and learning content behind DeVert - verified to the last detail, for developers who are judged on it.",
     description:
-      "DeVert teaches DSA, CS fundamentals and exam preparation, and grades code against hidden test cases. That content has to be right: a wrong answer key marks a correct student wrong, and a missing test case lets a wrong solution pass.\n\n" +
-      "There is real work waiting - for example, previous-year exam questions imported as drafts that cannot be published until someone verifies their answers and restores their figures. You would also write coding problems with complete hidden test cases, and keep DeVert 100's writeups and test cases correct.",
+      "As a Content Engineer you will create and verify the learning content developers rely on - coding problems, test cases, explanations and practice material. Accuracy is the job: a wrong answer key marks a correct developer wrong, and a missing test case lets a wrong solution pass.\n\nThis role exists to keep DeVert's content trustworthy as it grows - the foundation everything else, including our AI, is built on.",
     responsibilities: [
-      "Verify previous-year exam questions - answer keys, missing symbols and figures - so they can be published",
+      "Review and verify questions, answer keys and solutions before they are published",
       "Write DSA problems with correct, complete hidden test cases, including the edge cases",
-      "Review and improve lesson and DeVert 100 content, and fix what is wrong",
+      "Review and improve existing learning content, and fix what is wrong",
       "Check that grading did what you intended after every contest",
     ],
     requirements: [
@@ -217,12 +213,11 @@ const ROLES = [
     order: 90,
     blurb: "Find, verify and organise the information students need - interview experiences, company question patterns, opportunities and college contacts.",
     description:
-      "Students come to DeVert to get placed. That needs more than practice problems: real interview experiences, the question patterns specific companies use, live internship and job openings, and - for DeVert Campus - the right people at each college's placement cell.\n\n" +
-      "You would gather that information, check it, and put it into a shape the platform can use. Accuracy over volume: one verified interview experience beats ten copied ones.",
+      "As a Content Researcher you will find, verify and organise the information developers need to grow and get hired - interview experiences, company question patterns, opportunities, and the right contacts in colleges and companies.\n\nThis role exists to make the information on DeVert trustworthy: one verified insight is worth more than ten copied ones.",
     responsibilities: [
       "Collect and verify interview experiences and company-wise question patterns",
       "Track internship, job and hackathon opportunities worth listing",
-      "Build lists of placement cells, faculty coordinators and tech clubs for DeVert Campus outreach",
+      "Build lists of placement cells, faculty coordinators and tech clubs for DeVert's college partnerships",
       "Keep everything sourced, current and organised",
     ],
     requirements: [
@@ -256,11 +251,10 @@ const ROLES = [
     order: 55,
     blurb: "Build DeVert's AI layer - retrieval over our learning content, tutoring agents that explain and debug, and the evaluation that keeps them honest.",
     description:
-      "AI is where DeVert is heading. We already run an AI gateway that routes requests across providers (Groq, Gemini, OpenRouter and Claude) behind one OpenAI-compatible endpoint. What comes next is built on top of it: retrieval (RAG) over DeVert's own content - DSA deep dives, GATE questions, lessons - and agents that can explain a concept, review a learner's code, or work out why it fails a test case.\n\n" +
-      "This is not prompt-pasting. Answers students act on have to be grounded in our content, measurable, and cheap enough to run for everyone.",
+      "As an AI Engineer you will build the intelligence layer of DeVert - AI that helps developers learn, debug and grow, grounded in DeVert's own verified content rather than generic answers. You will design retrieval (RAG) systems and agents, and the evaluation that proves they are correct and genuinely helpful.\n\nThis role exists because AI is at the core of where DeVert is going. What you build becomes the experience that sets DeVert apart.",
     responsibilities: [
       "Build retrieval pipelines over DeVert's content - chunking, embeddings, vector search, re-ranking",
-      "Build agents for tutoring, code review and debugging help, on the existing AI gateway",
+      "Build agents for tutoring, code review and debugging help",
       "Set up evaluation so we know when an answer is grounded, correct and helpful - and when it is not",
       "Keep cost and latency in check across providers",
     ],
@@ -272,7 +266,7 @@ const ROLES = [
     ],
     niceToHave: [
       "LLM evaluation, or ML fundamentals beyond API calls",
-      "Experience with Firebase, Cloud Functions or a vector database",
+      "Experience with vector databases or serverless backends",
       "A strong DSA background - our content is technical",
     ],
     perks: [
@@ -304,14 +298,12 @@ const ROLES = [
     order: 50,
     blurb: "Lead DeVert at your college - build the student developer community there and bring your campus onto DeVert.",
     description:
-      "The DeVert Campus Leader is DeVert's student lead at one college. You start the DeVert community there, build a small core team, run sessions and coding events, and become the person your juniors and batchmates come to when they want to get better at building and problem solving.\n\n" +
-      "About the name: DeVert Campus (campus.devert.in) is our learning platform for colleges - DSA, CS core, aptitude, GATE prep and proctored contests. A DeVert Campus Leader is a student, not an employee of a separate company: you lead DeVert at your college, and part of that is bringing your batch and your placement cell onto DeVert Campus, DeVert 100 and DeVert Arena.\n\n" +
-      "One Campus Leader per college. It is part-time and built to fit around your classes.",
+      "The DeVert Campus Leader is DeVert's representative at one college. You build a developer community there, bring together a core team, run sessions and events, and become the person your peers turn to when they want to grow as developers.\n\nThis role exists so that every college has someone who makes developer culture happen on the ground - and who connects their campus with DeVert. One Campus Leader per college; part-time, and built to fit around your classes.",
     responsibilities: [
       "Start the DeVert community at your college and recruit a core team of 3 to 6 students",
       "Run at least two sessions a month - coding nights, DSA workshops, project demos, contest practice",
-      "Bring your batch into DeVert 100 and DeVert Arena, and help them stay consistent",
-      "Be the bridge to your college's placement cell, faculty and tech clubs for DeVert Campus",
+      "Get your peers learning, practising and building on DeVert - and help them stay consistent",
+      "Be DeVert's point of contact with your college's placement cell, faculty and tech clubs",
       "Share what is working and what is not with the DeVert team every two weeks",
     ],
     requirements: [

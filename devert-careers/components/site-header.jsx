@@ -59,9 +59,13 @@ export function SiteHeader() {
     // their surface at the same moment.
     <header className={`devert-navbar ${solid ? "is-solid" : ""}`}>
       <div className="devert-navbar-inner">
-        <Link href="/" className="flex items-baseline gap-2 shrink-0">
-          <span className="text-[19px] font-semibold tracking-[-0.03em] text-ink-900">DeVert</span>
-          <span className="text-[13px] font-medium text-ink-500">Careers</span>
+        <Link href="/" className="flex items-center gap-2.5 shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer */}
+          <img src="/devert-campus-badge.png" alt="" width={30} height={30} className="h-[30px] w-[30px] rounded-lg" />
+          <span className="flex items-baseline gap-2">
+            <span className="text-[19px] font-semibold tracking-[-0.03em] text-ink-900">DeVert</span>
+            <span className="text-[13px] font-medium text-ink-500">Careers</span>
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex" aria-label="Sections">

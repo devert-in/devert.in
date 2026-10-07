@@ -54,7 +54,7 @@ function Section({ title, icon: Icon, children }) {
 // The same for every role - a candidate reading any posting should know who
 // we are and what happens after they press Send.
 const ABOUT_DEVERT =
-  "DeVert is a developer platform built for college students in India. Students learn DSA and CS fundamentals, practise in a LeetCode-style editor in five languages, compete in coding battles, and prepare for placements and GATE - and DeVert Campus brings all of it to whole colleges and their placement cells. AI is at the core of where DeVert is heading: tutors and agents grounded in our own verified learning content. We are a small, founder-led team, which means real ownership from your first week.";
+  "DeVert is a home for developer culture - a community where developers learn, build, compete and grow together, from their first line of code to their first job and well beyond. AI is at the core of where we are heading, and everything we build is shaped by the developers who use it. We are a small, founder-led team, which means real ownership from your first week.";
 
 const SELECTION_PROCESS = [
   "Application review - every application is read by the founding team, not filtered by keywords",
