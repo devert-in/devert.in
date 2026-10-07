@@ -44,6 +44,44 @@ const COMP =
 
 const ROLES = [
   {
+    slug: "content-creator-reels",
+    title: "Content Creator - Reels & Shorts",
+    team: "Growth",
+    employmentType: "internship",
+    employmentTypes: ["internship", "part-time"],
+    locationType: "remote",
+    location: "India",
+    experience: "Any student or creator - your reels are your resume",
+    order: 65,
+    blurb: "Make the reels students actually watch - funny, useful, and about coding, placements and life as a developer, through DeVert.",
+    description:
+      "Most coding content is either boring or wrong. We want the opposite: short videos that make a student laugh, learn something in 30 seconds, and want to try it themselves on DeVert.\n\n" +
+      "You would make Instagram Reels, YouTube Shorts and LinkedIn videos - placement-season humour, a DSA trick explained in one take, a DeVert 100 day in a minute, an Arena battle, GATE prep reality - and grow DeVert's audience among students. You get the platform, the content and real stories from the community; you bring the hook, the edit and the timing.\n\n" + COMP,
+    responsibilities: [
+      "Plan, shoot and edit short-form videos for Instagram, YouTube Shorts and LinkedIn - funny, informative or both",
+      "Turn DeVert features - DeVert 100, Arena, DeVert Campus, GATE prep - into content students want to share",
+      "Ride trends quickly without getting cringe, and keep the facts right",
+      "Track what works - views, saves, shares, follows - and do more of it",
+    ],
+    requirements: [
+      "Reels, shorts or videos you have made - share links; views matter less than taste",
+      "A sense of humour that lands with college students",
+      "Basic editing on your phone or laptop (CapCut, VN, Premiere or similar)",
+      "Consistency: a steady posting rhythm beats one viral video",
+    ],
+    niceToHave: [
+      "You code, or you are learning - it makes the jokes and explainers accurate",
+      "Comfortable on camera, or good at faceless formats",
+      "Graphic design or motion graphics",
+    ],
+    perks: [
+      "Creative freedom, with credit on everything you make",
+      "Your work in front of students across colleges",
+      "Remote and flexible around classes",
+      "A portfolio and a reference for real growth you drove",
+    ],
+  },
+  {
     slug: "full-stack-engineer",
     title: "Full-Stack Engineer",
     team: "Engineering",
