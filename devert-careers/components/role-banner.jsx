@@ -57,7 +57,10 @@ function Art({ src, card }) {
         // wide card and cropped to a thin band of windows - and framed on the
         // clock tower and roofline so the campus is recognisable at a glance.
         ? "pointer-events-none absolute right-0 top-0 h-full w-[58%] max-w-[360px] object-cover object-[50%_30%]"
-        : "pointer-events-none absolute right-0 top-0 h-full w-full object-cover object-right opacity-25 sm:w-[44%] sm:opacity-100"}
+        // Hero: the whole illustration, never cropped - contained in its
+        // half of the panel and anchored right, the panel's dark fill showing
+        // around it.
+        : "pointer-events-none absolute right-0 top-0 h-full w-full object-contain object-right opacity-25 sm:w-[44%] sm:opacity-100"}
       style={{
         WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 48%)",
         maskImage: "linear-gradient(to right, transparent 0%, #000 48%)",

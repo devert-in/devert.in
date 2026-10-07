@@ -18,6 +18,7 @@ import {
 } from "@/lib/careers";
 import { ApplyForm } from "@/components/apply-form";
 import { RoleBanner } from "@/components/role-banner";
+import { ROLE_ART } from "@/lib/role-art.mjs";
 
 function labelFor(list, value) {
   return list.find((o) => o.value === value)?.label || value || "";
@@ -49,48 +50,61 @@ function FilterGroup({ label, options, value, onChange }) {
 }
 
 function RoleRow({ role }) {
+  // A role with hand-made art (lib/role-art.mjs) leads with its full card
+  // image at the image's own 1200x630 proportions, so none of it is ever
+  // cropped. Everything else gets the drawn strip.
+  const card = ROLE_ART[role.id]?.card;
   return (
     <Link href={`/${role.id}`}
-      className="group block overflow-hidden rounded-xl border border-ink-200 bg-ink-100 p-5 transition-all hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:p-6">
-      <RoleBanner role={role} />
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ink-900 group-hover:text-brand-700">
-            {role.title}
-          </h3>
-          {role.team && (
-            <p className="mt-1 text-[13px] font-medium text-ink-500">{role.team}</p>
-          )}
-        </div>
-        <ArrowRight
-          size={18}
-          className="mt-1 shrink-0 text-ink-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-600"
-        />
-      </div>
-
-      {role.blurb && (
-        <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-ink-600">{role.blurb}</p>
+      className="group flex flex-col overflow-hidden rounded-2xl border border-ink-200 bg-ink-100 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_1px_3px_rgba(15,23,42,0.06),0_14px_32px_-14px_rgba(60,232,111,0.25)]">
+      {card ? (
+        // eslint-disable-next-line @next/next/no-img-element -- static export, no image optimizer
+        <img src={card} alt={`${role.title} - We're hiring at DeVert`}
+          className="block aspect-[1200/630] w-full border-b border-ink-200 object-cover" />
+      ) : (
+        <div className="px-5 pt-5 sm:px-6 sm:pt-6"><RoleBanner role={role} /></div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-        {role.employmentType && (
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-500">
-            <Briefcase size={13} className="text-ink-400" />
-            {labelFor(EMPLOYMENT_TYPES, role.employmentType)}
-          </span>
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="text-[18px] font-semibold tracking-[-0.01em] text-ink-900 group-hover:text-brand-700">
+              {role.title}
+            </h3>
+            {role.team && (
+              <p className="mt-1 text-[13px] font-medium text-ink-500">{role.team}</p>
+            )}
+          </div>
+          <ArrowRight
+            size={18}
+            className="mt-1 shrink-0 text-ink-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-600"
+          />
+        </div>
+
+        {role.blurb && (
+          <p className="mt-3 line-clamp-3 text-[14px] leading-relaxed text-ink-600">{role.blurb}</p>
         )}
-        {(role.locationType || role.location) && (
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-500">
-            <MapPin size={13} className="text-ink-400" />
-            {[labelFor(LOCATION_TYPES, role.locationType), role.location].filter(Boolean).join(" · ")}
-          </span>
-        )}
-        {role.experience && (
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-500">
-            <Clock size={13} className="text-ink-400" />
-            {role.experience}
-          </span>
-        )}
+
+        <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-4">
+          {role.employmentType && (
+            <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-500">
+              <Briefcase size={13} className="text-ink-400" />
+              {labelFor(EMPLOYMENT_TYPES, role.employmentType)}
+            </span>
+          )}
+          {(role.locationType || role.location) && (
+            <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-500">
+              <MapPin size={13} className="text-ink-400" />
+              {[labelFor(LOCATION_TYPES, role.locationType), role.location].filter(Boolean).join(" · ")}
+            </span>
+          )}
+          {role.experience && (
+            <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-500">
+              <Clock size={13} className="text-ink-400" />
+              {role.experience}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );
@@ -187,7 +201,9 @@ export function RoleList() {
               </button>
             </div>
           ) : (
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              {/* A grid of proper cards, not full-width strips: one role sits at
+                  card width rather than stretching flat across the page. */}
               {visible.map((r) => <RoleRow key={r.id} role={r} />)}
             </div>
           )}
