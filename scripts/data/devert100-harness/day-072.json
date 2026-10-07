@@ -1,0 +1,102 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "orangesRotting",
+      "params": [
+        {
+          "name": "grid",
+          "type": "int[][]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "grid": [
+          [
+            2,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            1,
+            1
+          ]
+        ]
+      },
+      "expected": 4
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "grid": [
+          [
+            2,
+            1,
+            1
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            1
+          ]
+        ]
+      },
+      "expected": -1
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "grid": [
+          [
+            0,
+            2
+          ]
+        ]
+      },
+      "expected": 0
+    },
+    {
+      "label": "Fresh orange, no rot anywhere",
+      "input": {
+        "grid": [
+          [
+            1
+          ]
+        ]
+      },
+      "expected": -1
+    },
+    {
+      "label": "Two sources meeting",
+      "input": {
+        "grid": [
+          [
+            2,
+            1,
+            1,
+            1,
+            2
+          ]
+        ]
+      },
+      "expected": 2
+    }
+  ]
+}

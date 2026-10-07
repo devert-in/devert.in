@@ -1,0 +1,46 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "climbStairs",
+      "params": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "n": 2
+      },
+      "expected": 2
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "n": 3
+      },
+      "expected": 3
+    },
+    {
+      "label": "One step",
+      "input": {
+        "n": 1
+      },
+      "expected": 1
+    },
+    {
+      "label": "The upper bound",
+      "input": {
+        "n": 45
+      },
+      "expected": 1836311903
+    }
+  ]
+}

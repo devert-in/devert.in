@@ -1,0 +1,60 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "lengthOfLongestSubstring",
+      "params": [
+        {
+          "name": "s",
+          "type": "String"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "s": "abcabcbb"
+      },
+      "expected": 3
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "s": "bbbbb"
+      },
+      "expected": 1
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "s": "pwwkew"
+      },
+      "expected": 3
+    },
+    {
+      "label": "Empty string",
+      "input": {
+        "s": ""
+      },
+      "expected": 0
+    },
+    {
+      "label": "Left must not move back",
+      "input": {
+        "s": "abba"
+      },
+      "expected": 2
+    },
+    {
+      "label": "Non-adjacent repeat",
+      "input": {
+        "s": "dvdf"
+      },
+      "expected": 3
+    }
+  ]
+}

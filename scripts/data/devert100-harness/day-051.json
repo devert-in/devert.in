@@ -1,0 +1,97 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "inorderTraversal",
+      "params": [
+        {
+          "name": "root",
+          "type": "TreeNode"
+        }
+      ],
+      "returns": "List<Integer>"
+    },
+    {
+      "name": "preorderTraversal",
+      "params": [
+        {
+          "name": "root",
+          "type": "TreeNode"
+        }
+      ],
+      "returns": "List<Integer>"
+    },
+    {
+      "name": "postorderTraversal",
+      "params": [
+        {
+          "name": "root",
+          "type": "TreeNode"
+        }
+      ],
+      "returns": "List<Integer>"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Inorder, Example 1",
+      "fn": "inorderTraversal",
+      "input": {
+        "root": [
+          1,
+          null,
+          2,
+          3
+        ]
+      },
+      "expected": [
+        1,
+        3,
+        2
+      ]
+    },
+    {
+      "label": "Preorder",
+      "fn": "preorderTraversal",
+      "input": {
+        "root": [
+          1,
+          null,
+          2,
+          3
+        ]
+      },
+      "expected": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "label": "Postorder",
+      "fn": "postorderTraversal",
+      "input": {
+        "root": [
+          1,
+          null,
+          2,
+          3
+        ]
+      },
+      "expected": [
+        3,
+        2,
+        1
+      ]
+    },
+    {
+      "label": "Empty tree",
+      "fn": "inorderTraversal",
+      "input": {
+        "root": []
+      },
+      "expected": []
+    }
+  ]
+}

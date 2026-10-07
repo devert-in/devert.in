@@ -1,0 +1,84 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "findMaxAverage",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "double"
+    }
+  ],
+  "check": "float",
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          1,
+          12,
+          -5,
+          -6,
+          50,
+          3
+        ],
+        "k": 4
+      },
+      "expected": 12.75
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          5
+        ],
+        "k": 1
+      },
+      "expected": 5
+    },
+    {
+      "label": "Every window negative",
+      "input": {
+        "nums": [
+          -1,
+          -2,
+          -3
+        ],
+        "k": 2
+      },
+      "expected": -1.5
+    },
+    {
+      "label": "Best window is the last",
+      "input": {
+        "nums": [
+          1,
+          1,
+          1,
+          9
+        ],
+        "k": 2
+      },
+      "expected": 5
+    },
+    {
+      "label": "Integer division trap",
+      "input": {
+        "nums": [
+          1,
+          2
+        ],
+        "k": 2
+      },
+      "expected": 1.5
+    }
+  ]
+}

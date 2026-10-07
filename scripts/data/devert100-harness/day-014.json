@@ -1,0 +1,54 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "longestPalindrome",
+      "params": [
+        {
+          "name": "s",
+          "type": "String"
+        }
+      ],
+      "returns": "String"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "s": "babad"
+      },
+      "expected": "bab"
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "s": "cbbd"
+      },
+      "expected": "bb"
+    },
+    {
+      "label": "Single character",
+      "input": {
+        "s": "a"
+      },
+      "expected": "a"
+    },
+    {
+      "label": "Even-length in the middle",
+      "input": {
+        "s": "forgeeksskeegfor"
+      },
+      "expected": "geeksskeeg"
+    },
+    {
+      "label": "All the same character",
+      "input": {
+        "s": "aaaa"
+      },
+      "expected": "aaaa"
+    }
+  ],
+  "check": "longestPalindrome"
+}

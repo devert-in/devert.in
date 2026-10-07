@@ -1,0 +1,122 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "minCostConnectPoints",
+      "params": [
+        {
+          "name": "points",
+          "type": "int[][]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            10
+          ],
+          [
+            5,
+            2
+          ],
+          [
+            7,
+            0
+          ]
+        ]
+      },
+      "expected": 20
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "points": [
+          [
+            3,
+            12
+          ],
+          [
+            -2,
+            5
+          ],
+          [
+            -4,
+            1
+          ]
+        ]
+      },
+      "expected": 18
+    },
+    {
+      "label": "Single point",
+      "input": {
+        "points": [
+          [
+            0,
+            0
+          ]
+        ]
+      },
+      "expected": 0
+    },
+    {
+      "label": "Ties, one cost",
+      "input": {
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      "expected": 3
+    },
+    {
+      "label": "Duplicate points",
+      "input": {
+        "points": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "expected": 7
+    }
+  ]
+}

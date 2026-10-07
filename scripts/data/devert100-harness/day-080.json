@@ -1,0 +1,194 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "articulationPoints",
+      "params": [
+        {
+          "name": "V",
+          "type": "int"
+        },
+        {
+          "name": "adj",
+          "type": "ArrayList<ArrayList<Integer>>"
+        }
+      ],
+      "returns": "ArrayList<Integer>"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "V": 5,
+        "adj": [
+          [
+            1
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            1,
+            2,
+            3
+          ]
+        ]
+      },
+      "expected": [
+        1,
+        4
+      ]
+    },
+    {
+      "label": "Bowtie, no bridges",
+      "input": {
+        "V": 5,
+        "adj": [
+          [
+            1,
+            2
+          ],
+          [
+            0,
+            2,
+            3,
+            4
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            3,
+            1
+          ]
+        ]
+      },
+      "expected": [
+        1
+      ]
+    },
+    {
+      "label": "No articulation point, a cycle",
+      "input": {
+        "V": 3,
+        "adj": [
+          [
+            1,
+            2
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "expected": [
+        -1
+      ]
+    },
+    {
+      "label": "A path",
+      "input": {
+        "V": 4,
+        "adj": [
+          [
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2
+          ]
+        ]
+      },
+      "expected": [
+        1,
+        2
+      ]
+    },
+    {
+      "label": "Star, not rooted at the centre",
+      "input": {
+        "V": 4,
+        "adj": [
+          [
+            2
+          ],
+          [
+            2
+          ],
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            2
+          ]
+        ]
+      },
+      "expected": [
+        2
+      ]
+    },
+    {
+      "label": "Two triangles sharing a vertex",
+      "input": {
+        "V": 5,
+        "adj": [
+          [
+            1,
+            2
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            0,
+            3,
+            4
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            2
+          ]
+        ]
+      },
+      "expected": [
+        2
+      ]
+    }
+  ]
+}

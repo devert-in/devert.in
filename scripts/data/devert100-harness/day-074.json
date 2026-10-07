@@ -1,0 +1,150 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "shortestPathBinaryMatrix",
+      "params": [
+        {
+          "name": "grid",
+          "type": "int[][]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "grid": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "expected": 2
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "grid": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ]
+        ]
+      },
+      "expected": 4
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "grid": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ]
+        ]
+      },
+      "expected": -1
+    },
+    {
+      "label": "Single open cell",
+      "input": {
+        "grid": [
+          [
+            0
+          ]
+        ]
+      },
+      "expected": 1
+    },
+    {
+      "label": "End blocked",
+      "input": {
+        "grid": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "expected": -1
+    },
+    {
+      "label": "A snake",
+      "input": {
+        "grid": [
+          [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "expected": 13
+    }
+  ]
+}

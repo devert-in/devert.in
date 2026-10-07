@@ -1,0 +1,91 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "middleNode",
+      "params": [
+        {
+          "name": "head",
+          "type": "ListNode"
+        }
+      ],
+      "returns": "ListNode"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "head": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": [
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "head": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "expected": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "label": "Single node",
+      "input": {
+        "head": [
+          1
+        ]
+      },
+      "expected": [
+        1
+      ]
+    },
+    {
+      "label": "Two nodes",
+      "input": {
+        "head": [
+          1,
+          2
+        ]
+      },
+      "expected": [
+        2
+      ]
+    },
+    {
+      "label": "All values equal",
+      "input": {
+        "head": [
+          7,
+          7,
+          7,
+          7
+        ]
+      },
+      "expected": [
+        7,
+        7
+      ]
+    }
+  ]
+}

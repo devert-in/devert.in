@@ -1,0 +1,133 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "isBipartite",
+      "params": [
+        {
+          "name": "graph",
+          "type": "int[][]"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "graph": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            0,
+            2
+          ]
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "graph": [
+          [
+            1,
+            3
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            0,
+            2
+          ]
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "Odd cycle, the pentagon",
+      "input": {
+        "graph": [
+          [
+            1,
+            4
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            0
+          ]
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Odd cycle in another piece",
+      "input": {
+        "graph": [
+          [
+            1
+          ],
+          [
+            0
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Isolated nodes only",
+      "input": {
+        "graph": [
+          [],
+          [],
+          []
+        ]
+      },
+      "expected": true
+    }
+  ]
+}

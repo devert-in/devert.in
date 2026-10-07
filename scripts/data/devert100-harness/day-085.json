@@ -1,0 +1,75 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "minCost",
+      "params": [
+        {
+          "name": "arr",
+          "type": "int[]"
+        }
+      ],
+      "returns": "long"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "arr": [
+          4,
+          3,
+          2,
+          6
+        ]
+      },
+      "expected": 29
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "arr": [
+          4,
+          2,
+          7,
+          6,
+          9
+        ]
+      },
+      "expected": 62
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "arr": [
+          10
+        ]
+      },
+      "expected": 0
+    },
+    {
+      "label": "All equal",
+      "input": {
+        "arr": [
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "expected": 40
+    },
+    {
+      "label": "Large totals",
+      "input": {
+        "arr": [
+          10000,
+          10000,
+          10000
+        ]
+      },
+      "expected": 50000
+    }
+  ]
+}

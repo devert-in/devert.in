@@ -1,0 +1,76 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "change",
+      "params": [
+        {
+          "name": "amount",
+          "type": "int"
+        },
+        {
+          "name": "coins",
+          "type": "int[]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "amount": 5,
+        "coins": [
+          1,
+          2,
+          5
+        ]
+      },
+      "expected": 4
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "amount": 3,
+        "coins": [
+          2
+        ]
+      },
+      "expected": 0
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "amount": 10,
+        "coins": [
+          10
+        ]
+      },
+      "expected": 1
+    },
+    {
+      "label": "Amount zero",
+      "input": {
+        "amount": 0,
+        "coins": [
+          7
+        ]
+      },
+      "expected": 1
+    },
+    {
+      "label": "Unsorted coins",
+      "input": {
+        "amount": 12,
+        "coins": [
+          5,
+          1,
+          3
+        ]
+      },
+      "expected": 9
+    }
+  ]
+}

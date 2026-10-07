@@ -137,10 +137,38 @@ for (const d of days) {
   if (main) main.deepDive = dd;
 }
 
+// ── harness specs ─────────────────────────────────────────────────────────
+// A day with scripts/data/devert100-harness/day-NNN.json is LeetCode-style:
+// the workspace generates the function stub and a hidden driver from it in
+// every language, and Run checks the learner's function against its cases.
+// The specs are built and verified by scripts/build-devert100-harness.mjs; a
+// spec with a case still missing its `expected` was never built, so it is
+// refused here rather than shipped with a case nobody can pass.
+const HARNESS_DIR = "scripts/data/devert100-harness";
+const harnessByDay = {};
+if (existsSync(HARNESS_DIR)) {
+  for (const f of readdirSync(HARNESS_DIR).filter(f => /^day-\d{3}\.json$/.test(f))) {
+    const spec = JSON.parse(readFileSync(`${HARNESS_DIR}/${f}`, "utf8"));
+    const unbuilt = (spec.cases || []).filter(c => !("expected" in c)).map(c => c.label);
+    if (unbuilt.length) {
+      console.error(`  ! ${f}: case(s) without expected (${unbuilt.join(", ")}) - run scripts/build-devert100-harness.mjs first`);
+      process.exit(1);
+    }
+    harnessByDay[Number(f.match(/\d+/)[0])] = spec;
+  }
+}
+for (const d of days) {
+  const spec = harnessByDay[d.day];
+  if (!spec) continue;
+  const main = d.problems.find(p => p.type === "Main") || d.problems[0];
+  if (main) main.harness = spec;
+}
+
 const targets = days.filter(d => !ONLY || ONLY.has(d.day));
 
 console.log(`${IN}: ${counts.days} days, ${counts.problems} problems (${counts.main} main + ${counts.bonus} bonus)`);
 console.log(`deep dives authored: ${Object.keys(deepDives).length}/100  ${Object.keys(deepDives).length ? "(days " + Object.keys(deepDives).sort((a,b)=>a-b).join(", ") + ")" : ""}`);
+console.log(`harness specs (LeetCode-style Run): ${Object.keys(harnessByDay).length}/100`);
 console.log(`${APPLY ? "APPLYING" : "DRY RUN"} - ${targets.length} day document(s)${ONLY ? ` (--only ${[...ONLY].join(",")})` : ""}\n`);
 
 if (!APPLY) {

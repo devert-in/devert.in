@@ -1,0 +1,91 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "longestSubarray",
+      "params": [
+        {
+          "name": "arr",
+          "type": "int[]"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "arr": [
+          10,
+          5,
+          2,
+          7,
+          1,
+          -10
+        ],
+        "k": 15
+      },
+      "expected": 6
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "arr": [
+          -5,
+          8,
+          -14,
+          2,
+          4,
+          12
+        ],
+        "k": -5
+      },
+      "expected": 5
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "arr": [
+          10,
+          -10,
+          20,
+          30
+        ],
+        "k": 5
+      },
+      "expected": 0
+    },
+    {
+      "label": "First occurrence matters",
+      "input": {
+        "arr": [
+          1,
+          -1,
+          5,
+          -2,
+          3
+        ],
+        "k": 3
+      },
+      "expected": 4
+    },
+    {
+      "label": "All zeros, k = 0",
+      "input": {
+        "arr": [
+          0,
+          0,
+          0
+        ],
+        "k": 0
+      },
+      "expected": 3
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "maxArea",
+      "params": [
+        {
+          "name": "height",
+          "type": "int[]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "height": [
+          1,
+          8,
+          6,
+          2,
+          5,
+          4,
+          8,
+          3,
+          7
+        ]
+      },
+      "expected": 49
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "height": [
+          1,
+          1
+        ]
+      },
+      "expected": 1
+    },
+    {
+      "label": "Tall lines adjacent",
+      "input": {
+        "height": [
+          1,
+          100,
+          100,
+          1
+        ]
+      },
+      "expected": 100
+    },
+    {
+      "label": "Strictly decreasing",
+      "input": {
+        "height": [
+          5,
+          4,
+          3,
+          2,
+          1
+        ]
+      },
+      "expected": 6
+    },
+    {
+      "label": "Answer uses neither end",
+      "input": {
+        "height": [
+          2,
+          3,
+          10,
+          5,
+          7,
+          8,
+          9
+        ]
+      },
+      "expected": 36
+    }
+  ]
+}

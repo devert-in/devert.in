@@ -1,0 +1,89 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "isBalanced",
+      "params": [
+        {
+          "name": "root",
+          "type": "TreeNode"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "root": [
+          3,
+          9,
+          20,
+          null,
+          null,
+          15,
+          7
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "root": [
+          1,
+          2,
+          2,
+          3,
+          3,
+          null,
+          null,
+          4,
+          4
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "root": []
+      },
+      "expected": true
+    },
+    {
+      "label": "Root even, subtrees not",
+      "input": {
+        "root": [
+          1,
+          2,
+          2,
+          3,
+          null,
+          null,
+          3,
+          4,
+          null,
+          null,
+          4
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Right-leaning chain",
+      "input": {
+        "root": [
+          1,
+          null,
+          2,
+          null,
+          3
+        ]
+      },
+      "expected": false
+    }
+  ]
+}

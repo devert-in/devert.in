@@ -1,0 +1,197 @@
+{
+  "kind": "design",
+  "className": "MedianFinder",
+  "constructor": {
+    "params": []
+  },
+  "functions": [
+    {
+      "name": "addNum",
+      "params": [
+        {
+          "name": "num",
+          "type": "int"
+        }
+      ],
+      "returns": "void"
+    },
+    {
+      "name": "findMedian",
+      "params": [],
+      "returns": "double"
+    }
+  ],
+  "check": "float",
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "ops": [
+          "MedianFinder",
+          "addNum",
+          "addNum",
+          "findMedian",
+          "addNum",
+          "findMedian"
+        ],
+        "args": [
+          [],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [],
+          [
+            3
+          ],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        1.5,
+        null,
+        2
+      ]
+    },
+    {
+      "label": "A single number",
+      "input": {
+        "ops": [
+          "MedianFinder",
+          "addNum",
+          "findMedian"
+        ],
+        "args": [
+          [],
+          [
+            7
+          ],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        7
+      ]
+    },
+    {
+      "label": "Negatives average",
+      "input": {
+        "ops": [
+          "MedianFinder",
+          "addNum",
+          "addNum",
+          "findMedian"
+        ],
+        "args": [
+          [],
+          [
+            -1
+          ],
+          [
+            -2
+          ],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        -1.5
+      ]
+    },
+    {
+      "label": "Strictly decreasing stream",
+      "input": {
+        "ops": [
+          "MedianFinder",
+          "addNum",
+          "findMedian",
+          "addNum",
+          "findMedian",
+          "addNum",
+          "findMedian",
+          "addNum",
+          "findMedian"
+        ],
+        "args": [
+          [],
+          [
+            5
+          ],
+          [],
+          [
+            4
+          ],
+          [],
+          [
+            3
+          ],
+          [],
+          [
+            2
+          ],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        5,
+        null,
+        4.5,
+        null,
+        4,
+        null,
+        3.5
+      ]
+    },
+    {
+      "label": "Duplicates",
+      "input": {
+        "ops": [
+          "MedianFinder",
+          "addNum",
+          "addNum",
+          "addNum",
+          "findMedian",
+          "addNum",
+          "findMedian"
+        ],
+        "args": [
+          [],
+          [
+            2
+          ],
+          [
+            2
+          ],
+          [
+            2
+          ],
+          [],
+          [
+            2
+          ],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        null,
+        2,
+        null,
+        2
+      ]
+    }
+  ]
+}

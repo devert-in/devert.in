@@ -1,0 +1,109 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "threeSum",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        }
+      ],
+      "returns": "List<List<Integer>>"
+    }
+  ],
+  "check": "unorderedDeep",
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          -1,
+          0,
+          1,
+          2,
+          -1,
+          -4
+        ]
+      },
+      "expected": [
+        [
+          -1,
+          -1,
+          2
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          0,
+          1,
+          1
+        ]
+      },
+      "expected": []
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "nums": [
+          0,
+          0,
+          0
+        ]
+      },
+      "expected": [
+        [
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "label": "Many zeros",
+      "input": {
+        "nums": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "expected": [
+        [
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "label": "Duplicate second/third values",
+      "input": {
+        "nums": [
+          -2,
+          0,
+          0,
+          2,
+          2
+        ]
+      },
+      "expected": [
+        [
+          -2,
+          0,
+          2
+        ]
+      ]
+    }
+  ]
+}

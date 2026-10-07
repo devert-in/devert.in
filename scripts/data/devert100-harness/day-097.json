@@ -1,0 +1,62 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "minDistance",
+      "params": [
+        {
+          "name": "word1",
+          "type": "String"
+        },
+        {
+          "name": "word2",
+          "type": "String"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "word1": "horse",
+        "word2": "ros"
+      },
+      "expected": 3
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "word1": "intention",
+        "word2": "execution"
+      },
+      "expected": 5
+    },
+    {
+      "label": "Both strings empty",
+      "input": {
+        "word1": "",
+        "word2": ""
+      },
+      "expected": 0
+    },
+    {
+      "label": "One string empty",
+      "input": {
+        "word1": "",
+        "word2": "abc"
+      },
+      "expected": 3
+    },
+    {
+      "label": "One is a prefix of the other",
+      "input": {
+        "word1": "abc",
+        "word2": "abcde"
+      },
+      "expected": 2
+    }
+  ]
+}

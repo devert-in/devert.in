@@ -1,0 +1,63 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "lastStoneWeight",
+      "params": [
+        {
+          "name": "stones",
+          "type": "int[]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "stones": [
+          2,
+          7,
+          4,
+          1,
+          8,
+          1
+        ]
+      },
+      "expected": 1
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "stones": [
+          1
+        ]
+      },
+      "expected": 1
+    },
+    {
+      "label": "Two equal stones",
+      "input": {
+        "stones": [
+          2,
+          2
+        ]
+      },
+      "expected": 0
+    },
+    {
+      "label": "Heaviest pair cancels",
+      "input": {
+        "stones": [
+          10,
+          4,
+          2,
+          10
+        ]
+      },
+      "expected": 2
+    }
+  ]
+}

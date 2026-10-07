@@ -1,0 +1,141 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "exist",
+      "params": [
+        {
+          "name": "board",
+          "type": "char[][]"
+        },
+        {
+          "name": "word",
+          "type": "String"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "board": [
+          [
+            "A",
+            "B",
+            "C",
+            "E"
+          ],
+          [
+            "S",
+            "F",
+            "C",
+            "S"
+          ],
+          [
+            "A",
+            "D",
+            "E",
+            "E"
+          ]
+        ],
+        "word": "ABCCED"
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "board": [
+          [
+            "A",
+            "B",
+            "C",
+            "E"
+          ],
+          [
+            "S",
+            "F",
+            "C",
+            "S"
+          ],
+          [
+            "A",
+            "D",
+            "E",
+            "E"
+          ]
+        ],
+        "word": "SEE"
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "board": [
+          [
+            "A",
+            "B",
+            "C",
+            "E"
+          ],
+          [
+            "S",
+            "F",
+            "C",
+            "S"
+          ],
+          [
+            "A",
+            "D",
+            "E",
+            "E"
+          ]
+        ],
+        "word": "ABCB"
+      },
+      "expected": false
+    },
+    {
+      "label": "Single cell",
+      "input": {
+        "board": [
+          [
+            "a"
+          ]
+        ],
+        "word": "a"
+      },
+      "expected": true
+    },
+    {
+      "label": "Word longer than the board",
+      "input": {
+        "board": [
+          [
+            "a",
+            "b"
+          ]
+        ],
+        "word": "abab"
+      },
+      "expected": false
+    },
+    {
+      "label": "Case matters",
+      "input": {
+        "board": [
+          [
+            "a",
+            "B"
+          ]
+        ],
+        "word": "ab"
+      },
+      "expected": false
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "subsets",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        }
+      ],
+      "returns": "List<List<Integer>>"
+    }
+  ],
+  "check": "unorderedDeep",
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expected": [
+        [],
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          0
+        ]
+      },
+      "expected": [
+        [],
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "label": "Negative numbers",
+      "input": {
+        "nums": [
+          -1,
+          4
+        ]
+      },
+      "expected": [
+        [],
+        [
+          -1
+        ],
+        [
+          -1,
+          4
+        ],
+        [
+          4
+        ]
+      ]
+    },
+    {
+      "label": "Input not sorted",
+      "input": {
+        "nums": [
+          3,
+          1,
+          2
+        ]
+      },
+      "expected": [
+        [],
+        [
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          1,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2
+        ]
+      ]
+    }
+  ]
+}

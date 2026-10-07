@@ -1,0 +1,104 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "groupAnagrams",
+      "params": [
+        {
+          "name": "strs",
+          "type": "String[]"
+        }
+      ],
+      "returns": "List<List<String>>"
+    }
+  ],
+  "check": "unorderedDeep",
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "strs": [
+          "eat",
+          "tea",
+          "tan",
+          "ate",
+          "nat",
+          "bat"
+        ]
+      },
+      "expected": [
+        [
+          "bat"
+        ],
+        [
+          "nat",
+          "tan"
+        ],
+        [
+          "ate",
+          "eat",
+          "tea"
+        ]
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "strs": [
+          ""
+        ]
+      },
+      "expected": [
+        [
+          ""
+        ]
+      ]
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "strs": [
+          "a"
+        ]
+      },
+      "expected": [
+        [
+          "a"
+        ]
+      ]
+    },
+    {
+      "label": "Same letters, different counts",
+      "input": {
+        "strs": [
+          "ab",
+          "aab"
+        ]
+      },
+      "expected": [
+        [
+          "ab"
+        ],
+        [
+          "aab"
+        ]
+      ]
+    },
+    {
+      "label": "Duplicates",
+      "input": {
+        "strs": [
+          "a",
+          "a"
+        ]
+      },
+      "expected": [
+        [
+          "a",
+          "a"
+        ]
+      ]
+    }
+  ]
+}

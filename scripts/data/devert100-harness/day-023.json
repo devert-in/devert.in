@@ -1,0 +1,82 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "subarraySum",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          1,
+          1,
+          1
+        ],
+        "k": 2
+      },
+      "expected": 2
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          1,
+          2,
+          3
+        ],
+        "k": 3
+      },
+      "expected": 2
+    },
+    {
+      "label": "k = 0 with zeros",
+      "input": {
+        "nums": [
+          0,
+          0,
+          0
+        ],
+        "k": 0
+      },
+      "expected": 6
+    },
+    {
+      "label": "Negatives cancel out",
+      "input": {
+        "nums": [
+          1,
+          -1,
+          0
+        ],
+        "k": 0
+      },
+      "expected": 3
+    },
+    {
+      "label": "Negative k",
+      "input": {
+        "nums": [
+          -1,
+          -1,
+          1
+        ],
+        "k": -1
+      },
+      "expected": 3
+    }
+  ]
+}

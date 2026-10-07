@@ -1,0 +1,76 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "hasCycle",
+      "params": [
+        {
+          "name": "head",
+          "type": "ListNode",
+          "build": {
+            "cycle": {
+              "values": "head",
+              "pos": "pos"
+            }
+          }
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "inputs": [
+    {
+      "name": "head",
+      "type": "int[]"
+    },
+    {
+      "name": "pos",
+      "type": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "head": [
+          3,
+          2,
+          0,
+          -4
+        ],
+        "pos": 1
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "head": [
+          1,
+          2
+        ],
+        "pos": 0
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "head": [
+          1
+        ],
+        "pos": -1
+      },
+      "expected": false
+    },
+    {
+      "label": "Empty list",
+      "input": {
+        "head": [],
+        "pos": -1
+      },
+      "expected": false
+    }
+  ]
+}

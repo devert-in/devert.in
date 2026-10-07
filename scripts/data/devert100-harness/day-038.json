@@ -1,0 +1,184 @@
+{
+  "kind": "design",
+  "className": "MyQueue",
+  "constructor": {
+    "params": []
+  },
+  "functions": [
+    {
+      "name": "push",
+      "params": [
+        {
+          "name": "x",
+          "type": "int"
+        }
+      ],
+      "returns": "void"
+    },
+    {
+      "name": "pop",
+      "params": [],
+      "returns": "int"
+    },
+    {
+      "name": "peek",
+      "params": [],
+      "returns": "int"
+    },
+    {
+      "name": "empty",
+      "params": [],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "ops": [
+          "MyQueue",
+          "push",
+          "push",
+          "peek",
+          "pop",
+          "empty"
+        ],
+        "args": [
+          [],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [],
+          [],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        1,
+        1,
+        false
+      ]
+    },
+    {
+      "label": "Interleaved pushes and pops",
+      "input": {
+        "ops": [
+          "MyQueue",
+          "push",
+          "push",
+          "push",
+          "pop",
+          "push",
+          "pop",
+          "pop",
+          "pop",
+          "empty"
+        ],
+        "args": [
+          [],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ],
+          [],
+          [
+            4
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        null,
+        1,
+        null,
+        2,
+        3,
+        4,
+        true
+      ]
+    },
+    {
+      "label": "Push after a peek",
+      "input": {
+        "ops": [
+          "MyQueue",
+          "push",
+          "peek",
+          "push",
+          "pop",
+          "pop",
+          "empty"
+        ],
+        "args": [
+          [],
+          [
+            1
+          ],
+          [],
+          [
+            2
+          ],
+          [],
+          [],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        1,
+        null,
+        1,
+        2,
+        true
+      ]
+    },
+    {
+      "label": "empty() checks both stacks",
+      "input": {
+        "ops": [
+          "MyQueue",
+          "push",
+          "push",
+          "pop",
+          "empty"
+        ],
+        "args": [
+          [],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        1,
+        false
+      ]
+    }
+  ]
+}

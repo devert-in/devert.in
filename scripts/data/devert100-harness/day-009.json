@@ -1,0 +1,53 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "isPalindrome",
+      "params": [
+        {
+          "name": "s",
+          "type": "String"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "s": "A man, a plan, a canal: Panama"
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "s": "race a car"
+      },
+      "expected": false
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "s": " "
+      },
+      "expected": true
+    },
+    {
+      "label": "Digits count",
+      "input": {
+        "s": "0P"
+      },
+      "expected": false
+    },
+    {
+      "label": "Only punctuation",
+      "input": {
+        "s": ".,"
+      },
+      "expected": true
+    }
+  ]
+}

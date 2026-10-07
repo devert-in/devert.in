@@ -1,0 +1,54 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "isAnagram",
+      "params": [
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "t",
+          "type": "String"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "s": "anagram",
+        "t": "nagaram"
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "s": "rat",
+        "t": "car"
+      },
+      "expected": false
+    },
+    {
+      "label": "Different lengths",
+      "input": {
+        "s": "a",
+        "t": "ab"
+      },
+      "expected": false
+    },
+    {
+      "label": "Same letters, different counts",
+      "input": {
+        "s": "aab",
+        "t": "abb"
+      },
+      "expected": false
+    }
+  ]
+}

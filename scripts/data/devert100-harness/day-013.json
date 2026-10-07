@@ -1,0 +1,137 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "compress",
+      "params": [
+        {
+          "name": "chars",
+          "type": "char[]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "output": {
+    "mode": "returnAndParamPrefix",
+    "name": "chars"
+  },
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "chars": [
+          "a",
+          "a",
+          "b",
+          "b",
+          "c",
+          "c",
+          "c"
+        ]
+      },
+      "expected": [
+        6,
+        [
+          "a",
+          "2",
+          "b",
+          "2",
+          "c",
+          "3"
+        ]
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "chars": [
+          "a"
+        ]
+      },
+      "expected": [
+        1,
+        [
+          "a"
+        ]
+      ]
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "chars": [
+          "a",
+          "b",
+          "b",
+          "b",
+          "b",
+          "b",
+          "b",
+          "b",
+          "b",
+          "b",
+          "b",
+          "b",
+          "b"
+        ]
+      },
+      "expected": [
+        4,
+        [
+          "a",
+          "b",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    {
+      "label": "Run of exactly ten",
+      "input": {
+        "chars": [
+          "a",
+          "a",
+          "a",
+          "a",
+          "a",
+          "a",
+          "a",
+          "a",
+          "a",
+          "a"
+        ]
+      },
+      "expected": [
+        3,
+        [
+          "a",
+          "1",
+          "0"
+        ]
+      ]
+    },
+    {
+      "label": "Same char in separate runs",
+      "input": {
+        "chars": [
+          "a",
+          "a",
+          "b",
+          "a",
+          "a"
+        ]
+      },
+      "expected": [
+        5,
+        [
+          "a",
+          "2",
+          "b",
+          "a",
+          "2"
+        ]
+      ]
+    }
+  ]
+}

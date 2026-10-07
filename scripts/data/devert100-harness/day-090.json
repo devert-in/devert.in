@@ -1,0 +1,62 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "uniquePaths",
+      "params": [
+        {
+          "name": "m",
+          "type": "int"
+        },
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "m": 3,
+        "n": 7
+      },
+      "expected": 28
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "m": 3,
+        "n": 2
+      },
+      "expected": 3
+    },
+    {
+      "label": "Single cell",
+      "input": {
+        "m": 1,
+        "n": 1
+      },
+      "expected": 1
+    },
+    {
+      "label": "Single row",
+      "input": {
+        "m": 1,
+        "n": 5
+      },
+      "expected": 1
+    },
+    {
+      "label": "Square grid",
+      "input": {
+        "m": 10,
+        "n": 10
+      },
+      "expected": 48620
+    }
+  ]
+}

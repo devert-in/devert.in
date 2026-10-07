@@ -1,0 +1,69 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "longestCommonPrefix",
+      "params": [
+        {
+          "name": "strs",
+          "type": "String[]"
+        }
+      ],
+      "returns": "String"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "strs": [
+          "flower",
+          "flow",
+          "flight"
+        ]
+      },
+      "expected": "fl"
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "strs": [
+          "dog",
+          "racecar",
+          "car"
+        ]
+      },
+      "expected": ""
+    },
+    {
+      "label": "Single string",
+      "input": {
+        "strs": [
+          "alone"
+        ]
+      },
+      "expected": "alone"
+    },
+    {
+      "label": "An empty string",
+      "input": {
+        "strs": [
+          "abc",
+          ""
+        ]
+      },
+      "expected": ""
+    },
+    {
+      "label": "First string is longer",
+      "input": {
+        "strs": [
+          "ab",
+          "a"
+        ]
+      },
+      "expected": "a"
+    }
+  ]
+}

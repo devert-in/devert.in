@@ -1,0 +1,53 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "mySqrt",
+      "params": [
+        {
+          "name": "x",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "x": 4
+      },
+      "expected": 2
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "x": 8
+      },
+      "expected": 2
+    },
+    {
+      "label": "Zero",
+      "input": {
+        "x": 0
+      },
+      "expected": 0
+    },
+    {
+      "label": "One below a perfect square",
+      "input": {
+        "x": 15
+      },
+      "expected": 3
+    },
+    {
+      "label": "The overflow boundary",
+      "input": {
+        "x": 2147483647
+      },
+      "expected": 46340
+    }
+  ]
+}

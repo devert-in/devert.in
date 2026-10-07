@@ -1,0 +1,98 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "canFinish",
+      "params": [
+        {
+          "name": "numCourses",
+          "type": "int"
+        },
+        {
+          "name": "prerequisites",
+          "type": "int[][]"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "numCourses": 2,
+        "prerequisites": [
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "numCourses": 2,
+        "prerequisites": [
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "No prerequisites",
+      "input": {
+        "numCourses": 3,
+        "prerequisites": []
+      },
+      "expected": true
+    },
+    {
+      "label": "Course needs itself",
+      "input": {
+        "numCourses": 2,
+        "prerequisites": [
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Cycle in a separate group",
+      "input": {
+        "numCourses": 5,
+        "prerequisites": [
+          [
+            1,
+            0
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            2,
+            4
+          ]
+        ]
+      },
+      "expected": false
+    }
+  ]
+}

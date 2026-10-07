@@ -1,0 +1,83 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "reverseList",
+      "params": [
+        {
+          "name": "head",
+          "type": "ListNode"
+        }
+      ],
+      "returns": "ListNode"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "head": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": [
+        5,
+        4,
+        3,
+        2,
+        1
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "head": [
+          1,
+          2
+        ]
+      },
+      "expected": [
+        2,
+        1
+      ]
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "head": []
+      },
+      "expected": []
+    },
+    {
+      "label": "Single node",
+      "input": {
+        "head": [
+          7
+        ]
+      },
+      "expected": [
+        7
+      ]
+    },
+    {
+      "label": "Duplicate values",
+      "input": {
+        "head": [
+          1,
+          1,
+          2
+        ]
+      },
+      "expected": [
+        2,
+        1,
+        1
+      ]
+    }
+  ]
+}

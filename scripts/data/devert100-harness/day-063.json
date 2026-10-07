@@ -1,0 +1,128 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "nearlySorted",
+      "params": [
+        {
+          "name": "arr",
+          "type": "int[]"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "void"
+    }
+  ],
+  "output": {
+    "mode": "param",
+    "name": "arr"
+  },
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "arr": [
+          6,
+          5,
+          3,
+          2,
+          8,
+          10,
+          9
+        ],
+        "k": 3
+      },
+      "expected": [
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "arr": [
+          1,
+          4,
+          5,
+          2,
+          3,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "k": 2
+      },
+      "expected": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "label": "Fully reversed, k = n - 1",
+      "input": {
+        "arr": [
+          4,
+          3,
+          2,
+          1
+        ],
+        "k": 3
+      },
+      "expected": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "label": "Single element",
+      "input": {
+        "arr": [
+          5
+        ],
+        "k": 1
+      },
+      "expected": [
+        5
+      ]
+    },
+    {
+      "label": "Duplicates",
+      "input": {
+        "arr": [
+          1,
+          2,
+          1,
+          2
+        ],
+        "k": 1
+      },
+      "expected": [
+        1,
+        1,
+        2,
+        2
+      ]
+    }
+  ]
+}

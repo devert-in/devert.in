@@ -1,0 +1,131 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "networkDelayTime",
+      "params": [
+        {
+          "name": "times",
+          "type": "int[][]"
+        },
+        {
+          "name": "n",
+          "type": "int"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "times": [
+          [
+            2,
+            1,
+            1
+          ],
+          [
+            2,
+            3,
+            1
+          ],
+          [
+            3,
+            4,
+            1
+          ]
+        ],
+        "n": 4,
+        "k": 2
+      },
+      "expected": 2
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "times": [
+          [
+            1,
+            2,
+            1
+          ]
+        ],
+        "n": 2,
+        "k": 1
+      },
+      "expected": 1
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "times": [
+          [
+            1,
+            2,
+            1
+          ]
+        ],
+        "n": 2,
+        "k": 2
+      },
+      "expected": -1
+    },
+    {
+      "label": "Cheap route has more edges",
+      "input": {
+        "times": [
+          [
+            1,
+            3,
+            10
+          ],
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            2,
+            3,
+            1
+          ]
+        ],
+        "n": 3,
+        "k": 1
+      },
+      "expected": 2
+    },
+    {
+      "label": "Max, not sum",
+      "input": {
+        "times": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            1,
+            3,
+            3
+          ],
+          [
+            1,
+            4,
+            3
+          ]
+        ],
+        "n": 4,
+        "k": 1
+      },
+      "expected": 3
+    }
+  ]
+}

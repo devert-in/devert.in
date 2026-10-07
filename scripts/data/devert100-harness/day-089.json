@@ -1,0 +1,75 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "rob",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          1,
+          2,
+          3,
+          1
+        ]
+      },
+      "expected": 4
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          2,
+          7,
+          9,
+          3,
+          1
+        ]
+      },
+      "expected": 12
+    },
+    {
+      "label": "One house",
+      "input": {
+        "nums": [
+          5
+        ]
+      },
+      "expected": 5
+    },
+    {
+      "label": "Every-other-house trap",
+      "input": {
+        "nums": [
+          2,
+          1,
+          1,
+          2
+        ]
+      },
+      "expected": 4
+    },
+    {
+      "label": "Biggest-first trap",
+      "input": {
+        "nums": [
+          3,
+          4,
+          3
+        ]
+      },
+      "expected": 6
+    }
+  ]
+}

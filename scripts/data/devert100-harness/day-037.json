@@ -1,0 +1,157 @@
+{
+  "kind": "design",
+  "className": "MinStack",
+  "constructor": {
+    "params": []
+  },
+  "functions": [
+    {
+      "name": "push",
+      "params": [
+        {
+          "name": "val",
+          "type": "int"
+        }
+      ],
+      "returns": "void"
+    },
+    {
+      "name": "pop",
+      "params": [],
+      "returns": "void"
+    },
+    {
+      "name": "top",
+      "params": [],
+      "returns": "int"
+    },
+    {
+      "name": "getMin",
+      "params": [],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "ops": [
+          "MinStack",
+          "push",
+          "push",
+          "push",
+          "getMin",
+          "pop",
+          "top",
+          "getMin"
+        ],
+        "args": [
+          [],
+          [
+            -2
+          ],
+          [
+            0
+          ],
+          [
+            -3
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        null,
+        -3,
+        null,
+        0,
+        -2
+      ]
+    },
+    {
+      "label": "Duplicate minimums",
+      "input": {
+        "ops": [
+          "MinStack",
+          "push",
+          "push",
+          "push",
+          "getMin",
+          "pop",
+          "getMin",
+          "pop",
+          "getMin"
+        ],
+        "args": [
+          [],
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            0
+          ],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        null,
+        0,
+        null,
+        0,
+        null,
+        0
+      ]
+    },
+    {
+      "label": "Negative values",
+      "input": {
+        "ops": [
+          "MinStack",
+          "push",
+          "push",
+          "getMin",
+          "top",
+          "pop",
+          "getMin"
+        ],
+        "args": [
+          [],
+          [
+            -1
+          ],
+          [
+            -5
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "expected": [
+        null,
+        null,
+        null,
+        -5,
+        -5,
+        null,
+        -1
+      ]
+    }
+  ]
+}

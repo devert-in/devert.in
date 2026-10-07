@@ -1,0 +1,94 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "findKthLargest",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          3,
+          2,
+          1,
+          5,
+          6,
+          4
+        ],
+        "k": 2
+      },
+      "expected": 5
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          3,
+          2,
+          3,
+          1,
+          2,
+          4,
+          5,
+          5,
+          6
+        ],
+        "k": 4
+      },
+      "expected": 4
+    },
+    {
+      "label": "k = n, the minimum",
+      "input": {
+        "nums": [
+          3,
+          2,
+          1,
+          5,
+          6,
+          4
+        ],
+        "k": 6
+      },
+      "expected": 1
+    },
+    {
+      "label": "Duplicates count separately",
+      "input": {
+        "nums": [
+          3,
+          3,
+          2
+        ],
+        "k": 2
+      },
+      "expected": 3
+    },
+    {
+      "label": "Negatives",
+      "input": {
+        "nums": [
+          -1,
+          -5,
+          -3
+        ],
+        "k": 2
+      },
+      "expected": -3
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "search",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        },
+        {
+          "name": "target",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          -1,
+          0,
+          3,
+          5,
+          9,
+          12
+        ],
+        "target": 9
+      },
+      "expected": 4
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          -1,
+          0,
+          3,
+          5,
+          9,
+          12
+        ],
+        "target": 2
+      },
+      "expected": -1
+    },
+    {
+      "label": "Single element, present",
+      "input": {
+        "nums": [
+          5
+        ],
+        "target": 5
+      },
+      "expected": 0
+    },
+    {
+      "label": "Single element, absent",
+      "input": {
+        "nums": [
+          5
+        ],
+        "target": -5
+      },
+      "expected": -1
+    },
+    {
+      "label": "Target is the first element",
+      "input": {
+        "nums": [
+          2,
+          4,
+          6,
+          8
+        ],
+        "target": 2
+      },
+      "expected": 0
+    },
+    {
+      "label": "Target larger than everything",
+      "input": {
+        "nums": [
+          2,
+          4,
+          6,
+          8
+        ],
+        "target": 9
+      },
+      "expected": -1
+    }
+  ]
+}

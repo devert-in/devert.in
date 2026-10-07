@@ -1,0 +1,91 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "numberOfSubarrays",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          1,
+          1,
+          2,
+          1,
+          1
+        ],
+        "k": 3
+      },
+      "expected": 2
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          2,
+          4,
+          6
+        ],
+        "k": 1
+      },
+      "expected": 0
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "nums": [
+          2,
+          2,
+          2,
+          1,
+          2,
+          2,
+          1,
+          2,
+          2,
+          2
+        ],
+        "k": 2
+      },
+      "expected": 16
+    },
+    {
+      "label": "Evens around one odd",
+      "input": {
+        "nums": [
+          2,
+          1,
+          2
+        ],
+        "k": 1
+      },
+      "expected": 4
+    },
+    {
+      "label": "Every element odd",
+      "input": {
+        "nums": [
+          1,
+          1,
+          1
+        ],
+        "k": 2
+      },
+      "expected": 2
+    }
+  ]
+}

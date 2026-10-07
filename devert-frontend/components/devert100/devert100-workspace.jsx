@@ -6,11 +6,13 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, ExternalLink, Play, RotateCcw, Loader2, CheckCircle2,
-  Lock, Lightbulb, Clock, Cpu, AlertCircle, Share2, Target, ChevronRight, Youtube,
+  Lock, Lightbulb, Clock, Cpu, AlertCircle, Share2, Target, ChevronRight, Youtube, XCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useIsWindowed } from "@/components/window/is-windowed";
 import { CODELAB_LANGUAGES, STARTER_CODE, runCode } from "@/lib/codelab";
+import { starterCode, buildRun, gradeRun } from "@/lib/devert100-harness/index.mjs";
+import { checkPythonSyntax } from "@/components/devert100/live-syntax-check";
 import {
   DEVERT100_TOTAL_DAYS, DAY_STATE, dayState, currentDay, formatDayDate,
   fetchDay, subscribeToParticipant, completeDay, mainProblem, bonusProblems, problemLabel, problemVideo,
@@ -28,6 +30,9 @@ const DIFFICULTY_COLOR = { Easy: GREEN, Medium: "#FF9500", Hard: "#FF5050" };
 // Java first, deliberately - this run is Java-oriented and the language picker
 // defaulting to anything else would make most participants change it every day.
 const DEFAULT_LANGUAGE = "java";
+
+// Mirrors CodeExecutionController.MAX_CODE_LENGTH on devert-backend.
+const RUN_CODE_LIMIT = 20_000;
 
 function Section({ title, icon: Icon, color = CYAN, children, defaultOpen = true, reveal = false }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -135,6 +140,144 @@ function CompleteDialog({ day, problem, onCancel, onConfirm, busy, error }) {
   );
 }
 
+// ── test case results (LeetCode-style days) ───────────────────────────────
+// One run executes every visible case; this shows them as case tabs with
+// input / output / expected, plus whatever the learner printed while that
+// case ran. Errors are the point of the panel as much as answers are: a
+// compile error lists every message with the learner's own line number, and a
+// runtime error names the exception, the line it was thrown on, and the trace.
+// Every line number is a button that jumps the editor there.
+
+const RED = "#FF5050";
+const ORANGE = "#FF9500";
+
+const STATUS_STYLE = {
+  pass: { color: GREEN, label: "Passed" },
+  fail: { color: RED, label: "Wrong Answer" },
+  runtime: { color: ORANGE, label: "Runtime Error" },
+  timeout: { color: ORANGE, label: "Time Limit Exceeded or crashed" },
+  notRun: { color: "rgba(255,255,255,0.3)", label: "Not run" },
+};
+
+function CaseField({ label, value, color }) {
+  return (
+    <div>
+      <p className="font-mono text-[10px] text-white/30 tracking-wider mb-1">{label}</p>
+      <pre className="font-mono text-[11px] px-3 py-2 rounded whitespace-pre-wrap break-all max-h-32 overflow-y-auto"
+        style={{ background: "rgba(255,255,255,0.04)", color: color || "rgba(255,255,255,0.75)" }}>{value}</pre>
+    </div>
+  );
+}
+
+function LineLink({ line, onJump }) {
+  if (!line) return null;
+  return (
+    <button onClick={() => onJump?.(line)} className="underline decoration-dotted underline-offset-2 hover:opacity-80"
+      title="Show this line in the editor">line {line}</button>
+  );
+}
+
+function ErrorBox({ title, children }) {
+  return (
+    <div className="rounded px-3 py-2.5 space-y-1.5" style={{ background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.25)" }}>
+      <p className="font-mono text-[11px] font-semibold" style={{ color: RED }}>{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function TestResults({ run, onJump }) {
+  const [active, setActive] = useState(0);
+  if (!run) return null;
+  const { results = [], compileErrors, stderr, timeMs } = run;
+  const passed = results.filter(r => r.status === "pass").length;
+  const allPass = results.length > 0 && passed === results.length;
+  const r = results[Math.min(active, results.length - 1)];
+  const headline = compileErrors ? "Compile Error"
+    : results.length ? `${passed} / ${results.length} cases passed` : "Run failed";
+  return (
+    <div className="terminal-window overflow-hidden">
+      <div className="terminal-header flex items-center gap-2">
+        <span className="font-mono text-[10px] ml-2 inline-flex items-center gap-1.5"
+          style={{ color: allPass ? GREEN : RED }}>
+          {allPass ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+          {headline}
+        </span>
+        {timeMs > 0 && !compileErrors && <span className="font-mono text-[10px] text-white/25 ml-auto mr-2 flex items-center gap-1"><Clock size={10} />{timeMs} ms</span>}
+      </div>
+      <div className="p-3 space-y-3">
+        {compileErrors ? (
+          <ErrorBox title={`${compileErrors.length} compile error${compileErrors.length === 1 ? "" : "s"} - no case ran`}>
+            {compileErrors.map((e, i) => (
+              <p key={i} className="font-mono text-[11px] whitespace-pre-wrap break-words" style={{ color: "#FF9A9A" }}>
+                {e.line ? <><LineLink line={e.line} onJump={onJump} />{e.col ? `:${e.col}` : ""}: </> : null}{e.message}
+              </p>
+            ))}
+          </ErrorBox>
+        ) : (stderr && !results.some(x => x.status === "pass" || x.status === "fail" || x.status === "runtime")) ? (
+          <ErrorBox title="The run did not finish">
+            <pre className="font-mono text-[11px] whitespace-pre-wrap break-words max-h-40 overflow-y-auto" style={{ color: "#FF9A9A" }}>{stderr}</pre>
+          </ErrorBox>
+        ) : null}
+        {results.length > 0 && !compileErrors && (
+          <>
+            <div className="flex gap-1.5 flex-wrap">
+              {results.map((x, i) => (
+                <button key={i} onClick={() => setActive(i)}
+                  className="font-mono text-[10px] px-2.5 py-1.5 rounded inline-flex items-center gap-1.5"
+                  style={{
+                    background: i === active ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
+                    color: i === active ? "#fff" : "rgba(255,255,255,0.5)",
+                  }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS_STYLE[x.status].color }} />
+                  Case {i + 1}
+                </button>
+              ))}
+            </div>
+            {r && (
+              <div className="space-y-2.5">
+                <p className="font-mono text-[11px]" style={{ color: STATUS_STYLE[r.status].color }}>
+                  {STATUS_STYLE[r.status].label}<span className="text-white/30"> - {r.label}</span>
+                </p>
+                {r.status === "runtime" && r.error && (
+                  <ErrorBox title={`${r.error.type || "Error"}${r.error.message ? ": " + r.error.message : ""}`}>
+                    {r.error.line ? (
+                      <p className="font-mono text-[11px]" style={{ color: "#FF9A9A" }}>Thrown at <LineLink line={r.error.line} onJump={onJump} /> of your code.</p>
+                    ) : null}
+                    {r.error.trace ? (
+                      <pre className="font-mono text-[10.5px] whitespace-pre-wrap break-words max-h-32 overflow-y-auto text-white/45">{r.error.trace}</pre>
+                    ) : null}
+                  </ErrorBox>
+                )}
+                {r.status === "timeout" && (
+                  <ErrorBox title="This case never finished">
+                    <p className="font-mono text-[11px]" style={{ color: "#FF9A9A" }}>
+                      Usually an infinite loop or very slow solution, or a crash that stops the whole
+                      program (in C/C++, often a null pointer or out-of-bounds access).
+                    </p>
+                  </ErrorBox>
+                )}
+                {r.status === "notRun" && (
+                  <p className="font-mono text-[11px] text-white/35">An earlier case stopped the run before this one started.</p>
+                )}
+                <CaseField label="INPUT" value={r.input} />
+                {(r.status === "pass" || r.status === "fail") && <CaseField label="YOUR OUTPUT" value={r.output} color={r.status === "pass" ? GREEN : "#FF8080"} />}
+                <CaseField label="EXPECTED" value={r.expected} />
+                {r.stdout && <CaseField label="STDOUT" value={r.stdout} color="rgba(255,255,255,0.55)" />}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function safeStarter(harness, language) {
+  if (!harness) return STARTER_CODE[language] ?? "";
+  try { return starterCode(harness, language); } catch { return STARTER_CODE[language] ?? ""; }
+}
+
 // ── page ──────────────────────────────────────────────────────────────────
 
 export function Devert100Workspace({ day }) {
@@ -148,17 +291,25 @@ export function Devert100Workspace({ day }) {
   const [code, setCode] = useState(STARTER_CODE[DEFAULT_LANGUAGE]);
   const [stdin, setStdin] = useState("");
   const [output, setOutput] = useState(null);
+  const [testRun, setTestRun] = useState(null);
   const [running, setRunning] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [showShare, setShowShare] = useState(false);
 
+  // A day with a harness spec is LeetCode-style: the learner writes only the
+  // function, and Run checks it against the day's visible cases. A day without
+  // one keeps the plain full-program scratchpad.
+  const harness = mainProblem(dayDoc)?.harness || null;
+
   // Drafts are per day AND per language, kept in localStorage only. This is
   // scratch work on an external problem, not a graded submission, so it has no
   // business costing a Firestore write on every keystroke - and it survives a
-  // refresh, which is all it needs to do.
-  const draftKey = `devert100:draft:${dayNum}:${language}`;
+  // refresh, which is all it needs to do. Function-only drafts use their own
+  // key: a full `public class Main` draft from the scratchpad era would not
+  // compile inside the harness.
+  const draftKey = `devert100:draft:${harness ? "fn:" : ""}${dayNum}:${language}`;
   const loadedDraftFor = useRef(null);
 
   useEffect(() => {
@@ -177,34 +328,126 @@ export function Devert100Workspace({ day }) {
   }, [user, authLoading]);
 
   useEffect(() => {
+    // Wait for the day doc: whether this day is function-only decides both the
+    // draft key and the starter code.
+    if (dayDoc === undefined) return;
     if (loadedDraftFor.current === draftKey) return;
     loadedDraftFor.current = draftKey;
     let saved = null;
     try { saved = localStorage.getItem(draftKey); } catch { /* private mode */ }
-    setCode(saved ?? STARTER_CODE[language] ?? "");
+    setCode(saved ?? safeStarter(harness, language));
     setOutput(null);
-  }, [draftKey, language]);
+    setTestRun(null);
+  }, [draftKey, language, dayDoc, harness]);
 
   useEffect(() => {
+    if (loadedDraftFor.current !== draftKey) return;
     const t = setTimeout(() => { try { localStorage.setItem(draftKey, code); } catch { /* ignore */ } }, 500);
     return () => clearTimeout(t);
   }, [code, draftKey]);
 
+  // ── editor markers ──
+  // Two owners so they never clobber each other: "dv100-run" holds what the
+  // last Run reported (compile + runtime errors, in the learner's line numbers)
+  // and is cleared as soon as the code changes; "dv100-live" holds the
+  // while-you-type Python syntax check.
+  const editorRef = useRef(null);
+  const monacoRef = useRef(null);
+  const setMarkers = useCallback((owner, list) => {
+    const monaco = monacoRef.current, model = editorRef.current?.getModel?.();
+    if (!monaco || !model) return;
+    const lines = model.getLineCount();
+    monaco.editor.setModelMarkers(model, owner, (list || []).filter(m => m.startLine >= 1 && m.startLine <= lines).map(m => ({
+      startLineNumber: m.startLine,
+      startColumn: m.startCol || 1,
+      endLineNumber: m.endLine || m.startLine,
+      endColumn: m.endCol || model.getLineMaxColumn(m.endLine || m.startLine),
+      message: m.message,
+      severity: monaco.MarkerSeverity.Error,
+    })));
+  }, []);
+
+  const markRunErrors = useCallback((graded) => {
+    const marks = [];
+    for (const e of graded.compileErrors || []) {
+      if (e.line) marks.push({ startLine: e.line, startCol: e.col || 1, message: e.message });
+    }
+    graded.results.forEach((r, i) => {
+      const e = r.status === "runtime" ? r.error : null;
+      if (e?.line && !marks.some(m => m.startLine === e.line)) {
+        marks.push({ startLine: e.line, message: `Runtime error in case ${i + 1}: ${e.type || "Error"}${e.message ? ": " + e.message : ""}` });
+      }
+    });
+    setMarkers("dv100-run", marks);
+    if (marks[0]) editorRef.current?.revealLineInCenterIfOutsideViewport?.(marks[0].startLine);
+  }, [setMarkers]);
+
+  const jumpToLine = useCallback((line) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    ed.revealLineInCenter(line);
+    ed.setPosition({ lineNumber: line, column: 1 });
+    ed.focus();
+  }, []);
+
+  // Stale run markers would point at lines that have since moved.
+  useEffect(() => { setMarkers("dv100-run", []); }, [code, language, setMarkers]);
+
+  // Live Python syntax check - free, in the browser, never runs the code.
+  useEffect(() => {
+    if (language !== "python" || !harness) { setMarkers("dv100-live", []); return undefined; }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      checkPythonSyntax(code).then(list => { if (!cancelled && list) setMarkers("dv100-live", list); });
+    }, 600);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [code, language, harness, setMarkers]);
+
   const handleRun = useCallback(async () => {
-    setRunning(true); setOutput(null);
+    setRunning(true); setOutput(null); setTestRun(null);
+    if (harness) {
+      try {
+        const { code: program, stdin: caseInput } = buildRun(harness, language, code);
+        // devert-backend caps a run at MAX_CODE_LENGTH (20,000 chars) and the
+        // hidden driver counts toward it, so say how much of it is theirs.
+        if (program.length > RUN_CODE_LIMIT) {
+          const room = RUN_CODE_LIMIT - (program.length - code.length);
+          setTestRun({ results: [], stderr: `Your code is ${code.length.toLocaleString()} characters; this problem leaves room for about ${Math.max(0, room).toLocaleString()}. Trim comments or unused helpers and run again.` });
+          return;
+        }
+        const res = await runCode({ language, code: program, stdin: caseInput });
+        const stderr = res.stderr || res.compileOutput || "";
+        const graded = gradeRun(harness, res.stdout || "", harness.cases, stderr);
+        setTestRun({
+          ...graded,
+          // The runner's own "Internal error: code execution failed" is what it
+          // says for a program it had to kill; the drivers report every error
+          // they can catch, so by the time this text survives it means a time
+          // limit or an uncatchable crash, and the case tabs say which case.
+          stderr: /^Internal error/i.test(stderr.trim()) ? "The program was stopped before it finished - a time limit or a crash. The case tabs show where." : stderr,
+          timeMs: res.timeMs,
+        });
+        markRunErrors(graded);
+      } catch (e) {
+        setTestRun({ results: [], stderr: e?.message || "Execution failed." });
+      } finally {
+        setRunning(false);
+      }
+      return;
+    }
     try {
       const res = await runCode({ language, code, stdin });
       setOutput({
         ok: !res.stderr && !res.compileOutput,
         text: res.stdout || res.stderr || res.compileOutput || res.message || "(no output)",
-        time: res.time, memory: res.memory,
+        timeMs: res.timeMs,
       });
     } catch (e) {
       setOutput({ ok: false, text: e?.message || "Execution failed." });
     } finally {
       setRunning(false);
     }
-  }, [language, code, stdin]);
+  }, [harness, language, code, stdin, markRunErrors]);
 
   async function handleComplete(reflection) {
     setSaving(true); setSaveError("");
@@ -457,7 +700,7 @@ export function Devert100Workspace({ day }) {
         <div className="space-y-4 min-w-0 lg:sticky lg:top-[88px]">
           <div className="terminal-window overflow-hidden">
             <div className="terminal-header flex items-center gap-2">
-              <span className="font-mono text-[10px] text-white/25 ml-2">scratchpad</span>
+              <span className="font-mono text-[10px] text-white/25 ml-2">{harness ? "code" : "scratchpad"}</span>
               <select value={language} onChange={e => setLanguage(e.target.value)}
                 className="ml-auto mr-2 font-mono text-[10px] text-white/60 rounded px-2 py-1 outline-none"
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
@@ -474,6 +717,15 @@ export function Devert100Workspace({ day }) {
               theme="vs-dark"
               value={code}
               onChange={v => setCode(v ?? "")}
+              beforeMount={monaco => {
+                // JavaScript gets syntax squiggles from Monaco's own worker for
+                // free. Semantic checks stay off: they would flag ListNode,
+                // TreeNode and other names the hidden driver provides.
+                monaco.languages.typescript?.javascriptDefaults?.setDiagnosticsOptions({
+                  noSemanticValidation: true, noSyntaxValidation: false,
+                });
+              }}
+              onMount={(editor, monaco) => { editorRef.current = editor; monacoRef.current = monaco; }}
               options={{
                 minimap: { enabled: false }, fontSize: 13, lineNumbers: "on",
                 scrollBeyondLastLine: false, automaticLayout: true, tabSize: 4,
@@ -488,7 +740,7 @@ export function Devert100Workspace({ day }) {
                 {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                 {running ? "RUNNING" : "RUN"}
               </button>
-              <button onClick={() => { setCode(STARTER_CODE[language] ?? ""); setOutput(null); }}
+              <button onClick={() => { setCode(safeStarter(harness, language)); setOutput(null); setTestRun(null); }}
                 className="font-mono text-[11px] px-3 py-2 rounded text-white/50 inline-flex items-center gap-1.5"
                 style={{ background: "rgba(255,255,255,0.05)" }}>
                 <RotateCcw size={11} /> Reset
@@ -497,30 +749,45 @@ export function Devert100Workspace({ day }) {
             </div>
           </div>
 
-          <div className="terminal-window overflow-hidden">
-            <div className="terminal-header"><span className="font-mono text-[10px] text-white/25 ml-2">stdin</span></div>
-            <textarea value={stdin} onChange={e => setStdin(e.target.value)} rows={2}
-              placeholder="Input for your program, if it reads any."
-              className="w-full px-3 py-2.5 font-mono text-[11px] text-white/80 outline-none resize-none bg-transparent" />
-          </div>
-
-          {output && (
-            <div className="terminal-window overflow-hidden">
-              <div className="terminal-header flex items-center gap-2">
-                <span className="font-mono text-[10px] ml-2" style={{ color: output.ok ? GREEN : "#FF5050" }}>output</span>
-                {output.time && <span className="font-mono text-[10px] text-white/25 ml-auto mr-2 flex items-center gap-1"><Clock size={10} />{output.time}s</span>}
+          {harness ? (
+            <>
+              <TestResults key={testRun ? "run" : "none"} run={testRun} onJump={jumpToLine} />
+              {/* The visible cases are the official examples plus a few edge
+                  cases - a pass here is a strong signal, not the platform's
+                  full judge, and the copy says so. */}
+              <p className="font-mono text-[10px] text-white/25 leading-relaxed px-1">
+                Write only the {harness.kind === "design" ? "class" : "function"} - Run checks it against{" "}
+                {harness.cases.length} cases (the official examples plus edge cases).
+                Submit on {problem?.platform || "the platform"} for the full judge, then mark the day here.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="terminal-window overflow-hidden">
+                <div className="terminal-header"><span className="font-mono text-[10px] text-white/25 ml-2">stdin</span></div>
+                <textarea value={stdin} onChange={e => setStdin(e.target.value)} rows={2}
+                  placeholder="Input for your program, if it reads any."
+                  className="w-full px-3 py-2.5 font-mono text-[11px] text-white/80 outline-none resize-none bg-transparent" />
               </div>
-              <pre className="p-3 font-mono text-[11px] text-white/70 whitespace-pre-wrap break-words max-h-52 overflow-y-auto">{output.text}</pre>
-            </div>
-          )}
 
-          {/* No auto-grading here, and the copy says so rather than implying a
-              verdict the run cannot produce - the source sheet carries no test
-              cases, so correctness is checked on the problem's own platform. */}
-          <p className="font-mono text-[10px] text-white/25 leading-relaxed px-1">
-            This scratchpad runs your code and shows output. It does not judge correctness -
-            submit on {problem?.platform || "the platform"} for the verdict, then mark the day here.
-          </p>
+              {output && (
+                <div className="terminal-window overflow-hidden">
+                  <div className="terminal-header flex items-center gap-2">
+                    <span className="font-mono text-[10px] ml-2" style={{ color: output.ok ? GREEN : "#FF5050" }}>output</span>
+                    {output.timeMs > 0 && <span className="font-mono text-[10px] text-white/25 ml-auto mr-2 flex items-center gap-1"><Clock size={10} />{output.timeMs} ms</span>}
+                  </div>
+                  <pre className="p-3 font-mono text-[11px] text-white/70 whitespace-pre-wrap break-words max-h-52 overflow-y-auto">{output.text}</pre>
+                </div>
+              )}
+
+              {/* No auto-grading here, and the copy says so rather than implying a
+                  verdict the run cannot produce - this day has no harness spec. */}
+              <p className="font-mono text-[10px] text-white/25 leading-relaxed px-1">
+                This scratchpad runs your code and shows output. It does not judge correctness -
+                submit on {problem?.platform || "the platform"} for the verdict, then mark the day here.
+              </p>
+            </>
+          )}
         </div>
       </div>
 

@@ -1,0 +1,113 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "levelOrder",
+      "params": [
+        {
+          "name": "root",
+          "type": "TreeNode"
+        }
+      ],
+      "returns": "List<List<Integer>>"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "root": [
+          3,
+          9,
+          20,
+          null,
+          null,
+          15,
+          7
+        ]
+      },
+      "expected": [
+        [
+          3
+        ],
+        [
+          9,
+          20
+        ],
+        [
+          15,
+          7
+        ]
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "root": [
+          1
+        ]
+      },
+      "expected": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "root": []
+      },
+      "expected": []
+    },
+    {
+      "label": "Skewed chain",
+      "input": {
+        "root": [
+          1,
+          2,
+          null,
+          3
+        ]
+      },
+      "expected": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "label": "Gaps inside a level",
+      "input": {
+        "root": [
+          1,
+          2,
+          3,
+          null,
+          4,
+          5
+        ]
+      },
+      "expected": [
+        [
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "isPalindrome",
+      "params": [
+        {
+          "name": "head",
+          "type": "ListNode"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "head": [
+          1,
+          2,
+          2,
+          1
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "head": [
+          1,
+          2
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Single node",
+      "input": {
+        "head": [
+          7
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "Odd length palindrome",
+      "input": {
+        "head": [
+          1,
+          2,
+          3,
+          2,
+          1
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "Same values, wrong order",
+      "input": {
+        "head": [
+          1,
+          2,
+          1,
+          2
+        ]
+      },
+      "expected": false
+    }
+  ]
+}

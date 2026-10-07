@@ -1,0 +1,122 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "topKFrequent",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "int[]"
+    }
+  ],
+  "check": "unordered",
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          1,
+          1,
+          1,
+          2,
+          2,
+          3
+        ],
+        "k": 2
+      },
+      "expected": [
+        1,
+        2
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          1
+        ],
+        "k": 1
+      },
+      "expected": [
+        1
+      ]
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "nums": [
+          1,
+          2,
+          1,
+          2,
+          1,
+          2,
+          3,
+          1,
+          3,
+          2
+        ],
+        "k": 2
+      },
+      "expected": [
+        1,
+        2
+      ]
+    },
+    {
+      "label": "All values the same",
+      "input": {
+        "nums": [
+          7,
+          7,
+          7
+        ],
+        "k": 1
+      },
+      "expected": [
+        7
+      ]
+    },
+    {
+      "label": "Negative values",
+      "input": {
+        "nums": [
+          -1,
+          -1,
+          2
+        ],
+        "k": 1
+      },
+      "expected": [
+        -1
+      ]
+    },
+    {
+      "label": "Ties below the cut",
+      "input": {
+        "nums": [
+          1,
+          1,
+          1,
+          2,
+          2,
+          3,
+          4
+        ],
+        "k": 2
+      },
+      "expected": [
+        1,
+        2
+      ]
+    }
+  ]
+}

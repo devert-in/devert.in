@@ -1,0 +1,62 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "characterReplacement",
+      "params": [
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "s": "ABAB",
+        "k": 2
+      },
+      "expected": 4
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "s": "AABABBA",
+        "k": 1
+      },
+      "expected": 4
+    },
+    {
+      "label": "No changes allowed",
+      "input": {
+        "s": "AABBBA",
+        "k": 0
+      },
+      "expected": 3
+    },
+    {
+      "label": "Changes at both ends",
+      "input": {
+        "s": "BAAAB",
+        "k": 2
+      },
+      "expected": 5
+    },
+    {
+      "label": "All different, no budget",
+      "input": {
+        "s": "ABCD",
+        "k": 0
+      },
+      "expected": 1
+    }
+  ]
+}

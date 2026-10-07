@@ -1,0 +1,97 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "sortColors",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        }
+      ],
+      "returns": "void"
+    }
+  ],
+  "output": {
+    "mode": "param",
+    "name": "nums"
+  },
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          2,
+          0,
+          2,
+          1,
+          1,
+          0
+        ]
+      },
+      "expected": [
+        0,
+        0,
+        1,
+        1,
+        2,
+        2
+      ]
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          2,
+          0,
+          1
+        ]
+      },
+      "expected": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "Unchecked swap-in",
+      "input": {
+        "nums": [
+          1,
+          2,
+          0
+        ]
+      },
+      "expected": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "Two elements",
+      "input": {
+        "nums": [
+          1,
+          0
+        ]
+      },
+      "expected": [
+        0,
+        1
+      ]
+    },
+    {
+      "label": "Single element",
+      "input": {
+        "nums": [
+          2
+        ]
+      },
+      "expected": [
+        2
+      ]
+    }
+  ]
+}

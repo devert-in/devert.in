@@ -1,0 +1,70 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "minWindow",
+      "params": [
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "t",
+          "type": "String"
+        }
+      ],
+      "returns": "String"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "s": "ADOBECODEBANC",
+        "t": "ABC"
+      },
+      "expected": "BANC"
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "s": "a",
+        "t": "a"
+      },
+      "expected": "a"
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "s": "a",
+        "t": "aa"
+      },
+      "expected": ""
+    },
+    {
+      "label": "Duplicates in t",
+      "input": {
+        "s": "ABBA",
+        "t": "AA"
+      },
+      "expected": "ABBA"
+    },
+    {
+      "label": "Case sensitive",
+      "input": {
+        "s": "aA",
+        "t": "A"
+      },
+      "expected": "A"
+    },
+    {
+      "label": "Spare copies squeezed out",
+      "input": {
+        "s": "AAAB",
+        "t": "AB"
+      },
+      "expected": "AB"
+    }
+  ]
+}

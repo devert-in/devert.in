@@ -1,0 +1,90 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "lengthOfLIS",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          10,
+          9,
+          2,
+          5,
+          3,
+          7,
+          101,
+          18
+        ]
+      },
+      "expected": 4
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          0,
+          1,
+          0,
+          3,
+          2,
+          3
+        ]
+      },
+      "expected": 4
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "nums": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ]
+      },
+      "expected": 1
+    },
+    {
+      "label": "Strictly decreasing",
+      "input": {
+        "nums": [
+          5,
+          4,
+          3,
+          2,
+          1
+        ]
+      },
+      "expected": 1
+    },
+    {
+      "label": "Negative numbers",
+      "input": {
+        "nums": [
+          -2,
+          -1,
+          -5,
+          0,
+          -3,
+          4
+        ]
+      },
+      "expected": 4
+    }
+  ]
+}

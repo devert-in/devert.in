@@ -1,0 +1,141 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "isCycle",
+      "params": [
+        {
+          "name": "V",
+          "type": "int"
+        },
+        {
+          "name": "adj",
+          "type": "ArrayList<ArrayList<Integer>>"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "V": 5,
+        "adj": [
+          [
+            1
+          ],
+          [
+            0,
+            2,
+            4
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            1,
+            3
+          ]
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "V": 4,
+        "adj": [
+          [],
+          [
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2
+          ]
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Two vertices, one edge",
+      "input": {
+        "V": 2,
+        "adj": [
+          [
+            1
+          ],
+          [
+            0
+          ]
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Cycle in another component",
+      "input": {
+        "V": 6,
+        "adj": [
+          [
+            1
+          ],
+          [
+            0
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            2
+          ],
+          []
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "A tree",
+      "input": {
+        "V": 5,
+        "adj": [
+          [
+            1
+          ],
+          [
+            0,
+            2,
+            3
+          ],
+          [
+            1
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            3
+          ]
+        ]
+      },
+      "expected": false
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "isValid",
+      "params": [
+        {
+          "name": "s",
+          "type": "String"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "s": "()"
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "s": "()[]{}"
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "s": "(]"
+      },
+      "expected": false
+    },
+    {
+      "label": "Example 4",
+      "input": {
+        "s": "([])"
+      },
+      "expected": true
+    },
+    {
+      "label": "Crossing pairs",
+      "input": {
+        "s": "([)]"
+      },
+      "expected": false
+    },
+    {
+      "label": "Only openers",
+      "input": {
+        "s": "(("
+      },
+      "expected": false
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "canPartition",
+      "params": [
+        {
+          "name": "nums",
+          "type": "int[]"
+        }
+      ],
+      "returns": "boolean"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "nums": [
+          1,
+          5,
+          11,
+          5
+        ]
+      },
+      "expected": true
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "nums": [
+          1,
+          2,
+          3,
+          5
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Single element",
+      "input": {
+        "nums": [
+          1
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "An element bigger than half",
+      "input": {
+        "nums": [
+          1,
+          2,
+          9
+        ]
+      },
+      "expected": false
+    },
+    {
+      "label": "Even total, still impossible",
+      "input": {
+        "nums": [
+          2,
+          2,
+          3,
+          5
+        ]
+      },
+      "expected": false
+    }
+  ]
+}

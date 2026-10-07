@@ -1,0 +1,62 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "longestCommonSubsequence",
+      "params": [
+        {
+          "name": "text1",
+          "type": "String"
+        },
+        {
+          "name": "text2",
+          "type": "String"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "text1": "abcde",
+        "text2": "ace"
+      },
+      "expected": 3
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "text1": "abc",
+        "text2": "abc"
+      },
+      "expected": 3
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "text1": "abc",
+        "text2": "def"
+      },
+      "expected": 0
+    },
+    {
+      "label": "Same letters, opposite order",
+      "input": {
+        "text1": "abc",
+        "text2": "cba"
+      },
+      "expected": 1
+    },
+    {
+      "label": "Repeated characters",
+      "input": {
+        "text1": "aab",
+        "text2": "azb"
+      },
+      "expected": 2
+    }
+  ]
+}

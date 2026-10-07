@@ -1,0 +1,102 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "fractionalKnapsack",
+      "params": [
+        {
+          "name": "val",
+          "type": "int[]"
+        },
+        {
+          "name": "wt",
+          "type": "int[]"
+        },
+        {
+          "name": "capacity",
+          "type": "int"
+        }
+      ],
+      "returns": "double"
+    }
+  ],
+  "check": "float",
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "val": [
+          60,
+          100,
+          120
+        ],
+        "wt": [
+          10,
+          20,
+          30
+        ],
+        "capacity": 50
+      },
+      "expected": 240
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "val": [
+          60,
+          100
+        ],
+        "wt": [
+          10,
+          20
+        ],
+        "capacity": 50
+      },
+      "expected": 160
+    },
+    {
+      "label": "Example 3",
+      "input": {
+        "val": [
+          10,
+          20,
+          30
+        ],
+        "wt": [
+          5,
+          10,
+          15
+        ],
+        "capacity": 100
+      },
+      "expected": 60
+    },
+    {
+      "label": "Capacity smaller than every item",
+      "input": {
+        "val": [
+          500
+        ],
+        "wt": [
+          30
+        ],
+        "capacity": 10
+      },
+      "expected": 166.66667
+    },
+    {
+      "label": "Non-terminating decimal",
+      "input": {
+        "val": [
+          10
+        ],
+        "wt": [
+          3
+        ],
+        "capacity": 1
+      },
+      "expected": 3.33333
+    }
+  ]
+}

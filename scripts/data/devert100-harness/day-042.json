@@ -1,0 +1,87 @@
+{
+  "kind": "function",
+  "className": "Solution",
+  "functions": [
+    {
+      "name": "largestRectangleArea",
+      "params": [
+        {
+          "name": "heights",
+          "type": "int[]"
+        }
+      ],
+      "returns": "int"
+    }
+  ],
+  "cases": [
+    {
+      "label": "Example 1",
+      "input": {
+        "heights": [
+          2,
+          1,
+          5,
+          6,
+          2,
+          3
+        ]
+      },
+      "expected": 10
+    },
+    {
+      "label": "Example 2",
+      "input": {
+        "heights": [
+          2,
+          4
+        ]
+      },
+      "expected": 4
+    },
+    {
+      "label": "Single bar",
+      "input": {
+        "heights": [
+          5
+        ]
+      },
+      "expected": 5
+    },
+    {
+      "label": "All bars equal",
+      "input": {
+        "heights": [
+          3,
+          3,
+          3,
+          3
+        ]
+      },
+      "expected": 12
+    },
+    {
+      "label": "Zero splits the histogram",
+      "input": {
+        "heights": [
+          2,
+          0,
+          2
+        ]
+      },
+      "expected": 2
+    },
+    {
+      "label": "Strictly increasing",
+      "input": {
+        "heights": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "expected": 9
+    }
+  ]
+}
