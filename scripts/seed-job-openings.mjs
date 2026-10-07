@@ -117,36 +117,36 @@ const ROLES = [
     ],
   },
   {
-    slug: "content-engineer-dsa-gate",
-    title: "Content Engineer - DSA & GATE",
+    slug: "content-engineer",
+    title: "Content Engineer",
     team: "Content",
-    employmentType: "part-time",
+    employmentType: "internship",
     locationType: "remote",
     location: "India",
-    experience: "Strong DSA or GATE preparation - student or graduate",
+    experience: "Strong DSA or CS fundamentals - current student or recent graduate",
     order: 80,
-    blurb: "Build the problems, test cases and verified GATE questions behind DeVert Campus and DeVert 100 - for students who are judged on them.",
+    blurb: "Build the problems, test cases and learning content behind DeVert - verified to the last detail, for students who are judged on it.",
     description:
-      "DeVert teaches DSA, CS core subjects and GATE preparation, and grades code against hidden test cases. That content has to be right: a wrong answer key marks a correct student wrong, and a missing test case lets a wrong solution pass.\n\n" +
-      "There is real work waiting. Hundreds of GATE previous-year questions are imported from the official papers as drafts, without answer keys and with their figures missing, and none can be published until someone verifies them. You would also write DSA problems with complete hidden test cases, and keep DeVert 100's writeups and test cases correct.\n\n" + COMP,
+      "DeVert teaches DSA, CS fundamentals and exam preparation, and grades code against hidden test cases. That content has to be right: a wrong answer key marks a correct student wrong, and a missing test case lets a wrong solution pass.\n\n" +
+      "There is real work waiting - for example, previous-year exam questions imported as drafts that cannot be published until someone verifies their answers and restores their figures. You would also write coding problems with complete hidden test cases, and keep DeVert 100's writeups and test cases correct.\n\n" + COMP,
     responsibilities: [
-      "Verify GATE previous-year questions - answer keys, missing symbols and figures - so they can be published",
+      "Verify previous-year exam questions - answer keys, missing symbols and figures - so they can be published",
       "Write DSA problems with correct, complete hidden test cases, including the edge cases",
       "Review and improve lesson and DeVert 100 content, and fix what is wrong",
       "Check that grading did what you intended after every contest",
     ],
     requirements: [
-      "Strong DSA fundamentals, or strong GATE CS / DA preparation - you can solve and explain",
+      "Strong DSA and CS fundamentals - you can solve and, more importantly, explain",
       "Writes reference solutions in C++, Java or Python",
       "Cares about correctness down to a single off-by-one",
       "Clear technical writing in plain English",
     ],
     niceToHave: [
-      "A good GATE rank or competitive programming record",
+      "A strong competitive-exam rank or competitive programming record",
       "Teaching, tutoring or mentoring experience",
     ],
     perks: [
-      "Your work is used by whole college cohorts and GATE aspirants",
+      "Your work is used by whole college cohorts and exam aspirants",
       "Remote, flexible hours - output matters, not a clock",
       "Credit for the content you author",
       "A strong reference for work you actually shipped",
